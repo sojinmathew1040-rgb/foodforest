@@ -117,7 +117,9 @@ function verify_csrf_token($token) {
 /**
  * Sanitize helper
  */
-function e($str) {
-    return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
+if (!function_exists('e')) {
+    function e($str) {
+        return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
+    }
 }
 ?>

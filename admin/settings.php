@@ -6,6 +6,8 @@
 require_once __DIR__ . '/includes/auth.php';
 require_admin_auth();
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/upload.php';
+require_once __DIR__ . '/includes/stitcher.php';
 
 $page_title = 'Estate Settings & Configuration Hub';
 $page_subtitle = 'Card-by-card control of estate parameters, frontend copy, media & database backups';
@@ -101,12 +103,13 @@ $tab_titles = [
     'why' => 'CARD 06 • WHY FOOD FOREST? (EARTHEN COB & AGROFORESTRY)',
     'experiences' => 'CARD 07 • CURATED EXPERIENCES & RITUALS',
     'seasons' => 'CARD 08 • SEASONS OF KANTHALLOOR & HARVEST',
-    'rooms' => 'CARD 09 • VILLAS, COTTAGES & LIVE TARIFFS',
-    'gallery' => 'CARD 10 • VISUAL DIARY & PHOTOGRAPHY ARCHIVE',
-    'testimonials' => 'CARD 11 • GUEST REFLECTIONS & VERIFIED REVIEWS',
-    'protection' => 'CARD 12 • CONTENT PROTECTION & DEVTOOLS SHIELD',
-    'security' => 'CARD 13 • SECURITY & MASTER PASSWORD',
-    'backup' => 'CARD 14 • MYSQL DATABASE BACKUP & RESTORE'
+    'sanctuary_map' => 'CARD 09 • SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
+    'rooms' => 'CARD 10 • VILLAS, COTTAGES & LIVE TARIFFS',
+    'gallery' => 'CARD 11 • VISUAL DIARY & PHOTOGRAPHY ARCHIVE',
+    'testimonials' => 'CARD 12 • GUEST REFLECTIONS & VERIFIED REVIEWS',
+    'protection' => 'CARD 13 • CONTENT PROTECTION & DEVTOOLS SHIELD',
+    'security' => 'CARD 14 • SECURITY & MASTER PASSWORD',
+    'backup' => 'CARD 15 • MYSQL DATABASE BACKUP & RESTORE'
 ];
 if (!array_key_exists($active_tab, $tab_titles)) {
     $active_tab = 'estate';
@@ -147,6 +150,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 3. Hero Section & Atmosphere Card
         elseif ($form_type === 'hero_settings') {
+            if (!empty($_FILES['hero_bg_image_file']['name'])) {
+                $up = handle_image_upload($_FILES['hero_bg_image_file'], 'hero_bg');
+                if ($up['success']) {
+                    $_POST['hero_bg_image'] = $up['path'];
+                } else {
+                    $alert_message = 'Hero background upload: ' . $up['error'];
+                    $alert_type = 'error';
+                }
+            }
             $keys = ['hero_eyebrow', 'hero_title', 'hero_desc', 'hero_bg_image'];
             $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
             foreach ($keys as $k) {
@@ -154,7 +166,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$k, trim($_POST[$k])]);
                 }
             }
-            $alert_message = 'Hero section marquee text & background visual updated.';
+            if (empty($alert_message)) {
+                $alert_message = 'Hero section marquee text & background visual updated.';
+            }
         }
 
         // 4. Climate & Accolades Card
@@ -171,6 +185,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 5. Philosophy & Ethos Card
         elseif ($form_type === 'philosophy_settings') {
+            if (!empty($_FILES['welcome_image_file']['name'])) {
+                $up = handle_image_upload($_FILES['welcome_image_file'], 'welcome');
+                if ($up['success']) {
+                    $_POST['welcome_image'] = $up['path'];
+                } else {
+                    $alert_message = 'Welcome portrait upload: ' . $up['error'];
+                    $alert_type = 'error';
+                }
+            }
             $keys = ['welcome_badge', 'welcome_title', 'welcome_paragraph', 'welcome_image'];
             $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
             foreach ($keys as $k) {
@@ -178,11 +201,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$k, trim($_POST[$k])]);
                 }
             }
-            $alert_message = 'Sanctuary philosophy narrative & featured portrait updated.';
+            if (empty($alert_message)) {
+                $alert_message = 'Sanctuary philosophy narrative & featured portrait updated.';
+            }
         }
 
         // 6. Why Farmstay Story Card
         elseif ($form_type === 'why_settings') {
+            if (!empty($_FILES['why_image_file']['name'])) {
+                $up = handle_image_upload($_FILES['why_image_file'], 'why_mudhouse');
+                if ($up['success']) {
+                    $_POST['why_image'] = $up['path'];
+                } else {
+                    $alert_message = 'Why Sanctuary photo upload: ' . $up['error'];
+                    $alert_type = 'error';
+                }
+            }
             $keys = ['why_badge', 'why_title', 'why_desc', 'why_image'];
             $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
             foreach ($keys as $k) {
@@ -190,7 +224,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$k, trim($_POST[$k])]);
                 }
             }
-            $alert_message = 'Why Food Forest farmstay story & visual updated.';
+            if (empty($alert_message)) {
+                $alert_message = 'Why Food Forest farmstay story & visual updated.';
+            }
         }
 
         // 7. Curated Experiences Card (Header + All Experiences in MySQL)
@@ -206,6 +242,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $timing = trim($_POST['new_exp_timing'] ?? '2 Hours • Morning');
                 $desc = trim($_POST['new_exp_desc'] ?? '');
                 $img = trim($_POST['new_exp_image'] ?? 'assets/images/01 (18).jpeg');
+                if (!empty($_FILES['new_exp_image_file']['name'])) {
+                    $up = handle_image_upload($_FILES['new_exp_image_file'], 'exp');
+                    if ($up['success']) {
+                        $img = $up['path'];
+                    }
+                }
                 if (!empty($title) && !empty($desc)) {
                     $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM experiences")->fetchColumn();
                     $ins = $pdo->prepare("INSERT INTO experiences (title, badge, timing, description, image_url, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)");
@@ -233,6 +275,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $tm = trim($_POST['exp_timing'][$idx] ?? '');
                         $d = trim($_POST['exp_desc'][$idx] ?? '');
                         $img = trim($_POST['exp_image'][$idx] ?? '');
+                        if (isset($_FILES['exp_image_file'])) {
+                            $up = handle_indexed_image_upload($_FILES['exp_image_file'], $idx, 'exp');
+                            if ($up['success']) {
+                                $img = $up['path'];
+                            }
+                        }
                         $upd_exp->execute([$t, $b, $tm, $d, $img, (int)$eid]);
                     }
                 }
@@ -240,26 +288,163 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // 8. Seasons of Kanthalloor Card (Header + 4 Dynamic Seasons)
+        // 8. Seasons of Kanthalloor Card (Dynamic CMS: Add, Edit, Delete Seasons)
         elseif ($form_type === 'seasons_settings') {
-            $keys = [
-                'seasons_badge', 'seasons_title', 'seasons_desc',
-                'season_1_name', 'season_1_months', 'season_1_desc', 'season_1_image',
-                'season_2_name', 'season_2_months', 'season_2_desc', 'season_2_image',
-                'season_3_name', 'season_3_months', 'season_3_desc', 'season_3_image',
-                'season_4_name', 'season_4_months', 'season_4_desc', 'season_4_image',
-            ];
-            $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
-            foreach ($keys as $k) {
-                if (isset($_POST[$k])) {
-                    $stmt->execute([$k, trim($_POST[$k])]);
+            ensure_seasons_table_exists($pdo);
+
+            if (!empty($_POST['delete_season_id'])) {
+                $del_id = (int)$_POST['delete_season_id'];
+                $del = $pdo->prepare("DELETE FROM seasons WHERE id = ?");
+                $del->execute([$del_id]);
+                $alert_message = 'Seasonal cycle card permanently removed.';
+            } elseif (($_POST['action'] ?? '') === 'add_season') {
+                $title = trim($_POST['new_season_name'] ?? '');
+                $months = trim($_POST['new_season_months'] ?? '');
+                $desc = trim($_POST['new_season_desc'] ?? '');
+                $img = trim($_POST['new_season_image'] ?? 'assets/images/01 (9).jpeg');
+                if (!empty($_FILES['new_season_image_file']['name'])) {
+                    $up = handle_image_upload($_FILES['new_season_image_file'], 'season');
+                    if ($up['success']) {
+                        $img = $up['path'];
+                    }
                 }
+                if (!empty($title) && !empty($desc)) {
+                    $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM seasons")->fetchColumn();
+                    $ins = $pdo->prepare("INSERT INTO seasons (title, months, description, image_url, display_order, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+                    $ins->execute([$title, $months, $desc, $img, $max_order + 1]);
+                    $alert_message = 'New seasonal cycle card published successfully!';
+                } else {
+                    $alert_message = 'Season name and description cannot be blank.';
+                    $alert_type = 'error';
+                }
+            } else {
+                $keys = ['seasons_badge', 'seasons_title', 'seasons_desc'];
+                $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+                foreach ($keys as $k) {
+                    if (isset($_POST[$k])) {
+                        $stmt->execute([$k, trim($_POST[$k])]);
+                    }
+                }
+
+                // Update individual seasons
+                if (isset($_POST['season_id']) && is_array($_POST['season_id'])) {
+                    $upd_season = $pdo->prepare("UPDATE seasons SET title = ?, months = ?, description = ?, image_url = ? WHERE id = ?");
+                    foreach ($_POST['season_id'] as $idx => $sid) {
+                        $t = trim($_POST['season_title'][$idx] ?? '');
+                        $m = trim($_POST['season_months'][$idx] ?? '');
+                        $d = trim($_POST['season_desc'][$idx] ?? '');
+                        $img = trim($_POST['season_image'][$idx] ?? '');
+                        if (isset($_FILES['season_image_file'])) {
+                            $up = handle_indexed_image_upload($_FILES['season_image_file'], $idx, 'season');
+                            if ($up['success']) {
+                                $img = $up['path'];
+                            }
+                        }
+                        $upd_season->execute([$t, $m, $d, $img, (int)$sid]);
+                    }
+                }
+                $alert_message = 'Seasons of Kanthalloor header & all seasonal cards updated successfully.';
             }
-            $alert_message = 'Seasons of Kanthalloor calendar & seasonal visuals updated.';
         }
 
-        // 9. Villas & Accommodations Card (Header + Both Rooms & Nightly Tariffs)
+        // 9. Sanctuary Estate Map & Mountain Route Trails Card (Dynamic CMS: Add, Edit, Delete Spots)
+        elseif ($form_type === 'sanctuary_map_settings') {
+            ensure_sanctuary_spots_table_exists($pdo);
+
+            if (!empty($_POST['delete_spot_id'])) {
+                $del_id = (int)$_POST['delete_spot_id'];
+                $del = $pdo->prepare("DELETE FROM sanctuary_spots WHERE id = ?");
+                $del->execute([$del_id]);
+                $alert_message = 'Estate map spot removed successfully.';
+            } elseif (($_POST['action'] ?? '') === 'add_spot') {
+                $spot_num = (int)($_POST['new_spot_number'] ?? 1);
+                $title = trim($_POST['new_spot_title'] ?? '');
+                $desc = trim($_POST['new_spot_desc'] ?? '');
+                $x_coord = floatval($_POST['new_spot_x'] ?? 50.0);
+                $y_coord = floatval($_POST['new_spot_y'] ?? 50.0);
+
+                // Multi-photo upload for new spot
+                $photos = [];
+                if (!empty($_FILES['new_spot_photos']['name'])) {
+                    $uploaded = handle_multi_image_upload($_FILES['new_spot_photos'], 'sanctuary');
+                    if (!empty($uploaded)) {
+                        $photos = $uploaded;
+                    }
+                }
+                if (empty($photos)) {
+                    $photos = ['assets/images/01 (10).jpeg'];
+                }
+                $primary_img = $photos[0];
+                $photos_json = json_encode(array_values($photos));
+
+                if (!empty($title) && !empty($desc)) {
+                    $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM sanctuary_spots")->fetchColumn();
+                    $ins = $pdo->prepare("INSERT INTO sanctuary_spots 
+                        (spot_number, title, subtitle_tag, category, elevation, temperature, description, aroma, sound, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
+                        VALUES (?, ?, '', 'nature', '', '', ?, '', '', ?, ?, '', '', ?, ?, ?, 1)");
+                    $ins->execute([$spot_num, $title, $desc, $primary_img, $photos_json, $x_coord, $y_coord, $max_order + 1]);
+                    $alert_message = 'New estate spot with route waypoint & photos added successfully!';
+                } else {
+                    $alert_message = 'Spot title and description cannot be blank.';
+                    $alert_type = 'error';
+                }
+            } else {
+                // Header settings
+                $keys = ['sanctuary_section_label', 'sanctuary_section_title'];
+                $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+                foreach ($keys as $k) {
+                    if (isset($_POST[$k])) {
+                        $stmt->execute([$k, trim($_POST[$k])]);
+                    }
+                }
+
+                // Update individual spots
+                if (isset($_POST['spot_id']) && is_array($_POST['spot_id'])) {
+                    $upd_spot = $pdo->prepare("UPDATE sanctuary_spots SET 
+                        spot_number = ?, title = ?, description = ?, x_coord = ?, y_coord = ?, image_url = ?, photos = ? 
+                        WHERE id = ?");
+
+                    foreach ($_POST['spot_id'] as $idx => $sp_id) {
+                        $s_num = (int)($_POST['spot_number'][$idx] ?? 1);
+                        $s_title = trim($_POST['spot_title'][$idx] ?? '');
+                        $s_desc = trim($_POST['spot_desc'][$idx] ?? '');
+                        $s_x = floatval($_POST['spot_x'][$idx] ?? 50.0);
+                        $s_y = floatval($_POST['spot_y'][$idx] ?? 50.0);
+
+                        // Existing retained photos for this spot
+                        $retained_photos = [];
+                        if (isset($_POST['spot_existing_photos'][$sp_id]) && is_array($_POST['spot_existing_photos'][$sp_id])) {
+                            $retained_photos = array_values(array_filter($_POST['spot_existing_photos'][$sp_id]));
+                        }
+
+                        // Newly uploaded photos for this spot
+                        $field_name = 'spot_new_photos_' . $sp_id;
+                        if (!empty($_FILES[$field_name]['name'])) {
+                            $new_uploaded = handle_multi_image_upload($_FILES[$field_name], 'sanctuary');
+                            if (!empty($new_uploaded)) {
+                                $retained_photos = array_merge($retained_photos, $new_uploaded);
+                            }
+                        }
+
+                        if (empty($retained_photos)) {
+                            $prev_img = trim($_POST['spot_fallback_image'][$idx] ?? 'assets/images/01 (10).jpeg');
+                            $retained_photos = [$prev_img];
+                        }
+
+                        $primary_img = $retained_photos[0];
+                        $photos_json = json_encode(array_values($retained_photos));
+
+                        $upd_spot->execute([$s_num, $s_title, $s_desc, $s_x, $s_y, $primary_img, $photos_json, (int)$sp_id]);
+                    }
+                }
+                $alert_message = 'Sanctuary estate map spots, multiple photos & route trails successfully updated.';
+            }
+        }
+
+        // 10. Villas & Accommodations Card (Header + Both Rooms, Nightly Tariffs & 360 Panoramas)
         elseif ($form_type === 'rooms_settings') {
+            ensure_rooms_360_column($pdo);
+
             if (!empty($_POST['delete_room_id'])) {
                 $del_id = (int)$_POST['delete_room_id'];
                 $del = $pdo->prepare("DELETE FROM rooms WHERE id = ?");
@@ -276,15 +461,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cap = intval($_POST['new_room_capacity'] ?? 2);
                 $desc = trim($_POST['new_room_desc'] ?? '');
                 $img = trim($_POST['new_room_image'] ?? 'assets/images/treehouse_exterior.png');
+                if (!empty($_FILES['new_room_image_file']['name'])) {
+                    $up = handle_image_upload($_FILES['new_room_image_file'], 'room');
+                    if ($up['success']) {
+                        $img = $up['path'];
+                    }
+                }
+
+                // Handle 360 Interior Panorama for new room
+                $pano_360 = 'assets/images/treehouse_360_pano.jpg';
+                if (!empty($_FILES['new_room_360_file']['name'])) {
+                    $up_p = handle_image_upload($_FILES['new_room_360_file'], 'pano');
+                    if ($up_p['success']) {
+                        $pano_360 = $up_p['path'];
+                    }
+                } elseif (!empty($_FILES['new_room_stitch_left']['name']) && !empty($_FILES['new_room_stitch_center']['name']) && !empty($_FILES['new_room_stitch_right']['name'])) {
+                    $st_res = stitch_three_photos_to_360($_FILES['new_room_stitch_left'], $_FILES['new_room_stitch_center'], $_FILES['new_room_stitch_right']);
+                    if ($st_res['success']) {
+                        $pano_360 = $st_res['path'];
+                    }
+                }
+
                 if (!empty($title) && !empty($slug) && $rate > 0) {
                     $existing = $pdo->prepare("SELECT COUNT(*) FROM rooms WHERE slug = ?");
                     $existing->execute([$slug]);
                     if ($existing->fetchColumn() > 0) {
                         $slug .= '-' . time();
                     }
-                    $ins = $pdo->prepare("INSERT INTO rooms (slug, title, rate_per_night, elevation, max_guests, description, image_url, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
-                    $ins->execute([$slug, $title, $rate, $el, $cap, $desc, $img]);
-                    $alert_message = 'New villa / suite successfully registered and published!';
+                    $ins = $pdo->prepare("INSERT INTO rooms (slug, title, rate_per_night, elevation, max_guests, description, image_url, interior_360_url, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                    $ins->execute([$slug, $title, $rate, $el, $cap, $desc, $img, $pano_360]);
+                    $alert_message = 'New villa / suite successfully registered and published with 360° interior tour!';
                 } else {
                     $alert_message = 'Villa title and valid nightly rate are required.';
                     $alert_type = 'error';
@@ -298,9 +504,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                // Update rooms & tariffs
+                // Update rooms & tariffs & 360 panoramas
                 if (isset($_POST['room_id']) && is_array($_POST['room_id'])) {
-                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, elevation = ?, rate_per_night = ?, max_guests = ?, description = ?, image_url = ? WHERE id = ?");
+                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, elevation = ?, rate_per_night = ?, max_guests = ?, description = ?, image_url = ?, interior_360_url = ? WHERE id = ?");
                     foreach ($_POST['room_id'] as $idx => $rid) {
                         $t = trim($_POST['room_title'][$idx] ?? '');
                         $el = trim($_POST['room_elevation'][$idx] ?? '');
@@ -308,10 +514,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $cap = intval($_POST['room_capacity'][$idx] ?? 2);
                         $d = trim($_POST['room_desc'][$idx] ?? '');
                         $img = trim($_POST['room_image'][$idx] ?? '');
-                        $upd_room->execute([$t, $el, $rate, $cap, $d, $img, (int)$rid]);
+                        $pano_360 = trim($_POST['room_interior_360'][$idx] ?? '');
+
+                        // Check primary exterior photo upload
+                        if (isset($_FILES['room_image_file'])) {
+                            $up = handle_indexed_image_upload($_FILES['room_image_file'], $idx, 'room');
+                            if ($up['success']) {
+                                $img = $up['path'];
+                            }
+                        }
+
+                        // Check single 360 photo upload
+                        if (isset($_FILES['room_360_file'])) {
+                            $up_pano = handle_indexed_image_upload($_FILES['room_360_file'], $idx, 'pano');
+                            if ($up_pano['success']) {
+                                $pano_360 = $up_pano['path'];
+                            }
+                        }
+
+                        // Check 3-photo auto-stitcher upload
+                        $stitch_l = !empty($_FILES['room_stitch_left']['name'][$idx]);
+                        $stitch_c = !empty($_FILES['room_stitch_center']['name'][$idx]);
+                        $stitch_r = !empty($_FILES['room_stitch_right']['name'][$idx]);
+                        if ($stitch_l && $stitch_c && $stitch_r) {
+                            $file_l = [
+                                'name' => $_FILES['room_stitch_left']['name'][$idx],
+                                'type' => $_FILES['room_stitch_left']['type'][$idx],
+                                'tmp_name' => $_FILES['room_stitch_left']['tmp_name'][$idx],
+                                'error' => $_FILES['room_stitch_left']['error'][$idx],
+                                'size' => $_FILES['room_stitch_left']['size'][$idx]
+                            ];
+                            $file_c = [
+                                'name' => $_FILES['room_stitch_center']['name'][$idx],
+                                'type' => $_FILES['room_stitch_center']['type'][$idx],
+                                'tmp_name' => $_FILES['room_stitch_center']['tmp_name'][$idx],
+                                'error' => $_FILES['room_stitch_center']['error'][$idx],
+                                'size' => $_FILES['room_stitch_center']['size'][$idx]
+                            ];
+                            $file_r = [
+                                'name' => $_FILES['room_stitch_right']['name'][$idx],
+                                'type' => $_FILES['room_stitch_right']['type'][$idx],
+                                'tmp_name' => $_FILES['room_stitch_right']['tmp_name'][$idx],
+                                'error' => $_FILES['room_stitch_right']['error'][$idx],
+                                'size' => $_FILES['room_stitch_right']['size'][$idx]
+                            ];
+                            $stitch_res = stitch_three_photos_to_360($file_l, $file_c, $file_r);
+                            if ($stitch_res['success']) {
+                                $pano_360 = $stitch_res['path'];
+                            }
+                        }
+
+                        $upd_room->execute([$t, $el, $rate, $cap, $d, $img, $pano_360, (int)$rid]);
                     }
                 }
-                $alert_message = 'Villas, architectural specifications & nightly tariffs successfully updated.';
+                $alert_message = 'Villas, architectural specifications, tariffs & 360° interior panoramas successfully updated.';
             }
         }
 
@@ -328,13 +584,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $gcat = trim($_POST['new_gal_category'] ?? 'Landscape');
                 $gcap = trim($_POST['new_gal_caption'] ?? '');
                 $gimg = trim($_POST['new_gal_image'] ?? 'assets/images/01 (1).jpeg');
+                if (!empty($_FILES['new_gal_image_file']['name'])) {
+                    $up = handle_image_upload($_FILES['new_gal_image_file'], 'gallery');
+                    if ($up['success']) {
+                        $gimg = $up['path'];
+                    }
+                }
                 if (!empty($gt) && !empty($gimg)) {
                     $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM gallery")->fetchColumn();
                     $ins = $pdo->prepare("INSERT INTO gallery (title, caption, tag, category, image_url, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)");
                     $ins->execute([$gt, $gcap, $gtag, $gcat, $gimg, $max_order + 1]);
                     $alert_message = 'New photograph successfully added to the Visual Chronicle!';
                 } else {
-                    $alert_message = 'Photograph title and image path are required.';
+                    $alert_message = 'Photograph title and image are required.';
                     $alert_type = 'error';
                 }
             } else {
@@ -354,6 +616,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $gtag = trim($_POST['gal_tag'][$idx] ?? '');
                         $gcap = trim($_POST['gal_caption'][$idx] ?? '');
                         $gimg = trim($_POST['gal_image'][$idx] ?? '');
+                        if (isset($_FILES['gal_image_file'])) {
+                            $up = handle_indexed_image_upload($_FILES['gal_image_file'], $idx, 'gallery');
+                            if ($up['success']) {
+                                $gimg = $up['path'];
+                            }
+                        }
                         $upd_gal->execute([$gt, $gtag, $gcap, $gimg, (int)$gid]);
                     }
                 }
@@ -476,6 +744,10 @@ $all_experiences = $pdo->query("SELECT * FROM experiences ORDER BY display_order
 $all_rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
 $all_testimonials = $pdo->query("SELECT * FROM testimonials ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
 $all_gallery = $pdo->query("SELECT * FROM gallery ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+ensure_seasons_table_exists($pdo);
+$all_seasons = $pdo->query("SELECT * FROM seasons ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+ensure_sanctuary_spots_table_exists($pdo);
+$all_sanctuary_spots = $pdo->query("SELECT * FROM sanctuary_spots ORDER BY spot_number ASC, display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 // Telemetry counts
 $tables_count = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()")->fetchColumn();
@@ -491,6 +763,7 @@ $tab_titles = [
     'why' => 'WHY FOOD FOREST? (LIVING SOIL & COB ARCHITECTURE)',
     'experiences' => 'CURATED EXPERIENCES & RITUALS (DYNAMIC CMS)',
     'seasons' => 'SEASONS OF KANTHALLOOR (DYNAMIC CMS)',
+    'sanctuary_map' => 'SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
     'rooms' => 'VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)',
     'gallery' => 'VISUAL DIARY (PHOTOGRAPHY ARCHIVE)',
     'testimonials' => 'GUEST REFLECTIONS (TESTIMONIALS & REVIEWS)',
@@ -665,67 +938,78 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 
-    <!-- Card 9: Villas & Accommodations -->
+    <!-- Card 9: Sanctuary Estate Map & Mountain Route Trails -->
+    <div id="card-sanctuary_map" class="adm-setting-card-btn <?php echo ($active_tab === 'sanctuary_map') ? 'is-active' : ''; ?>" data-tab="sanctuary_map" onclick="switchSettingsTab('sanctuary_map', this, event);">
+        <div class="active-badge" style="<?php echo ($active_tab === 'sanctuary_map') ? 'display:block;' : 'display:none;'; ?>"></div>
+        <div class="adm-setting-card-icon emerald"><i class="fa-solid fa-map-location-dot"></i></div>
+        <div class="adm-setting-card-content">
+            <span class="adm-setting-card-num">CARD 09 • MAP & ROUTE</span>
+            <h4>Sanctuary Estate Map</h4>
+            <p>Route trail (1→2→3→4), villas & spots</p>
+        </div>
+    </div>
+
+    <!-- Card 10: Villas & Accommodations -->
     <div id="card-rooms" class="adm-setting-card-btn <?php echo ($active_tab === 'rooms') ? 'is-active' : ''; ?>" data-tab="rooms" onclick="switchSettingsTab('rooms', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'rooms') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon rose"><i class="fa-solid fa-house-chimney"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 09 • VILLAS & RATES</span>
+            <span class="adm-setting-card-num">CARD 10 • VILLAS & RATES</span>
             <h4>Villas & Cottages</h4>
             <p>Edit Treehouse & Mudhouse tariffs</p>
         </div>
     </div>
 
-    <!-- Card 10: Visual Diary (Gallery) -->
+    <!-- Card 11: Visual Diary (Gallery) -->
     <div id="card-gallery" class="adm-setting-card-btn <?php echo ($active_tab === 'gallery') ? 'is-active' : ''; ?>" data-tab="gallery" onclick="switchSettingsTab('gallery', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'gallery') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon teal"><i class="fa-solid fa-camera-retro"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 10 • GALLERY</span>
+            <span class="adm-setting-card-num">CARD 11 • GALLERY</span>
             <h4>Visual Diary (Gallery)</h4>
             <p>Edit 8 photographs, tags & titles</p>
         </div>
     </div>
 
-    <!-- Card 11: Guest Reflections -->
+    <!-- Card 12: Guest Reflections -->
     <div id="card-testimonials" class="adm-setting-card-btn <?php echo ($active_tab === 'testimonials') ? 'is-active' : ''; ?>" data-tab="testimonials" onclick="switchSettingsTab('testimonials', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'testimonials') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon blue"><i class="fa-solid fa-comment-dots"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 11 • REVIEWS</span>
+            <span class="adm-setting-card-num">CARD 12 • REVIEWS</span>
             <h4>Guest Reflections</h4>
             <p>Edit traveler reviews, stars & quotes</p>
         </div>
     </div>
 
-    <!-- Card 12: Content & Image Protection -->
+    <!-- Card 13: Content & Image Protection -->
     <div id="card-protection" class="adm-setting-card-btn <?php echo ($active_tab === 'protection') ? 'is-active' : ''; ?>" data-tab="protection" onclick="switchSettingsTab('protection', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'protection') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon emerald"><i class="fa-solid fa-shield-halved"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 12 • PROTECTION</span>
+            <span class="adm-setting-card-num">CARD 13 • PROTECTION</span>
             <h4>Content Protection</h4>
             <p>Anti-copy & DevTools shield</p>
         </div>
     </div>
 
-    <!-- Card 13: Security & Password -->
+    <!-- Card 14: Security & Password -->
     <div id="card-security" class="adm-setting-card-btn <?php echo ($active_tab === 'security') ? 'is-active' : ''; ?>" data-tab="security" onclick="switchSettingsTab('security', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'security') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon indigo"><i class="fa-solid fa-key"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 13 • ACCESS</span>
+            <span class="adm-setting-card-num">CARD 14 • ACCESS</span>
             <h4>Security & Password</h4>
             <p>Admin credentials & password</p>
         </div>
     </div>
 
-    <!-- Card 14: Backup Database -->
+    <!-- Card 15: Backup Database -->
     <div id="card-backup" class="adm-setting-card-btn <?php echo ($active_tab === 'backup') ? 'is-active' : ''; ?>" data-tab="backup" onclick="switchSettingsTab('backup', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'backup') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon gold"><i class="fa-solid fa-database"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 14 • SQL BACKUP</span>
+            <span class="adm-setting-card-num">CARD 15 • SQL BACKUP</span>
             <h4>MySQL Database Backup</h4>
             <p>1-click phpMyAdmin SQL dump</p>
         </div>
@@ -748,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div style="display: flex; align-items: center; gap: 10px;">
         <span style="font-size: 11.5px; color: var(--adm-text-muted);">Click any card above to switch sections</span>
         <button type="button" onclick="document.getElementById('adm-cards-top-grid').scrollIntoView({behavior:'smooth'});" class="adm-btn-action outline" style="padding: 5px 12px; font-size: 11px;">
-            <i class="fa-solid fa-arrow-up"></i> All 14 Cards
+            <i class="fa-solid fa-arrow-up"></i> All 15 Cards
         </button>
     </div>
 </div>
@@ -918,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', function() {
          PANEL 3: HERO MARQUEE & VISUAL
          ------------------------------------------------------------- -->
     <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'hero') ? 'is-active' : ''; ?>" id="pane-hero">
-        <form action="settings.php?tab=hero" method="POST">
+        <form action="settings.php?tab=hero" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="hero_settings">
             <input type="hidden" name="active_tab" value="hero">
@@ -964,14 +1248,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
 
                 <div class="adm-form-group" style="margin-bottom: 24px;">
-                    <label class="adm-form-label">Hero Background Visual URL</label>
-                    <div style="display: flex; gap: 14px; align-items: flex-start;">
-                        <div style="flex-grow: 1;">
-                            <input type="text" name="hero_bg_image" id="input_hero_bg" class="adm-form-control" value="<?php echo e($s['hero_bg_image'] ?? 'assets/images/hero_forest.png'); ?>" oninput="document.getElementById('preview_hero_bg').src = this.value;" required>
-                            <small style="color: var(--adm-text-muted); font-size: 11px;">Relative path or absolute URL to primary backdrop photo.</small>
+                    <label class="adm-form-label">Hero Background Visual (Backdrop Photograph)</label>
+                    <div class="adm-uploader-card">
+                        <div class="adm-uploader-preview-box">
+                            <img id="preview_hero_bg" src="<?php echo admin_img_src($s['hero_bg_image'] ?? 'assets/images/hero_forest.png'); ?>" alt="Hero Preview" onerror="this.src='../assets/images/hero_forest.png';">
                         </div>
-                        <div style="width: 120px; height: 75px; border-radius: 8px; overflow: hidden; border: 1px solid var(--adm-border); background: #000; flex-shrink: 0;">
-                            <img id="preview_hero_bg" src="../<?php echo e($s['hero_bg_image'] ?? 'assets/images/hero_forest.png'); ?>" alt="Hero Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/hero_forest.png';">
+                        <div class="adm-uploader-controls">
+                            <div class="adm-uploader-btn-wrap">
+                                <label class="adm-uploader-btn" for="hero_bg_image_file">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                </label>
+                                <input type="file" name="hero_bg_image_file" id="hero_bg_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'preview_hero_bg', 'hero_bg_info');">
+                                <span id="hero_bg_info" class="adm-file-info-badge"></span>
+                            </div>
+                            <div class="adm-uploader-hint">
+                                <i class="fa-solid fa-circle-info"></i> JPG, PNG, WEBP, or GIF up to 15MB. Click button to select directly from your computer/device.
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                <span style="font-size: 11px; color: var(--adm-text-muted); white-space: nowrap;">Current / Fallback Path:</span>
+                                <input type="text" name="hero_bg_image" id="input_hero_bg" class="adm-form-control" value="<?php echo e($s['hero_bg_image'] ?? 'assets/images/hero_forest.png'); ?>" style="font-size: 11.5px; padding: 4px 10px; height: auto;" oninput="document.getElementById('preview_hero_bg').src = admin_img_src(this.value);">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1052,7 +1348,7 @@ document.addEventListener('DOMContentLoaded', function() {
          PANEL 5: SANCTUARY PHILOSOPHY
          ------------------------------------------------------------- -->
     <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'philosophy') ? 'is-active' : ''; ?>" id="pane-philosophy">
-        <form action="settings.php?tab=philosophy" method="POST">
+        <form action="settings.php?tab=philosophy" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="philosophy_settings">
             <input type="hidden" name="active_tab" value="philosophy">
@@ -1068,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 05</span>
                         </div>
                         <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">SANCTUARY PHILOSOPHY & WELCOME MANIFESTO</h3>
-                        <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Control the 'Welcome to Food Forest' story, founders' ethos, and featured landscape photo.</p>
+                        <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Establish the foundational ecological ethos and featured mudhouse portrait visual.</p>
                     </div>
                 </div>
                 <div>
@@ -1098,13 +1394,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
 
                 <div class="adm-form-group" style="margin-bottom: 24px;">
-                    <label class="adm-form-label">Featured Portrait Photo URL</label>
-                    <div style="display: flex; gap: 14px; align-items: flex-start;">
-                        <div style="flex-grow: 1;">
-                            <input type="text" name="welcome_image" id="input_welcome_img" class="adm-form-control" value="<?php echo e($s['welcome_image'] ?? 'assets/images/mudhouse_front.png'); ?>" oninput="document.getElementById('preview_welcome_img').src = this.value;" required>
+                    <label class="adm-form-label">Featured Portrait Photograph</label>
+                    <div class="adm-uploader-card">
+                        <div class="adm-uploader-preview-box">
+                            <img id="preview_welcome_img" src="<?php echo admin_img_src($s['welcome_image'] ?? 'assets/images/mudhouse_front.png'); ?>" alt="Welcome Preview" onerror="this.src='../assets/images/mudhouse_front.png';">
                         </div>
-                        <div style="width: 120px; height: 75px; border-radius: 8px; overflow: hidden; border: 1px solid var(--adm-border); background: #000; flex-shrink: 0;">
-                            <img id="preview_welcome_img" src="../<?php echo e($s['welcome_image'] ?? 'assets/images/mudhouse_front.png'); ?>" alt="Welcome Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/mudhouse_front.png';">
+                        <div class="adm-uploader-controls">
+                            <div class="adm-uploader-btn-wrap">
+                                <label class="adm-uploader-btn" for="welcome_image_file">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                </label>
+                                <input type="file" name="welcome_image_file" id="welcome_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'preview_welcome_img', 'welcome_img_info');">
+                                <span id="welcome_img_info" class="adm-file-info-badge"></span>
+                            </div>
+                            <div class="adm-uploader-hint">
+                                <i class="fa-solid fa-circle-info"></i> JPG, PNG, WEBP, or GIF up to 15MB. Editorial portrait photo beside the philosophy narrative.
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                <span style="font-size: 11px; color: var(--adm-text-muted); white-space: nowrap;">Current / Fallback Path:</span>
+                                <input type="text" name="welcome_image" id="input_welcome_img" class="adm-form-control" value="<?php echo e($s['welcome_image'] ?? 'assets/images/mudhouse_front.png'); ?>" style="font-size: 11.5px; padding: 4px 10px; height: auto;" oninput="document.getElementById('preview_welcome_img').src = admin_img_src(this.value);">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1123,7 +1432,7 @@ document.addEventListener('DOMContentLoaded', function() {
          PANEL 6: WHY FOOD FOREST?
          ------------------------------------------------------------- -->
     <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'why') ? 'is-active' : ''; ?>" id="pane-why">
-        <form action="settings.php?tab=why" method="POST">
+        <form action="settings.php?tab=why" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="why_settings">
             <input type="hidden" name="active_tab" value="why">
@@ -1169,13 +1478,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
 
                 <div class="adm-form-group" style="margin-bottom: 24px;">
-                    <label class="adm-form-label">Featured Image URL</label>
-                    <div style="display: flex; gap: 14px; align-items: flex-start;">
-                        <div style="flex-grow: 1;">
-                            <input type="text" name="why_image" id="input_why_img" class="adm-form-control" value="<?php echo e($s['why_image'] ?? 'assets/images/mudhouse_living.png'); ?>" oninput="document.getElementById('preview_why_img').src = this.value;" required>
+                    <label class="adm-form-label">Featured Farmstay Photograph</label>
+                    <div class="adm-uploader-card">
+                        <div class="adm-uploader-preview-box">
+                            <img id="preview_why_img" src="<?php echo admin_img_src($s['why_image'] ?? 'assets/images/mudhouse_living.png'); ?>" alt="Why Preview" onerror="this.src='../assets/images/mudhouse_living.png';">
                         </div>
-                        <div style="width: 120px; height: 75px; border-radius: 8px; overflow: hidden; border: 1px solid var(--adm-border); background: #000; flex-shrink: 0;">
-                            <img id="preview_why_img" src="../<?php echo e($s['why_image'] ?? 'assets/images/mudhouse_living.png'); ?>" alt="Why Preview" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/mudhouse_living.png';">
+                        <div class="adm-uploader-controls">
+                            <div class="adm-uploader-btn-wrap">
+                                <label class="adm-uploader-btn" for="why_image_file">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                </label>
+                                <input type="file" name="why_image_file" id="why_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'preview_why_img', 'why_img_info');">
+                                <span id="why_img_info" class="adm-file-info-badge"></span>
+                            </div>
+                            <div class="adm-uploader-hint">
+                                <i class="fa-solid fa-circle-info"></i> JPG, PNG, WEBP, or GIF up to 15MB. Displayed in the left parallax frame of the Farmstay section.
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                <span style="font-size: 11px; color: var(--adm-text-muted); white-space: nowrap;">Current / Fallback Path:</span>
+                                <input type="text" name="why_image" id="input_why_img" class="adm-form-control" value="<?php echo e($s['why_image'] ?? 'assets/images/mudhouse_living.png'); ?>" style="font-size: 11.5px; padding: 4px 10px; height: auto;" oninput="document.getElementById('preview_why_img').src = admin_img_src(this.value);">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1222,7 +1544,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="padding: 24px;">
             <!-- Expandable Add New Experience Drawer -->
             <div id="drawer-add-experience" class="adm-add-new-drawer" style="display: none;">
-                <form action="settings.php?tab=experiences" method="POST">
+                <form action="settings.php?tab=experiences" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                     <input type="hidden" name="form_type" value="experiences_settings">
                     <input type="hidden" name="action" value="add_experience">
@@ -1249,9 +1571,27 @@ document.addEventListener('DOMContentLoaded', function() {
                             <label class="adm-form-label">Timing / Duration *</label>
                             <input type="text" name="new_exp_timing" class="adm-form-control" placeholder="e.g. 2 Hours • Morning" value="2 Hours • Morning" required>
                         </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Backdrop Photo Path *</label>
-                            <input type="text" name="new_exp_image" class="adm-form-control" placeholder="e.g. assets/images/01 (18).jpeg" value="assets/images/01 (18).jpeg" required>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">Backdrop Photograph</label>
+                        <div class="adm-uploader-card">
+                            <div class="adm-uploader-preview-box">
+                                <img id="new_exp_preview" src="../assets/images/01 (18).jpeg" alt="Experience Preview" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                            </div>
+                            <div class="adm-uploader-controls">
+                                <div class="adm-uploader-btn-wrap">
+                                    <label class="adm-uploader-btn" for="new_exp_image_file">
+                                        <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                    </label>
+                                    <input type="file" name="new_exp_image_file" id="new_exp_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'new_exp_preview', 'new_exp_info');">
+                                    <span id="new_exp_info" class="adm-file-info-badge"></span>
+                                </div>
+                                <div class="adm-uploader-hint">
+                                    <i class="fa-solid fa-circle-info"></i> JPG, PNG, WEBP, or GIF up to 15MB.
+                                </div>
+                                <input type="hidden" name="new_exp_image" value="assets/images/01 (18).jpeg">
+                            </div>
                         </div>
                     </div>
 
@@ -1271,7 +1611,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <!-- Main Edit Form -->
-            <form id="form-edit-experiences" action="settings.php?tab=experiences" method="POST">
+            <form id="form-edit-experiences" action="settings.php?tab=experiences" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                 <input type="hidden" name="form_type" value="experiences_settings">
                 <input type="hidden" name="active_tab" value="experiences">
@@ -1311,56 +1651,64 @@ document.addEventListener('DOMContentLoaded', function() {
                             <i class="fa-solid fa-person-hiking" style="font-size: 32px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
                             <p style="color: var(--adm-text-secondary); font-size: 14px; margin: 0 0 14px;">No experiences found in the database.</p>
                             <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-experience');">
-                                <i class="fa-solid fa-plus-circle"></i> Add First Experience
+                                <i class="fa-solid fa-plus"></i> Create First Experience
                             </button>
                         </div>
-                    <?php endif; ?>
-
-                    <?php foreach ($all_experiences as $idx => $exp): ?>
-                        <div style="background: rgba(8, 18, 11, 0.7); border: 1px solid var(--adm-border); border-radius: 12px; padding: 18px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span style="font-size: 12px; font-weight: 700; color: #c084fc; text-transform: uppercase; letter-spacing: 0.5px;">
-                                        Experience #<?php echo ($idx + 1); ?>
+                    <?php else: ?>
+                        <?php foreach ($all_experiences as $idx => $exp): ?>
+                            <div style="background: rgba(8, 18, 11, 0.85); border: 1px solid var(--adm-border); border-radius: 12px; padding: 18px; position: relative;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase;">
+                                        RITUAL #<?php echo ($idx + 1); ?> • ID: <?php echo $exp['id']; ?>
                                     </span>
-                                    <span style="font-size: 11px; color: var(--adm-text-muted);">ID: <?php echo $exp['id']; ?></span>
+                                    <button type="submit" name="delete_exp_id" value="<?php echo $exp['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="return confirm('Permanently delete experience <?php echo e(addslashes($exp['title'])); ?>? This cannot be undone.');" title="Delete this experience">
+                                        <i class="fa-solid fa-trash-can"></i> Delete
+                                    </button>
                                 </div>
-                                <button type="submit" name="delete_exp_id" value="<?php echo $exp['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="return confirm('Permanently delete experience <?php echo e(addslashes($exp['title'])); ?>? This cannot be undone.');" title="Delete this experience">
-                                    <i class="fa-solid fa-trash-can"></i> Delete
-                                </button>
-                            </div>
-                            <input type="hidden" name="exp_id[]" value="<?php echo $exp['id']; ?>">
+                                <input type="hidden" name="exp_id[]" value="<?php echo $exp['id']; ?>">
 
-                            <div class="adm-form-group" style="margin-bottom: 12px;">
-                                <label class="adm-form-label">Experience Title</label>
-                                <input type="text" name="exp_title[]" class="adm-form-control" value="<?php echo e($exp['title']); ?>" required>
-                            </div>
+                                <div class="adm-form-group" style="margin-bottom: 12px;">
+                                    <label class="adm-form-label">Experience Title</label>
+                                    <input type="text" name="exp_title[]" class="adm-form-control" value="<?php echo e($exp['title']); ?>" required>
+                                </div>
 
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Badge Tag</label>
+                                        <input type="text" name="exp_badge[]" class="adm-form-control" value="<?php echo e($exp['badge']); ?>" required>
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Timing / Duration</label>
+                                        <input type="text" name="exp_timing[]" class="adm-form-control" value="<?php echo e($exp['timing']); ?>" required>
+                                    </div>
+                                </div>
+
+                                <div class="adm-form-group" style="margin-bottom: 12px;">
+                                    <label class="adm-form-label">Description</label>
+                                    <textarea name="exp_desc[]" rows="3" class="adm-form-control" required><?php echo e($exp['description']); ?></textarea>
+                                </div>
+
                                 <div class="adm-form-group">
-                                    <label class="adm-form-label">Badge Tag</label>
-                                    <input type="text" name="exp_badge[]" class="adm-form-control" value="<?php echo e($exp['badge']); ?>" required>
-                                </div>
-                                <div class="adm-form-group">
-                                    <label class="adm-form-label">Timing / Duration</label>
-                                    <input type="text" name="exp_timing[]" class="adm-form-control" value="<?php echo e($exp['timing']); ?>" required>
-                                </div>
-                            </div>
-
-                            <div class="adm-form-group" style="margin-bottom: 12px;">
-                                <label class="adm-form-label">Description</label>
-                                <textarea name="exp_desc[]" rows="3" class="adm-form-control" required><?php echo e($exp['description']); ?></textarea>
-                            </div>
-
-                            <div class="adm-form-group">
-                                <label class="adm-form-label">Image Path</label>
-                                <div style="display: flex; gap: 10px; align-items: center;">
-                                    <input type="text" name="exp_image[]" class="adm-form-control" value="<?php echo e($exp['image_url']); ?>" oninput="document.getElementById('exp_prev_<?php echo $exp['id']; ?>').src='../'+this.value;" required>
-                                    <img id="exp_prev_<?php echo $exp['id']; ?>" src="../<?php echo e($exp['image_url']); ?>" alt="Exp" style="width: 50px; height: 38px; object-fit: cover; border-radius: 6px; border: 1px solid var(--adm-border);" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                    <label class="adm-form-label">Photograph</label>
+                                    <div class="adm-uploader-card adm-uploader-compact">
+                                        <div class="adm-uploader-preview-box">
+                                            <img id="exp_prev_<?php echo $exp['id']; ?>" src="<?php echo admin_img_src($exp['image_url']); ?>" alt="Exp" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                        </div>
+                                        <div class="adm-uploader-controls">
+                                            <div class="adm-uploader-btn-wrap">
+                                                <label class="adm-uploader-btn" for="exp_file_<?php echo $exp['id']; ?>">
+                                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Photo
+                                                </label>
+                                                <input type="file" name="exp_image_file[<?php echo $idx; ?>]" id="exp_file_<?php echo $exp['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'exp_prev_<?php echo $exp['id']; ?>', 'exp_info_<?php echo $exp['id']; ?>');">
+                                                <span id="exp_info_<?php echo $exp['id']; ?>" class="adm-file-info-badge"></span>
+                                            </div>
+                                            <input type="hidden" name="exp_image[]" value="<?php echo e($exp['image_url']); ?>">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
@@ -1374,38 +1722,106 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- -------------------------------------------------------------
-         PANEL 8: SEASONS OF KANTHALLOOR (FULL DYNAMIC EDITING)
+         PANEL 8: SEASONS OF KANTHALLOOR (FULL DYNAMIC CMS)
          ------------------------------------------------------------- -->
     <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'seasons') ? 'is-active' : ''; ?>" id="pane-seasons">
-        <form action="settings.php?tab=seasons" method="POST">
-            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-            <input type="hidden" name="form_type" value="seasons_settings">
-            <input type="hidden" name="active_tab" value="seasons">
-
-            <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                    <div class="adm-setting-card-icon terracotta"><i class="fa-solid fa-cloud-sun"></i></div>
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span class="adm-badge" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
-                                <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
-                            </span>
-                            <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 08</span>
-                        </div>
-                        <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">SEASONS OF KANTHALLOOR (DYNAMIC CMS)</h3>
-                        <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Directly configure the header and all 4 seasonal cards (Monsoon, Winter, Harvest & Summer) with photos.</p>
-                    </div>
-                </div>
+        <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div class="adm-setting-card-icon terracotta"><i class="fa-solid fa-cloud-sun"></i></div>
                 <div>
-                    <button type="submit" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
-                        <i class="fa-solid fa-floppy-disk"></i>
-                        <span>SAVE CHANGES</span>
-                    </button>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="adm-badge" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                            <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
+                        </span>
+                        <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 08</span>
+                    </div>
+                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">SEASONS OF KANTHALLOOR (DYNAMIC CMS)</h3>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Directly edit, create new seasonal cards, or delete seasons displayed on the public website.</p>
                 </div>
             </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-season');">
+                    <i class="fa-solid fa-plus-circle"></i> + ADD NEW SEASON
+                </button>
+                <button type="submit" form="form-edit-seasons" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>SAVE CHANGES</span>
+                </button>
+            </div>
+        </div>
 
-            <div style="padding: 24px;">
-                <!-- Header -->
+        <div style="padding: 24px;">
+            <!-- Expandable Add New Season Drawer -->
+            <div id="drawer-add-season" class="adm-add-new-drawer" style="display: none;">
+                <form action="settings.php?tab=seasons" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                    <input type="hidden" name="form_type" value="seasons_settings">
+                    <input type="hidden" name="action" value="add_season">
+                    <input type="hidden" name="active_tab" value="seasons">
+
+                    <div class="adm-drawer-header">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-circle-plus" style="color: #2ecc71; font-size: 16px;"></i>
+                            <h4 style="color: #FFFFFF; margin: 0; font-size: 14px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">CREATE NEW SEASONAL CYCLE</h4>
+                        </div>
+                        <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-add-season');" title="Close Drawer">✕</button>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 14px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Season Name *</label>
+                            <input type="text" name="new_season_name" class="adm-form-control" placeholder="e.g. Spring Blossom & Awakening" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Calendar Months *</label>
+                            <input type="text" name="new_season_months" class="adm-form-control" placeholder="e.g. March - May" required>
+                        </div>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">Backdrop Photograph</label>
+                        <div class="adm-uploader-card">
+                            <div class="adm-uploader-preview-box">
+                                <img id="new_season_preview" src="../assets/images/01 (9).jpeg" alt="Season Preview" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                            </div>
+                            <div class="adm-uploader-controls">
+                                <div class="adm-uploader-btn-wrap">
+                                    <label class="adm-uploader-btn" for="new_season_image_file">
+                                        <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                    </label>
+                                    <input type="file" name="new_season_image_file" id="new_season_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'new_season_preview', 'new_season_info');">
+                                    <span id="new_season_info" class="adm-file-info-badge"></span>
+                                </div>
+                                <div class="adm-uploader-hint">
+                                    <i class="fa-solid fa-circle-info"></i> JPG, PNG, WEBP, or GIF up to 15MB.
+                                </div>
+                                <input type="hidden" name="new_season_image" value="assets/images/01 (9).jpeg">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 16px;">
+                        <label class="adm-form-label">Atmosphere Description *</label>
+                        <textarea name="new_season_desc" rows="3" class="adm-form-control" placeholder="Describe the weather, fruits, foliage, morning mist, sensory highlights..." required></textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="adm-btn-action" style="background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12);" onclick="toggleAddNewDrawer('drawer-add-season');">Cancel</button>
+                        <button type="submit" class="adm-btn-action emerald" style="font-weight: 700;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>PUBLISH SEASON</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Main Edit Form -->
+            <form id="form-edit-seasons" action="settings.php?tab=seasons" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                <input type="hidden" name="form_type" value="seasons_settings">
+                <input type="hidden" name="active_tab" value="seasons">
+
+                <!-- Section Header Settings -->
                 <div style="background: rgba(217, 119, 6, 0.08); border: 1px solid rgba(217, 119, 6, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
                     <span style="font-size: 11px; text-transform: uppercase; color: #f59e0b; font-weight: 700; letter-spacing: 1px; display: block; margin-bottom: 14px;">Section Header Copy</span>
                     <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 14px;">
@@ -1424,95 +1840,74 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
-                <!-- 4 Dynamic Seasons -->
-                <h4 style="font-family: var(--adm-font-title); font-size: 15px; color: var(--adm-gold); margin: 0 0 16px;">
-                    <i class="fa-solid fa-calendar-days"></i> The 4 Seasonal Cycles
-                </h4>
+                <!-- Dynamic Seasons Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 15px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-calendar-days"></i> Individual Seasonal Cycles (<?php echo count($all_seasons); ?>)
+                    </h4>
+                    <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-season');" style="padding: 6px 12px; font-size: 11.5px;">
+                        <i class="fa-solid fa-plus"></i> Add Another Season
+                    </button>
+                </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px;">
-                    <!-- Season 1: Monsoon -->
-                    <div style="background: rgba(8, 18, 11, 0.7); border: 1px solid var(--adm-border); border-radius: 12px; padding: 18px;">
-                        <span style="font-size: 12px; font-weight: 700; color: #f59e0b; text-transform: uppercase;">Season 1 • Monsoon</span>
-                        <div class="adm-form-group" style="margin: 10px 0;">
-                            <label class="adm-form-label">Season Name</label>
-                            <input type="text" name="season_1_name" class="adm-form-control" value="<?php echo e($s['season_1_name'] ?? 'Monsoon Magic'); ?>" required>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    <?php if (empty($all_seasons)): ?>
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
+                            <i class="fa-solid fa-cloud-sun" style="font-size: 32px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                            <p style="color: var(--adm-text-secondary); font-size: 14px; margin: 0 0 14px;">No seasons found in the database.</p>
+                            <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-season');">
+                                <i class="fa-solid fa-plus"></i> Create First Season
+                            </button>
                         </div>
-                        <div class="adm-form-group" style="margin-bottom: 10px;">
-                            <label class="adm-form-label">Calendar Months</label>
-                            <input type="text" name="season_1_months" class="adm-form-control" value="<?php echo e($s['season_1_months'] ?? 'June - September'); ?>" required>
-                        </div>
-                        <div class="adm-form-group" style="margin-bottom: 10px;">
-                            <label class="adm-form-label">Atmosphere Description</label>
-                            <textarea name="season_1_desc" rows="3" class="adm-form-control" required><?php echo e($s['season_1_desc'] ?? 'Lush, deep green landscapes, rising mist, heavy refreshing rainfall, and crisp cold mountain breeze.'); ?></textarea>
-                        </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Backdrop Photo</label>
-                            <input type="text" name="season_1_image" class="adm-form-control" value="<?php echo e($s['season_1_image'] ?? 'assets/images/01 (9).jpeg'); ?>" required>
-                        </div>
-                    </div>
+                    <?php else: ?>
+                        <?php foreach ($all_seasons as $idx => $season): ?>
+                            <div style="background: rgba(8, 18, 11, 0.85); border: 1px solid var(--adm-border); border-radius: 12px; padding: 18px; position: relative;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: #f59e0b; text-transform: uppercase;">
+                                        SEASON #<?php echo ($idx + 1); ?> • ID: <?php echo $season['id']; ?>
+                                    </span>
+                                    <button type="submit" name="delete_season_id" value="<?php echo $season['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="return confirm('Permanently delete season <?php echo e(addslashes($season['title'])); ?>? This cannot be undone.');" title="Delete this season card">
+                                        <i class="fa-solid fa-trash-can"></i> Delete
+                                    </button>
+                                </div>
+                                <input type="hidden" name="season_id[]" value="<?php echo $season['id']; ?>">
 
-                    <!-- Season 2: Winter -->
-                    <div style="background: rgba(8, 18, 11, 0.7); border: 1px solid var(--adm-border); border-radius: 12px; padding: 18px;">
-                        <span style="font-size: 12px; font-weight: 700; color: #f59e0b; text-transform: uppercase;">Season 2 • Winter</span>
-                        <div class="adm-form-group" style="margin: 10px 0;">
-                            <label class="adm-form-label">Season Name</label>
-                            <input type="text" name="season_2_name" class="adm-form-control" value="<?php echo e($s['season_2_name'] ?? 'Cozy Winter'); ?>" required>
-                        </div>
-                        <div class="adm-form-group" style="margin-bottom: 10px;">
-                            <label class="adm-form-label">Calendar Months</label>
-                            <input type="text" name="season_2_months" class="adm-form-control" value="<?php echo e($s['season_2_months'] ?? 'October - February'); ?>" required>
-                        </div>
-                        <div class="adm-form-group" style="margin-bottom: 10px;">
-                            <label class="adm-form-label">Atmosphere Description</label>
-                            <textarea name="season_2_desc" rows="3" class="adm-form-control" required><?php echo e($s['season_2_desc'] ?? 'Chilly mist, clear bright blue skies, warm sunlit afternoons, and snug campfire nights under starry skies.'); ?></textarea>
-                        </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Backdrop Photo</label>
-                            <input type="text" name="season_2_image" class="adm-form-control" value="<?php echo e($s['season_2_image'] ?? 'assets/images/01 (8).jpeg'); ?>" required>
-                        </div>
-                    </div>
+                                <div class="adm-form-group" style="margin-bottom: 12px;">
+                                    <label class="adm-form-label">Season Name</label>
+                                    <input type="text" name="season_title[]" class="adm-form-control" value="<?php echo e($season['title']); ?>" required>
+                                </div>
 
-                    <!-- Season 3: Harvest -->
-                    <div style="background: rgba(8, 18, 11, 0.7); border: 1px solid var(--adm-border); border-radius: 12px; padding: 18px;">
-                        <span style="font-size: 12px; font-weight: 700; color: #f59e0b; text-transform: uppercase;">Season 3 • Harvest</span>
-                        <div class="adm-form-group" style="margin: 10px 0;">
-                            <label class="adm-form-label">Season Name</label>
-                            <input type="text" name="season_3_name" class="adm-form-control" value="<?php echo e($s['season_3_name'] ?? 'Harvest Season'); ?>" required>
-                        </div>
-                        <div class="adm-form-group" style="margin-bottom: 10px;">
-                            <label class="adm-form-label">Calendar Months</label>
-                            <input type="text" name="season_3_months" class="adm-form-control" value="<?php echo e($s['season_3_months'] ?? 'March - May'); ?>" required>
-                        </div>
-                        <div class="adm-form-group" style="margin-bottom: 10px;">
-                            <label class="adm-form-label">Atmosphere Description</label>
-                            <textarea name="season_3_desc" rows="3" class="adm-form-control" required><?php echo e($s['season_3_desc'] ?? 'Fruits and blossoms heavy on the branches. Perfect time to pick apples, plums, peaches, and berries.'); ?></textarea>
-                        </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Backdrop Photo</label>
-                            <input type="text" name="season_3_image" class="adm-form-control" value="<?php echo e($s['season_3_image'] ?? 'assets/images/01 (19).jpeg'); ?>" required>
-                        </div>
-                    </div>
+                                <div class="adm-form-group" style="margin-bottom: 12px;">
+                                    <label class="adm-form-label">Calendar Months</label>
+                                    <input type="text" name="season_months[]" class="adm-form-control" value="<?php echo e($season['months']); ?>" required>
+                                </div>
 
-                    <!-- Season 4: Summer -->
-                    <div style="background: rgba(8, 18, 11, 0.7); border: 1px solid var(--adm-border); border-radius: 12px; padding: 18px;">
-                        <span style="font-size: 12px; font-weight: 700; color: #f59e0b; text-transform: uppercase;">Season 4 • Summer</span>
-                        <div class="adm-form-group" style="margin: 10px 0;">
-                            <label class="adm-form-label">Season Name</label>
-                            <input type="text" name="season_4_name" class="adm-form-control" value="<?php echo e($s['season_4_name'] ?? 'Cool Summer'); ?>" required>
-                        </div>
-                        <div class="adm-form-group" style="margin-bottom: 10px;">
-                            <label class="adm-form-label">Calendar Months</label>
-                            <input type="text" name="season_4_months" class="adm-form-control" value="<?php echo e($s['season_4_months'] ?? 'April - June'); ?>" required>
-                        </div>
-                        <div class="adm-form-group" style="margin-bottom: 10px;">
-                            <label class="adm-form-label">Atmosphere Description</label>
-                            <textarea name="season_4_desc" rows="3" class="adm-form-control" required><?php echo e($s['season_4_desc'] ?? 'Pleasant, breezy weather. Kanthalloor acts as a cool refuge from the sweltering heat of the plains.'); ?></textarea>
-                        </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Backdrop Photo</label>
-                            <input type="text" name="season_4_image" class="adm-form-control" value="<?php echo e($s['season_4_image'] ?? 'assets/images/01 (33).jpeg'); ?>" required>
-                        </div>
-                    </div>
+                                <div class="adm-form-group" style="margin-bottom: 12px;">
+                                    <label class="adm-form-label">Atmosphere Description</label>
+                                    <textarea name="season_desc[]" rows="3" class="adm-form-control" required><?php echo e($season['description']); ?></textarea>
+                                </div>
+
+                                <div class="adm-form-group">
+                                    <label class="adm-form-label">Backdrop Photo</label>
+                                    <div class="adm-uploader-card adm-uploader-compact">
+                                        <div class="adm-uploader-preview-box">
+                                            <img id="season_prev_<?php echo $season['id']; ?>" src="<?php echo admin_img_src($season['image_url']); ?>" alt="Season" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                        </div>
+                                        <div class="adm-uploader-controls">
+                                            <div class="adm-uploader-btn-wrap">
+                                                <label class="adm-uploader-btn" for="season_file_<?php echo $season['id']; ?>">
+                                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Photo
+                                                </label>
+                                                <input type="file" name="season_image_file[<?php echo $idx; ?>]" id="season_file_<?php echo $season['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'season_prev_<?php echo $season['id']; ?>', 'season_info_<?php echo $season['id']; ?>');">
+                                                <span id="season_info_<?php echo $season['id']; ?>" class="adm-file-info-badge"></span>
+                                            </div>
+                                            <input type="hidden" name="season_image[]" value="<?php echo e($season['image_url']); ?>">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
@@ -1521,12 +1916,431 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span>SAVE SEASONS CONFIGURATION</span>
                     </button>
                 </div>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 
     <!-- -------------------------------------------------------------
-         PANEL 9: VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)
+         PANEL 09: SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS (DYNAMIC CMS)
+         ------------------------------------------------------------- -->
+    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'sanctuary_map') ? 'is-active' : ''; ?>" id="pane-sanctuary_map">
+        <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div class="adm-setting-card-icon emerald"><i class="fa-solid fa-map-location-dot"></i></div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="adm-badge" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                            <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
+                        </span>
+                        <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 09</span>
+                    </div>
+                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS</h3>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Manage estate locations, common kitchen, villas, pool, BBQ shed & connected hiking route trail.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-spot');">
+                    <i class="fa-solid fa-plus-circle"></i> + ADD NEW SPOT / WAYPOINT
+                </button>
+                <button type="submit" form="form-edit-sanctuary_map" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>SAVE CHANGES</span>
+                </button>
+            </div>
+        </div>
+
+        <div style="padding: 24px;">
+
+            <!-- Mountain Route Trail Ribbon -->
+            <div style="background: linear-gradient(135deg, rgba(20, 42, 29, 0.8), rgba(12, 25, 18, 0.95)); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 14px 18px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-route"></i> Route Map Sequence:
+                    </span>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <?php if (!empty($all_sanctuary_spots)): ?>
+                            <?php foreach ($all_sanctuary_spots as $sidx => $sp): ?>
+                                <span style="background: rgba(255,255,255,0.08); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 6px; padding: 3px 8px; font-size: 11.5px; color: #FFFFFF; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                                    <strong style="color: var(--adm-gold);"><?php echo sprintf('%02d', $sp['spot_number']); ?></strong>
+                                    <span><?php echo e(mb_strimwidth($sp['title'], 0, 18, '...')); ?></span>
+                                </span>
+                                <?php if ($sidx < count($all_sanctuary_spots) - 1): ?>
+                                    <i class="fa-solid fa-arrow-right" style="font-size: 10px; color: var(--adm-gold); opacity: 0.7;"></i>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <span style="font-size: 12px; color: var(--adm-text-muted);">No spots registered yet.</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div style="font-size: 11.5px; color: var(--adm-text-secondary); display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-circle-info" style="color: var(--adm-gold);"></i>
+                    <span>Spots connect in numerical sequence (1 → 2 → 3...) on the live map.</span>
+                </div>
+            </div>
+
+            <!-- Expandable Add New Spot Drawer -->
+            <div id="drawer-add-spot" class="adm-add-new-drawer" style="display: none; margin-bottom: 28px;">
+                <form action="settings.php?tab=sanctuary_map" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                    <input type="hidden" name="form_type" value="sanctuary_map_settings">
+                    <input type="hidden" name="action" value="add_spot">
+                    <input type="hidden" name="active_tab" value="sanctuary_map">
+
+                    <div class="adm-drawer-header">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-circle-plus" style="color: #2ecc71; font-size: 16px;"></i>
+                            <h4 style="color: #FFFFFF; margin: 0; font-size: 14px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">REGISTER NEW ESTATE SPOT / ROUTE WAYPOINT</h4>
+                        </div>
+                        <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-add-spot');" title="Close Drawer">✕</button>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 140px 1fr; gap: 14px; margin-bottom: 14px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Route Spot Number *</label>
+                            <input type="number" min="1" max="99" name="new_spot_number" class="adm-form-control" value="<?php echo count($all_sanctuary_spots) + 1; ?>" required style="font-weight: bold; color: var(--adm-gold);">
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Spot Title / Name *</label>
+                            <input type="text" name="new_spot_title" class="adm-form-control" placeholder="e.g. Cedar Treehouse / Organic Kitchen" required>
+                        </div>
+                    </div>
+
+                    <!-- Multi-Photo Uploader for New Spot -->
+                    <div class="adm-form-group" style="margin-bottom: 16px;">
+                        <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><i class="fa-solid fa-images" style="color: var(--adm-gold);"></i> Spot Photos (Upload One or Multiple)</span>
+                            <span style="font-size: 11px; color: var(--adm-text-secondary); text-transform: none;">Select multiple files together</span>
+                        </label>
+                        <div style="background: rgba(8, 18, 11, 0.7); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px;">
+                            <label class="adm-uploader-btn" for="new_spot_photos_input" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; font-size: 12px; margin-bottom: 8px;">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Choose Photos from Device
+                            </label>
+                            <input type="file" name="new_spot_photos[]" id="new_spot_photos_input" class="adm-uploader-input" multiple accept="image/*" onchange="previewMultiSpotUpload(this, 'new_spot_photos_preview');">
+                            <div id="new_spot_photos_preview" style="margin-top: 8px;">
+                                <span style="font-size: 11px; color: var(--adm-text-muted);">No new photos selected yet. (Default farm photo will be used if none uploaded)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 16px;">
+                        <label class="adm-form-label">Spot Description *</label>
+                        <textarea name="new_spot_desc" rows="3" class="adm-form-control" placeholder="Describe this mountain spot, atmosphere and experience..." required></textarea>
+                    </div>
+
+                    <!-- Default Coordinates for New Spot (Positioned via Master Map) -->
+                    <input type="hidden" id="new_spot_x" name="new_spot_x" value="50">
+                    <input type="hidden" id="new_spot_y" name="new_spot_y" value="50">
+                    <div style="background: rgba(197, 160, 89, 0.08); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+                        <i class="fa-solid fa-mountain-sun" style="color: var(--adm-gold); font-size: 22px; flex-shrink: 0;"></i>
+                        <span style="font-size: 12px; color: var(--adm-text-secondary); line-height: 1.5;">
+                            <strong>Dynamic Waypoint Studio:</strong> Once published, this spot's waypoint pin will automatically appear in the <strong>Sanctuary Master Map Studio</strong> below. You can drag and drop it anywhere on the mountain terrain using your mouse!
+                        </span>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="adm-btn-action" style="background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12);" onclick="toggleAddNewDrawer('drawer-add-spot');">Cancel</button>
+                        <button type="submit" class="adm-btn-action emerald" style="font-weight: 700;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>PUBLISH SPOT & WAYPOINT</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <?php
+            // Calculate dynamic initial SVG route trail for Master Map Studio (viewBox 0 0 800 520)
+            $admin_route_pts = [];
+            if (!empty($all_sanctuary_spots)) {
+                foreach ($all_sanctuary_spots as $sp) {
+                    $admin_route_pts[] = [
+                        'x' => ($sp['x_coord'] / 100.0) * 800,
+                        'y' => ($sp['y_coord'] / 100.0) * 520
+                    ];
+                }
+            }
+            $admin_route_d = '';
+            if (count($admin_route_pts) > 1) {
+                $admin_route_d = "M " . round($admin_route_pts[0]['x'], 1) . "," . round($admin_route_pts[0]['y'], 1);
+                for ($i = 0; $i < count($admin_route_pts) - 1; $i++) {
+                    $p0 = $admin_route_pts[$i];
+                    $p1 = $admin_route_pts[$i + 1];
+                    $mx = ($p0['x'] + $p1['x']) / 2;
+                    $my = ($p0['y'] + $p1['y']) / 2;
+                    $dx = $p1['x'] - $p0['x'];
+                    $dy = $p1['y'] - $p0['y'];
+                    $cx = $mx - ($dy * 0.12);
+                    $cy = $my + ($dx * 0.12);
+                    $admin_route_d .= " Q " . round($cx, 1) . "," . round($cy, 1) . " " . round($p1['x'], 1) . "," . round($p1['y'], 1);
+                }
+            }
+            ?>
+
+            <!-- Main Edit Form for All Spots & Section Headers -->
+            <form id="form-edit-sanctuary_map" action="settings.php?tab=sanctuary_map" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                <input type="hidden" name="form_type" value="sanctuary_map_settings">
+                <input type="hidden" name="active_tab" value="sanctuary_map">
+
+                <!-- Section Header Settings -->
+                <div style="background: rgba(46, 204, 113, 0.08); border: 1px solid rgba(46, 204, 113, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <span style="font-size: 11px; text-transform: uppercase; color: #2ecc71; font-weight: 700; letter-spacing: 1px; display: block; margin-bottom: 14px;">Section Header Copy</span>
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Section Eyebrow Label</label>
+                            <input type="text" name="sanctuary_section_label" class="adm-form-control" value="<?php echo e($s['sanctuary_section_label'] ?? 'The Living Landscape'); ?>" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Section Main Headline</label>
+                            <input type="text" name="sanctuary_section_title" class="adm-form-control" value="<?php echo e($s['sanctuary_section_title'] ?? 'An Untamed Sanctuary'); ?>" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COMMON MASTER MAP STUDIO (Interactive Drag & Drop Mountain Canvas) -->
+                <div class="admin-map-studio-card">
+                    <div class="admin-map-studio-header">
+                        <h4 class="admin-map-studio-title">
+                            <i class="fa-solid fa-mountain-sun"></i>
+                            <span>Sanctuary Master Map Studio</span>
+                        </h4>
+                        <div class="admin-map-studio-hud">
+                            <span class="admin-map-hud-pill">
+                                <i class="fa-solid fa-hand-pointer" style="color: var(--adm-gold);"></i>
+                                <span>Drag pins with mouse to position</span>
+                            </span>
+                            <span class="admin-map-hud-pill" id="admin-map-drag-feedback" style="display: none; background: rgba(197, 160, 89, 0.22); border-color: var(--adm-gold); color: #FFFFFF; font-weight: 600;">
+                                <i class="fa-solid fa-arrows-up-down-left-right"></i>
+                                <span id="admin-map-drag-text">Positioning...</span>
+                            </span>
+                            <span class="admin-map-hud-pill">
+                                <i class="fa-solid fa-compass" style="color: #56c2c9;"></i>
+                                <span>1,600m High Range MSL</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Visual Master Canvas (800x520 Topographic System) -->
+                    <div id="admin-master-map-canvas" class="admin-map-canvas-container">
+                        <svg class="admin-master-trail-svg" viewBox="0 0 800 520" preserveAspectRatio="none">
+                            <defs>
+                                <radialGradient id="admin-topo-glow" cx="50%" cy="50%" r="65%">
+                                    <stop offset="0%" stop-color="#1c3826" stop-opacity="0.95" />
+                                    <stop offset="60%" stop-color="#14281c" stop-opacity="0.98" />
+                                    <stop offset="100%" stop-color="#0c1912" stop-opacity="1" />
+                                </radialGradient>
+                                <linearGradient id="admin-stream-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#56c2c9" stop-opacity="0.85" />
+                                    <stop offset="50%" stop-color="#38a3a5" stop-opacity="0.95" />
+                                    <stop offset="100%" stop-color="#22577a" stop-opacity="0.85" />
+                                </linearGradient>
+                                <filter id="admin-map-glow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="3" result="blur" />
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                            </defs>
+
+                            <!-- Base Mountain Terrain Background -->
+                            <rect width="800" height="520" fill="url(#admin-topo-glow)" />
+
+                            <!-- Topographic Elevation Contours -->
+                            <g stroke="rgba(197, 160, 89, 0.16)" fill="none" stroke-width="1.2">
+                                <path d="M -20,440 Q 150,480 320,430 T 650,470 T 820,420" />
+                                <path d="M -20,380 Q 180,410 340,360 T 670,390 T 820,350" stroke="rgba(197, 160, 89, 0.22)" />
+                                <path d="M -20,320 Q 160,350 350,300 T 630,320 T 820,290" />
+                                <path d="M -20,260 Q 200,290 400,240 T 650,260 T 820,220" stroke="rgba(197, 160, 89, 0.28)" />
+                                <path d="M -20,200 Q 180,220 420,170 T 680,190 T 820,150" stroke="rgba(197, 160, 89, 0.4)" stroke-width="1.8" />
+                                <path d="M -20,140 Q 220,170 450,110 T 700,130 T 820,90" />
+                                <path d="M -20,80 Q 240,110 470,60 T 720,80 T 820,30" stroke="rgba(197, 160, 89, 0.22)" />
+                                <path d="M 280,-20 Q 420,70 560,-20" stroke="rgba(197, 160, 89, 0.35)" />
+                                <path d="M 330,-20 Q 430,45 520,-20" stroke="rgba(197, 160, 89, 0.45)" stroke-width="1.5" />
+                            </g>
+
+                            <!-- Meandering Mountain River / Brook -->
+                            <path d="M 120,-20 C 140,80 190,140 240,210 C 290,280 340,310 410,380 C 470,440 520,480 580,540" 
+                                  stroke="url(#admin-stream-gradient)" stroke-width="4.5" fill="none" stroke-linecap="round" filter="url(#admin-map-glow)" />
+                            <path d="M 390,260 C 430,280 470,320 480,350" 
+                                  stroke="url(#admin-stream-gradient)" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.75" />
+
+                            <!-- Shola Evergreen Tree Clusters -->
+                            <g fill="rgba(64, 115, 84, 0.35)">
+                                <circle cx="110" cy="180" r="14" /><circle cx="130" cy="190" r="11" /><circle cx="95" cy="195" r="9" />
+                                <circle cx="670" cy="240" r="16" /><circle cx="690" cy="255" r="12" /><circle cx="650" cy="260" r="10" />
+                                <circle cx="210" cy="420" r="15" /><circle cx="230" cy="435" r="11" />
+                                <circle cx="610" cy="90" r="14" /><circle cx="630" cy="105" r="10" />
+                            </g>
+
+                            <!-- Elevation MSL Labels -->
+                            <text x="685" y="185" fill="rgba(197, 160, 89, 0.55)" font-size="10" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,600M MSL</text>
+                            <text x="685" y="125" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,620M MSL</text>
+                            <text x="685" y="385" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,580M MSL</text>
+
+                            <!-- Live Connected Trail Lines (Redrawn Dynamically on Drag) -->
+                            <path id="admin-master-trail-aura" d="<?php echo $admin_route_d; ?>" 
+                                  fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#admin-map-glow)" />
+                            <path id="admin-master-trail-line" d="<?php echo $admin_route_d; ?>" 
+                                  fill="none" stroke="#C5A059" stroke-width="2.5" stroke-dasharray="6,6" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+
+                        <!-- Draggable Pins Layer -->
+                        <div id="admin-master-pins-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                            <?php if (!empty($all_sanctuary_spots)): ?>
+                                <?php foreach ($all_sanctuary_spots as $idx => $sp): ?>
+                                    <div class="admin-master-pin"
+                                         id="master-pin-<?php echo $idx; ?>"
+                                         data-idx="<?php echo $idx; ?>"
+                                         data-spot-num="<?php echo (int)$sp['spot_number']; ?>"
+                                         data-title="<?php echo e($sp['title']); ?>"
+                                         style="left: <?php echo (float)$sp['x_coord']; ?>%; top: <?php echo (float)$sp['y_coord']; ?>%; pointer-events: auto;"
+                                         title="Drag to reposition Spot #<?php echo sprintf('%02d', $sp['spot_number']); ?>">
+                                        <div class="admin-pin-pulse"></div>
+                                        <div class="admin-pin-core">
+                                            <span><?php echo sprintf('%02d', $sp['spot_number']); ?></span>
+                                        </div>
+                                        <div class="admin-pin-label">
+                                            <strong>#<?php echo sprintf('%02d', $sp['spot_number']); ?> <?php echo e(mb_strimwidth($sp['title'], 0, 15, '..')); ?></strong>
+                                            <span class="admin-pin-coords" id="pin-coords-text-<?php echo $idx; ?>">
+                                                X:<?php echo round((float)$sp['x_coord'], 1); ?>% Y:<?php echo round((float)$sp['y_coord'], 1); ?>%
+                                            </span>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Topographical Compass Badge -->
+                        <div style="position: absolute; bottom: 14px; right: 16px; background: rgba(8, 18, 12, 0.85); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 6px 10px; font-size: 10px; color: var(--adm-gold); font-family: var(--adm-font-title); letter-spacing: 1px; pointer-events: none; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-regular fa-compass" style="font-size: 14px; color: #56c2c9;"></i>
+                            <span>KANTHALLOOR HIGHLAND</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Status Bar -->
+                    <div class="admin-map-live-status-bar">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-route" style="color: #2ecc71;"></i>
+                            <span style="color: #FFFFFF; font-weight: 600;">Hiking Route Sequence:</span>
+                            <span style="color: var(--adm-text-secondary);"><?php echo count($all_sanctuary_spots); ?> Waypoints Connected (1 → 2 → 3...)</span>
+                        </div>
+                        <div id="admin-map-live-tip" style="color: var(--adm-text-muted); font-size: 11.5px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-lightbulb" style="color: var(--adm-gold);"></i>
+                            <span>Click and drag any pin with your mouse to reposition. Save button below commits changes.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Spots Catalog Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 15px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-map-pin"></i> Registered Sanctuary Spots & Route Waypoints (<?php echo count($all_sanctuary_spots); ?>)
+                    </h4>
+                    <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-spot');" style="padding: 6px 12px; font-size: 11.5px;">
+                        <i class="fa-solid fa-plus"></i> Add Another Spot
+                    </button>
+                </div>
+
+                <!-- Spots Cards Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    <?php if (empty($all_sanctuary_spots)): ?>
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
+                            <i class="fa-solid fa-map-location-dot" style="font-size: 32px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                            <p style="color: var(--adm-text-secondary); font-size: 14px; margin: 0 0 14px;">No spots registered in the database.</p>
+                            <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-spot');">
+                                <i class="fa-solid fa-plus"></i> Create First Spot
+                            </button>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($all_sanctuary_spots as $idx => $sp): ?>
+                            <div class="adm-item-card" style="background: rgba(16, 31, 21, 0.7); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 12px; padding: 20px;">
+                                <input type="hidden" name="spot_id[]" value="<?php echo $sp['id']; ?>">
+                                <input type="hidden" name="spot_fallback_image[]" value="<?php echo e($sp['image_url']); ?>">
+                                <!-- Coordinates updated via Master Map Studio Drag & Drop -->
+                                <input type="hidden" id="spot_x_<?php echo $idx; ?>" name="spot_x[]" value="<?php echo (float)$sp['x_coord']; ?>">
+                                <input type="hidden" id="spot_y_<?php echo $idx; ?>" name="spot_y[]" value="<?php echo (float)$sp['y_coord']; ?>">
+
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span style="background: #C5A059; color: #101F15; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 4px;">
+                                            #<?php echo sprintf('%02d', $sp['spot_number']); ?>
+                                        </span>
+                                        <span style="color: #FFFFFF; font-weight: 700; font-size: 14px;">
+                                            <?php echo e($sp['title']); ?>
+                                        </span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <!-- Interactive Map Coordinate Badge & Locator -->
+                                        <button type="button" onclick="focusPinOnMasterMap(<?php echo $idx; ?>);" class="adm-btn-action" style="padding: 3px 9px; font-size: 11px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 5px;" title="Highlight on Master Map">
+                                            <i class="fa-solid fa-location-crosshairs"></i>
+                                            <span id="card-coord-badge-<?php echo $idx; ?>">X: <?php echo round((float)$sp['x_coord'], 1); ?>% | Y: <?php echo round((float)$sp['y_coord'], 1); ?>%</span>
+                                        </button>
+                                        <button type="submit" name="delete_spot_id" value="<?php echo $sp['id']; ?>" class="adm-btn-delete" onclick="return confirm('Delete this spot waypoint from the estate map?');" title="Delete Spot">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Route # and Spot Title -->
+                                <div style="display: grid; grid-template-columns: 90px 1fr; gap: 12px; margin-bottom: 14px;">
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label" style="font-size: 10px;">Route #</label>
+                                        <input type="number" min="1" max="99" name="spot_number[]" class="adm-form-control" value="<?php echo (int)$sp['spot_number']; ?>" required style="font-weight: 700; color: var(--adm-gold);" oninput="syncSpotNumToPin(<?php echo $idx; ?>, this.value);">
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label" style="font-size: 10px;">Spot Title</label>
+                                        <input type="text" name="spot_title[]" class="adm-form-control" value="<?php echo e($sp['title']); ?>" required oninput="syncSpotTitleToPin(<?php echo $idx; ?>, this.value);">
+                                    </div>
+                                </div>
+
+                                <!-- Spot Photos Management (Multiple Photos) -->
+                                <div class="adm-form-group" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                                        <label class="adm-form-label" style="font-size: 10.5px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-images"></i> Spot Photos Gallery (<?php echo count($sp['photos_list'] ?? []); ?>)
+                                        </label>
+                                        <label class="adm-uploader-btn" for="spot_new_file_<?php echo $sp['id']; ?>" style="padding: 4px 10px; font-size: 11px; margin: 0; cursor: pointer;">
+                                            <i class="fa-solid fa-plus"></i> Add More Photos
+                                        </label>
+                                        <input type="file" name="spot_new_photos_<?php echo $sp['id']; ?>[]" id="spot_new_file_<?php echo $sp['id']; ?>" class="adm-uploader-input" multiple accept="image/*" onchange="previewMultiSpotUpload(this, 'spot_new_prev_<?php echo $sp['id']; ?>');">
+                                    </div>
+
+                                    <!-- Existing Photos Thumbnails Grid with Delete (x) Button -->
+                                    <div class="adm-spot-photos-grid" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                        <?php if (!empty($sp['photos_list'])): ?>
+                                            <?php foreach ($sp['photos_list'] as $p_idx => $p_url): ?>
+                                                <div class="adm-spot-photo-thumb" style="position: relative; width: 72px; height: 72px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(197, 160, 89, 0.3); transition: all 0.2s ease;">
+                                                    <img src="../<?php echo e($p_url); ?>" alt="Spot Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/01 (1).jpeg';">
+                                                    <input type="hidden" name="spot_existing_photos[<?php echo $sp['id']; ?>][]" value="<?php echo e($p_url); ?>">
+                                                    <button type="button" onclick="removeSpotPhotoThumbnail(this);" title="Remove this photo" style="position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; background: rgba(220, 53, 69, 0.85); color: #fff; border: none; border-radius: 50%; font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">✕</button>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div id="spot_new_prev_<?php echo $sp['id']; ?>" style="margin-top: 8px;"></div>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="adm-form-group" style="margin-bottom: 4px;">
+                                    <label class="adm-form-label" style="font-size: 10px;">Spot Description</label>
+                                    <textarea name="spot_desc[]" rows="2" class="adm-form-control" style="font-size: 12px;" required><?php echo e($sp['description']); ?></textarea>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
+                    <button type="submit" class="adm-btn-action gold" style="padding: 12px 28px; font-weight: 700;">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>SAVE SANCTUARY MAP CONFIGURATION</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- -------------------------------------------------------------
+         PANEL 10: VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)
          ------------------------------------------------------------- -->
     <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'rooms') ? 'is-active' : ''; ?>" id="pane-rooms">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
@@ -1537,7 +2351,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="adm-badge" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
                             <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
                         </span>
-                        <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 09</span>
+                        <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 10</span>
                     </div>
                     <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">VILLAS & 3D SUITES (DYNAMIC TARIFFS & SPECS)</h3>
                     <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Directly adjust rates, add new villas/suites, or delete accommodations.</p>
@@ -1557,7 +2371,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="padding: 24px;">
             <!-- Expandable Add New Villa Drawer -->
             <div id="drawer-add-room" class="adm-add-new-drawer" style="display: none;">
-                <form action="settings.php?tab=rooms" method="POST">
+                <form action="settings.php?tab=rooms" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                     <input type="hidden" name="form_type" value="rooms_settings">
                     <input type="hidden" name="action" value="add_room">
@@ -1592,9 +2406,91 @@ document.addEventListener('DOMContentLoaded', function() {
                             <label class="adm-form-label">Max Guest Capacity *</label>
                             <input type="number" min="1" max="10" name="new_room_capacity" class="adm-form-control" value="2" required>
                         </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Primary Suite Photo Path *</label>
-                            <input type="text" name="new_room_image" class="adm-form-control" placeholder="e.g. assets/images/mudhouse_living.png" value="assets/images/mudhouse_living.png" required>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">Primary Suite Photo</label>
+                        <div class="adm-uploader-card">
+                            <div class="adm-uploader-preview-box">
+                                <img id="new_room_preview" src="../assets/images/treehouse_exterior.png" alt="Room Preview" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                            </div>
+                            <div class="adm-uploader-controls">
+                                <div class="adm-uploader-btn-wrap">
+                                    <label class="adm-uploader-btn" for="new_room_image_file">
+                                        <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                    </label>
+                                    <input type="file" name="new_room_image_file" id="new_room_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'new_room_preview', 'new_room_info');">
+                                    <span id="new_room_info" class="adm-file-info-badge"></span>
+                                </div>
+                                <div class="adm-uploader-hint">
+                                    <i class="fa-solid fa-circle-info"></i> Exterior shot shown on listing card.
+                                </div>
+                                <input type="hidden" name="new_room_image" value="assets/images/treehouse_exterior.png">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 360 Walkthrough Panorama Options -->
+                    <div class="adm-form-group" style="background: rgba(16, 31, 21, 0.4); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 10px; padding: 16px; margin-bottom: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                            <label class="adm-form-label" style="color: var(--adm-gold); margin: 0; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-arrows-spin"></i> 360° Interior Suite Walkthrough (Optional)
+                            </label>
+                            <div style="display: flex; gap: 6px;">
+                                <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3);" onclick="toggle360Mode('new-mode-single', 'new-mode-stitch');">
+                                    <i class="fa-solid fa-image"></i> Single 360 / PANO
+                                </button>
+                                <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3);" onclick="toggle360Mode('new-mode-stitch', 'new-mode-single');">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> 3-Photo Auto-Stitcher
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Mode 1: Single 360 -->
+                        <div id="new-mode-single">
+                            <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-bottom: 8px;">
+                                Upload a single mobile phone PANO or 360° equirectangular photo:
+                            </span>
+                            <div class="adm-uploader-card adm-uploader-compact">
+                                <div class="adm-uploader-controls" style="width: 100%;">
+                                    <div class="adm-uploader-btn-wrap">
+                                        <label class="adm-uploader-btn" for="new_room_360_file">
+                                            <i class="fa-solid fa-camera"></i> Choose 360 / PANO Photo
+                                        </label>
+                                        <input type="file" name="new_room_360_file" id="new_room_360_file" class="adm-uploader-input" accept="image/*">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mode 2: 3-Photo Auto Stitcher -->
+                        <div id="new-mode-stitch" style="display: none; background: rgba(7, 18, 11, 0.85); border: 1px dashed rgba(46, 204, 113, 0.4); border-radius: 8px; padding: 12px;">
+                            <span style="font-size: 11.5px; font-weight: 700; color: #2ecc71; display: block; margin-bottom: 6px;">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> 3-Angle Phone Camera Auto-Stitcher
+                            </span>
+                            <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-bottom: 10px;">
+                                Upload 3 normal photos from your phone (Left angle, Center angle, Right angle). The system will automatically align, blend seams, and generate the 360° sphere.
+                            </span>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; text-align: center;">
+                                    <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">1. LEFT ANGLE</span>
+                                    <label class="adm-uploader-btn" for="new_stitch_l" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">Upload</label>
+                                    <input type="file" name="new_room_stitch_left" id="new_stitch_l" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'nbadge_l');">
+                                    <span id="nbadge_l" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; text-align: center;">
+                                    <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">2. CENTER ANGLE</span>
+                                    <label class="adm-uploader-btn" for="new_stitch_c" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">Upload</label>
+                                    <input type="file" name="new_room_stitch_center" id="new_stitch_c" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'nbadge_c');">
+                                    <span id="nbadge_c" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; text-align: center;">
+                                    <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">3. RIGHT ANGLE</span>
+                                    <label class="adm-uploader-btn" for="new_stitch_r" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">Upload</label>
+                                    <input type="file" name="new_room_stitch_right" id="new_stitch_r" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'nbadge_r');">
+                                    <span id="nbadge_r" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1614,7 +2510,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <!-- Main Edit Form -->
-            <form id="form-edit-rooms" action="settings.php?tab=rooms" method="POST">
+            <form id="form-edit-rooms" action="settings.php?tab=rooms" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                 <input type="hidden" name="form_type" value="rooms_settings">
                 <input type="hidden" name="active_tab" value="rooms">
@@ -1704,9 +2600,123 @@ document.addEventListener('DOMContentLoaded', function() {
 
                             <div class="adm-form-group">
                                 <label class="adm-form-label">Primary Suite Photo</label>
-                                <div style="display: flex; gap: 10px; align-items: center;">
-                                    <input type="text" name="room_image[]" class="adm-form-control" value="<?php echo e($room['image_url']); ?>" oninput="document.getElementById('room_prev_<?php echo $room['id']; ?>').src='../'+this.value;" required>
-                                    <img id="room_prev_<?php echo $room['id']; ?>" src="../<?php echo e($room['image_url']); ?>" alt="Room" style="width: 50px; height: 38px; object-fit: cover; border-radius: 6px; border: 1px solid var(--adm-border);" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                <div class="adm-uploader-card adm-uploader-compact">
+                                    <div class="adm-uploader-preview-box">
+                                        <img id="room_prev_<?php echo $room['id']; ?>" src="<?php echo admin_img_src($room['image_url']); ?>" alt="Room" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                    </div>
+                                    <div class="adm-uploader-controls">
+                                        <div class="adm-uploader-btn-wrap">
+                                            <label class="adm-uploader-btn" for="room_file_<?php echo $room['id']; ?>">
+                                                <i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Photo
+                                            </label>
+                                            <input type="file" name="room_image_file[<?php echo $idx; ?>]" id="room_file_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'room_prev_<?php echo $room['id']; ?>', 'room_info_<?php echo $room['id']; ?>');">
+                                            <span id="room_info_<?php echo $room['id']; ?>" class="adm-file-info-badge"></span>
+                                        </div>
+                                        <input type="hidden" name="room_image[]" value="<?php echo e($room['image_url']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 360° Interior Walkthrough Panorama & 3-Photo Auto-Stitcher -->
+                            <div class="adm-form-group" style="background: rgba(16, 31, 21, 0.4); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 10px; padding: 16px; margin-top: 14px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                                    <div>
+                                        <label class="adm-form-label" style="color: var(--adm-gold); margin-bottom: 2px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-arrows-spin"></i> 360° Interior Suite Walkthrough
+                                        </label>
+                                        <span style="font-size: 11px; color: var(--adm-text-secondary);">Rendered on public website 3D WebGL sphere</span>
+                                    </div>
+                                    <div style="display: flex; gap: 6px;">
+                                        <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3);" onclick="toggle360Mode('mode-single-<?php echo $room['id']; ?>', 'mode-stitch-<?php echo $room['id']; ?>');">
+                                            <i class="fa-solid fa-image"></i> Single 360 / PANO
+                                        </button>
+                                        <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3);" onclick="toggle360Mode('mode-stitch-<?php echo $room['id']; ?>', 'mode-single-<?php echo $room['id']; ?>');">
+                                            <i class="fa-solid fa-wand-magic-sparkles"></i> 3-Photo Auto-Stitcher
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Current 360 Preview Strip -->
+                                <div style="margin-bottom: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 12px; background: rgba(6, 17, 10, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px;">
+                                        <div style="width: 105px; height: 52px; border-radius: 6px; overflow: hidden; border: 1px solid var(--adm-gold); flex-shrink: 0; background: #000;">
+                                            <img id="room_360_prev_<?php echo $room['id']; ?>" src="<?php echo admin_img_src($room['interior_360_url'] ?? 'assets/images/treehouse_360_pano.jpg'); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_360_pano.jpg';">
+                                        </div>
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-size: 12px; font-weight: 700; color: #FFFFFF; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                                                <?php echo htmlspecialchars(basename($room['interior_360_url'] ?? 'treehouse_360_pano.jpg')); ?>
+                                            </div>
+                                            <div style="font-size: 10.5px; color: #2ecc71; margin-top: 2px;">
+                                                <i class="fa-solid fa-circle-check"></i> Active 360° Sphere Texture
+                                            </div>
+                                        </div>
+                                        <a href="../<?php echo htmlspecialchars($room['interior_360_url'] ?? 'assets/images/treehouse_360_pano.jpg'); ?>" target="_blank" class="adm-btn-site-preview" style="padding: 4px 10px; font-size: 11px;" title="Open full panorama image in new tab">
+                                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
+                                        </a>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="room_interior_360[]" value="<?php echo e($room['interior_360_url'] ?? ''); ?>">
+
+                                <!-- MODE 1: Single 360 / PANO Upload -->
+                                <div id="mode-single-<?php echo $room['id']; ?>" class="room-360-pane">
+                                    <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-bottom: 6px;">
+                                        <i class="fa-solid fa-circle-info" style="color: var(--adm-gold);"></i> Upload a single 360° photo or mobile phone PANO shot (2:1 aspect ratio recommended):
+                                    </span>
+                                    <div class="adm-uploader-card adm-uploader-compact">
+                                        <div class="adm-uploader-controls" style="width: 100%;">
+                                            <div class="adm-uploader-btn-wrap">
+                                                <label class="adm-uploader-btn" for="room_360_file_<?php echo $room['id']; ?>">
+                                                    <i class="fa-solid fa-camera"></i> Choose 360 / PANO Photo
+                                                </label>
+                                                <input type="file" name="room_360_file[<?php echo $idx; ?>]" id="room_360_file_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'room_360_prev_<?php echo $room['id']; ?>', 'room_360_info_<?php echo $room['id']; ?>');">
+                                                <span id="room_360_info_<?php echo $room['id']; ?>" class="adm-file-info-badge"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- MODE 2: 3-Photo Auto-Stitcher (Left + Center + Right) -->
+                                <div id="mode-stitch-<?php echo $room['id']; ?>" class="room-360-pane" style="display: none; background: rgba(7, 18, 11, 0.85); border: 1px dashed rgba(46, 204, 113, 0.4); border-radius: 8px; padding: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <span style="font-size: 11.5px; font-weight: 700; color: #2ecc71;">
+                                            <i class="fa-solid fa-wand-magic-sparkles"></i> 3-Photo Auto Panorama Generator
+                                        </span>
+                                        <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); font-size: 9.5px;">SMARTPHONE READY</span>
+                                    </div>
+                                    <p style="font-size: 11px; color: var(--adm-text-secondary); margin: 0 0 10px; line-height: 1.4;">
+                                        Stand in the center of the room. Take 3 normal photos turning from left to right. Upload all 3 below — the system automatically scales, edge-feathers, and wraps them into a 360° panorama when you save.
+                                    </p>
+                                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                                        <!-- Left Photo -->
+                                        <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); text-align: center;">
+                                            <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">1. LEFT ANGLE</span>
+                                            <label class="adm-uploader-btn" for="stitch_l_<?php echo $room['id']; ?>" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">
+                                                <i class="fa-solid fa-arrow-left"></i> Upload
+                                            </label>
+                                            <input type="file" name="room_stitch_left[<?php echo $idx; ?>]" id="stitch_l_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'sbadge_l_<?php echo $room['id']; ?>');">
+                                            <span id="sbadge_l_<?php echo $room['id']; ?>" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
+                                        </div>
+
+                                        <!-- Center Photo -->
+                                        <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); text-align: center;">
+                                            <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">2. CENTER ANGLE</span>
+                                            <label class="adm-uploader-btn" for="stitch_c_<?php echo $room['id']; ?>" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">
+                                                <i class="fa-solid fa-crosshairs"></i> Upload
+                                            </label>
+                                            <input type="file" name="room_stitch_center[<?php echo $idx; ?>]" id="stitch_c_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'sbadge_c_<?php echo $room['id']; ?>');">
+                                            <span id="sbadge_c_<?php echo $room['id']; ?>" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
+                                        </div>
+
+                                        <!-- Right Photo -->
+                                        <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); text-align: center;">
+                                            <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">3. RIGHT ANGLE</span>
+                                            <label class="adm-uploader-btn" for="stitch_r_<?php echo $room['id']; ?>" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">
+                                                <i class="fa-solid fa-arrow-right"></i> Upload
+                                            </label>
+                                            <input type="file" name="room_stitch_right[<?php echo $idx; ?>]" id="stitch_r_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'sbadge_r_<?php echo $room['id']; ?>');">
+                                            <span id="sbadge_r_<?php echo $room['id']; ?>" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1755,7 +2765,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="padding: 24px;">
             <!-- Expandable Add New Photograph Drawer -->
             <div id="drawer-add-gallery" class="adm-add-new-drawer" style="display: none;">
-                <form action="settings.php?tab=gallery" method="POST">
+                <form action="settings.php?tab=gallery" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                     <input type="hidden" name="form_type" value="gallery_settings">
                     <input type="hidden" name="action" value="add_gallery">
@@ -1791,9 +2801,27 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <option value="Flora">Flora</option>
                             </select>
                         </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Image File Path *</label>
-                            <input type="text" name="new_gal_image" class="adm-form-control" placeholder="e.g. assets/images/01 (1).jpeg" value="assets/images/01 (1).jpeg" required>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">Photograph File</label>
+                        <div class="adm-uploader-card">
+                            <div class="adm-uploader-preview-box">
+                                <img id="new_gal_preview" src="../assets/images/01 (1).jpeg" alt="Gallery Preview" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                            </div>
+                            <div class="adm-uploader-controls">
+                                <div class="adm-uploader-btn-wrap">
+                                    <label class="adm-uploader-btn" for="new_gal_image_file">
+                                        <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                    </label>
+                                    <input type="file" name="new_gal_image_file" id="new_gal_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'new_gal_preview', 'new_gal_info');">
+                                    <span id="new_gal_info" class="adm-file-info-badge"></span>
+                                </div>
+                                <div class="adm-uploader-hint">
+                                    <i class="fa-solid fa-circle-info"></i> JPG, PNG, WEBP, or GIF up to 15MB.
+                                </div>
+                                <input type="hidden" name="new_gal_image" value="assets/images/01 (1).jpeg">
+                            </div>
                         </div>
                     </div>
 
@@ -1813,7 +2841,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <!-- Main Edit Form -->
-            <form id="form-edit-gallery" action="settings.php?tab=gallery" method="POST">
+            <form id="form-edit-gallery" action="settings.php?tab=gallery" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                 <input type="hidden" name="form_type" value="gallery_settings">
                 <input type="hidden" name="active_tab" value="gallery">
@@ -1870,7 +2898,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </button>
                             </div>
                             <div style="display: flex; gap: 12px; margin-bottom: 10px;">
-                                <img id="gal_prev_<?php echo $photo['id']; ?>" src="../<?php echo e($photo['image_url']); ?>" alt="Photo" style="width: 80px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--adm-border);" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                <img id="gal_prev_<?php echo $photo['id']; ?>" src="<?php echo admin_img_src($photo['image_url']); ?>" alt="Photo" style="width: 80px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--adm-border);" onerror="this.src='../assets/images/treehouse_exterior.png';">
                                 <div style="flex-grow: 1;">
                                     <label class="adm-form-label" style="font-size: 10.5px;">Photo Title</label>
                                     <input type="text" name="gal_title[]" class="adm-form-control" value="<?php echo e($photo['title']); ?>" required style="font-size: 12px; padding: 6px 10px;">
@@ -1887,8 +2915,19 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             </div>
                             <div>
-                                <label class="adm-form-label" style="font-size: 10.5px;">Image File Path</label>
-                                <input type="text" name="gal_image[]" class="adm-form-control" value="<?php echo e($photo['image_url']); ?>" oninput="document.getElementById('gal_prev_<?php echo $photo['id']; ?>').src='../'+this.value;" required style="font-size: 12px; padding: 6px 10px;">
+                                <label class="adm-form-label" style="font-size: 10.5px;">Photograph File</label>
+                                <div class="adm-uploader-card adm-uploader-compact" style="padding: 6px 10px;">
+                                    <div class="adm-uploader-controls">
+                                        <div class="adm-uploader-btn-wrap">
+                                            <label class="adm-uploader-btn" for="gal_file_<?php echo $photo['id']; ?>" style="padding: 4px 10px; font-size: 11px;">
+                                                <i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Photo from Device
+                                            </label>
+                                            <input type="file" name="gal_image_file[<?php echo $idx; ?>]" id="gal_file_<?php echo $photo['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'gal_prev_<?php echo $photo['id']; ?>', 'gal_info_<?php echo $photo['id']; ?>');">
+                                            <span id="gal_info_<?php echo $photo['id']; ?>" class="adm-file-info-badge"></span>
+                                        </div>
+                                        <input type="hidden" name="gal_image[]" value="<?php echo e($photo['image_url']); ?>">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>

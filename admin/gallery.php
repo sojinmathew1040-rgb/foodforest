@@ -23,6 +23,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tag = trim($_POST['tag'] ?? '');
             $category = trim($_POST['category'] ?? 'Landscape');
             $image_url = trim($_POST['image_url'] ?? '');
+            if (!empty($_FILES['image_file']['name'])) {
+                $up = handle_image_upload($_FILES['image_file'], 'gallery');
+                if ($up['success']) {
+                    $image_url = $up['path'];
+                }
+            }
             $display_order = (int)($_POST['display_order'] ?? 0);
             $is_active = isset($_POST['is_active']) ? 1 : 0;
 
@@ -44,6 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tag = trim($_POST['tag'] ?? '');
             $category = trim($_POST['category'] ?? 'Landscape');
             $image_url = trim($_POST['image_url'] ?? '');
+            if (!empty($_FILES['image_file']['name'])) {
+                $up = handle_image_upload($_FILES['image_file'], 'gallery');
+                if ($up['success']) {
+                    $image_url = $up['path'];
+                }
+            }
             $display_order = (int)($_POST['display_order'] ?? 0);
             $is_active = isset($_POST['is_active']) ? 1 : 0;
 
@@ -153,7 +165,7 @@ $photos = $pdo->query("SELECT * FROM gallery ORDER BY display_order ASC, id ASC"
             </button>
         </div>
 
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="add_photo">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
 
@@ -184,11 +196,22 @@ $photos = $pdo->query("SELECT * FROM gallery ORDER BY display_order ASC, id ASC"
                 </div>
 
                 <div class="adm-form-group">
-                    <label class="adm-label">Image Path or URL *</label>
-                    <input type="text" name="image_url" class="adm-input" placeholder="e.g. assets/images/01 (25).jpeg" required style="padding-left: 14px;">
-                    <span style="font-size: 11px; color: var(--adm-text-muted); margin-top: 4px; display: block;">
-                        Relative to site root (e.g. assets/images/...) or external HTTPS image URL.
-                    </span>
+                    <label class="adm-label">Photograph</label>
+                    <div class="adm-uploader-card adm-uploader-compact">
+                        <div class="adm-uploader-preview-box">
+                            <img id="add-gal-preview" src="../assets/images/01 (1).jpeg" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                        </div>
+                        <div class="adm-uploader-controls">
+                            <div class="adm-uploader-btn-wrap">
+                                <label class="adm-uploader-btn" for="add-gal-file">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                </label>
+                                <input type="file" name="image_file" id="add-gal-file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'add-gal-preview', 'add-gal-info');">
+                                <span id="add-gal-info" class="adm-file-info-badge"></span>
+                            </div>
+                            <input type="text" name="image_url" id="add-gal-img" class="adm-input" value="assets/images/01 (1).jpeg" style="padding-left: 14px; font-size: 11.5px; margin-top: 6px;" placeholder="Or image path / fallback" oninput="document.getElementById('add-gal-preview').src = admin_img_src(this.value);">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="adm-form-group">
@@ -226,7 +249,7 @@ $photos = $pdo->query("SELECT * FROM gallery ORDER BY display_order ASC, id ASC"
             </button>
         </div>
 
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="update_photo">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="photo_id" id="edit-photo-id">
@@ -258,8 +281,22 @@ $photos = $pdo->query("SELECT * FROM gallery ORDER BY display_order ASC, id ASC"
                 </div>
 
                 <div class="adm-form-group">
-                    <label class="adm-label">Image Path or URL *</label>
-                    <input type="text" name="image_url" id="edit-photo-url" class="adm-input" required style="padding-left: 14px;">
+                    <label class="adm-label">Photograph</label>
+                    <div class="adm-uploader-card adm-uploader-compact">
+                        <div class="adm-uploader-preview-box">
+                            <img id="edit-gal-preview" src="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                        </div>
+                        <div class="adm-uploader-controls">
+                            <div class="adm-uploader-btn-wrap">
+                                <label class="adm-uploader-btn" for="edit-gal-file">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                </label>
+                                <input type="file" name="image_file" id="edit-gal-file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'edit-gal-preview', 'edit-gal-info');">
+                                <span id="edit-gal-info" class="adm-file-info-badge"></span>
+                            </div>
+                            <input type="text" name="image_url" id="edit-photo-url" class="adm-input" style="padding-left: 14px; font-size: 11.5px; margin-top: 6px;" placeholder="Or image path / fallback" oninput="document.getElementById('edit-gal-preview').src = admin_img_src(this.value);">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="adm-form-group">
@@ -297,6 +334,11 @@ function editPhoto(p) {
     document.getElementById('edit-photo-caption').value = p.caption || '';
     document.getElementById('edit-photo-order').value = p.display_order;
     document.getElementById('edit-photo-active').checked = (p.is_active == 1);
+    
+    var preview = document.getElementById('edit-gal-preview');
+    if (preview) {
+        preview.src = admin_img_src(p.image_url);
+    }
     openAdmModal('modal-edit-photo');
 }
 </script>

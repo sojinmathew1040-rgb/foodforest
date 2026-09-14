@@ -662,122 +662,114 @@ initScrollAnimations();
         const mapBoard = document.getElementById('sanctuary-map-board');
         if (!mapBoard) return;
 
-        const zones = [
-            {
-                id: 1,
-                num: "ZONE 01",
-                category: "nature",
-                type: "ORCHARD & TRAILS",
-                title: "The Heirloom Orchard Trails",
-                alt: "1,580M MSL",
-                temp: "18°C Alpine Breeze",
-                img: "assets/images/01 (24).jpeg",
-                desc: "Apple, plum, peach, and wild berry groves where guests can wander and harvest directly from low-hanging branches. Meandering cobblestone trails weave through terraced organic slopes nurtured without synthetic fertilizers.",
-                aroma: "Ripening plums, sweet clover & mountain pine",
-                sound: "Rustling leaves, Himalayan bulbul calls",
-                ctaText: "Explore Dwellings",
-                ctaLink: "#rooms"
-            },
-            {
-                id: 2,
-                num: "ZONE 02",
-                category: "stays",
-                type: "HIGH CANOPY LIVING",
-                title: "The High Canopy Treehouse Ridge",
-                alt: "1,640M MSL",
-                temp: "17°C Cloud Blanket",
-                img: "assets/images/treehouse_exterior.png",
-                desc: "Perched atop century-old silver oak and cedar trees along a dramatic cliff edge. Watch rolling morning mist blanket the valley below from 30 feet above the forest floor with panoramic views.",
-                aroma: "Cedar bark, wild honey & misty petrichor",
-                sound: "High wind chime, whispering pines, cicadas",
-                ctaText: "Book Treehouse",
-                ctaLink: "#booking-modal"
-            },
-            {
-                id: 3,
-                num: "ZONE 03",
-                category: "stays",
-                type: "EARTHEN DWELLING",
-                title: "The Earthen Mudhouse Enclave",
-                alt: "1,600M MSL",
-                temp: "21°C Thermal Comfort",
-                img: "assets/images/mudhouse_exterior.png",
-                desc: "Handcrafted cob clay cottages sculpted from native red soil, river sand, and straw. Naturally insulated to maintain cozy warmth during crisp mountain nights, flanked by private medicinal herb courtyards.",
-                aroma: "Sun-baked earth, vetiver & woodsmoke",
-                sound: "Crackling hearth embers, crickets",
-                ctaText: "Book Mudhouse",
-                ctaLink: "#booking-modal"
-            },
-            {
-                id: 4,
-                num: "ZONE 04",
-                category: "features",
-                type: "PERENNIAL WATERS",
-                title: "Crystal Mountain Brook & Cascade",
-                alt: "1,560M MSL",
-                temp: "15°C Spring Freshwater",
-                img: "assets/images/01 (28).jpeg",
-                desc: "Pristine glacial-pure mountain springs cascading through mossy boulders and fern-fringed natural pools. An acoustic heart of the sanctuary offering serene natural cold plunges and riverside meditation.",
-                aroma: "Fern leaves, damp river stones & mineral mist",
-                sound: "Melodic rushing stream, pebble resonance",
-                ctaText: "Explore Waters",
-                ctaLink: "#experiences"
-            },
-            {
-                id: 5,
-                num: "ZONE 05",
-                category: "features",
-                type: "DARK SKY SANCTUARY",
-                title: "Dark Sky Stargazing Horizon",
-                alt: "1,660M MSL",
-                temp: "14°C Crisp Night Air",
-                img: "assets/images/01 (25).jpeg",
-                desc: "Situated at the highest vantage ridge of the estate with Bortle Class 1 unpolluted darkness. Nightfall reveals the Milky Way in breathtaking clarity with zero light interference.",
-                aroma: "Night-blooming jasmine & highland dew",
-                sound: "Complete acoustic stillness, occasional nightjar call",
-                ctaText: "Stargazing Nights",
-                ctaLink: "#experiences"
-            },
-            {
-                id: 6,
-                num: "ZONE 06",
-                category: "nature",
-                type: "FARM GASTRONOMY",
-                title: "The Forest Hearth & Farm Table",
-                alt: "1,595M MSL",
-                temp: "20°C Hearth Fire Warmth",
-                img: "assets/images/01 (31).jpeg",
-                desc: "Open-air farm gazebo and earthen hearth where food moves from permaculture garden to plate in minutes. Traditional slow-cooked earthenware pots over wood embers and fresh orchard juices.",
-                aroma: "Roasted cardamom, sourdough & woodfire embers",
-                sound: "Sizzling iron skillets, birdsong",
-                ctaText: "View Gastronomy",
-                ctaLink: "#dining"
-            }
-        ];
+        let zones = [];
+        if (window.sanctuarySpotsData && Array.isArray(window.sanctuarySpotsData) && window.sanctuarySpotsData.length > 0) {
+            zones = window.sanctuarySpotsData.map((s, idx) => {
+                let photosArr = [];
+                if (s.photos_list && Array.isArray(s.photos_list) && s.photos_list.length > 0) {
+                    photosArr = s.photos_list;
+                } else if (s.image_url) {
+                    photosArr = [s.image_url];
+                } else {
+                    photosArr = ['assets/images/01 (10).jpeg'];
+                }
+                return {
+                    id: parseInt(s.id, 10),
+                    spotNum: parseInt(s.spot_number, 10) || (idx + 1),
+                    num: "ROUTE SPOT " + String(s.spot_number || (idx + 1)).padStart(2, '0'),
+                    title: s.title || '',
+                    desc: s.description || '',
+                    photos: photosArr
+                };
+            });
+        } else {
+            zones = [
+                {
+                    id: 1,
+                    spotNum: 1,
+                    num: "ROUTE SPOT 01",
+                    title: "Farmhouse Kitchen & Organic Dining",
+                    desc: "Central farm hearth serving 100% organic farm-to-table meals harvested daily from our heirloom orchards. Wood-fired open kitchen and mountain view dining.",
+                    photos: ['assets/images/01 (10).jpeg', 'assets/images/01 (20).jpeg']
+                },
+                {
+                    id: 2,
+                    spotNum: 2,
+                    num: "ROUTE SPOT 02",
+                    title: "Handcrafted Mudhouse Villa",
+                    desc: "Handcrafted cob clay cottages sculpted from native red soil, river sand, and straw. Naturally insulated against chilly nights with a private plantation sit-out.",
+                    photos: ['assets/images/mudhouse_exterior.png', 'assets/images/01 (26).jpeg']
+                },
+                {
+                    id: 3,
+                    spotNum: 3,
+                    num: "ROUTE SPOT 03",
+                    title: "High-Altitude Canopy Treehouse",
+                    desc: "Elevated living among towering mountain trees. Floor-to-ceiling panoramic glass windows looking out over cascading mist, apple terraces, and sunrise valleys.",
+                    photos: ['assets/images/treehouse_exterior.png', 'assets/images/treehouse_curved_window.png']
+                }
+            ];
+        }
 
         let currentIdx = 0;
+        let currentPhotoIdx = 0;
         const pins = document.querySelectorAll('.sanctuary-pin');
-        const filterBtns = document.querySelectorAll('.map-filter-btn');
 
         // Inspector DOM Elements
         const insNum = document.getElementById('ins-zone-num');
-        const insType = document.getElementById('ins-zone-type');
         const insTitle = document.getElementById('ins-title');
         const insDesc = document.getElementById('ins-desc');
         const insImg = document.getElementById('ins-img');
-        const insTagAlt = document.getElementById('ins-tag-alt');
-        const insTagTemp = document.getElementById('ins-tag-temp');
-        const insAroma = document.getElementById('ins-aroma');
-        const insSound = document.getElementById('ins-sound');
         const insCurrIdx = document.getElementById('ins-curr-idx');
-        const insCtaBtn = document.getElementById('ins-cta-btn');
         const insPrevBtn = document.getElementById('ins-prev-btn');
         const insNextBtn = document.getElementById('ins-next-btn');
-        const insSoundBtn = document.getElementById('ins-sound-toggle-btn');
 
-        function updateZoneView(index) {
+        // Photo Gallery Elements
+        const photoPrevBtn = document.getElementById('ins-photo-prev-btn');
+        const photoNextBtn = document.getElementById('ins-photo-next-btn');
+        const photoIndicator = document.getElementById('ins-photo-indicator');
+        const photoBadge = document.getElementById('ins-photo-badge');
+
+        function updatePhotoView() {
+            const zone = zones[currentIdx];
+            if (!zone || !zone.photos || zone.photos.length === 0) return;
+
+            if (currentPhotoIdx >= zone.photos.length) currentPhotoIdx = 0;
+            if (currentPhotoIdx < 0) currentPhotoIdx = zone.photos.length - 1;
+
+            const photoSrc = zone.photos[currentPhotoIdx];
+
+            if (insImg) {
+                insImg.classList.add('fade');
+                setTimeout(() => {
+                    insImg.src = photoSrc;
+                    insImg.alt = zone.title;
+                    insImg.classList.remove('fade');
+                }, 140);
+            }
+
+            if (photoIndicator) {
+                photoIndicator.innerText = `${currentPhotoIdx + 1} / ${zone.photos.length}`;
+            }
+
+            // If only 1 photo, hide arrows and badge
+            if (zone.photos.length <= 1) {
+                if (photoPrevBtn) photoPrevBtn.style.display = 'none';
+                if (photoNextBtn) photoNextBtn.style.display = 'none';
+                if (photoBadge) photoBadge.style.display = 'none';
+            } else {
+                if (photoPrevBtn) photoPrevBtn.style.display = 'inline-flex';
+                if (photoNextBtn) photoNextBtn.style.display = 'inline-flex';
+                if (photoBadge) photoBadge.style.display = 'inline-flex';
+            }
+        }
+
+        function updateZoneView(index, resetPhoto = true) {
             if (index < 0 || index >= zones.length) return;
             currentIdx = index;
+            if (resetPhoto) {
+                currentPhotoIdx = 0;
+            }
             const zone = zones[index];
 
             // Animate Pins
@@ -790,53 +782,33 @@ initScrollAnimations();
                 }
             });
 
-            // Transition Image & Details
-            if (insImg) {
-                insImg.classList.add('fade');
-                setTimeout(() => {
-                    insImg.src = zone.img;
-                    insImg.alt = zone.title;
-                    insImg.classList.remove('fade');
-                }, 180);
-            }
-
             if (insNum) insNum.innerText = zone.num;
-            if (insType) insType.innerText = zone.type;
             if (insTitle) insTitle.innerText = zone.title;
             if (insDesc) insDesc.innerText = zone.desc;
             if (insCurrIdx) insCurrIdx.innerText = index + 1;
 
-            if (insTagAlt) {
-                insTagAlt.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg> ${zone.alt}`;
-            }
-            if (insTagTemp) {
-                insTagTemp.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg> ${zone.temp}`;
-            }
+            updatePhotoView();
+        }
 
-            if (insAroma) insAroma.innerText = zone.aroma;
-            if (insSound) insSound.innerText = zone.sound;
+        // Photo Prev & Next Buttons
+        if (photoPrevBtn) {
+            photoPrevBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const zone = zones[currentIdx];
+                if (!zone || !zone.photos || zone.photos.length <= 1) return;
+                currentPhotoIdx = (currentPhotoIdx - 1 + zone.photos.length) % zone.photos.length;
+                updatePhotoView();
+            });
+        }
 
-            if (insCtaBtn) {
-                const ctaSpan = insCtaBtn.querySelector('span');
-                if (ctaSpan) ctaSpan.innerText = zone.ctaText;
-                insCtaBtn.setAttribute('href', zone.ctaLink);
-
-                // If modal trigger
-                if (zone.ctaLink === '#booking-modal') {
-                    insCtaBtn.onclick = (e) => {
-                        e.preventDefault();
-                        const openBookingModal = window.openBookingModal;
-                        if (typeof openBookingModal === 'function') {
-                            openBookingModal(zone.id === 2 ? 'treehouse' : 'mudhouse');
-                        } else {
-                            const modal = document.getElementById('booking-modal');
-                            if (modal) modal.classList.add('active');
-                        }
-                    };
-                } else {
-                    insCtaBtn.onclick = null;
-                }
-            }
+        if (photoNextBtn) {
+            photoNextBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const zone = zones[currentIdx];
+                if (!zone || !zone.photos || zone.photos.length <= 1) return;
+                currentPhotoIdx = (currentPhotoIdx + 1) % zone.photos.length;
+                updatePhotoView();
+            });
         }
 
         // Pin Click and Hover Events
@@ -845,29 +817,29 @@ initScrollAnimations();
                 const zId = parseInt(pin.getAttribute('data-zone'), 10);
                 const targetIdx = zones.findIndex(z => z.id === zId);
                 if (targetIdx !== -1) {
-                    updateZoneView(targetIdx);
+                    updateZoneView(targetIdx, true);
                 }
             });
             pin.addEventListener('mouseenter', () => {
                 const zId = parseInt(pin.getAttribute('data-zone'), 10);
                 const targetIdx = zones.findIndex(z => z.id === zId);
                 if (targetIdx !== -1 && targetIdx !== currentIdx) {
-                    updateZoneView(targetIdx);
+                    updateZoneView(targetIdx, true);
                 }
             });
         });
 
-        // Prev & Next Buttons
+        // Spot Prev & Next Buttons
         if (insPrevBtn) {
             insPrevBtn.addEventListener('click', () => {
                 const newIdx = (currentIdx - 1 + zones.length) % zones.length;
-                updateZoneView(newIdx);
+                updateZoneView(newIdx, true);
             });
         }
         if (insNextBtn) {
             insNextBtn.addEventListener('click', () => {
                 const newIdx = (currentIdx + 1) % zones.length;
-                updateZoneView(newIdx);
+                updateZoneView(newIdx, true);
             });
         }
 

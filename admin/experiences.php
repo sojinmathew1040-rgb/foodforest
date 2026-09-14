@@ -23,6 +23,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $timing = trim($_POST['timing'] ?? '2 Hours • Morning');
             $description = trim($_POST['description'] ?? '');
             $image_url = trim($_POST['image_url'] ?? '');
+            if (!empty($_FILES['image_file']['name'])) {
+                $up = handle_image_upload($_FILES['image_file'], 'exp');
+                if ($up['success']) {
+                    $image_url = $up['path'];
+                }
+            }
             $display_order = (int)($_POST['display_order'] ?? 0);
             $is_active = isset($_POST['is_active']) ? 1 : 0;
 
@@ -44,6 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $timing = trim($_POST['timing'] ?? '2 Hours • Morning');
             $description = trim($_POST['description'] ?? '');
             $image_url = trim($_POST['image_url'] ?? '');
+            if (!empty($_FILES['image_file']['name'])) {
+                $up = handle_image_upload($_FILES['image_file'], 'exp');
+                if ($up['success']) {
+                    $image_url = $up['path'];
+                }
+            }
             $display_order = (int)($_POST['display_order'] ?? 0);
             $is_active = isset($_POST['is_active']) ? 1 : 0;
 
@@ -156,7 +168,7 @@ $experiences = $pdo->query("SELECT * FROM experiences ORDER BY display_order ASC
             </button>
         </div>
 
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="add_experience">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
 
@@ -178,10 +190,21 @@ $experiences = $pdo->query("SELECT * FROM experiences ORDER BY display_order ASC
                 </div>
 
                 <div class="adm-form-group">
-                    <label class="adm-label">Photograph Path or URL *</label>
-                    <input type="text" name="image_url" id="add-exp-img" class="adm-input" placeholder="assets/images/01 (18).jpeg" required style="padding-left: 14px;" oninput="document.getElementById('add-exp-preview').src = '../' + this.value;">
-                    <div style="margin-top: 8px; height: 110px; border-radius: 6px; overflow: hidden; background: #07100B; border: 1px dashed var(--adm-border);">
-                        <img id="add-exp-preview" src="../assets/images/01 (18).jpeg" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none';" onload="this.style.display='block';">
+                    <label class="adm-label">Backdrop Photograph</label>
+                    <div class="adm-uploader-card adm-uploader-compact">
+                        <div class="adm-uploader-preview-box">
+                            <img id="add-exp-preview" src="../assets/images/01 (18).jpeg" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                        </div>
+                        <div class="adm-uploader-controls">
+                            <div class="adm-uploader-btn-wrap">
+                                <label class="adm-uploader-btn" for="add-exp-file">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                </label>
+                                <input type="file" name="image_file" id="add-exp-file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'add-exp-preview', 'add-exp-info');">
+                                <span id="add-exp-info" class="adm-file-info-badge"></span>
+                            </div>
+                            <input type="text" name="image_url" id="add-exp-img" class="adm-input" value="assets/images/01 (18).jpeg" style="padding-left: 14px; font-size: 11.5px; margin-top: 6px;" placeholder="Or image path / fallback" oninput="document.getElementById('add-exp-preview').src = admin_img_src(this.value);">
+                        </div>
                     </div>
                 </div>
 
@@ -224,7 +247,7 @@ $experiences = $pdo->query("SELECT * FROM experiences ORDER BY display_order ASC
             </button>
         </div>
 
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="update_experience">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="exp_id" id="edit-exp-id">
@@ -247,10 +270,21 @@ $experiences = $pdo->query("SELECT * FROM experiences ORDER BY display_order ASC
                 </div>
 
                 <div class="adm-form-group">
-                    <label class="adm-label">Photograph Path or URL *</label>
-                    <input type="text" name="image_url" id="edit-exp-img" class="adm-input" required style="padding-left: 14px;" oninput="document.getElementById('edit-exp-preview').src = '../' + this.value;">
-                    <div style="margin-top: 8px; height: 110px; border-radius: 6px; overflow: hidden; background: #07100B; border: 1px dashed var(--adm-border);">
-                        <img id="edit-exp-preview" src="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none';" onload="this.style.display='block';">
+                    <label class="adm-label">Backdrop Photograph</label>
+                    <div class="adm-uploader-card adm-uploader-compact">
+                        <div class="adm-uploader-preview-box">
+                            <img id="edit-exp-preview" src="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                        </div>
+                        <div class="adm-uploader-controls">
+                            <div class="adm-uploader-btn-wrap">
+                                <label class="adm-uploader-btn" for="edit-exp-file">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                </label>
+                                <input type="file" name="image_file" id="edit-exp-file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'edit-exp-preview', 'edit-exp-info');">
+                                <span id="edit-exp-info" class="adm-file-info-badge"></span>
+                            </div>
+                            <input type="text" name="image_url" id="edit-exp-img" class="adm-input" style="padding-left: 14px; font-size: 11.5px; margin-top: 6px;" placeholder="Or image path / fallback" oninput="document.getElementById('edit-exp-preview').src = admin_img_src(this.value);">
+                        </div>
                     </div>
                 </div>
 

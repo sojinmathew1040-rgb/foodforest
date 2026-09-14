@@ -22,6 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $description = trim($_POST['description']);
         $amenities = trim($_POST['amenities']);
         $image_url = trim($_POST['image_url'] ?? '');
+        $file_key = 'image_file_' . $villa_id;
+        if (!empty($_FILES[$file_key]['name'])) {
+            $up = handle_image_upload($_FILES[$file_key], 'villa');
+            if ($up['success']) {
+                $image_url = $up['path'];
+            }
+        }
         $is_available = isset($_POST['is_available']) ? 1 : 0;
 
         $stmt = $pdo->prepare("UPDATE rooms SET title = ?, rate_per_night = ?, max_guests = ?, elevation = ?, description = ?, amenities = ?, image_url = ?, is_available = ? WHERE id = ?");
@@ -68,7 +75,7 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
                 <img id="preview-img-<?php echo $room['id']; ?>" src="../<?php echo e(($room['image_url'] ?? '') ?: ($is_treehouse ? 'assets/images/treehouse_exterior.png' : 'assets/images/mudhouse_exterior.png')); ?>" alt="<?php echo e($room['title']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
 
-            <form method="POST" class="adm-villa-body">
+            <form method="POST" class="adm-villa-body" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                 <input type="hidden" name="villa_id" value="<?php echo $room['id']; ?>">
 
@@ -101,8 +108,19 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
                 </div>
 
                 <div class="adm-form-group">
-                    <label class="adm-label">Villa Photo Path or URL</label>
-                    <input type="text" name="image_url" class="adm-input" value="<?php echo e($room['image_url'] ?? ''); ?>" style="padding-left: 14px;" oninput="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = '../' + this.value;">
+                    <label class="adm-label">Villa Photograph</label>
+                    <div class="adm-uploader-card adm-uploader-compact">
+                        <div class="adm-uploader-controls">
+                            <div class="adm-uploader-btn-wrap">
+                                <label class="adm-uploader-btn" for="image_file_<?php echo $room['id']; ?>">
+                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                </label>
+                                <input type="file" name="image_file_<?php echo $room['id']; ?>" id="image_file_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'preview-img-<?php echo $room['id']; ?>', 'info_<?php echo $room['id']; ?>');">
+                                <span id="info_<?php echo $room['id']; ?>" class="adm-file-info-badge"></span>
+                            </div>
+                            <input type="text" name="image_url" class="adm-input" value="<?php echo e($room['image_url'] ?? ''); ?>" style="padding-left: 14px; font-size: 11.5px; margin-top: 6px;" placeholder="Or image path / fallback" oninput="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = admin_img_src(this.value);">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="adm-form-group">

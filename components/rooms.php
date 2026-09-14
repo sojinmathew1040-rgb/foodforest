@@ -204,12 +204,18 @@ foreach ($rooms_list as $r) {
             <?php if (!empty($treehouse['image_url'])): ?>
             exteriorImg: <?php echo json_encode($treehouse['image_url']); ?>,
             <?php endif; ?>
+            <?php if (!empty($treehouse['interior_360_url'])): ?>
+            interiorImg: <?php echo json_encode($treehouse['interior_360_url']); ?>,
+            <?php endif; ?>
         },
         mudhouse: {
             title: <?php echo json_encode($mudhouse['title']); ?>,
             ctaLabel: "Reserve " + <?php echo json_encode($mudhouse['title']); ?>,
             <?php if (!empty($mudhouse['image_url'])): ?>
             exteriorImg: <?php echo json_encode($mudhouse['image_url']); ?>,
+            <?php endif; ?>
+            <?php if (!empty($mudhouse['interior_360_url'])): ?>
+            interiorImg: <?php echo json_encode($mudhouse['interior_360_url']); ?>,
             <?php endif; ?>
         }
     };

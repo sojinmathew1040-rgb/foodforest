@@ -1813,6 +1813,352 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
     border-color: rgba(239, 68, 68, 0.4);
 }
 
+/* =========================================================================
+   Food Forest — Media & Photo Upload Component Styles
+   ========================================================================= */
+.adm-uploader-card {
+    background: rgba(6, 17, 10, 0.7);
+    border: 1px dashed rgba(197, 160, 89, 0.35);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    transition: all 0.25s ease;
+}
 
+.adm-uploader-card:hover {
+    border-color: var(--adm-gold);
+    background: rgba(8, 22, 13, 0.85);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
 
+.adm-uploader-preview-box {
+    width: 110px;
+    height: 75px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--adm-border);
+    background: #000;
+    flex-shrink: 0;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.adm-uploader-preview-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.adm-uploader-card:hover .adm-uploader-preview-box img {
+    transform: scale(1.05);
+}
+
+.adm-uploader-controls {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.adm-uploader-btn-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.adm-uploader-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(197, 160, 89, 0.2), rgba(197, 160, 89, 0.08));
+    border: 1px solid rgba(197, 160, 89, 0.45);
+    color: var(--adm-gold-light);
+    padding: 7px 16px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.adm-uploader-btn:hover {
+    background: var(--adm-gold-gradient);
+    color: #07150C;
+    border-color: var(--adm-gold);
+    box-shadow: 0 4px 14px rgba(197, 160, 89, 0.3);
+    transform: translateY(-1px);
+}
+
+.adm-uploader-input {
+    position: absolute;
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    z-index: -1;
+}
+
+.adm-file-info-badge {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    background: rgba(46, 204, 113, 0.12);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    color: #4ade80;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 500;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.adm-uploader-hint {
+    color: var(--adm-text-muted);
+    font-size: 11px;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Compact version for repeater cards (Experiences, Rooms, Gallery) */
+.adm-uploader-compact {
+    padding: 10px 12px;
+    gap: 12px;
+}
+
+.adm-uploader-compact .adm-uploader-preview-box {
+    width: 60px;
+    height: 48px;
+    border-radius: 6px;
+}
+
+.adm-uploader-compact .adm-uploader-btn {
+    padding: 5px 12px;
+    font-size: 11.5px;
+}
+
+/* =========================================================================
+   Sanctuary Topographic Master Map Studio & Draggable Waypoint Pins
+   ========================================================================= */
+.admin-map-studio-card {
+    background: linear-gradient(145deg, rgba(12, 25, 18, 0.95), rgba(8, 18, 12, 0.98));
+    border: 1.5px solid rgba(197, 160, 89, 0.4);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 26px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.admin-map-studio-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10B981, #C5A059, #ECC880, #10B981);
+    background-size: 300% 100%;
+    animation: adminStudioShimmer 6s linear infinite;
+}
+
+@keyframes adminStudioShimmer {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+}
+
+.admin-map-studio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.admin-map-studio-title {
+    font-family: var(--adm-font-title);
+    font-size: 15px;
+    color: var(--adm-gold);
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.admin-map-studio-hud {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.admin-map-hud-pill {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(197, 160, 89, 0.25);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    color: var(--adm-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.admin-map-hud-pill strong {
+    color: var(--adm-gold);
+}
+
+.admin-map-canvas-container {
+    position: relative;
+    width: 100%;
+    height: 480px;
+    background: #0d1a13;
+    border: 1px solid rgba(197, 160, 89, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: default;
+    user-select: none;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.75);
+}
+
+.admin-master-trail-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Master Draggable Waypoint Pin */
+.admin-master-pin {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.admin-master-pin:hover {
+    transform: translate(-50%, -50%) scale(1.12);
+    z-index: 25;
+}
+
+.admin-master-pin.is-dragging {
+    cursor: grabbing !important;
+    transform: translate(-50%, -50%) scale(1.22) !important;
+    z-index: 50 !important;
+    transition: none !important;
+}
+
+.admin-master-pin.is-highlighted {
+    animation: adminPinHighlightPulse 1.2s ease-in-out 3;
+    z-index: 40;
+}
+
+@keyframes adminPinHighlightPulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); filter: drop-shadow(0 0 8px #C5A059); }
+    50% { transform: translate(-50%, -50%) scale(1.35); filter: drop-shadow(0 0 24px #ECC880); }
+}
+
+.admin-pin-core {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ECC880 0%, #C5A059 55%, #9D7B37 100%);
+    border: 2.5px solid #FFFFFF;
+    box-shadow: 0 0 16px rgba(197, 160, 89, 0.65), 0 4px 10px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #0A160F;
+    font-family: var(--adm-font-sans);
+    letter-spacing: -0.3px;
+    position: relative;
+    pointer-events: none;
+}
+
+.admin-pin-pulse {
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(197, 160, 89, 0.25);
+    animation: adminPinRadar 2.6s infinite ease-out;
+    pointer-events: none;
+    z-index: -1;
+}
+
+@keyframes adminPinRadar {
+    0% { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+
+.admin-pin-label {
+    margin-top: 6px;
+    background: rgba(8, 18, 12, 0.92);
+    border: 1px solid rgba(197, 160, 89, 0.45);
+    border-radius: 6px;
+    padding: 3px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    max-width: 140px;
+}
+
+.admin-pin-label strong {
+    font-size: 11px;
+    color: #FFFFFF;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 130px;
+}
+
+.admin-pin-label .admin-pin-coords {
+    font-size: 9.5px;
+    color: var(--adm-gold);
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.admin-map-live-status-bar {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+}
 

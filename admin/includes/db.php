@@ -36,6 +36,9 @@ function get_db() {
 
         // Verify and initialize schema if needed
         init_mysql_database_schema($pdo);
+        ensure_seasons_table_exists($pdo);
+        ensure_rooms_360_column($pdo);
+        ensure_sanctuary_spots_table_exists($pdo);
 
         return $pdo;
     } catch (PDOException $e) {
@@ -311,6 +314,12 @@ function seed_mysql_initial_data(PDO $pdo) {
 // Global CMS Helper Functions for Frontend & Backend
 // =========================================================================
 
+if (!function_exists('e')) {
+    function e($str) {
+        return htmlspecialchars($str ?? '', ENT_QUOTES, 'UTF-8');
+    }
+}
+
 /**
  * Retrieve a site setting by key, with optional fallback.
  */
@@ -399,6 +408,317 @@ function get_experiences($limit = null) {
             $sql .= " LIMIT " . (int)$limit;
         }
         return $pdo->query($sql)->fetchAll();
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Ensure the seasons table exists and seed initial data if empty
+ */
+function ensure_seasons_table_exists(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `seasons` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `title` VARCHAR(150) NOT NULL,
+        `months` VARCHAR(150) NOT NULL,
+        `description` TEXT NOT NULL,
+        `image_url` VARCHAR(255) NOT NULL,
+        `display_order` INT DEFAULT 0,
+        `is_active` TINYINT(1) DEFAULT 1,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    $count = (int)$pdo->query("SELECT COUNT(*) FROM `seasons`")->fetchColumn();
+    if ($count === 0) {
+        $s1_name = get_setting('season_1_name', 'Monsoon Magic');
+        $s1_months = get_setting('season_1_months', 'June - September');
+        $s1_desc = get_setting('season_1_desc', 'Lush, deep green landscapes, rising mist, heavy refreshing rainfall, and crisp cold mountain breeze.');
+        $s1_img = get_setting('season_1_image', 'assets/images/01 (9).jpeg');
+
+        $s2_name = get_setting('season_2_name', 'Cozy Winter');
+        $s2_months = get_setting('season_2_months', 'October - February');
+        $s2_desc = get_setting('season_2_desc', 'Chilly mist, clear bright blue skies, warm sunlit afternoons, and snug campfire nights under starry skies.');
+        $s2_img = get_setting('season_2_image', 'assets/images/01 (8).jpeg');
+
+        $s3_name = get_setting('season_3_name', 'Harvest Season');
+        $s3_months = get_setting('season_3_months', 'March - May');
+        $s3_desc = get_setting('season_3_desc', 'Crisp mountain breezes, blooming orchards of apples, oranges, and plums, and vibrant farm life in full motion.');
+        $s3_img = get_setting('season_3_image', 'assets/images/01 (19).jpeg');
+
+        $s4_name = get_setting('season_4_name', 'Summer Bloom');
+        $s4_months = get_setting('season_4_months', 'April - June');
+        $s4_desc = get_setting('season_4_desc', 'Pleasant, breezy weather. Kanthalloor acts as a cool refuge from the sweltering heat of the plains.');
+        $s4_img = get_setting('season_4_image', 'assets/images/01 (33).jpeg');
+
+        $ins = $pdo->prepare("INSERT INTO `seasons` (title, months, description, image_url, display_order, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+        $ins->execute([$s1_name, $s1_months, $s1_desc, $s1_img, 1]);
+        $ins->execute([$s2_name, $s2_months, $s2_desc, $s2_img, 2]);
+        $ins->execute([$s3_name, $s3_months, $s3_desc, $s3_img, 3]);
+        $ins->execute([$s4_name, $s4_months, $s4_desc, $s4_img, 4]);
+    }
+    $checked = true;
+}
+
+/**
+ * Retrieve active or all seasons.
+ */
+function get_all_seasons($only_active = false) {
+    try {
+        $pdo = get_db();
+        ensure_seasons_table_exists($pdo);
+        $sql = "SELECT * FROM `seasons`";
+        if ($only_active) {
+            $sql .= " WHERE is_active = 1";
+        }
+        $sql .= " ORDER BY display_order ASC, id ASC";
+        return $pdo->query($sql)->fetchAll();
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Ensure interior_360_url column exists on rooms table and set default 360 pano assets
+ */
+function ensure_rooms_360_column(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
+
+    try {
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'interior_360_url'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `interior_360_url` VARCHAR(255) NULL AFTER `image_url`");
+        }
+
+        // Set defaults for treehouse and mudhouse if not set
+        $pdo->exec("UPDATE `rooms` SET `interior_360_url` = 'assets/images/treehouse_360_pano.jpg' WHERE `slug` = 'treehouse' AND (`interior_360_url` IS NULL OR `interior_360_url` = '')");
+        $pdo->exec("UPDATE `rooms` SET `interior_360_url` = 'assets/images/mudhouse_360_pano.jpg' WHERE `slug` = 'mudhouse' AND (`interior_360_url` IS NULL OR `interior_360_url` = '')");
+    } catch (Exception $e) {
+        // Silently skip if DB not ready
+    }
+
+    $checked = true;
+}
+
+/**
+ * Ensure sanctuary_spots table exists and seed initial mountain route data
+ */
+function ensure_sanctuary_spots_table_exists(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `sanctuary_spots` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `spot_number` INT NOT NULL,
+        `title` VARCHAR(150) NOT NULL,
+        `subtitle_tag` VARCHAR(100) NULL,
+        `category` VARCHAR(50) DEFAULT 'nature',
+        `elevation` VARCHAR(100) DEFAULT '1,600M MSL',
+        `temperature` VARCHAR(100) DEFAULT '18°C Alpine Breeze',
+        `description` TEXT NOT NULL,
+        `aroma` VARCHAR(150) NULL,
+        `sound` VARCHAR(150) NULL,
+        `image_url` VARCHAR(255) NOT NULL,
+        `cta_text` VARCHAR(100) DEFAULT 'Explore Details',
+        `cta_link` VARCHAR(255) DEFAULT '#rooms',
+        `x_coord` DECIMAL(5,2) NOT NULL DEFAULT 50.00,
+        `y_coord` DECIMAL(5,2) NOT NULL DEFAULT 50.00,
+        `display_order` INT DEFAULT 0,
+        `is_active` TINYINT(1) DEFAULT 1,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    $count = (int)$pdo->query("SELECT COUNT(*) FROM `sanctuary_spots`")->fetchColumn();
+    if ($count === 0) {
+        $spots = [
+            [
+                'spot_number' => 1,
+                'title' => 'Farmhouse Kitchen & Organic Dining',
+                'subtitle_tag' => 'COMMON KITCHEN & DINING',
+                'category' => 'dining',
+                'elevation' => '1,580M MSL',
+                'temperature' => '19°C Warm Hearth',
+                'description' => 'Central farm hearth serving 100% organic farm-to-table meals harvested daily from our heirloom orchards. Wood-fired open kitchen and mountain view dining.',
+                'aroma' => 'Woodsmoke, cardamom & roasted spices',
+                'sound' => 'Crackling hearth, laughter & tea kettle',
+                'image_url' => 'assets/images/01 (10).jpeg',
+                'cta_text' => 'Farmhouse Dining',
+                'cta_link' => '#philosophy',
+                'x_coord' => 19.00,
+                'y_coord' => 56.00,
+                'display_order' => 1
+            ],
+            [
+                'spot_number' => 2,
+                'title' => 'The Earthen Mudhouse Enclave',
+                'subtitle_tag' => 'EARTHEN HERITAGE VILLA',
+                'category' => 'stays',
+                'elevation' => '1,600M MSL',
+                'temperature' => '21°C Thermal Comfort',
+                'description' => 'Handcrafted cob clay cottages sculpted from native red soil, river sand, and straw. Naturally insulated against chilly nights with a private plantation sit-out.',
+                'aroma' => 'Sun-baked earth, vetiver & woodsmoke',
+                'sound' => 'Crackling hearth embers, crickets',
+                'image_url' => 'assets/images/mudhouse_exterior.png',
+                'cta_text' => 'Reserve Mudhouse',
+                'cta_link' => '#booking-modal',
+                'x_coord' => 32.00,
+                'y_coord' => 68.00,
+                'display_order' => 2
+            ],
+            [
+                'spot_number' => 3,
+                'title' => 'High-Altitude Canopy Treehouse',
+                'subtitle_tag' => 'HIGH CANOPY RETREAT',
+                'category' => 'stays',
+                'elevation' => '1,620M MSL',
+                'temperature' => '17°C Alpine Breeze',
+                'description' => 'Elevated living among towering mountain trees. Floor-to-ceiling panoramic glass windows looking out over cascading mist, apple terraces, and sunrise valleys.',
+                'aroma' => 'Fresh cedarwood, wild jasmine & pine',
+                'sound' => 'Wind through high canopies, bulbul calls',
+                'image_url' => 'assets/images/treehouse_exterior.png',
+                'cta_text' => 'Reserve Treehouse',
+                'cta_link' => '#booking-modal',
+                'x_coord' => 58.00,
+                'y_coord' => 26.00,
+                'display_order' => 3
+            ],
+            [
+                'spot_number' => 4,
+                'title' => 'Crystal Mountain Brook & Plunge Pool',
+                'subtitle_tag' => 'FRESH SPRING PLUNGE POOL',
+                'category' => 'amenities',
+                'elevation' => '1,560M MSL',
+                'temperature' => '15°C Spring Freshwater',
+                'description' => 'Pristine mountain brook feeding into a natural granite plunge pool. Serene freshwater bathing and riverside meditation amidst lush shola ferns.',
+                'aroma' => 'Fern leaves, damp river stones & mineral mist',
+                'sound' => 'Melodic rushing stream, pebble resonance',
+                'image_url' => 'assets/images/01 (28).jpeg',
+                'cta_text' => 'Explore Waters',
+                'cta_link' => '#experiences',
+                'x_coord' => 48.00,
+                'y_coord' => 44.00,
+                'display_order' => 4
+            ],
+            [
+                'spot_number' => 5,
+                'title' => 'Campfire Glade & BBQ Grilling Shed',
+                'subtitle_tag' => 'EVENING BBQ & STARGAZING',
+                'category' => 'amenities',
+                'elevation' => '1,640M MSL',
+                'temperature' => '14°C Crisp Night Air',
+                'description' => 'Covered rustic timber barbecue pavilion and open granite firepit. Guests gather here for evening grilling rituals and acoustic stargazing under Class-1 dark skies.',
+                'aroma' => 'Ember woodsmoke, roasted pepper & eucalyptus',
+                'sound' => 'Acoustic guitar, crackling embers, mountain breeze',
+                'image_url' => 'assets/images/01 (25).jpeg',
+                'cta_text' => 'Evening Rituals',
+                'cta_link' => '#experiences',
+                'x_coord' => 36.00,
+                'y_coord' => 22.00,
+                'display_order' => 5
+            ],
+            [
+                'spot_number' => 6,
+                'title' => "Children's Play Glade & Orchard Walk",
+                'subtitle_tag' => 'RECREATION & HARVEST TRAILS',
+                'category' => 'nature',
+                'elevation' => '1,570M MSL',
+                'temperature' => '18°C Mild Mountain Sun',
+                'description' => "Terraced grassy lawn equipped with traditional wooden swings, outdoor play zones for kids, and walking trails weaving through fruit-bearing apple and plum trees.",
+                'aroma' => 'Wild berries, sweet apple blossoms & clover',
+                'sound' => "Songbirds, children's laughter, rustling leaves",
+                'image_url' => 'assets/images/01 (19).jpeg',
+                'cta_text' => 'Orchard Activities',
+                'cta_link' => '#experiences',
+                'x_coord' => 68.00,
+                'y_coord' => 64.00,
+                'display_order' => 6
+            ]
+        ];
+
+        $stmt = $pdo->prepare("INSERT INTO `sanctuary_spots` 
+            (spot_number, title, subtitle_tag, category, elevation, temperature, description, aroma, sound, image_url, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+
+        foreach ($spots as $s) {
+            $stmt->execute([
+                $s['spot_number'],
+                $s['title'],
+                $s['subtitle_tag'],
+                $s['category'],
+                $s['elevation'],
+                $s['temperature'],
+                $s['description'],
+                $s['aroma'],
+                $s['sound'],
+                $s['image_url'],
+                $s['cta_text'],
+                $s['cta_link'],
+                $s['x_coord'],
+                $s['y_coord'],
+                $s['display_order']
+            ]);
+        }
+    }
+
+    // Ensure 'photos' column exists for multiple photos support
+    $colCheck = $pdo->query("SHOW COLUMNS FROM `sanctuary_spots` LIKE 'photos'")->fetch();
+    if (!$colCheck) {
+        $pdo->exec("ALTER TABLE `sanctuary_spots` ADD `photos` TEXT NULL AFTER `image_url`");
+    }
+
+    // Backfill photos column if empty
+    $needs_backfill = $pdo->query("SELECT COUNT(*) FROM `sanctuary_spots` WHERE photos IS NULL OR photos = ''")->fetchColumn();
+    if ($needs_backfill > 0) {
+        $sample_galleries = [
+            1 => ['assets/images/01 (10).jpeg', 'assets/images/01 (20).jpeg', 'assets/images/01 (1).jpeg'],
+            2 => ['assets/images/mudhouse_exterior.png', 'assets/images/01 (26).jpeg', 'assets/images/01 (14).jpeg'],
+            3 => ['assets/images/treehouse_exterior.png', 'assets/images/treehouse_curved_window.png', 'assets/images/treehouse_timber_balcony.png'],
+            4 => ['assets/images/01 (28).jpeg', 'assets/images/01 (3).jpeg', 'assets/images/01 (2).jpeg'],
+            5 => ['assets/images/01 (25).jpeg', 'assets/images/treehouse_stone_fireplace.png', 'assets/images/01 (12).jpeg'],
+            6 => ['assets/images/01 (19).jpeg', 'assets/images/01 (11).jpeg', 'assets/images/01 (7).jpeg']
+        ];
+        $all_s = $pdo->query("SELECT id, spot_number, image_url FROM `sanctuary_spots` WHERE photos IS NULL OR photos = ''")->fetchAll();
+        $upd_p = $pdo->prepare("UPDATE `sanctuary_spots` SET photos = ? WHERE id = ?");
+        foreach ($all_s as $row) {
+            $s_num = (int)$row['spot_number'];
+            $photos = $sample_galleries[$s_num] ?? [!empty($row['image_url']) ? $row['image_url'] : 'assets/images/01 (10).jpeg'];
+            $upd_p->execute([json_encode($photos), $row['id']]);
+        }
+    }
+
+    $checked = true;
+}
+
+/**
+ * Retrieve active or all sanctuary spots ordered by spot_number / display_order
+ */
+function get_all_sanctuary_spots($only_active = false) {
+    try {
+        $pdo = get_db();
+        ensure_sanctuary_spots_table_exists($pdo);
+        $sql = "SELECT * FROM `sanctuary_spots`";
+        if ($only_active) {
+            $sql .= " WHERE is_active = 1";
+        }
+        $sql .= " ORDER BY spot_number ASC, display_order ASC, id ASC";
+        $spots = $pdo->query($sql)->fetchAll();
+        foreach ($spots as &$sp) {
+            $photos_arr = [];
+            if (!empty($sp['photos'])) {
+                $dec = json_decode($sp['photos'], true);
+                if (is_array($dec)) {
+                    $photos_arr = $dec;
+                }
+            }
+            if (empty($photos_arr) && !empty($sp['image_url'])) {
+                $photos_arr = [$sp['image_url']];
+            }
+            $sp['photos_list'] = $photos_arr;
+        }
+        return $spots;
     } catch (Exception $e) {
         return [];
     }

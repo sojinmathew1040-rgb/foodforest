@@ -1890,6 +1890,22 @@ body.in-walkthrough .sticky-booking-pill {
 .sanctuary-section {
     background-color: var(--bg-parchment);
     position: relative;
+    padding: 48px 0 54px;
+}
+
+.sanctuary-header {
+    margin-bottom: 6px;
+}
+
+.sanctuary-header .section-label {
+    margin-bottom: 4px;
+    font-size: 0.72rem;
+}
+
+.sanctuary-header .section-title {
+    font-size: clamp(1.8rem, 2.5vw, 2.3rem);
+    margin-bottom: 4px;
+    line-height: 1.15;
 }
 
 /* --- Sanctuary Environmental Microclimate HUD Bar --- */
@@ -1897,16 +1913,16 @@ body.in-walkthrough .sticky-booking-pill {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(197, 160, 89, 0.3);
     border-radius: 8px;
-    padding: 16px 28px;
-    margin: 40px auto 35px;
-    max-width: 1100px;
+    padding: 8px 20px;
+    margin: 14px auto 14px;
+    max-width: 1040px;
     box-shadow: var(--shadow-subtle);
-    gap: 16px;
+    gap: 12px;
     transition: all 0.3s ease;
 }
 
@@ -1918,13 +1934,13 @@ body.in-walkthrough .sticky-booking-pill {
 .hud-item {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 10px;
     flex: 1;
 }
 
 .hud-pulse-dot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     background: var(--accent-green);
     border-radius: 50%;
     position: relative;
@@ -1956,30 +1972,30 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .hud-label {
-    font-size: 0.68rem;
-    letter-spacing: 0.15em;
+    font-size: 0.60rem;
+    letter-spacing: 0.14em;
     color: var(--text-light);
     font-weight: 600;
     text-transform: uppercase;
 }
 
 .hud-value {
-    font-size: 1.15rem;
+    font-size: 0.96rem;
     color: var(--accent-green);
     font-weight: 600;
-    line-height: 1.2;
-    margin-top: 2px;
+    line-height: 1.15;
+    margin-top: 1px;
 }
 
 .hud-unit {
-    font-size: 0.75rem;
+    font-size: 0.70rem;
     color: var(--accent-gold);
     font-weight: 500;
     letter-spacing: 0.05em;
 }
 
 .hud-sub {
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     color: var(--text-light);
     font-family: var(--font-sans);
     font-weight: 400;
@@ -1987,7 +2003,7 @@ body.in-walkthrough .sticky-booking-pill {
 
 .hud-divider {
     width: 1px;
-    height: 32px;
+    height: 22px;
     background: rgba(197, 160, 89, 0.25);
     flex-shrink: 0;
 }
@@ -1995,8 +2011,9 @@ body.in-walkthrough .sticky-booking-pill {
 @media (max-width: 992px) {
     .sanctuary-hud-bar {
         flex-wrap: wrap;
-        gap: 18px 24px;
-        padding: 20px;
+        gap: 12px 18px;
+        padding: 12px 16px;
+        margin: 14px auto 12px;
     }
     .hud-divider {
         display: none;
@@ -2014,7 +2031,7 @@ body.in-walkthrough .sticky-booking-pill {
 
 /* --- Interactive Estate Map & Exploration Console --- */
 .sanctuary-explorer-wrapper {
-    margin: 20px 0 60px;
+    margin: 18px 0 0;
 }
 
 .sanctuary-map-controls {
@@ -2022,22 +2039,22 @@ body.in-walkthrough .sticky-booking-pill {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 
 .map-category-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
 }
 
 .map-filter-btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 18px;
-    font-size: 0.8rem;
+    gap: 7px;
+    padding: 5px 14px;
+    font-size: 0.76rem;
     font-family: var(--font-sans);
     font-weight: 500;
     letter-spacing: 0.04em;
@@ -2072,16 +2089,16 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .map-hint {
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     color: var(--text-light);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
 }
 
 .hint-pulse {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     background: var(--accent-gold);
     border-radius: 50%;
     display: inline-block;
@@ -2091,12 +2108,12 @@ body.in-walkthrough .sticky-booking-pill {
 /* --- Map Console Grid (2-Column) --- */
 .sanctuary-console-grid {
     display: grid;
-    grid-template-columns: 1.35fr 1fr;
-    gap: 28px;
+    grid-template-columns: 1.32fr 1fr;
+    gap: 18px;
     background: #FFFFFF;
     border: 1px solid rgba(197, 160, 89, 0.3);
-    border-radius: 12px;
-    padding: 24px;
+    border-radius: 10px;
+    padding: 16px;
     box-shadow: var(--shadow-luxury);
 }
 
@@ -2111,7 +2128,8 @@ body.in-walkthrough .sticky-booking-pill {
     position: relative;
     border-radius: 8px;
     overflow: hidden;
-    min-height: 480px;
+    min-height: 380px;
+    max-height: 420px;
     background: #112318;
     box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
     user-select: none;
@@ -2141,10 +2159,38 @@ body.in-walkthrough .sticky-booking-pill {
     }
 }
 
+.sanctuary-route-trail {
+    animation: route-trail-flow 30s linear infinite;
+}
+
+@keyframes route-trail-flow {
+    0% {
+        stroke-dashoffset: 240;
+    }
+    100% {
+        stroke-dashoffset: 0;
+    }
+}
+
+.sanctuary-trail-aura {
+    animation: trail-pulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes trail-pulse {
+    0% {
+        opacity: 0.25;
+        stroke-width: 5;
+    }
+    100% {
+        opacity: 0.6;
+        stroke-width: 7.5;
+    }
+}
+
 .map-compass {
     position: absolute;
-    top: 20px;
-    left: 20px;
+    top: 14px;
+    left: 14px;
     z-index: 10;
     display: flex;
     flex-direction: column;
@@ -2153,12 +2199,12 @@ body.in-walkthrough .sticky-booking-pill {
     backdrop-filter: blur(8px);
     border: 1px solid rgba(197, 160, 89, 0.35);
     border-radius: 6px;
-    padding: 8px 12px;
+    padding: 6px 10px;
     pointer-events: none;
 }
 
 .compass-n {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: var(--accent-gold);
     font-weight: 700;
     line-height: 1;
@@ -2166,13 +2212,13 @@ body.in-walkthrough .sticky-booking-pill {
 
 .compass-pointer {
     width: 2px;
-    height: 14px;
+    height: 12px;
     background: linear-gradient(to bottom, var(--accent-gold), transparent);
-    margin: 2px 0 4px;
+    margin: 2px 0 3px;
 }
 
 .compass-coords {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     letter-spacing: 0.12em;
     color: rgba(244, 237, 222, 0.7);
     font-family: var(--font-sans);
@@ -2180,8 +2226,8 @@ body.in-walkthrough .sticky-booking-pill {
 
 .map-stream-badge {
     position: absolute;
-    bottom: 20px;
-    left: 20px;
+    bottom: 14px;
+    left: 14px;
     z-index: 10;
     display: inline-flex;
     align-items: center;
@@ -2190,9 +2236,9 @@ body.in-walkthrough .sticky-booking-pill {
     backdrop-filter: blur(6px);
     border: 1px solid rgba(86, 194, 201, 0.4);
     color: #e0f7f9;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     letter-spacing: 0.06em;
-    padding: 4px 10px;
+    padding: 3px 9px;
     border-radius: 20px;
     pointer-events: none;
 }
@@ -2224,8 +2270,8 @@ body.in-walkthrough .sticky-booking-pill {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 38px;
-    height: 38px;
+    width: 32px;
+    height: 32px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
     background: rgba(197, 160, 89, 0.25);
@@ -2245,8 +2291,8 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .pin-marker {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     background: #1c3826;
     border: 2px solid var(--accent-gold);
     border-radius: 50%;
@@ -2260,7 +2306,7 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .pin-index {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: var(--accent-gold);
     font-family: var(--font-serif);
@@ -2270,8 +2316,8 @@ body.in-walkthrough .sticky-booking-pill {
 .sanctuary-pin.active .pin-marker {
     background: var(--accent-gold);
     border-color: #FFFFFF;
-    transform: scale(1.22);
-    box-shadow: 0 0 20px rgba(197, 160, 89, 0.8);
+    transform: scale(1.18);
+    box-shadow: 0 0 18px rgba(197, 160, 89, 0.8);
 }
 
 .sanctuary-pin:hover .pin-index,
@@ -2281,14 +2327,14 @@ body.in-walkthrough .sticky-booking-pill {
 
 .pin-tooltip {
     position: absolute;
-    bottom: calc(100% + 10px);
+    bottom: calc(100% + 8px);
     left: 50%;
     transform: translateX(-50%) translateY(5px);
     background: rgba(17, 35, 24, 0.95);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(197, 160, 89, 0.4);
     border-radius: 4px;
-    padding: 6px 12px;
+    padding: 4px 10px;
     white-space: nowrap;
     opacity: 0;
     visibility: hidden;
@@ -2308,20 +2354,20 @@ body.in-walkthrough .sticky-booking-pill {
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    border-width: 5px;
+    border-width: 4px;
     border-style: solid;
     border-color: rgba(17, 35, 24, 0.95) transparent transparent transparent;
 }
 
 .pin-title {
-    font-size: 0.76rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: #FFFFFF;
     font-family: var(--font-sans);
 }
 
 .pin-alt {
-    font-size: 0.66rem;
+    font-size: 0.64rem;
     color: var(--accent-gold);
     font-family: var(--font-serif);
     letter-spacing: 0.05em;
@@ -2342,7 +2388,7 @@ body.in-walkthrough .sticky-booking-pill {
     background: #FAF8F5;
     border: 1px solid rgba(197, 160, 89, 0.25);
     border-radius: 8px;
-    padding: 24px;
+    padding: 16px 18px;
     box-shadow: var(--shadow-subtle);
     transition: all 0.35s ease;
 }
@@ -2351,28 +2397,28 @@ body.in-walkthrough .sticky-booking-pill {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 }
 
 .inspector-zone-pill {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: rgba(28, 56, 38, 0.08);
     border: 1px solid rgba(28, 56, 38, 0.12);
     border-radius: 20px;
-    padding: 4px 12px;
+    padding: 3px 10px;
 }
 
 .inspector-zone-num {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: var(--accent-green);
     letter-spacing: 0.1em;
 }
 
 .inspector-zone-type {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     color: var(--accent-gold);
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -2381,12 +2427,12 @@ body.in-walkthrough .sticky-booking-pill {
 .inspector-nav-arrows {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .ins-arrow-btn {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     border: 1px solid rgba(28, 56, 38, 0.15);
     background: #FFFFFF;
@@ -2405,9 +2451,9 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .ins-fraction {
-    font-size: 0.8rem;
+    font-size: 0.76rem;
     color: var(--text-light);
-    min-width: 36px;
+    min-width: 32px;
     text-align: center;
 }
 
@@ -2415,9 +2461,9 @@ body.in-walkthrough .sticky-booking-pill {
     position: relative;
     border-radius: 6px;
     overflow: hidden;
-    aspect-ratio: 16/10;
-    margin-bottom: 18px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    aspect-ratio: 16/9;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .inspector-img {
@@ -2441,31 +2487,85 @@ body.in-walkthrough .sticky-booking-pill {
 
 .inspector-floating-tags {
     position: absolute;
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
+    bottom: 8px;
+    left: 10px;
+    right: 10px;
     display: flex;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
     pointer-events: none;
 }
 
 .ins-tag {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     background: rgba(17, 35, 24, 0.82);
     backdrop-filter: blur(8px);
     border: 1px solid rgba(197, 160, 89, 0.35);
     color: #FAF8F5;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-family: var(--font-sans);
-    padding: 4px 10px;
+    padding: 3px 8px;
     border-radius: 4px;
 }
 
 .ins-tag svg {
     stroke: var(--accent-gold);
+}
+
+/* Multi-Photo Carousel in Inspector */
+.ins-photo-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(17, 35, 24, 0.78);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(197, 160, 89, 0.4);
+    color: #FFFFFF;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 5;
+    transition: all 0.2s ease;
+}
+
+.ins-photo-nav-btn:hover {
+    background: var(--accent-green);
+    border-color: var(--accent-gold);
+    color: #FFFFFF;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.ins-photo-prev {
+    left: 8px;
+}
+
+.ins-photo-next {
+    right: 8px;
+}
+
+.ins-photo-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 10px;
+    background: rgba(17, 35, 24, 0.82);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 20px;
+    padding: 3px 9px;
+    font-size: 0.68rem;
+    font-family: var(--font-sans);
+    color: #FAF8F5;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    z-index: 5;
+    pointer-events: none;
 }
 
 .inspector-body {
@@ -2475,18 +2575,18 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .inspector-title {
-    font-size: 1.45rem;
+    font-size: 1.22rem;
     color: var(--accent-green);
-    margin-bottom: 10px;
-    line-height: 1.25;
+    margin-bottom: 6px;
+    line-height: 1.2;
     transition: opacity 0.25s ease;
 }
 
 .inspector-desc {
-    font-size: 0.88rem;
+    font-size: 0.82rem;
     color: var(--text-light);
-    line-height: 1.65;
-    margin-bottom: 18px;
+    line-height: 1.5;
+    margin-bottom: 10px;
     flex-grow: 1;
     transition: opacity 0.25s ease;
 }
@@ -2494,12 +2594,12 @@ body.in-walkthrough .sticky-booking-pill {
 .inspector-sensory-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 8px;
     background: #FFFFFF;
     border: 1px solid rgba(197, 160, 89, 0.2);
     border-radius: 6px;
-    padding: 12px 14px;
-    margin-bottom: 20px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
 }
 
 @media (max-width: 576px) {
@@ -2514,30 +2614,30 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .sensory-label {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     letter-spacing: 0.12em;
     color: var(--accent-gold);
     font-weight: 700;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
     text-transform: uppercase;
 }
 
 .sensory-val {
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     color: var(--text-dark);
     font-family: var(--font-sans);
-    line-height: 1.4;
+    line-height: 1.35;
 }
 
 .inspector-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .inspector-actions .btn-sm {
-    padding: 10px 18px;
-    font-size: 0.8rem;
+    padding: 7px 16px;
+    font-size: 0.76rem;
 }
 
 .estate-highlights-grid {

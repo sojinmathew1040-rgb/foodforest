@@ -23,6 +23,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'seasons_badge', 'seasons_title', 'seasons_desc'
         ];
 
+        if (!empty($_FILES['hero_bg_image_file']['name'])) {
+            $up = handle_image_upload($_FILES['hero_bg_image_file'], 'hero_bg');
+            if ($up['success']) $_POST['hero_bg_image'] = $up['path'];
+        }
+        if (!empty($_FILES['welcome_image_file']['name'])) {
+            $up = handle_image_upload($_FILES['welcome_image_file'], 'welcome');
+            if ($up['success']) $_POST['welcome_image'] = $up['path'];
+        }
+        if (!empty($_FILES['why_image_file']['name'])) {
+            $up = handle_image_upload($_FILES['why_image_file'], 'why_mudhouse');
+            if ($up['success']) $_POST['why_image'] = $up['path'];
+        }
+
         $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
@@ -48,7 +61,7 @@ while ($row = $all_settings_stmt->fetch()) {
     </div>
 <?php endif; ?>
 
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
 
     <!-- 1. Hero Section Editorial & Backdrop -->
@@ -91,18 +104,21 @@ while ($row = $all_settings_stmt->fetch()) {
                 <textarea name="hero_desc" class="adm-input" rows="3" style="padding-left: 14px; resize: vertical;"><?php echo e($content['hero_desc'] ?? ''); ?></textarea>
             </div>
 
-            <div class="adm-grid-2" style="align-items: center; margin-top: 10px;">
-                <div class="adm-form-group">
-                    <label class="adm-label">Hero Background Visual Path or URL *</label>
-                    <input type="text" name="hero_bg_image" id="hero_bg_image_input" class="adm-input" value="<?php echo e($content['hero_bg_image'] ?? 'assets/images/01 (25).jpeg'); ?>" required style="padding-left: 14px;" oninput="document.getElementById('hero-bg-preview').src = '../' + this.value;">
-                    <span style="font-size: 11px; color: var(--adm-text-muted); margin-top: 4px; display: block;">
-                        Change the hero full-screen backdrop photograph.
-                    </span>
-                </div>
-                <div>
-                    <span class="adm-label">Backdrop Visual Preview</span>
-                    <div style="height: 90px; border-radius: 9px; overflow: hidden; border: 1px solid var(--adm-gold-border); background: #07100B;">
-                        <img id="hero-bg-preview" src="../<?php echo e($content['hero_bg_image'] ?? 'assets/images/01 (25).jpeg'); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png'">
+            <div class="adm-form-group" style="margin-top: 10px;">
+                <label class="adm-label">Hero Background Visual</label>
+                <div class="adm-uploader-card">
+                    <div class="adm-uploader-preview-box">
+                        <img id="hero-bg-preview" src="../<?php echo e($content['hero_bg_image'] ?? 'assets/images/01 (25).jpeg'); ?>" alt="Hero Preview" onerror="this.src='../assets/images/treehouse_exterior.png'">
+                    </div>
+                    <div class="adm-uploader-controls">
+                        <div class="adm-uploader-btn-wrap">
+                            <label class="adm-uploader-btn" for="hero_bg_file">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                            </label>
+                            <input type="file" name="hero_bg_image_file" id="hero_bg_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'hero-bg-preview', 'hero-bg-info');">
+                            <span id="hero-bg-info" class="adm-file-info-badge"></span>
+                        </div>
+                        <input type="text" name="hero_bg_image" id="hero_bg_image_input" class="adm-input" value="<?php echo e($content['hero_bg_image'] ?? 'assets/images/01 (25).jpeg'); ?>" style="padding-left: 14px; font-size: 11.5px; margin-top: 6px;" placeholder="Or image path / fallback" oninput="document.getElementById('hero-bg-preview').src = admin_img_src(this.value);">
                     </div>
                 </div>
             </div>
@@ -135,18 +151,21 @@ while ($row = $all_settings_stmt->fetch()) {
                 <textarea name="welcome_paragraph" class="adm-input" rows="4" style="padding-left: 14px; resize: vertical;"><?php echo e($content['welcome_paragraph'] ?? ''); ?></textarea>
             </div>
 
-            <div class="adm-grid-2" style="align-items: center; margin-top: 10px;">
-                <div class="adm-form-group">
-                    <label class="adm-label">Philosophy Featured Photograph *</label>
-                    <input type="text" name="welcome_image" id="welcome_image_input" class="adm-input" value="<?php echo e($content['welcome_image'] ?? 'assets/images/01 (7).jpeg'); ?>" required style="padding-left: 14px;" oninput="document.getElementById('welcome-img-preview').src = '../' + this.value;">
-                    <span style="font-size: 11px; color: var(--adm-text-muted); margin-top: 4px; display: block;">
-                        Change the featured portrait photograph displayed alongside the philosophy.
-                    </span>
-                </div>
-                <div>
-                    <span class="adm-label">Featured Portrait Preview</span>
-                    <div style="height: 90px; border-radius: 9px; overflow: hidden; border: 1px solid var(--adm-gold-border); background: #07100B;">
-                        <img id="welcome-img-preview" src="../<?php echo e($content['welcome_image'] ?? 'assets/images/01 (7).jpeg'); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/mudhouse_exterior.png'">
+            <div class="adm-form-group" style="margin-top: 10px;">
+                <label class="adm-label">Philosophy Featured Photograph</label>
+                <div class="adm-uploader-card">
+                    <div class="adm-uploader-preview-box">
+                        <img id="welcome-img-preview" src="../<?php echo e($content['welcome_image'] ?? 'assets/images/01 (7).jpeg'); ?>" alt="Welcome Preview" onerror="this.src='../assets/images/mudhouse_exterior.png'">
+                    </div>
+                    <div class="adm-uploader-controls">
+                        <div class="adm-uploader-btn-wrap">
+                            <label class="adm-uploader-btn" for="welcome_file">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                            </label>
+                            <input type="file" name="welcome_image_file" id="welcome_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'welcome-img-preview', 'welcome-info');">
+                            <span id="welcome-info" class="adm-file-info-badge"></span>
+                        </div>
+                        <input type="text" name="welcome_image" id="welcome_image_input" class="adm-input" value="<?php echo e($content['welcome_image'] ?? 'assets/images/01 (7).jpeg'); ?>" style="padding-left: 14px; font-size: 11.5px; margin-top: 6px;" placeholder="Or image path / fallback" oninput="document.getElementById('welcome-img-preview').src = admin_img_src(this.value);">
                     </div>
                 </div>
             </div>
@@ -182,18 +201,21 @@ while ($row = $all_settings_stmt->fetch()) {
                 <textarea name="why_desc" class="adm-input" rows="4" style="padding-left: 14px; resize: vertical;"><?php echo e($content['why_desc'] ?? ''); ?></textarea>
             </div>
 
-            <div class="adm-grid-2" style="align-items: center; margin-top: 10px;">
-                <div class="adm-form-group">
-                    <label class="adm-label">Farmstay Feature Photograph *</label>
-                    <input type="text" name="why_image" id="why_image_input" class="adm-input" value="<?php echo e($content['why_image'] ?? 'assets/images/01 (26).jpeg'); ?>" required style="padding-left: 14px;" oninput="document.getElementById('why-img-preview').src = '../' + this.value;">
-                    <span style="font-size: 11px; color: var(--adm-text-muted); margin-top: 4px; display: block;">
-                        Photograph displayed in the left parallax frame of the Farmstay section.
-                    </span>
-                </div>
-                <div>
-                    <span class="adm-label">Featured Photo Preview</span>
-                    <div style="height: 90px; border-radius: 9px; overflow: hidden; border: 1px solid var(--adm-gold-border); background: #07100B;">
-                        <img id="why-img-preview" src="../<?php echo e($content['why_image'] ?? 'assets/images/01 (26).jpeg'); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/mudhouse_exterior.png'">
+            <div class="adm-form-group" style="margin-top: 10px;">
+                <label class="adm-label">Farmstay Feature Photograph</label>
+                <div class="adm-uploader-card">
+                    <div class="adm-uploader-preview-box">
+                        <img id="why-img-preview" src="../<?php echo e($content['why_image'] ?? 'assets/images/01 (26).jpeg'); ?>" alt="Why Preview" onerror="this.src='../assets/images/mudhouse_exterior.png'">
+                    </div>
+                    <div class="adm-uploader-controls">
+                        <div class="adm-uploader-btn-wrap">
+                            <label class="adm-uploader-btn" for="why_file">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                            </label>
+                            <input type="file" name="why_image_file" id="why_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'why-img-preview', 'why-info');">
+                            <span id="why-info" class="adm-file-info-badge"></span>
+                        </div>
+                        <input type="text" name="why_image" id="why_image_input" class="adm-input" value="<?php echo e($content['why_image'] ?? 'assets/images/01 (26).jpeg'); ?>" style="padding-left: 14px; font-size: 11.5px; margin-top: 6px;" placeholder="Or image path / fallback" oninput="document.getElementById('why-img-preview').src = admin_img_src(this.value);">
                     </div>
                 </div>
             </div>
