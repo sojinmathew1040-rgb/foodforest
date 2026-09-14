@@ -1,0 +1,13 @@
+# Options
+Options -Indexes +FollowSymLinks
+
+# Prevent viewing of sensitive files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "\.(db|sqlite|sqlite3|sql|log)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

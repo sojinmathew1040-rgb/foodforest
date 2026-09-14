@@ -1,0 +1,4 @@
+# Deny public web access to SQLite database files
+<FilesMatch "\.(db|sqlite|sqlite3)$">
+    Require all denied
+</FilesMatch>

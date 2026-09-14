@@ -1,69 +1,45 @@
-<?php
-// Self-installer setup to copy assets from brain folder to local assets
-$source_dir = 'C:/Users/sojin/.gemini/antigravity-ide/brain/076a2ed0-05e5-40cb-a619-0fc1201e9758/';
-$dest_dir = dirname(__DIR__) . '/assets/images/';
-
-if (!is_dir($dest_dir)) {
-    mkdir($dest_dir, 0777, true);
-}
-
-$images = [
-    'treehouse_exterior.png' => 'treehouse_exterior_1781169354966.png',
-    'treehouse_interior.png' => 'treehouse_interior_1781169369356.png',
-    'mudhouse_exterior.png' => 'mudhouse_exterior_1781169386119.png',
-    'mudhouse_interior.png' => 'mudhouse_interior_1781169402031.png',
-];
-
-foreach ($images as $dest_name => $source_name) {
-    $src_path = $source_dir . $source_name;
-    $dst_path = $dest_dir . $dest_name;
-    if (file_exists($src_path) && !file_exists($dst_path)) {
-        copy($src_path, $dst_path);
-    }
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Food Forest — Premium Cinematic Eco-Retreat | Mudhouse Kanthalloor</title>
+    <title>Food Forest — Luxury Eco-Farmstay & Sanctuary | Kanthalloor, Kerala</title>
 
     <!-- SEO Meta Tags -->
     <meta name="description"
-        content="Immerse yourself in nature at Food Forest, a premium eco-retreat in Kanthalloor, Kerala. Experience sustainable mudhouses, luxury treehouses, organic dining, and absolute peace.">
+        content="Immerse in unhurried luxury at Food Forest, an exclusive organic farmstay in Kanthalloor, Kerala. Experience our two signature stays: Luxury Canopy Treehouses and Traditional Earthen Mudhouses.">
     <meta name="keywords"
-        content="eco retreat Kanthalloor, Mudhouse Kanthalloor, luxury treehouse Kerala, organic farm stay, Kerala tourism, premium resort Kanthalloor">
-    <meta name="author" content="Food Forest">
+        content="Food Forest Kanthalloor, luxury farmstay Kerala, canopy treehouse Kanthalloor, earthen mudhouse Kerala, organic farmstay Kanthalloor, sustainable retreat Kerala">
+    <meta name="author" content="Food Forest Kanthalloor">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Food Forest — Premium Cinematic Eco-Retreat | Mudhouse Kanthalloor">
+    <meta property="og:title" content="Food Forest — Luxury Eco-Farmstay | Kanthalloor, Kerala">
     <meta property="og:description"
-        content="A rustic luxury eco-retreat in the misty hills of Kanthalloor, Kerala. Rediscover yourself close to nature.">
+        content="An organic farmstay sanctuary in the misty hills of Kanthalloor, Kerala. Experience luxury canopy treehouses and earthen mudhouses.">
     <meta property="og:image" content="assets/images/01 (25).jpeg">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:title" content="Food Forest — Premium Cinematic Eco-Retreat | Mudhouse Kanthalloor">
+    <meta property="twitter:title" content="Food Forest — Luxury Eco-Farmstay | Kanthalloor">
     <meta property="twitter:description"
-        content="A rustic luxury eco-retreat in the misty hills of Kanthalloor, Kerala. Rediscover yourself close to nature.">
+        content="An unhurried sanctuary in the misty hills of Kanthalloor, Kerala. Sustainable luxury rooted in earth.">
 
-    <!-- Google Fonts -->
+    <!-- Google Fonts: Cormorant Garamond, Cinzel, Plus Jakarta Sans, La Belle Aurore -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400&family=La+Belle+Aurore&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=La+Belle+Aurore&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
 
-    <!-- FontAwesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- FontAwesome 6 for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <!-- Local Stylesheet -->
-    <link rel="stylesheet" href="assets/css/style.css">
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="assets/css/style.css?v=<?php echo time(); ?>">
 
-    <!-- CDNs (Loaded early for scripting dependencies) -->
+    <!-- Core Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -72,37 +48,71 @@ foreach ($images as $dest_name => $source_name) {
 
 <body>
 
-
-
-    <!-- Mouse Glow Follower -->
-    <div id="mouse-glow"></div>
-    <div id="custom-cursor">
-        <div class="cursor-dot"></div>
-        <div class="cursor-ring"></div>
-        <span class="cursor-text">DRAG</span>
+<?php
+require_once __DIR__ . '/../admin/includes/db.php';
+$top_location = get_setting('top_bar_location', 'Kanthalloor High Range • 1,600m Elevation • 18°C Misty Mountain Air');
+$top_accolade = get_setting('top_bar_accolade', 'Rated 4.98 / 5 • Top Sustainable Sanctuary 2026');
+$concierge_wa = get_setting('concierge_whatsapp', '919234567890');
+?>
+    <!-- Top Luxury Announcement & Ambient Audio Bar -->
+    <div class="top-announcement-bar">
+        <div class="top-announcement-container">
+            <div class="top-announcement-left">
+                <span class="location-pulse"><i class="fa-solid fa-location-dot"></i></span>
+                <span class="font-sans"><?php echo htmlspecialchars($top_location); ?></span>
+            </div>
+            <div class="top-announcement-center">
+                <span class="luxury-badge-pill font-sans">
+                    <i class="fa-solid fa-award"></i> <?php echo htmlspecialchars($top_accolade); ?>
+                </span>
+            </div>
+            <div class="top-announcement-right">
+                <!-- Ambient Audio Soundscape Toggle -->
+                <button type="button" id="ambient-audio-toggle" class="ambient-audio-btn font-sans" title="Play Forest Soundscape">
+                    <span class="sound-wave-bars">
+                        <span class="bar"></span>
+                        <span class="bar"></span>
+                        <span class="bar"></span>
+                    </span>
+                    <span class="sound-text">Forest Ambience: <strong id="sound-status-label">OFF</strong></span>
+                </button>
+                <a href="https://wa.me/<?php echo htmlspecialchars($concierge_wa); ?>?text=Hello%20Food%20Forest%20Concierge,%20I%20would%20like%20to%20enquire%20about%20a%20luxury%20stay." target="_blank" class="top-whatsapp-link font-sans">
+                    <i class="fa-brands fa-whatsapp"></i> Concierge
+                </a>
+            </div>
+        </div>
     </div>
 
-    <!-- Header Navigation -->
-    <header class="main-header">
+    <!-- Main Luxury Header -->
+    <header class="main-header" id="site-header">
         <div class="header-container">
-            <a href="#" class="logo font-serif magnetic" data-strength="15">
-                FOOD FOREST
-                <span class="logo-sub">KANTHALLOOR</span>
+            <!-- Brand Logo -->
+            <a href="index.php" class="logo font-serif magnetic" data-strength="15">
+                <span class="logo-main">FOOD FOREST</span>
+                <span class="logo-sub font-sans">KANTHALLOOR • ECO SANCTUARY</span>
             </a>
 
+            <?php
+            $is_home = (basename($_SERVER['PHP_SELF']) == 'index.php' || basename($_SERVER['PHP_SELF']) == '');
+            $nav_prefix = $is_home ? '' : 'index.php';
+            ?>
+            <!-- Editorial Nav Links -->
             <nav class="nav-links font-sans">
-                <a href="#welcome" class="nav-item magnetic" data-strength="10">About Us</a>
-                <a href="#rooms-experience" class="nav-item magnetic" data-strength="10">Stay</a>
-                <a href="#experiences" class="nav-item magnetic" data-strength="10">Experiences</a>
-                <a href="#dining" class="nav-item magnetic" data-strength="10">Taste</a>
-                <a href="#blog" class="nav-item magnetic" data-strength="10">Journal</a>
+                <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
+                <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
+                <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Curated Journeys</a>
+                <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
+                <a href="<?php echo $nav_prefix; ?>#sanctuary" class="nav-item magnetic" data-strength="10">Landscape</a>
+                <a href="<?php echo $nav_prefix; ?>#testimonials" class="nav-item magnetic" data-strength="10">Guest Stories</a>
             </nav>
 
+            <!-- Header Actions -->
             <div class="header-actions">
-                <a href="#contact" class="btn-book-now font-sans magnetic" data-strength="15">
-                    <span>BOOK YOUR ESCAPE</span>
+                <button type="button" class="btn-book-now open-booking-modal-btn font-sans magnetic" data-strength="15">
+                    <span class="btn-sparkle"><i class="fa-solid fa-sparkles"></i></span>
+                    <span>RESERVE STAY</span>
                     <i class="fa-solid fa-arrow-right"></i>
-                </a>
+                </button>
                 <button class="mobile-nav-toggle" aria-label="Toggle Navigation">
                     <span class="bar"></span>
                     <span class="bar"></span>
@@ -114,13 +124,29 @@ foreach ($images as $dest_name => $source_name) {
     <!-- Mobile Menu Overlay -->
     <div class="mobile-menu font-serif">
         <div class="mobile-menu-links">
-            <a href="#welcome" class="mobile-link">About Us</a>
-            <a href="#rooms-experience" class="mobile-link">Stay</a>
-            <a href="#experiences" class="mobile-link">Experiences</a>
-            <a href="#dining" class="mobile-link">Taste</a>
-            <a href="#blog" class="mobile-link">Journal</a>
-            <a href="#contact" class="mobile-link btn-mobile-book">Book Now</a>
+            <a href="<?php echo $nav_prefix; ?>#welcome" class="mobile-link">The Sanctuary</a>
+            <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="mobile-link">Villas & Stays</a>
+            <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Curated Journeys</a>
+            <a href="<?php echo $nav_prefix; ?>#gallery" class="mobile-link">Gallery</a>
+            <a href="<?php echo $nav_prefix; ?>#sanctuary" class="mobile-link">Landscape</a>
+            <a href="<?php echo $nav_prefix; ?>#testimonials" class="mobile-link">Guest Stories</a>
+            <a href="<?php echo $nav_prefix; ?>#contact" class="mobile-link">Contact</a>
+            <button type="button" class="mobile-link btn-mobile-book open-booking-modal-btn font-sans">
+                <i class="fa-solid fa-calendar-check"></i> Check Availability
+            </button>
         </div>
+    </div>
+
+    <!-- Floating Sticky Quick-Booking Pill (appears on scroll) -->
+    <div class="sticky-booking-pill font-sans" id="sticky-booking-pill">
+        <div class="pill-info">
+            <span class="pill-title font-serif">Food Forest Kanthalloor</span>
+            <span class="pill-rates">From ₹11,500/night • All Organic Farm Meals Included</span>
+        </div>
+        <button type="button" class="pill-btn open-booking-modal-btn">
+            <span>Check Availability</span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </button>
     </div>
 
     <!-- Scroll Wrapper for Lenis -->

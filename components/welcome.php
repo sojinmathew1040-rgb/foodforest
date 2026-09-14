@@ -1,45 +1,61 @@
-<!-- Welcome Intro Section -->
-<section id="welcome" class="welcome-section section-padding">
+<?php
+require_once __DIR__ . '/../admin/includes/db.php';
+
+$welcome_badge = get_setting('welcome_badge', 'THE SANCTUARY PHILOSOPHY');
+$welcome_title = get_setting('welcome_title', 'Rooted in Earth, Reverence & Time');
+$welcome_paragraph = get_setting('welcome_paragraph', 'Food Forest is not merely a getaway; it is a conscious return to living in harmony with nature. Tucked into the mist-veiled terraced hills of Kanthalloor, Kerala, our estate was conceived as a living ecosystem where luxury means silence, pure mountain spring water, and unhurried peace.');
+$welcome_image = get_setting('welcome_image', 'assets/images/01 (7).jpeg');
+?>
+<!-- Welcome & Philosophy Section -->
+<section id="welcome" class="welcome-section">
     <div class="container welcome-grid">
         <div class="welcome-text-side">
-            <span class="section-label">Welcome To Mudhouse</span>
-            <h3 class="section-title font-serif split-text">Rooted in Nature, Simplicity & Tradition</h3>
+            <div class="welcome-badge-header">
+                <span class="section-label"><?php echo htmlspecialchars($welcome_badge); ?></span>
+            </div>
+            <h2 class="section-title font-serif split-text"><?php echo htmlspecialchars($welcome_title); ?></h2>
             <p class="welcome-paragraph font-sans">
-                Mudhouse is more than just a stay. It is an experience crafted to bring you closer to the earth. Tucked away in the pristine valleys of Kanthalloor, our retreat is a sanctuary of quietude, organic farming, and traditional clay architecture.
+                <?php echo htmlspecialchars($welcome_paragraph); ?>
             </p>
             
             <div class="welcome-details">
-                <div class="detail-card">
+                <div class="detail-card scroll-reveal">
                     <div class="detail-icon"><i class="fa-solid fa-leaf"></i></div>
-                    <h4 class="detail-title font-serif">Eco-Friendly</h4>
-                    <p class="detail-desc font-sans">Built with mud, clay, wood, and sustainable materials that blend with nature.</p>
+                    <div>
+                        <h4 class="detail-title font-serif">Ecological Vernacular</h4>
+                        <p class="detail-desc font-sans">Earthen clay, raw stone, reclaimed teak, and zero plastic across the retreat.</p>
+                    </div>
                 </div>
-                <div class="detail-card">
-                    <div class="detail-icon"><i class="fa-solid fa-house-chimney-window"></i></div>
-                    <h4 class="detail-title font-serif">Local Experience</h4>
-                    <p class="detail-desc font-sans">Feel the soul of the village with our local staff, village walks, and cultural stories.</p>
-                </div>
-                <div class="detail-card">
+                <div class="detail-card scroll-reveal" style="transition-delay: 0.1s;">
                     <div class="detail-icon"><i class="fa-solid fa-seedling"></i></div>
-                    <h4 class="detail-title font-serif">Organic Living</h4>
-                    <p class="detail-desc font-sans">Savor farm-to-table meals harvested directly from our chemical-free orchards.</p>
+                    <div>
+                        <h4 class="detail-title font-serif">Pure Farm-to-Table</h4>
+                        <p class="detail-desc font-sans">Organic chemical-free orchards. Meals harvested minutes before cooking over earthen wood fires.</p>
+                    </div>
                 </div>
-                <div class="detail-card">
-                    <div class="detail-icon"><i class="fa-solid fa-mountain-sun"></i></div>
-                    <h4 class="detail-title font-serif">Peaceful Location</h4>
-                    <p class="detail-desc font-sans">Away from the crowd, surrounded by misty mountains, dense forests, and birdsong.</p>
+                <div class="detail-card scroll-reveal" style="transition-delay: 0.2s;">
+                    <div class="detail-icon"><i class="fa-solid fa-wind"></i></div>
+                    <div>
+                        <h4 class="detail-title font-serif">High-Range Climate</h4>
+                        <p class="detail-desc font-sans">Situated at 1,600m altitude. Chilly night mists, crisp mountain breeze, and clear skies.</p>
+                    </div>
+                </div>
+                <div class="detail-card scroll-reveal" style="transition-delay: 0.3s;">
+                    <div class="detail-icon"><i class="fa-solid fa-shield-heart"></i></div>
+                    <div>
+                        <h4 class="detail-title font-serif">Intimate & Private</h4>
+                        <p class="detail-desc font-sans">Only two exclusive living stay concepts to guarantee absolute privacy and silence.</p>
+                    </div>
                 </div>
             </div>
         </div>
         
         <div class="welcome-visual-side parallax-wrap">
-            <img src="assets/images/01 (7).jpeg" alt="Mudhouse Cottage Exterior" class="welcome-img" data-speed="0.08">
-            <svg class="sketch-overlay" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-                <path d="M10,80 Q30,50 50,80 T90,80" fill="none" stroke="#C06043" stroke-width="1.5" stroke-dasharray="3,3" />
-                <circle cx="50" cy="80" r="3" fill="#2D4B37" />
-                <path d="M50,80 L50,40" stroke="#2D4B37" stroke-width="2" />
-                <path d="M50,60 Q35,50 50,40 Q65,50 50,60" fill="none" stroke="#2D4B37" stroke-width="1.5" />
-            </svg>
+            <div class="luxury-image-frame">
+                <img src="<?php echo htmlspecialchars($welcome_image); ?>" alt="Sanctuary Estate in Kanthalloor" class="welcome-img" data-speed="0.08" onerror="this.src='assets/images/mudhouse_exterior.png'">
+                <div class="image-corner-ornament top-left"></div>
+                <div class="image-corner-ornament bottom-right"></div>
+            </div>
         </div>
     </div>
 </section>

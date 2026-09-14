@@ -1,102 +1,49 @@
-<!-- Experiences Section -->
+<?php
+require_once __DIR__ . '/../admin/includes/db.php';
+$exp_badge = get_setting('experiences_badge', 'Curated Journeys');
+$exp_title = get_setting('experiences_title', 'Rituals of the High Range');
+$exp_desc = get_setting('experiences_desc', 'Connect deeply with the pulse of Kanthalloor. Each experience is handcrafted to immerse you in vernacular craftsmanship, mountain wilderness, and restorative tranquility.');
+$experiences_list = get_experiences();
+?>
+<!-- Curated Experiences Section -->
 <section id="experiences" class="experiences-section section-padding">
     <div class="container">
         
-        <div class="experiences-header">
-            <span class="section-label">Live The Mudhouse Way</span>
-            <h3 class="section-title font-serif split-text">Experiential Journeys</h3>
-            <p class="experiences-desc font-sans" style="color: var(--text-light);">
-                Immerse yourself in Kanthalloor's rustic local life. We organize curated experiences that connect you with nature, culture, and absolute tranquility.
+        <div class="experiences-header text-center">
+            <span class="section-label"><?php echo htmlspecialchars($exp_badge); ?></span>
+            <h3 class="section-title font-serif split-text" style="color: var(--accent-green);"><?php echo htmlspecialchars($exp_title); ?></h3>
+            <p class="experiences-desc font-sans" style="color: var(--text-light); max-width: 750px; margin: 15px auto 0;">
+                <?php echo htmlspecialchars($exp_desc); ?>
             </p>
         </div>
         
         <div class="experiences-grid">
-            
-            <!-- Card 1: Farm Walks -->
-            <div class="experience-card scroll-reveal">
-                <div class="experience-img-wrapper">
-                    <img src="assets/images/01 (18).jpeg" alt="Farm Walks" class="experience-img">
-                </div>
-                <div class="experience-info">
-                    <h4 class="experience-card-title font-serif">Organic Farm Walks</h4>
-                    <p class="experience-card-desc font-sans">
-                        Take a guided stroll through our organic orchards. Pick fresh apples, blackberries, tree tomatoes, and learn about sustainable farming.
-                    </p>
-                    <span class="experience-arrow font-sans">Explore <i class="fa-solid fa-arrow-right"></i></span>
-                </div>
-            </div>
-
-            <!-- Card 2: Campfire Nights -->
-            <div class="experience-card scroll-reveal" style="transition-delay: 0.1s;">
-                <div class="experience-img-wrapper">
-                    <img src="assets/images/01 (30).jpeg" alt="Campfire Nights" class="experience-img">
-                </div>
-                <div class="experience-info">
-                    <h4 class="experience-card-title font-serif">Campfire Conversations</h4>
-                    <p class="experience-card-desc font-sans">
-                        Gather around a warm hearth under the star-studded canopy. Share stories, enjoy light local music, and roasted organic treats.
-                    </p>
-                    <span class="experience-arrow font-sans">Explore <i class="fa-solid fa-arrow-right"></i></span>
-                </div>
-            </div>
-
-            <!-- Card 3: Mudhouse Living -->
-            <div class="experience-card scroll-reveal" style="transition-delay: 0.2s;">
-                <div class="experience-img-wrapper">
-                    <img src="assets/images/01 (6).jpeg" alt="Traditional Mudhouse Living" class="experience-img">
-                </div>
-                <div class="experience-info">
-                    <h4 class="experience-card-title font-serif">Earthen Mudhouse Living</h4>
-                    <p class="experience-card-desc font-sans">
-                        Participate in our signature mud architecture workshops. Get hands-on experience preparing the organic straw-clay mix, molding mud blocks, and thatching traditional palm-leaf roofs.
-                    </p>
-                    <span class="experience-arrow font-sans">Explore <i class="fa-solid fa-arrow-right"></i></span>
-                </div>
-            </div>
-
-            <!-- Card 4: Trek & Trails -->
-            <div class="experience-card scroll-reveal">
-                <div class="experience-img-wrapper">
-                    <img src="assets/images/01 (33).jpeg" alt="Trek & Trails" class="experience-img">
-                </div>
-                <div class="experience-info">
-                    <h4 class="experience-card-title font-serif">Mist & Valley Treks</h4>
-                    <p class="experience-card-desc font-sans">
-                        Embark on a scenic guided trek to the waterfalls and high viewpoints surrounding Marayoor and Kanthalloor.
-                    </p>
-                    <span class="experience-arrow font-sans">Explore <i class="fa-solid fa-arrow-right"></i></span>
-                </div>
-            </div>
-
-            <!-- Card 5: Relax & Rejuvenate -->
-            <div class="experience-card scroll-reveal" style="transition-delay: 0.1s;">
-                <div class="experience-img-wrapper">
-                    <img src="assets/images/01 (31).jpeg" alt="Relax & Rejuvenate" class="experience-img">
-                </div>
-                <div class="experience-info">
-                    <h4 class="experience-card-title font-serif">Earthy Mindfulness</h4>
-                    <p class="experience-card-desc font-sans">
-                        Unwind in nature. Indulge in yoga on our open wooden decks, read under bamboo clusters, and listen to the birds.
-                    </p>
-                    <span class="experience-arrow font-sans">Explore <i class="fa-solid fa-arrow-right"></i></span>
-                </div>
-            </div>
-
-            <!-- Card 6: Cooking Masterclass -->
-            <div class="experience-card scroll-reveal" style="transition-delay: 0.2s;">
-                <div class="experience-img-wrapper">
-                    <img src="assets/images/01 (15).jpeg" alt="Cooking Masterclass" class="experience-img">
-                </div>
-                <div class="experience-info">
-                    <h4 class="experience-card-title font-serif">Clay Pot Cooking</h4>
-                    <p class="experience-card-desc font-sans">
-                        Learn how to prepare authentic, mouth-watering Kerala dishes using traditional spices, clay vessels, and open firewood.
-                    </p>
-                    <span class="experience-arrow font-sans">Explore <i class="fa-solid fa-arrow-right"></i></span>
-                </div>
-            </div>
-
+            <?php if (!empty($experiences_list)): ?>
+                <?php foreach ($experiences_list as $idx => $exp): 
+                    $delay = ($idx % 4) * 0.1;
+                ?>
+                    <!-- Dynamic Experience Card -->
+                    <div class="experience-card scroll-reveal" style="transition-delay: <?php echo $delay; ?>s;">
+                        <div class="experience-img-wrapper">
+                            <img src="<?php echo htmlspecialchars($exp['image_url']); ?>" alt="<?php echo htmlspecialchars($exp['title']); ?>" class="experience-img" onerror="this.src='assets/images/treehouse_exterior.png'">
+                            <div class="experience-badges">
+                                <span class="exp-badge font-sans"><?php echo htmlspecialchars($exp['badge']); ?></span>
+                                <span class="exp-timing font-sans"><i class="fa-regular fa-clock"></i> <?php echo htmlspecialchars($exp['timing']); ?></span>
+                            </div>
+                        </div>
+                        <div class="experience-info">
+                            <h4 class="experience-card-title font-serif"><?php echo htmlspecialchars($exp['title']); ?></h4>
+                            <p class="experience-card-desc font-sans">
+                                <?php echo htmlspecialchars($exp['description']); ?>
+                            </p>
+                            <button type="button" class="experience-arrow font-sans open-booking-modal-btn">
+                                <span>Book Sanctuary Experience</span> <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
         </div>
-
+        
     </div>
 </section>

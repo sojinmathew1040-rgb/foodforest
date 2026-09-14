@@ -1,283 +1,1173 @@
 /* -------------------------------------------------------------
-   Food Forest — Main Interactive Javascript (GSAP, ScrollTrigger, Lenis)
+   Food Forest — Ultra-Luxury Interactive Javascript
+   (GSAP, Lenis, Web Audio Nature Soundscape, Booking Concierge)
    ------------------------------------------------------------- */
 
 document.addEventListener("DOMContentLoaded", () => {
     // Register ScrollTrigger plugin with GSAP
-    gsap.registerPlugin(ScrollTrigger);
+    if (window.gsap && window.ScrollTrigger) {
+        gsap.registerPlugin(ScrollTrigger);
+    }
 
-    // 1. Initialize Lenis Smooth Scrolling
-    const lenis = new Lenis({
-        duration: 1.2,
-        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-        direction: 'vertical',
-        gestureDirection: 'vertical',
-        smooth: true,
-        mouseMultiplier: 1,
-        smoothTouch: false,
-        touchMultiplier: 2,
-    });
+    // -------------------------------------------------------------
+    // 1. Lenis Smooth Scrolling
+    // -------------------------------------------------------------
+    let lenis = null;
+    if (typeof Lenis !== 'undefined') {
+        lenis = new Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 1,
+            smoothTouch: false,
+            touchMultiplier: 2,
+        });
 
-    // Sync ScrollTrigger with Lenis and tick Lenis via GSAP ticker for synchronized updates
-    lenis.on('scroll', ScrollTrigger.update);
-    gsap.ticker.add((time) => {
-        lenis.raf(time * 1000);
-    });
-    gsap.ticker.lagSmoothing(0);
+        if (window.ScrollTrigger) {
+            lenis.on('scroll', ScrollTrigger.update);
+            gsap.ticker.add((time) => {
+                lenis.raf(time * 1000);
+            });
+            gsap.ticker.lagSmoothing(0);
+        }
+    }
 
-    // 2. Custom Character Split Text Engine
+    // -------------------------------------------------------------
+    // 2. Character Split Text Engine
+    // -------------------------------------------------------------
     function initSplitText() {
         document.querySelectorAll('.split-text').forEach(el => {
-            const text = el.innerText;
+            if (el.getAttribute('data-split-done')) return;
+            el.setAttribute('data-split-done', 'true');
+            
+            const rawText = el.innerText;
             el.innerHTML = '';
             
-            // Handle newlines if present
-            const lines = text.split('\n');
-            lines.forEach((line, lineIdx) => {
-                const lineSpan = document.createElement('span');
-                lineSpan.style.display = 'block';
-                lineSpan.style.overflow = 'hidden';
+            const words = rawText.trim().split(/\s+/);
+            words.forEach((word, wordIdx) => {
+                const wordSpan = document.createElement('span');
+                wordSpan.style.display = 'inline-block';
+                wordSpan.style.whiteSpace = 'nowrap';
+                wordSpan.style.overflow = 'hidden';
+                wordSpan.style.verticalAlign = 'top';
                 
-                line.split('').forEach(char => {
+                word.split('').forEach(char => {
                     const span = document.createElement('span');
                     span.className = 'char';
-                    span.innerText = char === ' ' ? '\u00A0' : char;
-                    lineSpan.appendChild(span);
+                    span.style.display = 'inline-block';
+                    span.innerText = char;
+                    wordSpan.appendChild(span);
                 });
                 
-                el.appendChild(lineSpan);
-                if (lineIdx < lines.length - 1) {
-                    el.appendChild(document.createElement('br'));
+                el.appendChild(wordSpan);
+                if (wordIdx < words.length - 1) {
+                    el.appendChild(document.createTextNode(' '));
                 }
             });
         });
     }
     initSplitText();
 
-    // 3. Cinematic Hero Entrance Animation (Preloader Removed)
-    function startIntroAnimation() {
-        const introTl = gsap.timeline();
-        
-        introTl.call(() => {
-                   // Enable scroll after loading has finished
-                   document.body.style.overflowY = 'auto';
-                   // Initialize main scroll triggers
-                   initScrollAnimations();
-                   // Refresh ScrollTrigger to recalculate layout measurements
-                   ScrollTrigger.refresh();
-               })
-               // Hero Entrance
-               .fromTo('.hero-bg-container', { scale: 1.2 }, { scale: 1, duration: 2.2, ease: 'power3.out' })
-               .fromTo('.hero-tagline', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '-=1.8')
-               .fromTo('.hero-title .char', { yPercent: 100 }, { yPercent: 0, stagger: 0.015, duration: 1.0, ease: 'power4.out' }, '-=1.6')
-               .fromTo('.hero-desc', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '-=1.2')
-               .fromTo('.hero-cta', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '-=1.0')
-               .fromTo('.hero-scroll-indicator', { opacity: 0 }, { opacity: 0.7, duration: 0.5 }, '-=0.6');
-    }
-    
-    // Prevent scrolling until hero image is ready
-    document.body.style.overflowY = 'hidden';
-
-    const heroImg = document.querySelector('.hero-bg-img');
-    const heroLoader = document.querySelector('.hero-loader-overlay');
-    let heroInitialized = false;
-
-    function initHeroReveal() {
-        if (heroInitialized) return;
-        heroInitialized = true;
-
-        if (heroLoader) {
-            heroLoader.style.opacity = '0';
-            setTimeout(() => {
-                heroLoader.style.display = 'none';
-            }, 800);
-        }
-
-        if (heroImg) {
-            heroImg.classList.add('loaded');
-        }
-
-        // Delay slightly for the blur-up fade-in to settle
-        setTimeout(startIntroAnimation, 200);
-    }
-
-    if (heroImg) {
-        if (heroImg.complete) {
-            initHeroReveal();
-        } else {
-            heroImg.addEventListener('load', initHeroReveal);
-            // Safety fallback timeout (2.5 seconds max)
-            setTimeout(initHeroReveal, 2500);
-        }
-    } else {
-        initHeroReveal();
-    }
-
-    // 5. Proximity-Based Magnetic Gravity Effect
-    const magnetics = document.querySelectorAll(".magnetic, a, button, .nav-item, .btn-primary, .btn-book-now, .social-icon, .room-select-btn");
-    
-    window.addEventListener("mousemove", (e) => {
-        const mouseX = e.clientX;
-        const mouseY = e.clientY;
-        
-        magnetics.forEach(el => {
-            // Skip elements that are not currently displayed (like mobile links or hidden toggles)
-            if (el.offsetParent === null) return;
-            
-            const rect = el.getBoundingClientRect();
-            const strength = parseFloat(el.getAttribute("data-strength")) || (el.tagName === 'A' && !el.classList.contains('btn-book-now') ? 8 : 16);
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            
-            const dx = mouseX - cx;
-            const dy = mouseY - cy;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            // Magnet threshold radius (70px)
-            const threshold = 70;
-            
-            if (distance < threshold) {
-                const ratio = (threshold - distance) / threshold;
-                gsap.to(el, {
-                    x: dx * ratio * (strength / 20),
-                    y: dy * ratio * (strength / 20),
-                    duration: 0.3,
-                    ease: "power2.out"
-                });
-            } else {
-                gsap.to(el, {
-                    x: 0,
-                    y: 0,
-                    duration: 0.6,
-                    ease: "elastic.out(1.1, 0.4)"
-                });
-            }
-        });
-    });
-
-    // 6. Header Scroll Style Toggle
-    const header = document.querySelector(".main-header");
-    ScrollTrigger.create({
-        start: "top -50",
-        onUpdate: (self) => {
-            if (self.direction === 1) {
-                // Scrolling down - hide header slightly or make translucent
-                header.classList.add("scrolled");
-            } else {
-                // Scrolling up - show translucent header
-                header.classList.add("scrolled");
-            }
-            if (window.scrollY < 50) {
-                header.classList.remove("scrolled");
-            }
-        }
-    });
-
-    // 7. Mobile Navigation Toggle
-    const mobToggle = document.querySelector(".mobile-nav-toggle");
-    const mobMenu = document.querySelector(".mobile-menu");
-    
-    if (mobToggle && mobMenu) {
-        mobToggle.addEventListener("click", () => {
-            mobToggle.classList.toggle("active");
-            mobMenu.classList.toggle("active");
-            
-            if (mobMenu.classList.contains("active")) {
-                // Pin scroll when menu is open
-                lenis.stop();
-            } else {
-                lenis.start();
-            }
-        });
-
-        // Close menu on click of links
-        document.querySelectorAll(".mobile-link").forEach(link => {
-            link.addEventListener("click", () => {
-                mobToggle.classList.remove("active");
-                mobMenu.classList.remove("active");
-                lenis.start();
-            });
-        });
-    }
-
-    // 8. Testimonials Carousel Slider
-    const testimonialWrapper = document.getElementById("testimonials-wrapper");
-    const prevBtn = document.getElementById("btn-prev-testimonial");
-    const nextBtn = document.getElementById("btn-next-testimonial");
-    let testIdx = 0;
-    const totalTestimonials = document.querySelectorAll(".testimonial-card").length;
-
-    if (testimonialWrapper && prevBtn && nextBtn) {
-        function updateTestimonialSlider() {
-            gsap.to(testimonialWrapper, {
-                xPercent: -100 * testIdx,
-                duration: 0.8,
-                ease: "power3.out"
-            });
-        }
-
-        prevBtn.addEventListener("click", () => {
-            testIdx = (testIdx > 0) ? testIdx - 1 : totalTestimonials - 1;
-            updateTestimonialSlider();
-        });
-
-        nextBtn.addEventListener("click", () => {
-            testIdx = (testIdx < totalTestimonials - 1) ? testIdx + 1 : 0;
-            updateTestimonialSlider();
-        });
-    }
-
-    // 9. Scroll Reveal Animations (ScrollTrigger)
+    // -------------------------------------------------------------
+    // 3. Scroll Reveal & Hero Animation
+    // -------------------------------------------------------------
     function initScrollAnimations() {
-        // Split-text animations on scroll
-        document.querySelectorAll('.welcome-section .section-title.split-text, .experiences-section .section-title.split-text, .why-mudhouse-section .section-title.split-text, .seasons-section .section-title.split-text, .dining-section .section-title.split-text, .testimonials-section .section-title.split-text, .blog-section .section-title.split-text').forEach(title => {
-            gsap.fromTo(title.querySelectorAll('.char'), 
-                { yPercent: 100 }, 
-                {
-                    yPercent: 0,
-                    stagger: 0.012,
-                    duration: 0.8,
-                    ease: 'power3.out',
-                    scrollTrigger: {
-                        trigger: title,
-                        start: 'top 85%',
-                        toggleActions: 'play none none none'
-                    }
+        const heroBgImg = document.querySelector('.hero-bg-img');
+        if (heroBgImg) {
+            if (heroBgImg.complete) {
+                heroBgImg.classList.add('loaded');
+            } else {
+                heroBgImg.addEventListener('load', () => heroBgImg.classList.add('loaded'));
+            }
+        }
+
+        // Scroll reveals for cards and text blocks
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    observer.unobserve(entry.target);
                 }
-            );
+            });
+        }, { threshold: 0.15 });
+
+        document.querySelectorAll('.scroll-reveal').forEach(el => observer.observe(el));
+
+    function handleScrollEffects(scrolled) {
+        const heroBg = document.querySelector('.hero-bg-container');
+        if (heroBg && scrolled < window.innerHeight) {
+            heroBg.style.transform = `translateY(${scrolled * 0.35}px) scale(1.05)`;
+        }
+
+        // Header state change
+        const header = document.getElementById('site-header');
+        if (header) {
+            if (scrolled > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        }
+
+        // Sticky booking pill visibility
+        const stickyPill = document.getElementById('sticky-booking-pill');
+        if (stickyPill) {
+            if (scrolled > 450) {
+                stickyPill.classList.add('visible');
+            } else {
+                stickyPill.classList.remove('visible');
+            }
+        }
+    }
+
+    // Connect with Lenis scroll
+    if (lenis) {
+        lenis.on('scroll', (e) => {
+            const scrollPos = typeof e.scroll !== 'undefined' ? e.scroll : window.scrollY;
+            handleScrollEffects(scrollPos);
+        });
+    }
+
+    // Parallax & scroll effects listener fallback
+    window.addEventListener('scroll', () => {
+        handleScrollEffects(window.scrollY);
+    });
+}
+initScrollAnimations();
+
+    // -------------------------------------------------------------
+    // 4. Ambient Nature Soundscape (Web Audio API)
+    // -------------------------------------------------------------
+    let audioCtx = null;
+    let isSoundPlaying = false;
+    let noiseNode = null;
+    let birdInterval = null;
+    let gainNode = null;
+
+    function initNatureAudio() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+
+            // Create gentle stream/wind pink noise
+            const bufferSize = audioCtx.sampleRate * 2;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = buffer.getChannelData(0);
+            let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                const white = Math.random() * 2 - 1;
+                b0 = 0.99886 * b0 + white * 0.0555179;
+                b1 = 0.99332 * b1 + white * 0.0750759;
+                b2 = 0.96900 * b2 + white * 0.1538520;
+                b3 = 0.86650 * b3 + white * 0.3104856;
+                b4 = 0.55000 * b4 + white * 0.5329522;
+                b5 = -0.7616 * b5 - white * 0.0168980;
+                output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.04;
+                b6 = white * 0.115926;
+            }
+
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = buffer;
+            noiseNode.loop = true;
+
+            // Low-pass filter for soft mountain breeze and water rustle
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(380, audioCtx.currentTime);
+
+            gainNode = audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0.001, audioCtx.currentTime);
+
+            noiseNode.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            noiseNode.start();
+
+            // Subtle occasional high-altitude bird call synthesis
+            function playBirdCall() {
+                if (!isSoundPlaying || !audioCtx) return;
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const birdGain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    const baseFreq = 2200 + Math.random() * 800;
+                    osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(baseFreq + 600, audioCtx.currentTime + 0.08);
+                    osc.frequency.exponentialRampToValueAtTime(baseFreq - 300, audioCtx.currentTime + 0.18);
+
+                    birdGain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+                    birdGain.gain.linearRampToValueAtTime(0.025, audioCtx.currentTime + 0.05);
+                    birdGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.25);
+
+                    osc.connect(birdGain);
+                    birdGain.connect(audioCtx.destination);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } catch (e) {}
+            }
+
+            birdInterval = setInterval(() => {
+                if (isSoundPlaying && Math.random() > 0.4) {
+                    playBirdCall();
+                }
+            }, 4500);
+
+        } catch (e) {
+            console.warn("Web Audio not supported or blocked", e);
+        }
+    }
+
+    const audioToggleBtn = document.getElementById("ambient-audio-toggle");
+    const soundStatusLabel = document.getElementById("sound-status-label");
+
+    if (audioToggleBtn) {
+        audioToggleBtn.addEventListener("click", () => {
+            if (!audioCtx) {
+                initNatureAudio();
+            }
+
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            isSoundPlaying = !isSoundPlaying;
+
+            if (isSoundPlaying) {
+                audioToggleBtn.classList.add("playing");
+                if (soundStatusLabel) soundStatusLabel.innerText = "ON";
+                if (gainNode && audioCtx) {
+                    gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 1.5);
+                }
+            } else {
+                audioToggleBtn.classList.remove("playing");
+                if (soundStatusLabel) soundStatusLabel.innerText = "OFF";
+                if (gainNode && audioCtx) {
+                    gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+                }
+            }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 5. Booking Dates Setup & Synchronization
+    // -------------------------------------------------------------
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date(tomorrow);
+    dayAfter.setDate(dayAfter.getDate() + 2);
+
+    function formatDate(d) {
+        return d.toISOString().split('T')[0];
+    }
+
+    const heroCheckin = document.getElementById('hero-checkin');
+    const heroCheckout = document.getElementById('hero-checkout');
+    const modalCheckin = document.getElementById('modal-checkin');
+    const modalCheckout = document.getElementById('modal-checkout');
+
+    if (heroCheckin && heroCheckout) {
+        heroCheckin.value = formatDate(tomorrow);
+        heroCheckin.min = formatDate(today);
+        heroCheckout.value = formatDate(dayAfter);
+        heroCheckout.min = formatDate(tomorrow);
+
+        heroCheckin.addEventListener('change', () => {
+            const nextDay = new Date(heroCheckin.value);
+            nextDay.setDate(nextDay.getDate() + 1);
+            heroCheckout.min = formatDate(nextDay);
+            if (new Date(heroCheckout.value) <= new Date(heroCheckin.value)) {
+                heroCheckout.value = formatDate(nextDay);
+            }
+            if (modalCheckin) modalCheckin.value = heroCheckin.value;
+            if (modalCheckout) modalCheckout.value = heroCheckout.value;
+            recalculateBookingSummary();
         });
 
-        // Parallax image scrolling
-        document.querySelectorAll('[data-speed]').forEach(el => {
-            const speed = parseFloat(el.getAttribute('data-speed')) || 0.1;
-            gsap.to(el, {
-                yPercent: speed * 100,
-                ease: 'none',
-                scrollTrigger: {
-                    trigger: el,
-                    scrub: true,
-                    start: 'top bottom',
-                    end: 'bottom top'
+        heroCheckout.addEventListener('change', () => {
+            if (modalCheckout) modalCheckout.value = heroCheckout.value;
+            recalculateBookingSummary();
+        });
+    }
+
+    if (modalCheckin && modalCheckout) {
+        modalCheckin.value = formatDate(tomorrow);
+        modalCheckin.min = formatDate(today);
+        modalCheckout.value = formatDate(dayAfter);
+        modalCheckout.min = formatDate(tomorrow);
+
+        modalCheckin.addEventListener('change', () => {
+            const nextDay = new Date(modalCheckin.value);
+            nextDay.setDate(nextDay.getDate() + 1);
+            modalCheckout.min = formatDate(nextDay);
+            if (new Date(modalCheckout.value) <= new Date(modalCheckin.value)) {
+                modalCheckout.value = formatDate(nextDay);
+            }
+            if (heroCheckin) heroCheckin.value = modalCheckin.value;
+            if (heroCheckout) heroCheckout.value = modalCheckout.value;
+            recalculateBookingSummary();
+        });
+
+        modalCheckout.addEventListener('change', () => {
+            if (heroCheckout) heroCheckout.value = modalCheckout.value;
+            recalculateBookingSummary();
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 6. Interactive Booking Concierge Modal Logic
+    // -------------------------------------------------------------
+    const bookingModal = document.getElementById('booking-modal');
+    const modalCloseBtn = document.getElementById('booking-modal-close');
+    const modalBackdrop = document.querySelector('.booking-modal-backdrop');
+    const modalVillaSelect = document.getElementById('modal-villa');
+    const modalGuestsSelect = document.getElementById('modal-guests');
+
+    function openBookingModal(preferredVilla) {
+        if (!bookingModal) return;
+        
+        if (preferredVilla && modalVillaSelect) {
+            modalVillaSelect.value = preferredVilla;
+        } else if (document.getElementById('hero-villa') && modalVillaSelect) {
+            modalVillaSelect.value = document.getElementById('hero-villa').value;
+        }
+
+        if (document.getElementById('hero-guests') && modalGuestsSelect) {
+            modalGuestsSelect.value = document.getElementById('hero-guests').value;
+        }
+
+        recalculateBookingSummary();
+        bookingModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        if (lenis) lenis.stop();
+    }
+
+    function closeBookingModal() {
+        if (!bookingModal) return;
+        bookingModal.classList.remove('active');
+        document.body.style.overflow = '';
+        if (lenis) lenis.start();
+    }
+
+    // Allow native scrolling and wheel propagation within modal container
+    const modalScrollContainer = document.querySelector('.booking-modal-container');
+    if (modalScrollContainer) {
+        modalScrollContainer.addEventListener('wheel', (e) => {
+            e.stopPropagation();
+        }, { passive: true });
+        modalScrollContainer.addEventListener('touchmove', (e) => {
+            e.stopPropagation();
+        }, { passive: true });
+    }
+
+    // Bind open modal buttons
+    document.querySelectorAll('.open-booking-modal-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const villa = btn.getAttribute('data-villa');
+            openBookingModal(villa);
+        });
+    });
+
+    const heroCheckAvailabilityBtn = document.getElementById('btn-hero-check-availability');
+    if (heroCheckAvailabilityBtn) {
+        heroCheckAvailabilityBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const villa = document.getElementById('hero-villa') ? document.getElementById('hero-villa').value : 'treehouse';
+            openBookingModal(villa);
+        });
+    }
+
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeBookingModal();
+        });
+    }
+    if (modalBackdrop) modalBackdrop.addEventListener('click', closeBookingModal);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && bookingModal && bookingModal.classList.contains('active')) {
+            closeBookingModal();
+        }
+    });
+
+    // Price Calculation
+    function recalculateBookingSummary() {
+        if (!modalCheckin || !modalCheckout || !modalVillaSelect) return;
+
+        const checkinDate = new Date(modalCheckin.value);
+        const checkoutDate = new Date(modalCheckout.value);
+        let nights = Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24));
+        if (isNaN(nights) || nights < 1) nights = 1;
+
+        const selectedOption = modalVillaSelect.options[modalVillaSelect.selectedIndex];
+        const villaPrice = parseInt(selectedOption.getAttribute('data-price') || "14500", 10);
+        const villaName = selectedOption.getAttribute('data-name') || "Luxury Canopy Treehouse";
+
+        // Addons total
+        let addonsTotal = 0;
+        document.querySelectorAll('.addon-checkbox:checked').forEach(addon => {
+            addonsTotal += parseInt(addon.getAttribute('data-price') || "0", 10);
+        });
+
+        const stayTotal = (villaPrice * nights) + addonsTotal;
+
+        // Update summary elements
+        const summaryNights = document.getElementById('summary-nights');
+        const summaryVillaRate = document.getElementById('summary-villa-rate');
+        const summaryAddonsLine = document.getElementById('summary-addons-line');
+        const summaryAddonsRate = document.getElementById('summary-addons-rate');
+        const summaryTotal = document.getElementById('summary-total');
+
+        if (summaryNights) summaryNights.innerText = `${nights} ${nights === 1 ? 'Night' : 'Nights'}`;
+        if (summaryVillaRate) summaryVillaRate.innerText = `₹${(villaPrice * nights).toLocaleString('en-IN')}`;
+
+        if (summaryAddonsLine && summaryAddonsRate) {
+            if (addonsTotal > 0) {
+                summaryAddonsLine.style.display = 'flex';
+                summaryAddonsRate.innerText = `+₹${addonsTotal.toLocaleString('en-IN')}`;
+            } else {
+                summaryAddonsLine.style.display = 'none';
+            }
+        }
+
+        if (summaryTotal) summaryTotal.innerText = `₹${stayTotal.toLocaleString('en-IN')}`;
+    }
+
+    if (modalVillaSelect) modalVillaSelect.addEventListener('change', recalculateBookingSummary);
+    document.querySelectorAll('.addon-checkbox').forEach(cb => {
+        cb.addEventListener('change', recalculateBookingSummary);
+    });
+
+    // -------------------------------------------------------------
+    // 7. Instant WhatsApp & Live Concierge Form Dispatch
+    // -------------------------------------------------------------
+    async function saveBookingToDatabase(payload) {
+        try {
+            const res = await fetch('api/book.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await res.json();
+        } catch (err) {
+            console.error('Booking save error:', err);
+            return null;
+        }
+    }
+
+    const whatsappSubmitBtn = document.getElementById('btn-submit-whatsapp');
+    if (whatsappSubmitBtn) {
+        whatsappSubmitBtn.addEventListener('click', async () => {
+            const guestName = document.getElementById('modal-name')?.value.trim() || 'Guest';
+            const guestPhone = document.getElementById('modal-phone')?.value.trim() || '';
+            const guestEmail = document.getElementById('modal-email')?.value.trim() || '';
+            const guestNotes = document.getElementById('modal-notes')?.value.trim() || 'None';
+
+            if (!guestName || !guestPhone) {
+                alert('Please enter your full name and WhatsApp contact number before connecting.');
+                document.getElementById('modal-name')?.focus();
+                return;
+            }
+
+            const villaName = modalVillaSelect?.options[modalVillaSelect.selectedIndex]?.text.split('(')[0].trim() || 'Luxury Villa';
+            const villaSlug = modalVillaSelect?.value || 'treehouse';
+            const guestsCount = modalGuestsSelect?.value || '2';
+            const checkin = modalCheckin?.value || '';
+            const checkout = modalCheckout?.value || '';
+            const total = document.getElementById('summary-total')?.innerText || '₹14,500';
+
+            const addonsList = [];
+            document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
+                const card = cb.closest('.addon-card');
+                const name = card?.querySelector('.addon-name')?.innerText || 'Experience';
+                addonsList.push(name);
+            });
+            const addonsText = addonsList.length > 0 ? addonsList.join(', ') : 'None';
+
+            // Also record in estate database
+            const dbPayload = {
+                name: guestName,
+                phone: guestPhone,
+                email: guestEmail,
+                villa: villaSlug,
+                guests: guestsCount,
+                checkin: checkin,
+                checkout: checkout,
+                addons: addonsText,
+                notes: guestNotes
+            };
+            const saveRes = await saveBookingToDatabase(dbPayload);
+            const refCode = saveRes?.reference_code || 'FF-' + Math.floor(1000 + Math.random() * 9000);
+
+            const message = `🌿 *RESERVATION ENQUIRY — FOOD FOREST KANTHALLOOR* 🌿\n\n` +
+                `• *Booking Reference*: #${refCode}\n` +
+                `• *Guest Name*: ${guestName}\n` +
+                `• *Phone / WhatsApp*: ${guestPhone}\n` +
+                `• *Email*: ${guestEmail}\n\n` +
+                `• *Sanctuary Stay*: ${villaName}\n` +
+                `• *Check-in*: ${checkin}\n` +
+                `• *Check-out*: ${checkout}\n` +
+                `• *Guests*: ${guestsCount}\n` +
+                `• *Add-On Experiences*: ${addonsText}\n` +
+                `• *Estimated Total*: ${total} (All Organic Meals Included)\n\n` +
+                `• *Special Requests*: ${guestNotes}\n\n` +
+                `Kindly confirm availability and reserve our sanctuary stay. Thank you!`;
+
+            const encodedMessage = encodeURIComponent(message);
+            const whatsappUrl = `https://wa.me/919234567890?text=${encodedMessage}`;
+            window.open(whatsappUrl, '_blank');
+        });
+    }
+
+    // Email / Form Submit Confirmation
+    const luxuryBookingForm = document.getElementById('luxury-booking-form');
+    if (luxuryBookingForm) {
+        luxuryBookingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('btn-submit-email');
+            const guestName = document.getElementById('modal-name')?.value.trim();
+            const guestPhone = document.getElementById('modal-phone')?.value.trim();
+            const guestEmail = document.getElementById('modal-email')?.value.trim();
+            const guestNotes = document.getElementById('modal-notes')?.value.trim();
+            const villaSlug = modalVillaSelect?.value || 'treehouse';
+            const guestsCount = modalGuestsSelect?.value || '2';
+            const checkin = modalCheckin?.value;
+            const checkout = modalCheckout?.value;
+
+            const addonsList = [];
+            document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
+                const card = cb.closest('.addon-card');
+                const name = card?.querySelector('.addon-name')?.innerText || 'Experience';
+                addonsList.push(name);
+            });
+            const addonsText = addonsList.length > 0 ? addonsList.join(', ') : 'None';
+
+            if (submitBtn) {
+                const originalHtml = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Securing Reservation...</span>';
+
+                const dbPayload = {
+                    name: guestName,
+                    phone: guestPhone,
+                    email: guestEmail,
+                    villa: villaSlug,
+                    guests: guestsCount,
+                    checkin: checkin,
+                    checkout: checkout,
+                    addons: addonsText,
+                    notes: guestNotes
+                };
+
+                const res = await saveBookingToDatabase(dbPayload);
+
+                if (res && res.success) {
+                    submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Confirmed! Ref: ${res.reference_code}</span>`;
+                    submitBtn.style.backgroundColor = 'var(--accent-green)';
+                    submitBtn.style.color = '#FFFFFF';
+                    alert(`✨ Thank you, ${res.guest_name}!\n\nYour reservation request has been registered under Reference Code: ${res.reference_code}.\n\nOur Master Concierge will contact you within 30 minutes to confirm your stay.`);
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalHtml;
+                        submitBtn.style.backgroundColor = '';
+                        submitBtn.style.color = '';
+                        closeBookingModal();
+                    }, 2500);
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    alert('Could not submit reservation. Please connect directly via WhatsApp Concierge.');
+                }
+            }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 8. Gastronomy Menu Tab Switcher
+    // -------------------------------------------------------------
+    const gastroTabs = document.querySelectorAll('.gastro-tab-btn');
+    const gastroPanes = document.querySelectorAll('.gastro-tab-pane');
+
+    gastroTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            gastroTabs.forEach(t => t.classList.remove('active'));
+            gastroPanes.forEach(p => {
+                p.style.display = 'none';
+                p.classList.remove('active');
+            });
+
+            tab.classList.add('active');
+            const targetId = tab.getAttribute('data-target');
+            const targetPane = document.getElementById(targetId);
+            if (targetPane) {
+                targetPane.style.display = 'block';
+                setTimeout(() => targetPane.classList.add('active'), 20);
+            }
+        });
+    });
+
+    // -------------------------------------------------------------
+    // 9. Mobile Menu Navigation Toggle
+    // -------------------------------------------------------------
+    const navToggle = document.querySelector('.mobile-nav-toggle');
+    const mobileMenu = document.querySelector('.mobile-menu');
+
+    if (navToggle && mobileMenu) {
+        navToggle.addEventListener('click', () => {
+            navToggle.classList.toggle('active');
+            mobileMenu.classList.toggle('active');
+            document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+        });
+
+        document.querySelectorAll('.mobile-link').forEach(link => {
+            link.addEventListener('click', () => {
+                navToggle.classList.remove('active');
+                mobileMenu.classList.remove('active');
+                document.body.style.overflow = '';
+            });
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 10. Newsletter Form
+    // -------------------------------------------------------------
+    const newsletterForm = document.getElementById('sanctuary-newsletter-form');
+    const newsletterMsg = document.getElementById('newsletter-msg');
+    if (newsletterForm) {
+        newsletterForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (newsletterMsg) {
+                newsletterMsg.style.display = 'block';
+                newsletterForm.reset();
+                setTimeout(() => {
+                    newsletterMsg.style.display = 'none';
+                }, 4000);
+            }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 12. Interactive Sanctuary Estate Map Controller
+    // -------------------------------------------------------------
+    function initSanctuaryMap() {
+        const mapBoard = document.getElementById('sanctuary-map-board');
+        if (!mapBoard) return;
+
+        const zones = [
+            {
+                id: 1,
+                num: "ZONE 01",
+                category: "nature",
+                type: "ORCHARD & TRAILS",
+                title: "The Heirloom Orchard Trails",
+                alt: "1,580M MSL",
+                temp: "18°C Alpine Breeze",
+                img: "assets/images/01 (24).jpeg",
+                desc: "Apple, plum, peach, and wild berry groves where guests can wander and harvest directly from low-hanging branches. Meandering cobblestone trails weave through terraced organic slopes nurtured without synthetic fertilizers.",
+                aroma: "Ripening plums, sweet clover & mountain pine",
+                sound: "Rustling leaves, Himalayan bulbul calls",
+                ctaText: "Explore Dwellings",
+                ctaLink: "#rooms"
+            },
+            {
+                id: 2,
+                num: "ZONE 02",
+                category: "stays",
+                type: "HIGH CANOPY LIVING",
+                title: "The High Canopy Treehouse Ridge",
+                alt: "1,640M MSL",
+                temp: "17°C Cloud Blanket",
+                img: "assets/images/treehouse_exterior.png",
+                desc: "Perched atop century-old silver oak and cedar trees along a dramatic cliff edge. Watch rolling morning mist blanket the valley below from 30 feet above the forest floor with panoramic views.",
+                aroma: "Cedar bark, wild honey & misty petrichor",
+                sound: "High wind chime, whispering pines, cicadas",
+                ctaText: "Book Treehouse",
+                ctaLink: "#booking-modal"
+            },
+            {
+                id: 3,
+                num: "ZONE 03",
+                category: "stays",
+                type: "EARTHEN DWELLING",
+                title: "The Earthen Mudhouse Enclave",
+                alt: "1,600M MSL",
+                temp: "21°C Thermal Comfort",
+                img: "assets/images/mudhouse_exterior.png",
+                desc: "Handcrafted cob clay cottages sculpted from native red soil, river sand, and straw. Naturally insulated to maintain cozy warmth during crisp mountain nights, flanked by private medicinal herb courtyards.",
+                aroma: "Sun-baked earth, vetiver & woodsmoke",
+                sound: "Crackling hearth embers, crickets",
+                ctaText: "Book Mudhouse",
+                ctaLink: "#booking-modal"
+            },
+            {
+                id: 4,
+                num: "ZONE 04",
+                category: "features",
+                type: "PERENNIAL WATERS",
+                title: "Crystal Mountain Brook & Cascade",
+                alt: "1,560M MSL",
+                temp: "15°C Spring Freshwater",
+                img: "assets/images/01 (28).jpeg",
+                desc: "Pristine glacial-pure mountain springs cascading through mossy boulders and fern-fringed natural pools. An acoustic heart of the sanctuary offering serene natural cold plunges and riverside meditation.",
+                aroma: "Fern leaves, damp river stones & mineral mist",
+                sound: "Melodic rushing stream, pebble resonance",
+                ctaText: "Explore Waters",
+                ctaLink: "#experiences"
+            },
+            {
+                id: 5,
+                num: "ZONE 05",
+                category: "features",
+                type: "DARK SKY SANCTUARY",
+                title: "Dark Sky Stargazing Horizon",
+                alt: "1,660M MSL",
+                temp: "14°C Crisp Night Air",
+                img: "assets/images/01 (25).jpeg",
+                desc: "Situated at the highest vantage ridge of the estate with Bortle Class 1 unpolluted darkness. Nightfall reveals the Milky Way in breathtaking clarity with zero light interference.",
+                aroma: "Night-blooming jasmine & highland dew",
+                sound: "Complete acoustic stillness, occasional nightjar call",
+                ctaText: "Stargazing Nights",
+                ctaLink: "#experiences"
+            },
+            {
+                id: 6,
+                num: "ZONE 06",
+                category: "nature",
+                type: "FARM GASTRONOMY",
+                title: "The Forest Hearth & Farm Table",
+                alt: "1,595M MSL",
+                temp: "20°C Hearth Fire Warmth",
+                img: "assets/images/01 (31).jpeg",
+                desc: "Open-air farm gazebo and earthen hearth where food moves from permaculture garden to plate in minutes. Traditional slow-cooked earthenware pots over wood embers and fresh orchard juices.",
+                aroma: "Roasted cardamom, sourdough & woodfire embers",
+                sound: "Sizzling iron skillets, birdsong",
+                ctaText: "View Gastronomy",
+                ctaLink: "#dining"
+            }
+        ];
+
+        let currentIdx = 0;
+        const pins = document.querySelectorAll('.sanctuary-pin');
+        const filterBtns = document.querySelectorAll('.map-filter-btn');
+
+        // Inspector DOM Elements
+        const insNum = document.getElementById('ins-zone-num');
+        const insType = document.getElementById('ins-zone-type');
+        const insTitle = document.getElementById('ins-title');
+        const insDesc = document.getElementById('ins-desc');
+        const insImg = document.getElementById('ins-img');
+        const insTagAlt = document.getElementById('ins-tag-alt');
+        const insTagTemp = document.getElementById('ins-tag-temp');
+        const insAroma = document.getElementById('ins-aroma');
+        const insSound = document.getElementById('ins-sound');
+        const insCurrIdx = document.getElementById('ins-curr-idx');
+        const insCtaBtn = document.getElementById('ins-cta-btn');
+        const insPrevBtn = document.getElementById('ins-prev-btn');
+        const insNextBtn = document.getElementById('ins-next-btn');
+        const insSoundBtn = document.getElementById('ins-sound-toggle-btn');
+
+        function updateZoneView(index) {
+            if (index < 0 || index >= zones.length) return;
+            currentIdx = index;
+            const zone = zones[index];
+
+            // Animate Pins
+            pins.forEach(pin => {
+                const zId = parseInt(pin.getAttribute('data-zone'), 10);
+                if (zId === zone.id) {
+                    pin.classList.add('active');
+                } else {
+                    pin.classList.remove('active');
+                }
+            });
+
+            // Transition Image & Details
+            if (insImg) {
+                insImg.classList.add('fade');
+                setTimeout(() => {
+                    insImg.src = zone.img;
+                    insImg.alt = zone.title;
+                    insImg.classList.remove('fade');
+                }, 180);
+            }
+
+            if (insNum) insNum.innerText = zone.num;
+            if (insType) insType.innerText = zone.type;
+            if (insTitle) insTitle.innerText = zone.title;
+            if (insDesc) insDesc.innerText = zone.desc;
+            if (insCurrIdx) insCurrIdx.innerText = index + 1;
+
+            if (insTagAlt) {
+                insTagAlt.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg> ${zone.alt}`;
+            }
+            if (insTagTemp) {
+                insTagTemp.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg> ${zone.temp}`;
+            }
+
+            if (insAroma) insAroma.innerText = zone.aroma;
+            if (insSound) insSound.innerText = zone.sound;
+
+            if (insCtaBtn) {
+                const ctaSpan = insCtaBtn.querySelector('span');
+                if (ctaSpan) ctaSpan.innerText = zone.ctaText;
+                insCtaBtn.setAttribute('href', zone.ctaLink);
+
+                // If modal trigger
+                if (zone.ctaLink === '#booking-modal') {
+                    insCtaBtn.onclick = (e) => {
+                        e.preventDefault();
+                        const openBookingModal = window.openBookingModal;
+                        if (typeof openBookingModal === 'function') {
+                            openBookingModal(zone.id === 2 ? 'treehouse' : 'mudhouse');
+                        } else {
+                            const modal = document.getElementById('booking-modal');
+                            if (modal) modal.classList.add('active');
+                        }
+                    };
+                } else {
+                    insCtaBtn.onclick = null;
+                }
+            }
+        }
+
+        // Pin Click and Hover Events
+        pins.forEach(pin => {
+            pin.addEventListener('click', () => {
+                const zId = parseInt(pin.getAttribute('data-zone'), 10);
+                const targetIdx = zones.findIndex(z => z.id === zId);
+                if (targetIdx !== -1) {
+                    updateZoneView(targetIdx);
+                }
+            });
+            pin.addEventListener('mouseenter', () => {
+                const zId = parseInt(pin.getAttribute('data-zone'), 10);
+                const targetIdx = zones.findIndex(z => z.id === zId);
+                if (targetIdx !== -1 && targetIdx !== currentIdx) {
+                    updateZoneView(targetIdx);
                 }
             });
         });
 
-        // Standard Scroll Reveal items (cards, details)
-        document.querySelectorAll('.scroll-reveal').forEach(el => {
-            gsap.fromTo(el,
-                { opacity: 0, y: 50 },
-                {
-                    opacity: 1,
-                    y: 0,
-                    duration: 0.8,
-                    ease: "power2.out",
-                    scrollTrigger: {
-                        trigger: el,
-                        start: "top 88%",
-                        toggleActions: "play none none none"
+        // Prev & Next Buttons
+        if (insPrevBtn) {
+            insPrevBtn.addEventListener('click', () => {
+                const newIdx = (currentIdx - 1 + zones.length) % zones.length;
+                updateZoneView(newIdx);
+            });
+        }
+        if (insNextBtn) {
+            insNextBtn.addEventListener('click', () => {
+                const newIdx = (currentIdx + 1) % zones.length;
+                updateZoneView(newIdx);
+            });
+        }
+
+        // Category Filter Buttons
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const filter = btn.getAttribute('data-filter');
+                let firstVisibleIdx = -1;
+
+                pins.forEach((pin, pIdx) => {
+                    const pinCategory = pin.getAttribute('data-category');
+                    if (filter === 'all' || pinCategory === filter) {
+                        pin.classList.remove('filtered-out');
+                        if (firstVisibleIdx === -1) {
+                            firstVisibleIdx = pIdx;
+                        }
+                    } else {
+                        pin.classList.add('filtered-out');
+                    }
+                });
+
+                // If current zone is now filtered out, switch to first visible
+                const currentPin = pins[currentIdx];
+                if (currentPin && currentPin.classList.contains('filtered-out') && firstVisibleIdx !== -1) {
+                    updateZoneView(firstVisibleIdx);
+                }
+            });
+        });
+
+        // Sync Audio button with Header Sound Player
+        // Sync Audio button with Header Sound Player
+        if (insSoundBtn) {
+            const masterAudioBtn = document.getElementById('ambient-audio-toggle');
+            insSoundBtn.addEventListener('click', () => {
+                if (masterAudioBtn) {
+                    masterAudioBtn.click();
+                    const isPlaying = masterAudioBtn.classList.contains('playing');
+                    const label = insSoundBtn.querySelector('span');
+                    if (label) {
+                        label.innerText = isPlaying ? "Mute Nature Audio" : "Sanctuary Audio";
                     }
                 }
-            );
+            });
+        }
+    }
+    initSanctuaryMap();
+
+    // -------------------------------------------------------------
+    // 13. Sanctuary Visual Gallery & Interactive Lightbox Controller
+    // -------------------------------------------------------------
+    function initGallery() {
+        const galleryGrid = document.getElementById('gallery-grid');
+        const lightbox = document.getElementById('luxury-lightbox');
+        if (!galleryGrid || !lightbox) return;
+
+        const cards = Array.from(galleryGrid.querySelectorAll('.gallery-card'));
+        const filterBtns = document.querySelectorAll('.gallery-filter-btn');
+
+        // Lightbox Elements
+        const lbImg = document.getElementById('lb-active-img');
+        const lbTitle = document.getElementById('lb-title');
+        const lbCaption = document.getElementById('lb-caption');
+        const lbTag = document.getElementById('lb-tag');
+        const lbCurrIdx = document.getElementById('lb-curr-index');
+        const lbTotalCount = document.getElementById('lb-total-count');
+        const lbCloseBtn = document.getElementById('lb-close-btn');
+        const lbPrevBtn = document.getElementById('lb-prev-btn');
+        const lbNextBtn = document.getElementById('lb-next-btn');
+        const lbBackdrop = lightbox.querySelector('.lightbox-backdrop');
+
+        let currentActiveCards = [...cards];
+        let currentPhotoIndex = 0;
+
+        function getCardData(card) {
+            const img = card.querySelector('.gallery-img');
+            return {
+                src: img ? img.src : '',
+                title: card.getAttribute('data-title') || '',
+                caption: card.getAttribute('data-caption') || '',
+                tag: card.getAttribute('data-tag') || 'SANCTUARY'
+            };
+        }
+
+        function updateLightboxContent() {
+            const activeCard = currentActiveCards[currentPhotoIndex];
+            if (!activeCard) return;
+            const data = getCardData(activeCard);
+
+            if (lbImg) {
+                lbImg.classList.add('fade');
+                setTimeout(() => {
+                    lbImg.src = data.src;
+                    lbImg.alt = data.title;
+                    lbImg.classList.remove('fade');
+                }, 140);
+            }
+
+            if (lbTitle) lbTitle.innerText = data.title;
+            if (lbCaption) lbCaption.innerText = data.caption;
+            if (lbTag) lbTag.innerText = data.tag;
+            if (lbCurrIdx) lbCurrIdx.innerText = String(currentPhotoIndex + 1).padStart(2, '0');
+            if (lbTotalCount) lbTotalCount.innerText = String(currentActiveCards.length).padStart(2, '0');
+        }
+
+        function openLightbox(index) {
+            if (index < 0 || index >= currentActiveCards.length) return;
+            currentPhotoIndex = index;
+            updateLightboxContent();
+            lightbox.classList.add('active');
+            lightbox.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            lightbox.classList.remove('active');
+            lightbox.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+
+        function nextPhoto() {
+            if (currentActiveCards.length === 0) return;
+            currentPhotoIndex = (currentPhotoIndex + 1) % currentActiveCards.length;
+            updateLightboxContent();
+        }
+
+        function prevPhoto() {
+            if (currentActiveCards.length === 0) return;
+            currentPhotoIndex = (currentPhotoIndex - 1 + currentActiveCards.length) % currentActiveCards.length;
+            updateLightboxContent();
+        }
+
+        // Card Click Handlers
+        cards.forEach((card) => {
+            card.addEventListener('click', () => {
+                const idxInActive = currentActiveCards.indexOf(card);
+                if (idxInActive !== -1) {
+                    openLightbox(idxInActive);
+                }
+            });
+        });
+
+        // Lightbox Navigation Controls
+        if (lbCloseBtn) lbCloseBtn.addEventListener('click', closeLightbox);
+        if (lbBackdrop) lbBackdrop.addEventListener('click', closeLightbox);
+        if (lbNextBtn) lbNextBtn.addEventListener('click', nextPhoto);
+        if (lbPrevBtn) lbPrevBtn.addEventListener('click', prevPhoto);
+
+        // Keyboard Navigation
+        window.addEventListener('keydown', (e) => {
+            if (!lightbox.classList.contains('active')) return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowRight') nextPhoto();
+            if (e.key === 'ArrowLeft') prevPhoto();
+        });
+
+        // Category Filter Buttons
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const filter = btn.getAttribute('data-filter');
+                currentActiveCards = [];
+
+                cards.forEach(card => {
+                    const cardCat = card.getAttribute('data-category');
+                    if (filter === 'all' || cardCat === filter) {
+                        card.classList.remove('hidden');
+                        currentActiveCards.push(card);
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+            });
+        });
+    }
+    initGallery();
+
+    // -------------------------------------------------------------
+    // 15. Guest Stories (Testimonials) Interactive Carousel Controller
+    // -------------------------------------------------------------
+    function initTestimonialsCarousel() {
+        const track = document.getElementById('testimonials-track');
+        if (!track) return;
+
+        const btnPrev = document.getElementById('btn-prev-testimonial');
+        const btnNext = document.getElementById('btn-next-testimonial');
+        let isDown = false;
+        let startX = 0;
+        let scrollLeft = 0;
+        let isPaused = false;
+        let autoScrollSpeed = 0.65; // pixels per animation frame
+        let animationFrameId = null;
+
+        // Auto-Scroll Loop
+        function autoScroll() {
+            if (!isPaused && !isDown) {
+                if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 1) {
+                    track.scrollLeft = 0;
+                } else {
+                    track.scrollLeft += autoScrollSpeed;
+                }
+            }
+            animationFrameId = requestAnimationFrame(autoScroll);
+        }
+        animationFrameId = requestAnimationFrame(autoScroll);
+
+        // Pause on Hover
+        track.addEventListener('mouseenter', () => { isPaused = true; });
+        track.addEventListener('mouseleave', () => {
+            if (!isDown) isPaused = false;
+        });
+
+        // Touch Interaction (Mobile Hand Scrolling)
+        track.addEventListener('touchstart', () => { isPaused = true; }, { passive: true });
+        track.addEventListener('touchend', () => {
+            setTimeout(() => { isPaused = false; }, 1400);
+        }, { passive: true });
+
+        // Mouse Drag to Scroll (Desktop Hand & Mouse)
+        track.addEventListener('mousedown', (e) => {
+            isDown = true;
+            isPaused = true;
+            track.classList.add('grabbing');
+            startX = e.pageX - track.offsetLeft;
+            scrollLeft = track.scrollLeft;
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDown) {
+                isDown = false;
+                track.classList.remove('grabbing');
+                setTimeout(() => { isPaused = false; }, 1600);
+            }
+        });
+
+        track.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - track.offsetLeft;
+            const walk = (x - startX) * 1.5;
+            track.scrollLeft = scrollLeft - walk;
+        });
+
+        // Prev & Next Buttons
+        if (btnPrev) {
+            btnPrev.addEventListener('click', () => {
+                isPaused = true;
+                const cardWidth = 404; // 380px card + 24px gap
+                track.scrollBy({ left: -cardWidth, behavior: 'smooth' });
+                setTimeout(() => { isPaused = false; }, 2500);
+            });
+        }
+
+        if (btnNext) {
+            btnNext.addEventListener('click', () => {
+                isPaused = true;
+                const cardWidth = 404;
+                track.scrollBy({ left: cardWidth, behavior: 'smooth' });
+                setTimeout(() => { isPaused = false; }, 2500);
+            });
+        }
+
+        // Horizontal Mouse Wheel Scroll
+        track.addEventListener('wheel', (e) => {
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.preventDefault();
+                isPaused = true;
+                track.scrollLeft += e.deltaY;
+                setTimeout(() => { isPaused = false; }, 1200);
+            }
+        }, { passive: false });
+    }
+    initTestimonialsCarousel();
+
+    // -------------------------------------------------------------
+    // 16. Magnetic Button Micro-Interactions
+    // -------------------------------------------------------------
+    const isDesktop = window.innerWidth > 1024;
+    if (isDesktop) {
+        document.querySelectorAll('.magnetic').forEach(elem => {
+            const strength = parseFloat(elem.getAttribute('data-strength')) || 10;
+            elem.addEventListener('mousemove', (e) => {
+                const rect = elem.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                elem.style.transform = `translate(${x * (strength / 50)}px, ${y * (strength / 50)}px)`;
+            });
+
+            elem.addEventListener('mouseleave', () => {
+                elem.style.transform = 'translate(0px, 0px)';
+                elem.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            });
+
+            elem.addEventListener('mouseenter', () => {
+                elem.style.transition = 'none';
+            });
         });
     }
 });

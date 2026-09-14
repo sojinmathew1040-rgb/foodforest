@@ -1,194 +1,217 @@
-<!-- WebGL 3D Rooms Experience Section -->
-<section id="rooms-experience">
-    <!-- Room Selector Tabs (Premium floating UI) -->
-    <div class="room-selector-container">
-        <button class="room-select-btn active magnetic" data-room="treehouse" data-strength="10">CANOPY
-            TREEHOUSE</button>
-        <button class="room-select-btn magnetic" data-room="mudhouse" data-strength="10">EARTHEN MUDHOUSE</button>
-    </div>
-
-    <!-- Three.js Canvas -->
+<?php
+require_once __DIR__ . '/../admin/includes/db.php';
+$rooms_list = get_all_rooms();
+$treehouse = ['title' => 'The Canopy Treehouse', 'elevation' => '30FT ELEVATION', 'rate_per_night' => 14500];
+$mudhouse = ['title' => 'The Earthen Mudhouse', 'elevation' => 'COB HERITAGE', 'rate_per_night' => 11500];
+foreach ($rooms_list as $r) {
+    if ($r['slug'] === 'treehouse') $treehouse = $r;
+    if ($r['slug'] === 'mudhouse') $mudhouse = $r;
+}
+?>
+<!-- Fullscreen 3D Walkthrough: Canopy Treehouse & Earthen Mudhouse -->
+<section id="rooms-experience" class="rooms-3d-fullscreen-section">
+    <!-- WebGL Three.js Canvas -->
     <canvas id="rooms-webgl-canvas"></canvas>
 
-    <!-- Cinematic Vignette Overlay -->
-    <div class="webgl-vignette"></div>
+    <!-- Subtle Cinematic Vignette -->
+    <div class="tour-vignette"></div>
 
-    <!-- HTML Floating Content (Syncs with active stays and scroll progress) -->
-    <div class="rooms-text-overlay">
+    <!-- Tour Overlay Content -->
+    <div class="tour-overlay-container">
+        <!-- Floating Stay Concept Selector Tabs (Treehouse vs Mudhouse) -->
+        <div class="stay-selector-wrapper">
+            <div class="stay-concept-tabs font-serif">
+                <button type="button" class="stay-tab-btn active" data-stay="treehouse" id="tab-stay-treehouse">
+                    <span class="stay-tab-pill font-sans"><i class="fa-solid fa-tree"></i> <?php echo htmlspecialchars(strtoupper($treehouse['elevation'])); ?></span>
+                    <span class="stay-tab-name"><?php echo htmlspecialchars($treehouse['title']); ?></span>
+                </button>
+                <button type="button" class="stay-tab-btn" data-stay="mudhouse" id="tab-stay-mudhouse">
+                    <span class="stay-tab-pill font-sans"><i class="fa-solid fa-house-chimney"></i> <?php echo htmlspecialchars(strtoupper($mudhouse['elevation'])); ?></span>
+                    <span class="stay-tab-name"><?php echo htmlspecialchars($mudhouse['title']); ?></span>
+                </button>
+            </div>
+        </div>
 
-        <!-- Slide 1: Tree House -->
-        <div class="room-slide room-slide-treehouse active" id="slide-treehouse">
-            <div class="room-info-box">
-                <span class="room-type font-sans">Canopy Farm Stay</span>
-                <h3 class="room-name font-serif">Luxury Tree House</h3>
-                <p class="room-desc font-sans">
-                    Perched high in the canopy, our luxury treehouse is one of the two unique farm stays at Food Forest. Crafted with natural timber and large circular bay windows, it feels like floating inside nature.
+        <!-- Persistent Top Header -->
+        <div class="treehouse-tour-header">
+            <div class="tour-badge-row">
+                <span class="tour-sub font-sans" id="tour-concept-badge">FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR</span>
+                <span class="gimbal-live-pill font-sans"><span class="rec-dot"></span> 360° CINEMATIC WALKTHROUGH</span>
+            </div>
+            <h2 class="tour-title font-serif" id="tour-main-title"><?php echo htmlspecialchars($treehouse['title']); ?></h2>
+            <p class="tour-subtitle font-sans" id="tour-main-subtitle">Scroll down to fly from the misty forest canopy directly inside the 360° suite.</p>
+        </div>
+
+        <!-- Mobile Touch 360 Drag Hint -->
+        <div class="mobile-tour-hint font-sans" id="mobile-tour-hint">
+            <span class="hint-icon"><i class="fa-solid fa-arrows-up-down-left-right"></i></span>
+            <span>Drag around to explore 360°</span>
+        </div>
+
+        <!-- Stage 1: Exterior Front View (Visible initially) -->
+        <div class="tour-card-floating stage-exterior is-visible" id="tour-stage-1">
+            <span class="stage-pill font-sans" id="stage1-pill"><i class="fa-solid fa-tree"></i> <?php echo htmlspecialchars(strtoupper($treehouse['elevation'])); ?></span>
+            <h3 class="stage-heading font-serif" id="stage1-heading">Front Exterior & Forest Suspension</h3>
+            <p class="stage-text font-sans" id="stage1-text">
+                <?php echo htmlspecialchars($treehouse['description']); ?>
+            </p>
+            <div class="tour-scroll-guide font-sans">
+                <div class="mouse-scroll-icon"><span class="wheel-dot"></span></div>
+                <span>Scroll down to step inside</span>
+            </div>
+        </div>
+
+        <!-- Stage 2: Inside - Panoramic Bay Window / Garden Glasswork -->
+        <div class="tour-card-floating stage-center" id="tour-stage-2">
+            <span class="stage-pill font-sans" id="stage2-pill"><i class="fa-solid fa-mountain-sun"></i> 01 • 180° VALLEY GLASSWORK</span>
+            <h3 class="stage-heading font-serif" id="stage2-heading">Floor-to-Ceiling Curved Bay Window</h3>
+            <p class="stage-text font-sans" id="stage2-text">
+                An expansive architectural curved window framing floating clouds, high-altitude tea valleys, and morning mountain mist.
+            </p>
+        </div>
+
+        <!-- Stage 3: Inside - Canopy Deck / Orchard Veranda -->
+        <div class="tour-card-floating stage-right" id="tour-stage-3">
+            <span class="stage-pill font-sans" id="stage3-pill"><i class="fa-solid fa-wind"></i> 02 • MISTY CANOPY DECK</span>
+            <h3 class="stage-heading font-serif" id="stage3-heading">Private Cantilevered Timber Balcony</h3>
+            <p class="stage-text font-sans" id="stage3-text">
+                Step directly outside into the clouds. An open timber deck perched 30 feet high in ancient trees for birdsong and organic mountain tea.
+            </p>
+        </div>
+
+        <!-- Stage 4: Inside - Bed Suite / Cob Daybed Alcove -->
+        <div class="tour-card-floating stage-left" id="tour-stage-4">
+            <span class="stage-pill font-sans" id="stage4-pill"><i class="fa-solid fa-bed"></i> 03 • WILD TEAK BED SUITE</span>
+            <h3 class="stage-heading font-serif" id="stage4-heading">Handcrafted Artisan King Bed</h3>
+            <p class="stage-text font-sans" id="stage4-text">
+                Hand-hewn from natural wild teak, dressed in 100% breathable organic linen, accompanied by handcrafted bedside lanterns and radial wooden ceiling beams.
+            </p>
+        </div>
+
+        <!-- Stage 5: Inside - Hearth & Lounge -->
+        <div class="tour-card-floating stage-right" id="tour-stage-5">
+            <span class="stage-pill font-sans" id="stage5-pill"><i class="fa-solid fa-fire"></i> 04 • THE FOREST HEARTH</span>
+            <h3 class="stage-heading font-serif" id="stage5-heading">Hand-Cut Stone Fireplace & Lounge</h3>
+            <p class="stage-text font-sans" id="stage5-text">
+                Warm authentic stone fireplace with crackling hearth wood, curved luxury sofa, and library nook to relax on crisp mountain evenings.
+            </p>
+            <button type="button" class="btn-primary tour-cta-btn open-booking-modal-btn font-sans" id="tour-cta-btn" data-villa="treehouse">
+                <span id="tour-cta-label">Reserve <?php echo htmlspecialchars($treehouse['title']); ?></span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+
+        <!-- Mobile Stage Stepper Bar (visible on mobile only) -->
+        <div class="mobile-tour-stepper font-sans" id="mobile-tour-stepper">
+            <button type="button" class="mobile-step-arrow" id="mobile-tour-prev" aria-label="Previous Stage">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div class="mobile-step-dots" id="mobile-step-dots">
+                <span class="mobile-dot active" data-step="1"></span>
+                <span class="mobile-dot" data-step="2"></span>
+                <span class="mobile-dot" data-step="3"></span>
+                <span class="mobile-dot" data-step="4"></span>
+                <span class="mobile-dot" data-step="5"></span>
+            </div>
+            <span class="mobile-step-name font-sans" id="mobile-step-label">Canopy Exterior</span>
+            <button type="button" class="mobile-step-arrow" id="mobile-tour-next" aria-label="Next Stage">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <!-- Bottom Tour Progress Indicator -->
+        <div class="treehouse-tour-progress font-sans">
+            <div class="tour-step-item active" id="prog-step-1">
+                <span class="step-badge">01</span>
+                <span class="step-label" id="prog-label-1">Canopy Exterior</span>
+            </div>
+            <div class="tour-step-divider"></div>
+            <div class="tour-step-item" id="prog-step-2">
+                <span class="step-badge">02</span>
+                <span class="step-label" id="prog-label-2">Panoramic Bay</span>
+            </div>
+            <div class="tour-step-divider"></div>
+            <div class="tour-step-item" id="prog-step-3">
+                <span class="step-badge">03</span>
+                <span class="step-label" id="prog-label-3">Forest Deck</span>
+            </div>
+            <div class="tour-step-divider"></div>
+            <div class="tour-step-item" id="prog-step-4">
+                <span class="step-badge">04</span>
+                <span class="step-label" id="prog-label-4">Teak Suite</span>
+            </div>
+            <div class="tour-step-divider"></div>
+            <div class="tour-step-item" id="prog-step-5">
+                <span class="step-badge">05</span>
+                <span class="step-label" id="prog-label-5">Stone Hearth</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Responsive Fallback Layout -->
+    <div class="tour-mobile-fallback" id="webgl-fallback-container">
+        <div class="container">
+            <div class="text-center" style="margin-bottom: 40px;">
+                <span class="section-label">Food Forest Signature Stays</span>
+                <h3 class="section-title font-serif" style="color: var(--accent-green);">Architectural Sanctuary Stays</h3>
+                <p class="font-sans" style="color: var(--text-light); max-width: 650px; margin: 12px auto 0;">
+                    Experience luxury elevated 30 feet in the forest canopy or grounded in organic earthen cob.
                 </p>
-                <ul class="room-features font-sans">
-                    <li><i class="fa-solid fa-tree"></i> Elevated 30ft above forest floor</li>
-                    <li><i class="fa-solid fa-wind"></i> Large circular viewing window</li>
-                    <li><i class="fa-solid fa-cloud-sun-rain"></i> Private misty valley balcony</li>
-                </ul>
-                <a href="#contact" class="btn-primary room-btn magnetic" data-strength="15">
-                    <span>Reserve Stay</span>
-                    <i class="fa-solid fa-arrow-right"></i>
-                </a>
-            </div>
-        </div>
-
-        <!-- Slide 2: Mud House -->
-        <div class="room-slide room-slide-mudhouse" id="slide-mudhouse" style="display: none; opacity: 0;">
-            <div class="room-info-box">
-                <span class="room-type font-sans">Earthen Farm Stay</span>
-                <h3 class="room-name font-serif">Traditional Mud House</h3>
-                <p class="room-desc font-sans">
-                    The traditional mud house is the second unique farm stay type at our Food Forest retreat. Built using native soil, grass, and wood, the thick clay walls naturally regulate temperatures.
-                </p>
-                <ul class="room-features font-sans">
-                    <li><i class="fa-solid fa-temperature-arrow-down"></i> Natural thermal clay insulation</li>
-                    <li><i class="fa-solid fa-couch"></i> Semi-private veranda courtyard</li>
-                    <li><i class="fa-solid fa-fire"></i> Cozy ambient interior fire pit</li>
-                    <li><i class="fa-solid fa-bed"></i> Organic hand-loomed bedding & teak wood bed</li>
-                    <li><i class="fa-solid fa-bath"></i> Open-air stone courtyard private bath</li>
-                </ul>
-                <a href="#contact" class="btn-primary room-btn magnetic" data-strength="15">
-                    <span>Reserve Stay</span>
-                    <i class="fa-solid fa-arrow-right"></i>
-                </a>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- Room Details Floating 3D Hotspots (Sequenced during 360 scroll rotation) -->
-    <!-- Treehouse Hotspots -->
-    <div class="room-details-overlay active" id="treehouse-details">
-        <div class="detail-hotspot" id="tree-detail-1" style="top: 32%; left: 18%;">
-            <div class="hotspot-dot"></div>
-            <div class="hotspot-card">
-                <span class="hotspot-tag font-sans">Canopy Nest</span>
-                <h5 class="hotspot-title font-serif">30ft High Canopy</h5>
-                <p class="hotspot-text font-sans">Tucked among ancient branches for absolute birdsong privacy.</p>
-            </div>
-        </div>
-        <div class="detail-hotspot" id="tree-detail-2" style="top: 42%; right: 18%;">
-            <div class="hotspot-dot"></div>
-            <div class="hotspot-card">
-                <span class="hotspot-tag font-sans">Views</span>
-                <h5 class="hotspot-title font-serif">Misty Deck Balcony</h5>
-                <p class="hotspot-text font-sans">Walk out to heavy morning fog overlooking the Idukki valleys.</p>
-            </div>
-        </div>
-        <div class="detail-hotspot" id="tree-detail-3" style="top: 60%; left: 32%;">
-            <div class="hotspot-dot"></div>
-            <div class="hotspot-card">
-                <span class="hotspot-tag font-sans">Craft</span>
-                <h5 class="hotspot-title font-serif">Wild Teak Woodwork</h5>
-                <p class="hotspot-text font-sans">Hand-hewn supports and furniture crafted by local craftsmen.</p>
-            </div>
-        </div>
-        <div class="detail-hotspot" id="tree-detail-4" style="top: 25%; left: 45%;">
-            <div class="hotspot-dot"></div>
-            <div class="hotspot-card">
-                <span class="hotspot-tag font-sans">Glasswork</span>
-                <h5 class="hotspot-title font-serif">Circular Bay Window</h5>
-                <p class="hotspot-text font-sans">Floor-to-ceiling panoramic glass to float inside the tree leaves.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Mudhouse Hotspots (Earthy details, no balconies) -->
-    <div class="room-details-overlay" id="mudhouse-details" style="display: none;">
-        <div class="detail-hotspot" id="mud-detail-1" style="top: 30%; left: 22%;">
-            <div class="hotspot-dot"></div>
-            <div class="hotspot-card">
-                <span class="hotspot-tag font-sans">Adobe</span>
-                <h5 class="hotspot-title font-serif">Cob Mud Walls</h5>
-                <p class="hotspot-text font-sans">Earthen clay regulates humidity and temperature naturally.</p>
-            </div>
-        </div>
-        <div class="detail-hotspot" id="mud-detail-2" style="top: 50%; right: 22%;">
-            <div class="hotspot-dot"></div>
-            <div class="hotspot-card">
-                <span class="hotspot-tag font-sans">Garden Side</span>
-                <h5 class="hotspot-title font-serif">Veranda Courtyard</h5>
-                <p class="hotspot-text font-sans">A quiet clay-tiled porch stepping into organic orchards.</p>
-            </div>
-        </div>
-        <div class="detail-hotspot" id="mud-detail-3" style="top: 55%; left: 36%;">
-            <div class="hotspot-dot"></div>
-            <div class="hotspot-card">
-                <span class="hotspot-tag font-sans">Cozy</span>
-                <h5 class="hotspot-title font-serif">Stone Fire Pit</h5>
-                <p class="hotspot-text font-sans">Traditional indoor slate hearth to warm winter nights.</p>
-            </div>
-        </div>
-        <div class="detail-hotspot" id="mud-detail-4" style="top: 35%; right: 30%;">
-            <div class="hotspot-dot"></div>
-            <div class="hotspot-card">
-                <span class="hotspot-tag font-sans">Structure</span>
-                <h5 class="hotspot-title font-serif">Terracotta Tiles</h5>
-                <p class="hotspot-text font-sans">Premium clay roof canopy crafted by local village potters.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Responsive Fallback Structure (Visible only when WebGL fails or on mobile) -->
-    <div class="webgl-fallback" id="webgl-fallback-container">
-        <div class="container webgl-fallback-container">
-            <div class="fallback-header text-center" style="margin-bottom: 50px;">
-                <span class="section-label">Stays at Food Forest</span>
-                <h3 class="section-title font-serif" style="color: var(--accent-green);">Two Unique Farm Stays</h3>
             </div>
 
-            <!-- Treehouse Card -->
-            <div class="fallback-card">
-                <div class="fallback-img-container">
-                    <img src="assets/images/treehouse_exterior.png" alt="Luxury Treehouse Exterior"
-                        class="fallback-img">
+            <!-- Card 1: Treehouse -->
+            <div class="mobile-tour-card">
+                <div class="mobile-tour-img-wrap">
+                    <img src="<?php echo htmlspecialchars(($treehouse['image_url'] ?? '') ?: 'assets/images/treehouse_exterior_front.jpg'); ?>" alt="<?php echo htmlspecialchars($treehouse['title']); ?>" class="mobile-tour-img">
+                    <span class="mobile-tour-badge"><?php echo htmlspecialchars($treehouse['title']); ?></span>
                 </div>
-                <div class="fallback-text">
-                    <span class="room-type font-sans" style="color: var(--accent-terracotta);">Canopy Farm Stay</span>
-                    <h4 class="room-name font-serif" style="color: var(--accent-green); font-size: 2.8rem;">Luxury Tree House</h4>
-                    <p class="room-desc font-sans" style="color: var(--text-dark);">
-                        Perched high in the canopy, our luxury treehouse is one of the two unique farm stays at Food Forest. Crafted with natural timber and large circular bay windows, it feels like floating inside nature.
+                <div class="mobile-tour-content">
+                    <h4 class="font-serif"><?php echo htmlspecialchars($treehouse['title']); ?></h4>
+                    <p class="font-sans">
+                        <?php echo htmlspecialchars($treehouse['description']); ?>
                     </p>
-                    <ul class="room-features font-sans" style="color: var(--text-dark);">
-                        <li><i class="fa-solid fa-tree"></i> Elevated 30ft above forest floor</li>
-                        <li><i class="fa-solid fa-wind"></i> Large circular viewing window</li>
-                        <li><i class="fa-solid fa-cloud-sun-rain"></i> Private misty valley balcony</li>
-                    </ul>
-                    <a href="#contact" class="btn-primary room-btn magnetic" data-strength="15">
-                        <span>Reserve Stay</span>
+                    <button type="button" class="btn-primary open-booking-modal-btn font-sans" data-villa="treehouse" style="margin-top: 15px; width: 100%;">
+                        <span>Reserve <?php echo htmlspecialchars($treehouse['title']); ?></span>
                         <i class="fa-solid fa-arrow-right"></i>
-                    </a>
+                    </button>
                 </div>
             </div>
 
-            <!-- Mudhouse Card -->
-            <div class="fallback-card">
-                <div class="fallback-img-container">
-                    <img src="assets/images/01 (4).jpeg" alt="Mud House Exterior" class="fallback-img">
+            <!-- Card 2: Mudhouse -->
+            <div class="mobile-tour-card" style="margin-top: 24px;">
+                <div class="mobile-tour-img-wrap">
+                    <img src="<?php echo htmlspecialchars(($mudhouse['image_url'] ?? '') ?: 'assets/images/mudhouse_exterior.png'); ?>" alt="<?php echo htmlspecialchars($mudhouse['title']); ?>" class="mobile-tour-img">
+                    <span class="mobile-tour-badge"><?php echo htmlspecialchars($mudhouse['title']); ?></span>
                 </div>
-                <div class="fallback-text">
-                    <span class="room-type font-sans" style="color: var(--accent-terracotta);">Earthen Farm Stay</span>
-                    <h4 class="room-name font-serif" style="color: var(--accent-green); font-size: 2.8rem;">Traditional Mud House</h4>
-                    <p class="room-desc font-sans" style="color: var(--text-dark);">
-                        The traditional mud house is the second unique farm stay type at our Food Forest retreat. Built using native soil, grass, and wood, the thick clay walls naturally regulate temperatures.
+                <div class="mobile-tour-content">
+                    <h4 class="font-serif"><?php echo htmlspecialchars($mudhouse['title']); ?></h4>
+                    <p class="font-sans">
+                        <?php echo htmlspecialchars($mudhouse['description']); ?>
                     </p>
-                    <ul class="room-features font-sans" style="color: var(--text-dark);">
-                        <li><i class="fa-solid fa-temperature-arrow-down"></i> Natural thermal clay insulation</li>
-                        <li><i class="fa-solid fa-couch"></i> Semi-private veranda courtyard</li>
-                        <li><i class="fa-solid fa-fire"></i> Cozy ambient interior fire pit</li>
-                        <li><i class="fa-solid fa-bed"></i> Organic hand-loomed bedding & teak wood bed</li>
-                        <li><i class="fa-solid fa-bath"></i> Open-air stone courtyard private bath</li>
-                    </ul>
-                    <a href="#contact" class="btn-primary room-btn magnetic" data-strength="15">
-                        <span>Reserve Stay</span>
+                    <button type="button" class="btn-primary open-booking-modal-btn font-sans" data-villa="mudhouse" style="margin-top: 15px; width: 100%;">
+                        <span>Reserve <?php echo htmlspecialchars($mudhouse['title']); ?></span>
                         <i class="fa-solid fa-arrow-right"></i>
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
+    <script>
+    window.ESTATE_DYNAMIC_STAY = {
+        treehouse: {
+            title: <?php echo json_encode($treehouse['title']); ?>,
+            ctaLabel: "Reserve " + <?php echo json_encode($treehouse['title']); ?>,
+            <?php if (!empty($treehouse['image_url'])): ?>
+            exteriorImg: <?php echo json_encode($treehouse['image_url']); ?>,
+            <?php endif; ?>
+        },
+        mudhouse: {
+            title: <?php echo json_encode($mudhouse['title']); ?>,
+            ctaLabel: "Reserve " + <?php echo json_encode($mudhouse['title']); ?>,
+            <?php if (!empty($mudhouse['image_url'])): ?>
+            exteriorImg: <?php echo json_encode($mudhouse['image_url']); ?>,
+            <?php endif; ?>
+        }
+    };
+    </script>
 </section>
