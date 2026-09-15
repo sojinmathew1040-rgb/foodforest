@@ -71,7 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $guest_phone = trim($_POST['guest_phone'] ?? '');
             $guest_email = trim($_POST['guest_email'] ?? '');
             $villa_type = $_POST['villa_type'] ?? 'treehouse';
-            $guests_count = (int)($_POST['guests_count'] ?? 2);
+            
+            $adults_count = isset($_POST['adults_count']) ? max(1, (int)$_POST['adults_count']) : (int)($_POST['guests_count'] ?? 2);
+            $kids_count = isset($_POST['kids_count']) ? max(0, (int)$_POST['kids_count']) : 0;
+            $guests_count = $adults_count + $kids_count;
+
             $checkin = $_POST['checkin_date'] ?? '';
             $checkout = $_POST['checkout_date'] ?? '';
             $special_notes = trim($_POST['special_notes'] ?? '');
@@ -83,18 +87,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cout = new DateTime($checkout);
                 $nights = max(1, $cin->diff($cout)->days);
 
-                // Fetch room rate
-                $room = $pdo->prepare("SELECT rate_per_night FROM rooms WHERE slug = ?");
-                $room->execute([$villa_type]);
-                $rate = (float)($room->fetchColumn() ?: 14500);
+                // Fetch room rate and guest occupancy specs
+                $room_stmt = $pdo->prepare("SELECT rate_per_night, base_guests, extra_guest_rate, extra_child_rate FROM rooms WHERE slug = ?");
+                $room_stmt->execute([$villa_type]);
+                $r_data = $room_stmt->fetch(PDO::FETCH_ASSOC);
+                $rate = $r_data ? (float)$r_data['rate_per_night'] : 14500;
+                $base_guests = $r_data ? (int)($r_data['base_guests'] ?? 2) : 2;
+                $extra_adult_rate = $r_data ? (float)($r_data['extra_guest_rate'] ?? 1500) : 1500;
+                $extra_child_rate = $r_data ? (float)($r_data['extra_child_rate'] ?? 800) : 800;
 
-                $custom_amount = !empty($_POST['custom_amount']) ? (float)$_POST['custom_amount'] : ($rate * $nights);
+                // Dual Occupancy math
+                $adults_in_base = min($adults_count, $base_guests);
+                $extra_adults = max(0, $adults_count - $adults_in_base);
+                $rem_base = max(0, $base_guests - $adults_in_base);
+                $kids_in_base = min($kids_count, $rem_base);
+                $extra_kids = max(0, $kids_count - $kids_in_base);
+
+                $extra_amount = ($extra_adults * $extra_adult_rate * $nights) + ($extra_kids * $extra_child_rate * $nights);
+                $calculated_total = ($rate * $nights) + $extra_amount;
+
+                $custom_amount = !empty($_POST['custom_amount']) ? (float)$_POST['custom_amount'] : $calculated_total;
 
                 // Generate Reference Code
                 $ref = 'FF-' . rand(1000, 9999);
 
-                $ins = $pdo->prepare("INSERT INTO bookings (reference_code, villa_type, guest_name, guest_phone, guest_email, guests_count, checkin_date, checkout_date, nights, addons, special_notes, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $ins->execute([$ref, $villa_type, $guest_name, $guest_phone, $guest_email, $guests_count, $checkin, $checkout, $nights, $addons, $special_notes, $custom_amount, $status]);
+                $ins = $pdo->prepare("INSERT INTO bookings (reference_code, villa_type, guest_name, guest_phone, guest_email, guests_count, adults_count, kids_count, extra_adults, extra_kids, checkin_date, checkout_date, nights, addons, special_notes, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $ins->execute([$ref, $villa_type, $guest_name, $guest_phone, $guest_email, $guests_count, $adults_count, $kids_count, $extra_adults, $extra_kids, $checkin, $checkout, $nights, $addons, $special_notes, $custom_amount, $status]);
 
                 $alert_message = "New reservation #$ref recorded successfully.";
             } else {
@@ -120,6 +138,10 @@ if (!empty($search)) {
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
+$all_rooms_list = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+$rooms_lookup = [];
+foreach ($all_rooms_list as $r) {
+    $rooms_lookup[$r['slug']] = $r;
 }
 
 if (!empty($filter_status) && in_array($filter_status, ['pending', 'confirmed', 'completed', 'cancelled'])) {
@@ -127,7 +149,7 @@ if (!empty($filter_status) && in_array($filter_status, ['pending', 'confirmed', 
     $params[] = $filter_status;
 }
 
-if (!empty($filter_villa) && in_array($filter_villa, ['treehouse', 'mudhouse'])) {
+if (!empty($filter_villa)) {
     $query .= " AND villa_type = ?";
     $params[] = $filter_villa;
 }
@@ -169,8 +191,11 @@ $bookings = $stmt->fetchAll();
         <!-- Villa Filter Select -->
         <select class="adm-filter-select" onchange="location.href='bookings.php?villa=' + this.value + '&status=<?php echo urlencode($filter_status); ?>';">
             <option value="" <?php echo empty($filter_villa) ? 'selected' : ''; ?>>All Sanctuary Stays</option>
-            <option value="treehouse" <?php echo ($filter_villa === 'treehouse') ? 'selected' : ''; ?>>Canopy Treehouse</option>
-            <option value="mudhouse" <?php echo ($filter_villa === 'mudhouse') ? 'selected' : ''; ?>>Earthen Mudhouse</option>
+            <?php foreach ($all_rooms_list as $r): ?>
+                <option value="<?php echo htmlspecialchars($r['slug']); ?>" <?php echo ($filter_villa === $r['slug']) ? 'selected' : ''; ?>>
+                    <?php echo ($r['stay_type'] === 'mudhouse' ? '🌿 ' : '🌲 ') . htmlspecialchars($r['title']); ?>
+                </option>
+            <?php endforeach; ?>
         </select>
     </div>
 
@@ -207,74 +232,135 @@ $bookings = $stmt->fetchAll();
         <table class="adm-data-table">
             <thead>
                 <tr>
-                    <th>Ref #</th>
+                    <th style="width: 85px;">Ref #</th>
                     <th>Guest Information</th>
                     <th>Sanctuary Stay</th>
-                    <th>Guests</th>
-                    <th>Dates (Check-in → Out)</th>
-                    <th>Nights</th>
-                    <th>Total (₹)</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th style="width: 95px;">Guests</th>
+                    <th>Stay Dates</th>
+                    <th style="width: 105px;">Total (₹)</th>
+                    <th class="adm-col-status">Status</th>
+                    <th class="adm-col-actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($bookings)): ?>
                     <tr>
-                        <td colspan="9" style="text-align: center; padding: 50px 20px; color: var(--adm-text-muted);">
+                        <td colspan="8" style="text-align: center; padding: 50px 20px; color: var(--adm-text-muted);">
                             <i class="fa-solid fa-calendar-xmark" style="font-size: 32px; margin-bottom: 12px; display: block; color: var(--adm-text-muted);"></i>
                             No reservations found matching your criteria.
                         </td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($bookings as $b): 
-                        $villa_title = ($b['villa_type'] === 'treehouse') ? 'Canopy Treehouse' : 'Earthen Mudhouse';
+                        $room_info = $rooms_lookup[$b['villa_type']] ?? null;
+                        $villa_title = $room_info ? $room_info['title'] : (($b['villa_type'] === 'treehouse') ? 'Canopy Treehouse' : 'Earthen Mudhouse');
+                        $stay_type = $room_info ? ($room_info['stay_type'] ?? 'treehouse') : 'treehouse';
+                        $base_guests = $room_info ? (int)($room_info['base_guests'] ?? 2) : 2;
+                        $extra_guests = max(0, (int)$b['guests_count'] - $base_guests);
                     ?>
                         <tr data-status="<?php echo e($b['status']); ?>">
                             <td>
-                                <strong style="font-family: monospace; color: var(--adm-gold-light); font-size: 13.5px;">
+                                <span class="adm-ref-badge" title="Reservation Reference #">
                                     <?php echo e($b['reference_code']); ?>
-                                </strong>
-                            </td>
-                            <td>
-                                <div style="font-weight: 600; color: var(--adm-text-primary); font-size: 14px;">
-                                    <?php echo e($b['guest_name']); ?>
-                                </div>
-                                <div style="font-size: 11.5px; color: var(--adm-text-muted);">
-                                    <i class="fa-solid fa-phone" style="font-size: 10px;"></i> <?php echo e($b['guest_phone']); ?>
-                                </div>
-                                <?php if (!empty($b['guest_email'])): ?>
-                                    <div style="font-size: 11px; color: var(--adm-text-muted);">
-                                        <i class="fa-regular fa-envelope" style="font-size: 10px;"></i> <?php echo e($b['guest_email']); ?>
-                                    </div>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <div style="font-size: 13px; font-weight: 500;">
-                                    <i class="fa-solid <?php echo $b['villa_type'] === 'treehouse' ? 'fa-tree' : 'fa-house-chimney'; ?>" style="color: var(--adm-gold); margin-right: 5px;"></i>
-                                    <?php echo e($villa_title); ?>
-                                </div>
-                                <?php if (!empty($b['addons'])): ?>
-                                    <div style="font-size: 11px; color: var(--adm-gold); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?php echo e($b['addons']); ?>">
-                                        <i class="fa-solid fa-sparkles"></i> <?php echo e($b['addons']); ?>
-                                    </div>
-                                <?php endif; ?>
-                            </td>
-                            <td><?php echo e($b['guests_count']); ?> Guests</td>
-                            <td>
-                                <div style="font-size: 13px; font-weight: 500;"><?php echo date('d M Y', strtotime($b['checkin_date'])); ?></div>
-                                <div style="font-size: 11.5px; color: var(--adm-text-muted);">until <?php echo date('d M Y', strtotime($b['checkout_date'])); ?></div>
-                            </td>
-                            <td><?php echo e($b['nights']); ?>N</td>
-                            <td style="font-family: var(--adm-font-title); font-weight: 700; color: var(--adm-gold-light); font-size: 14.5px;">
-                                ₹<?php echo number_format($b['total_amount'], 0, '.', ','); ?>
-                            </td>
-                            <td>
-                                <span class="adm-badge <?php echo e($b['status']); ?>">
-                                    <?php echo e($b['status']); ?>
                                 </span>
                             </td>
                             <td>
+                                <div style="font-weight: 700; color: var(--adm-text-primary); font-size: 14px; margin-bottom: 3px;">
+                                    <?php echo e($b['guest_name']); ?>
+                                </div>
+                                <div style="font-size: 11.5px; color: var(--adm-text-muted); display: flex; align-items: center; gap: 5px;">
+                                    <i class="fa-solid fa-phone" style="font-size: 10px; color: var(--adm-gold);"></i> 
+                                    <a href="tel:<?php echo e($b['guest_phone']); ?>" style="color: inherit;" title="Call Guest"><?php echo e($b['guest_phone']); ?></a>
+                                </div>
+                                <?php if (!empty($b['guest_email'])): ?>
+                                    <div style="font-size: 11px; color: var(--adm-text-muted); display: flex; align-items: center; gap: 5px; margin-top: 1px;">
+                                        <i class="fa-regular fa-envelope" style="font-size: 10px; color: var(--adm-gold);"></i> 
+                                        <a href="mailto:<?php echo e($b['guest_email']); ?>" style="color: inherit;" title="Email Guest"><?php echo e($b['guest_email']); ?></a>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <div style="font-size: 13px; font-weight: 600; color: #FFFFFF;">
+                                    <i class="fa-solid <?php echo $stay_type === 'mudhouse' ? 'fa-house-chimney' : 'fa-tree'; ?>" style="color: <?php echo $stay_type === 'mudhouse' ? '#fb923c' : '#2ecc71'; ?>; margin-right: 5px;"></i>
+                                    <?php echo e($villa_title); ?>
+                                </div>
+                                <?php if (!empty($b['addons'])): ?>
+                                    <div style="font-size: 11px; color: var(--adm-gold-light); margin-top: 3px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(197, 160, 89, 0.08); border: 1px solid rgba(197, 160, 89, 0.2); padding: 2px 7px; border-radius: 4px;" title="<?php echo e($b['addons']); ?>">
+                                        <i class="fa-solid fa-sparkles" style="color: var(--adm-gold);"></i> <?php echo e($b['addons']); ?>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span style="font-weight: 600; font-size: 13px; color: var(--adm-text-secondary); white-space: nowrap;">
+                                    <i class="fa-solid fa-user-group" style="font-size: 10.5px; color: var(--adm-gold); margin-right: 4px;"></i> 
+                                    <?php echo e($b['guests_count']); ?> Guests
+                                </span>
+                                <?php if (!empty($b['adults_count'])): ?>
+                                    <div style="font-size: 10.5px; color: var(--adm-text-muted); margin-top: 2px;">
+                                        <?php echo (int)$b['adults_count']; ?> Ad<?php echo !empty($b['kids_count']) ? ', ' . (int)$b['kids_count'] . ' Ch' : ''; ?>
+                                    </div>
+                                <?php endif; ?>
+                                <?php 
+                                $ext_ad = (int)($b['extra_adults'] ?? 0);
+                                $ext_kd = (int)($b['extra_kids'] ?? 0);
+                                if ($ext_ad > 0 || $ext_kd > 0): 
+                                ?>
+                                    <div style="margin-top: 3px; display: flex; gap: 4px; flex-wrap: wrap;">
+                                        <?php if ($ext_ad > 0): ?>
+                                            <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); font-size: 9.5px; padding: 1px 5px; border-radius: 4px;">
+                                                +<?php echo $ext_ad; ?> Ext Ad
+                                            </span>
+                                        <?php endif; ?>
+                                        <?php if ($ext_kd > 0): ?>
+                                            <span class="adm-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 9.5px; padding: 1px 5px; border-radius: 4px;">
+                                                +<?php echo $ext_kd; ?> Ext Ch
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php elseif ($extra_guests > 0): ?>
+                                    <div style="margin-top: 3px;">
+                                        <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); font-size: 9.5px; padding: 1px 6px; border-radius: 4px;">
+                                            +<?php echo $extra_guests; ?> Extra
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                            <td style="white-space: nowrap;">
+                                <div style="font-size: 13px; font-weight: 600; color: var(--adm-text-primary);">
+                                    <i class="fa-regular fa-calendar" style="font-size: 11px; color: var(--adm-gold); margin-right: 4px;"></i> 
+                                    <?php echo date('d M Y', strtotime($b['checkin_date'])); ?>
+                                </div>
+                                <div style="font-size: 11.5px; color: var(--adm-text-muted); margin-top: 2px; display: flex; align-items: center; gap: 6px;">
+                                    <span>until <?php echo date('d M Y', strtotime($b['checkout_date'])); ?></span>
+                                    <span class="adm-night-pill"><?php echo e($b['nights']); ?>N</span>
+                                </div>
+                            </td>
+                            <td style="font-family: var(--adm-font-title); font-weight: 700; color: var(--adm-gold-light); font-size: 15px; white-space: nowrap;">
+                                ₹<?php echo number_format($b['total_amount'], 0, '.', ','); ?>
+                            </td>
+                            <td class="adm-col-status">
+                                <?php 
+                                $st = strtolower($b['status']);
+                                $icon = 'fa-clock';
+                                $label = 'Pending';
+                                if ($st === 'confirmed') {
+                                    $icon = 'fa-circle-check';
+                                    $label = 'Confirmed';
+                                } elseif ($st === 'completed') {
+                                    $icon = 'fa-flag-checkered';
+                                    $label = 'Completed';
+                                } elseif ($st === 'cancelled') {
+                                    $icon = 'fa-ban';
+                                    $label = 'Cancelled';
+                                }
+                                ?>
+                                <span class="adm-badge <?php echo e($st); ?>" title="Reservation Status: <?php echo ucfirst($st); ?>">
+                                    <span class="adm-badge-dot"></span>
+                                    <i class="fa-solid <?php echo $icon; ?>" style="font-size: 10px;"></i>
+                                    <span><?php echo $label; ?></span>
+                                </span>
+                            </td>
+                            <td class="adm-col-actions">
                                 <div class="adm-actions-cell">
                                     <!-- WhatsApp Concierge Quick Confirmation Trigger -->
                                     <button type="button" class="adm-btn-icon whatsapp" title="Send WhatsApp Concierge Confirmation"
@@ -292,17 +378,17 @@ $bookings = $stmt->fetchAll();
                                     </button>
 
                                     <!-- View / Edit Modal Trigger -->
-                                    <button type="button" class="adm-btn-icon" title="View / Modify Reservation"
+                                    <button type="button" class="adm-btn-icon view" title="View & Modify Reservation"
                                         onclick='viewBookingDetails(<?php echo json_encode($b); ?>)'>
                                         <i class="fa-solid fa-eye"></i>
                                     </button>
 
                                     <!-- Delete Button -->
-                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to permanently delete reservation #<?php echo e($b['reference_code']); ?>?');">
+                                    <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Are you sure you want to permanently delete reservation #<?php echo e($b['reference_code']); ?>?');">
                                         <input type="hidden" name="action" value="delete_booking">
                                         <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                         <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
-                                        <button type="submit" class="adm-btn-icon danger" title="Delete Booking">
+                                        <button type="submit" class="adm-btn-icon danger" title="Delete Reservation Record">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
                                     </form>
@@ -350,8 +436,11 @@ $bookings = $stmt->fetchAll();
                     <div class="adm-form-group">
                         <label class="adm-label">Sanctuary Villa *</label>
                         <select name="villa_type" class="adm-input" style="padding-left: 14px;">
-                            <option value="treehouse">Luxury Canopy Treehouse (₹14,500/N)</option>
-                            <option value="mudhouse">Traditional Earthen Mudhouse (₹11,500/N)</option>
+                            <?php foreach ($all_rooms_list as $r): ?>
+                                <option value="<?php echo htmlspecialchars($r['slug']); ?>">
+                                    <?php echo ($r['stay_type'] === 'mudhouse' ? '🌿 Mudhouse: ' : '🌲 Treehouse: ') . htmlspecialchars($r['title']); ?> (₹<?php echo number_format($r['rate_per_night'], 0, '.', ','); ?>/N • Base <?php echo (int)($r['base_guests'] ?? 2); ?> Guests)
+                                </option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                 </div>
@@ -369,16 +458,18 @@ $bookings = $stmt->fetchAll();
 
                 <div class="adm-grid-2">
                     <div class="adm-form-group">
-                        <label class="adm-label">Number of Guests</label>
-                        <select name="guests_count" class="adm-input" style="padding-left: 14px;">
-                            <option value="1">1 Guest</option>
-                            <option value="2" selected>2 Guests</option>
-                            <option value="3">3 Guests</option>
-                            <option value="4">4 Guests</option>
-                        </select>
+                        <label class="adm-label">Adults (12+ yrs) *</label>
+                        <input type="number" name="adults_count" class="adm-input" value="2" min="1" max="10" required style="padding-left: 14px;">
+                        <input type="hidden" name="guests_count" value="2">
                     </div>
                     <div class="adm-form-group">
-                        <label class="adm-label">Initial Status</label>
+                        <label class="adm-label">Children (5–11 yrs)</label>
+                        <input type="number" name="kids_count" class="adm-input" value="0" min="0" max="8" style="padding-left: 14px;">
+                    </div>
+                </div>
+
+                <div class="adm-form-group">
+                    <label class="adm-label">Initial Status</label>
                         <select name="status" class="adm-input" style="padding-left: 14px;">
                             <option value="confirmed">Confirmed</option>
                             <option value="pending">Pending Review</option>

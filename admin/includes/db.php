@@ -38,6 +38,7 @@ function get_db() {
         init_mysql_database_schema($pdo);
         ensure_seasons_table_exists($pdo);
         ensure_rooms_360_column($pdo);
+        ensure_rooms_pricing_columns($pdo);
         ensure_sanctuary_spots_table_exists($pdo);
 
         return $pdo;
@@ -496,6 +497,133 @@ function ensure_rooms_360_column(PDO $pdo) {
         // Set defaults for treehouse and mudhouse if not set
         $pdo->exec("UPDATE `rooms` SET `interior_360_url` = 'assets/images/treehouse_360_pano.jpg' WHERE `slug` = 'treehouse' AND (`interior_360_url` IS NULL OR `interior_360_url` = '')");
         $pdo->exec("UPDATE `rooms` SET `interior_360_url` = 'assets/images/mudhouse_360_pano.jpg' WHERE `slug` = 'mudhouse' AND (`interior_360_url` IS NULL OR `interior_360_url` = '')");
+    } catch (Exception $e) {
+        // Silently skip if DB not ready
+    }
+
+    $checked = true;
+}
+
+/**
+ * Ensure stay_type, base_guests, and extra_guest_rate columns exist on rooms table,
+ * configure defaults for Mudhouse (2 persons) and Treehouse (Single Cottage 2 persons),
+ * and seed Treehouse Double Cottage (4 persons).
+ */
+function ensure_rooms_pricing_columns(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
+
+    try {
+        // 1. Check & Add stay_type
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'stay_type'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `stay_type` VARCHAR(50) DEFAULT 'treehouse' AFTER `slug`");
+        }
+
+        // 2. Check & Add structure_type (single_hut vs duplex_hut)
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'structure_type'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `structure_type` VARCHAR(50) DEFAULT 'single_hut' AFTER `stay_type`");
+        }
+
+        // 3. Check & Add base_guests
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'base_guests'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `base_guests` INT DEFAULT 2 AFTER `elevation`");
+        }
+
+        // 4. Check & Add extra_guest_rate (Adult extra rate)
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'extra_guest_rate'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `extra_guest_rate` DECIMAL(10,2) DEFAULT 1500.00 AFTER `rate_per_night`");
+        }
+
+        // 5. Check & Add extra_child_rate (Child extra rate)
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'extra_child_rate'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `extra_child_rate` DECIMAL(10,2) DEFAULT 800.00 AFTER `extra_guest_rate`");
+        }
+
+        // 6. Check & Add adults_count, kids_count, extra_adults, extra_kids to bookings table
+        $b_cols = $pdo->query("SHOW COLUMNS FROM `bookings` LIKE 'adults_count'")->fetchAll();
+        if (empty($b_cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `adults_count` INT DEFAULT 2 AFTER `guest_email`");
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `kids_count` INT DEFAULT 0 AFTER `adults_count`");
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `extra_adults` INT DEFAULT 0 AFTER `kids_count`");
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `extra_kids` INT DEFAULT 0 AFTER `extra_adults`");
+        }
+
+        // Update Mudhouse Single Hut defaults (Base 2 guests, max 4 guests, extra adult ₹1,500, extra child ₹800)
+        $pdo->exec("UPDATE `rooms` SET 
+            `stay_type` = 'mudhouse', 
+            `structure_type` = 'single_hut',
+            `base_guests` = COALESCE(NULLIF(`base_guests`, 0), 2),
+            `max_guests` = GREATEST(`max_guests`, 4),
+            `extra_guest_rate` = COALESCE(NULLIF(`extra_guest_rate`, 0), 1500.00),
+            `extra_child_rate` = COALESCE(NULLIF(`extra_child_rate`, 0), 800.00)
+            WHERE `slug` = 'mudhouse'");
+
+        // Update Treehouse Single Hut defaults (Base 2 guests, max 3 guests, extra adult ₹2,000, extra child ₹1,000)
+        $pdo->exec("UPDATE `rooms` SET 
+            `stay_type` = 'treehouse',
+            `structure_type` = 'single_hut',
+            `base_guests` = COALESCE(NULLIF(`base_guests`, 0), 2),
+            `max_guests` = GREATEST(`max_guests`, 3),
+            `extra_guest_rate` = COALESCE(NULLIF(`extra_guest_rate`, 0), 2000.00),
+            `extra_child_rate` = COALESCE(NULLIF(`extra_child_rate`, 0), 1000.00)
+            WHERE `slug` = 'treehouse'");
+
+        // Check if Treehouse Double Cottage (Duplex Hut) exists; seed or update it!
+        $double_count = (int)$pdo->query("SELECT COUNT(*) FROM `rooms` WHERE `slug` = 'treehouse-double'")->fetchColumn();
+        if ($double_count === 0) {
+            $ins = $pdo->prepare("INSERT INTO `rooms` 
+                (slug, stay_type, structure_type, title, rate_per_night, extra_guest_rate, extra_child_rate, elevation, base_guests, max_guests, description, amenities, image_url, interior_360_url, is_available) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+            $ins->execute([
+                'treehouse-double',
+                'treehouse',
+                'duplex_hut',
+                'The Canopy Treehouse — Double Cottage',
+                24000.00,
+                2000.00,
+                1000.00,
+                '30FT ELEVATION • DUPLEX SUITE',
+                4,
+                6,
+                'An expansive two-tier canopy residence designed for larger families or companion groups. Accommodates four guests luxuriously across two master handcrafted teak bedrooms with dual private balconies soaring over the misty valley.',
+                '2 Handcrafted King Teak Beds, Dual Panoramic Balconies, Private Sun Lounge, Hearth Fireplace, Double Rain Showers, Farm Breakfast & Dinners Included',
+                'assets/images/treehouse_exterior.png',
+                'assets/images/treehouse_360_pano.jpg'
+            ]);
+        } else {
+            $pdo->exec("UPDATE `rooms` SET `structure_type` = 'duplex_hut', `extra_child_rate` = COALESCE(NULLIF(`extra_child_rate`, 0), 1000.00) WHERE `slug` = 'treehouse-double'");
+        }
+
+        // Check if Mudhouse Duplex Sanctuary exists; if not, seed it!
+        $mud_duplex_count = (int)$pdo->query("SELECT COUNT(*) FROM `rooms` WHERE `slug` = 'mudhouse-duplex'")->fetchColumn();
+        if ($mud_duplex_count === 0) {
+            $ins = $pdo->prepare("INSERT INTO `rooms` 
+                (slug, stay_type, structure_type, title, rate_per_night, extra_guest_rate, extra_child_rate, elevation, base_guests, max_guests, description, amenities, image_url, interior_360_url, is_available) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+            $ins->execute([
+                'mudhouse-duplex',
+                'mudhouse',
+                'duplex_hut',
+                'The Earthen Mudhouse — Duplex Family Sanctuary',
+                21000.00,
+                1500.00,
+                800.00,
+                'COB HERITAGE • DUPLEX SUITE',
+                4,
+                8,
+                'An expansive two-level authentic cob residence sculpted from natural clay, straw, and river sand. Designed for families and private retreat groups seeking biophilic living, featuring two master cob chambers, terracotta veranda, and indoor slate hearth.',
+                '2 Handcrafted Queen Clay Beds, Terracotta Veranda, Private Herb Garden, Slate Hearth Fireplace, Natural Clay Water Coolers, All Farm Meals Included',
+                'assets/images/mudhouse_exterior.png',
+                'assets/images/treehouse_360_pano.jpg'
+            ]);
+        } else {
+            $pdo->exec("UPDATE `rooms` SET `structure_type` = 'duplex_hut', `extra_child_rate` = COALESCE(NULLIF(`extra_child_rate`, 0), 800.00) WHERE `slug` = 'mudhouse-duplex'");
+        }
     } catch (Exception $e) {
         // Silently skip if DB not ready
     }

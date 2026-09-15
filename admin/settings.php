@@ -444,6 +444,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // 10. Villas & Accommodations Card (Header + Both Rooms, Nightly Tariffs & 360 Panoramas)
         elseif ($form_type === 'rooms_settings') {
             ensure_rooms_360_column($pdo);
+            ensure_rooms_pricing_columns($pdo);
 
             if (!empty($_POST['delete_room_id'])) {
                 $del_id = (int)$_POST['delete_room_id'];
@@ -452,14 +453,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $alert_message = 'Villa dwelling successfully removed from sanctuary.';
             } elseif (($_POST['action'] ?? '') === 'add_room') {
                 $title = trim($_POST['new_room_title'] ?? '');
+                $stay_type = trim($_POST['new_room_stay_type'] ?? 'treehouse');
+                $structure_type = trim($_POST['new_room_structure_type'] ?? 'single_hut');
                 $slug = trim($_POST['new_room_slug'] ?? '');
                 if (empty($slug) && !empty($title)) {
                     $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
                 }
                 $rate = floatval($_POST['new_room_rate'] ?? 0);
+                $extra_rate = floatval($_POST['new_room_extra_rate'] ?? 1500.00);
+                $extra_child_rate = floatval($_POST['new_room_extra_child_rate'] ?? 800.00);
                 $el = trim($_POST['new_room_elevation'] ?? '1,600m Elevation');
-                $cap = intval($_POST['new_room_capacity'] ?? 2);
+                $base_guests = max(1, intval($_POST['new_room_base_guests'] ?? 2));
+                $cap = max($base_guests, intval($_POST['new_room_capacity'] ?? 4));
                 $desc = trim($_POST['new_room_desc'] ?? '');
+                $amenities = trim($_POST['new_room_amenities'] ?? 'Organic Bedding, Fireplace, Mountain View Balcony, All Meals Included');
                 $img = trim($_POST['new_room_image'] ?? 'assets/images/treehouse_exterior.png');
                 if (!empty($_FILES['new_room_image_file']['name'])) {
                     $up = handle_image_upload($_FILES['new_room_image_file'], 'room');
@@ -488,9 +495,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($existing->fetchColumn() > 0) {
                         $slug .= '-' . time();
                     }
-                    $ins = $pdo->prepare("INSERT INTO rooms (slug, title, rate_per_night, elevation, max_guests, description, image_url, interior_360_url, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
-                    $ins->execute([$slug, $title, $rate, $el, $cap, $desc, $img, $pano_360]);
-                    $alert_message = 'New villa / suite successfully registered and published with 360° interior tour!';
+                    $ins = $pdo->prepare("INSERT INTO rooms (slug, stay_type, structure_type, title, rate_per_night, extra_guest_rate, extra_child_rate, elevation, base_guests, max_guests, description, amenities, image_url, interior_360_url, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                    $ins->execute([$slug, $stay_type, $structure_type, $title, $rate, $extra_rate, $extra_child_rate, $el, $base_guests, $cap, $desc, $amenities, $img, $pano_360]);
+                    $alert_message = 'New villa / hut dwelling successfully registered and published with dynamic adult & child pricing & 360° interior tour!';
                 } else {
                     $alert_message = 'Villa title and valid nightly rate are required.';
                     $alert_type = 'error';
@@ -506,15 +513,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Update rooms & tariffs & 360 panoramas
                 if (isset($_POST['room_id']) && is_array($_POST['room_id'])) {
-                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, elevation = ?, rate_per_night = ?, max_guests = ?, description = ?, image_url = ?, interior_360_url = ? WHERE id = ?");
+                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, extra_guest_rate = ?, extra_child_rate = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, interior_360_url = ?, is_available = ? WHERE id = ?");
                     foreach ($_POST['room_id'] as $idx => $rid) {
                         $t = trim($_POST['room_title'][$idx] ?? '');
+                        $st = trim($_POST['room_stay_type'][$idx] ?? 'treehouse');
+                        $structure_type = trim($_POST['room_structure_type'][$idx] ?? 'single_hut');
                         $el = trim($_POST['room_elevation'][$idx] ?? '');
                         $rate = floatval($_POST['room_rate'][$idx] ?? 0);
-                        $cap = intval($_POST['room_capacity'][$idx] ?? 2);
+                        $extra_rate = floatval($_POST['room_extra_rate'][$idx] ?? 1500.00);
+                        $extra_child_rate = floatval($_POST['room_extra_child_rate'][$idx] ?? 800.00);
+                        $base_guests = max(1, intval($_POST['room_base_guests'][$idx] ?? 2));
+                        $cap = max($base_guests, intval($_POST['room_capacity'][$idx] ?? 2));
                         $d = trim($_POST['room_desc'][$idx] ?? '');
                         $img = trim($_POST['room_image'][$idx] ?? '');
                         $pano_360 = trim($_POST['room_interior_360'][$idx] ?? '');
+                        $is_avail = (isset($_POST['room_available_' . $rid]) || (isset($_POST['room_available'][$idx]) && $_POST['room_available'][$idx] == '1')) ? 1 : 0;
 
                         // Check primary exterior photo upload
                         if (isset($_FILES['room_image_file'])) {
@@ -564,10 +577,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
                         }
 
-                        $upd_room->execute([$t, $el, $rate, $cap, $d, $img, $pano_360, (int)$rid]);
+                        $upd_room->execute([$t, $st, $structure_type, $el, $rate, $extra_rate, $extra_child_rate, $base_guests, $cap, $d, $img, $pano_360, $is_avail, (int)$rid]);
                     }
                 }
-                $alert_message = 'Villas, architectural specifications, tariffs & 360° interior panoramas successfully updated.';
+                $alert_message = 'Villas, single & duplex huts, base occupancies, adult & child tariffs & 360° panoramas successfully updated.';
             }
         }
 
@@ -741,6 +754,7 @@ while ($row = $settings_stmt->fetch()) {
 
 // Fetch database records for dynamic card editing
 $all_experiences = $pdo->query("SELECT * FROM experiences ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+ensure_rooms_pricing_columns($pdo);
 $all_rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
 $all_testimonials = $pdo->query("SELECT * FROM testimonials ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
 $all_gallery = $pdo->query("SELECT * FROM gallery ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -814,6 +828,23 @@ window.toggleAddNewDrawer = function(drawerId) {
     } else {
         drawer.style.display = 'none';
     }
+};
+
+window.filterAdminRooms = function(filter, btn) {
+    var buttons = document.querySelectorAll('.adm-huts-filter-bar .adm-huts-filter-btn');
+    buttons.forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+
+    var cards = document.querySelectorAll('.adm-room-item-card');
+    cards.forEach(function(card) {
+        var stay = card.getAttribute('data-stay-type') || '';
+        var struct = card.getAttribute('data-structure-type') || '';
+        if (filter === 'all' || stay === filter || struct === filter) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
 };
 
 // On Page Load, activate selected tab without jumping
@@ -2387,24 +2418,54 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 14px;">
                         <div class="adm-form-group">
+                            <label class="adm-form-label">Stay Category *</label>
+                            <select name="new_room_stay_type" class="adm-form-control" style="font-weight: 700; color: #2ecc71;" required>
+                                <option value="mudhouse">🌿 Mudhouse Stay (Handcrafted Earth & Terracotta)</option>
+                                <option value="treehouse" selected>🌲 Treehouse Stay (Timber Canopy & High Ridge)</option>
+                            </select>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Structure Type *</label>
+                            <select name="new_room_structure_type" class="adm-form-control" style="font-weight: 700; color: var(--adm-gold);" required>
+                                <option value="single_hut" selected>🏡 Single Hut (1-Room Private Cottage)</option>
+                                <option value="duplex_hut">🏘️ Duplex Hut (Multi-Room Family Cottage)</option>
+                            </select>
+                        </div>
+                        <div class="adm-form-group">
                             <label class="adm-form-label">Suite Title *</label>
-                            <input type="text" name="new_room_title" class="adm-form-control" placeholder="e.g. The Orchard Stone Cottage" required>
+                            <input type="text" name="new_room_title" class="adm-form-control" placeholder="e.g. The Canopy Treehouse — Duplex Villa" required>
                         </div>
                         <div class="adm-form-group">
                             <label class="adm-form-label">URL Slug (lowercase-dashes)</label>
-                            <input type="text" name="new_room_slug" class="adm-form-control" placeholder="e.g. stone-cottage (leave blank to auto-generate)">
+                            <input type="text" name="new_room_slug" class="adm-form-control" placeholder="e.g. treehouse-duplex (blank to auto-generate)">
                         </div>
                         <div class="adm-form-group">
-                            <label class="adm-form-label">Nightly Rate (₹) *</label>
-                            <input type="number" step="100" name="new_room_rate" class="adm-form-control" placeholder="e.g. 12500" required style="font-weight: bold; color: var(--adm-gold);">
+                            <label class="adm-form-label">Nightly Rate (₹) [Covers Base Occupancy] *</label>
+                            <input type="number" step="100" name="new_room_rate" class="adm-form-control" placeholder="e.g. 14500" required style="font-weight: bold; color: var(--adm-gold);">
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Base Guests Included *</label>
+                            <input type="number" min="1" max="10" name="new_room_base_guests" class="adm-form-control" value="2" required title="Guests covered by base nightly rate (e.g. 2 for single cottage, 4 for double cottage)">
+                            <small style="color: var(--adm-text-secondary); font-size: 10px;">Included in base rate (e.g. 2 for Single, 4 for Duplex)</small>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Max Guest Capacity *</label>
+                            <input type="number" min="1" max="15" name="new_room_capacity" class="adm-form-control" value="4" required title="Absolute maximum guests this suite can accommodate">
+                            <small style="color: var(--adm-text-secondary); font-size: 10px;">Maximum allowable guests (Adults + Children)</small>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Extra Adult Rate / Night (₹) (12+ yrs) *</label>
+                            <input type="number" step="100" name="new_room_extra_rate" class="adm-form-control" value="1500" required style="font-weight: bold; color: #2ecc71;">
+                            <small style="color: var(--adm-text-secondary); font-size: 10px;">Per extra adult exceeding base count per night</small>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Extra Child Rate / Night (₹) (5-11 yrs) *</label>
+                            <input type="number" step="100" name="new_room_extra_child_rate" class="adm-form-control" value="800" required style="font-weight: bold; color: #f59e0b;">
+                            <small style="color: var(--adm-text-secondary); font-size: 10px;">Per extra child/night (Infants &lt; 5 yrs complimentary)</small>
                         </div>
                         <div class="adm-form-group">
                             <label class="adm-form-label">Elevation Tag *</label>
                             <input type="text" name="new_room_elevation" class="adm-form-control" placeholder="e.g. 1,600m High Ridge" value="1,600m High Ridge" required>
-                        </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Max Guest Capacity *</label>
-                            <input type="number" min="1" max="10" name="new_room_capacity" class="adm-form-control" value="2" required>
                         </div>
                     </div>
 
@@ -2534,8 +2595,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
 
-                <!-- Suites Header -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <!-- Suites Header & Filter Bar -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                     <h4 style="font-family: var(--adm-font-title); font-size: 15px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-bed"></i> Architectural Suites & Nightly Rates (<?php echo count($all_rooms); ?>)
                     </h4>
@@ -2544,7 +2605,44 @@ document.addEventListener('DOMContentLoaded', function() {
                     </button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                <style>
+                .adm-huts-filter-btn {
+                    background: rgba(255,255,255,0.06);
+                    border: 1px solid rgba(255,255,255,0.12);
+                    color: var(--adm-text-secondary);
+                    padding: 5px 12px;
+                    border-radius: 20px;
+                    font-size: 11.5px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .adm-huts-filter-btn:hover {
+                    background: rgba(197, 160, 89, 0.15);
+                    color: var(--adm-gold);
+                    border-color: rgba(197, 160, 89, 0.35);
+                }
+                .adm-huts-filter-btn.active {
+                    background: var(--adm-gold);
+                    color: #07100B;
+                    border-color: var(--adm-gold);
+                    font-weight: 700;
+                    box-shadow: 0 2px 8px rgba(197, 160, 89, 0.3);
+                }
+                </style>
+
+                <div class="adm-huts-filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: rgba(0,0,0,0.35); padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-secondary); font-weight: 700; letter-spacing: 0.8px; margin-right: 4px;">
+                        <i class="fa-solid fa-filter" style="color: var(--adm-gold); margin-right: 4px;"></i> Filter Huts:
+                    </span>
+                    <button type="button" class="adm-huts-filter-btn active" data-filter="all" onclick="filterAdminRooms('all', this)">All Huts (<?php echo count($all_rooms); ?>)</button>
+                    <button type="button" class="adm-huts-filter-btn" data-filter="mudhouse" onclick="filterAdminRooms('mudhouse', this)">🌿 Mudhouse Huts</button>
+                    <button type="button" class="adm-huts-filter-btn" data-filter="treehouse" onclick="filterAdminRooms('treehouse', this)">🌲 Wooden / Tree Huts</button>
+                    <button type="button" class="adm-huts-filter-btn" data-filter="single_hut" onclick="filterAdminRooms('single_hut', this)">🏡 Single Huts</button>
+                    <button type="button" class="adm-huts-filter-btn" data-filter="duplex_hut" onclick="filterAdminRooms('duplex_hut', this)">🏘️ Duplex Huts</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; margin-bottom: 24px;" id="adm-rooms-grid">
                     <?php if (empty($all_rooms)): ?>
                         <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
                             <i class="fa-solid fa-bed" style="font-size: 32px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
@@ -2555,14 +2653,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     <?php endif; ?>
 
-                    <?php foreach ($all_rooms as $idx => $room): ?>
-                        <div style="background: rgba(8, 18, 11, 0.7); border: 1px solid var(--adm-border); border-radius: 12px; padding: 20px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
-                                <div style="display: flex; align-items: center; gap: 10px;">
+                    <?php foreach ($all_rooms as $idx => $room): 
+                        $structure_type = $room['structure_type'] ?? 'single_hut';
+                        $stay_type = $room['stay_type'] ?? 'treehouse';
+                    ?>
+                        <div class="adm-room-item-card" data-stay-type="<?php echo e($stay_type); ?>" data-structure-type="<?php echo e($structure_type); ?>" style="background: rgba(8, 18, 11, 0.7); border: 1px solid var(--adm-border); border-radius: 12px; padding: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                     <span style="font-size: 13px; font-weight: 700; color: #fb7185; text-transform: uppercase;">
                                         <?php echo e($room['title'] ?? $room['slug']); ?>
                                     </span>
-                                    <span style="font-size: 11px; color: var(--adm-gold); background: rgba(197, 160, 89, 0.1); padding: 3px 8px; border-radius: 6px;">
+                                    <span style="font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; <?php echo $stay_type === 'mudhouse' ? 'background: rgba(234, 88, 12, 0.18); color: #fb923c; border: 1px solid rgba(234, 88, 12, 0.4);' : 'background: rgba(46, 204, 113, 0.18); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4);'; ?>">
+                                        <?php echo $stay_type === 'mudhouse' ? '🌿 MUDHOUSE' : '🌲 WOODEN / TREE'; ?>
+                                    </span>
+                                    <span style="font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; <?php echo $structure_type === 'duplex_hut' ? 'background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4);' : 'background: rgba(59, 130, 246, 0.18); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);'; ?>">
+                                        <?php echo $structure_type === 'duplex_hut' ? '🏘️ DUPLEX HUT' : '🏡 SINGLE HUT'; ?>
+                                    </span>
+                                    <span style="font-size: 10.5px; color: var(--adm-gold); background: rgba(197, 160, 89, 0.1); padding: 2px 8px; border-radius: 6px;">
                                         ID: <?php echo $room['id']; ?>
                                     </span>
                                 </div>
@@ -2572,14 +2679,30 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <input type="hidden" name="room_id[]" value="<?php echo $room['id']; ?>">
 
-                            <div class="adm-form-group" style="margin-bottom: 12px;">
-                                <label class="adm-form-label">Suite Title</label>
-                                <input type="text" name="room_title[]" class="adm-form-control" value="<?php echo e($room['title'] ?? ''); ?>" required>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                <div class="adm-form-group">
+                                    <label class="adm-form-label">Stay Category</label>
+                                    <select name="room_stay_type[]" class="adm-form-control" style="font-weight: 700; color: #2ecc71;">
+                                        <option value="mudhouse" <?php echo $stay_type === 'mudhouse' ? 'selected' : ''; ?>>🌿 Mudhouse Stay</option>
+                                        <option value="treehouse" <?php echo $stay_type === 'treehouse' ? 'selected' : ''; ?>>🌲 Treehouse Stay</option>
+                                    </select>
+                                </div>
+                                <div class="adm-form-group">
+                                    <label class="adm-form-label">Structure Type</label>
+                                    <select name="room_structure_type[]" class="adm-form-control" style="font-weight: 700; color: var(--adm-gold);">
+                                        <option value="single_hut" <?php echo $structure_type === 'single_hut' ? 'selected' : ''; ?>>🏡 Single Hut (1-Room)</option>
+                                        <option value="duplex_hut" <?php echo $structure_type === 'duplex_hut' ? 'selected' : ''; ?>>🏘️ Duplex Hut (Multi-Room)</option>
+                                    </select>
+                                </div>
+                                <div class="adm-form-group">
+                                    <label class="adm-form-label">Suite Title</label>
+                                    <input type="text" name="room_title[]" class="adm-form-control" value="<?php echo e($room['title'] ?? ''); ?>" required>
+                                </div>
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                                 <div class="adm-form-group">
-                                    <label class="adm-form-label">Nightly Rate (₹)</label>
+                                    <label class="adm-form-label">Nightly Rate (₹) [Covers Base Guests]</label>
                                     <input type="number" step="100" name="room_rate[]" class="adm-form-control" value="<?php echo (float)$room['rate_per_night']; ?>" required style="font-weight: bold; color: var(--adm-gold);">
                                 </div>
                                 <div class="adm-form-group">
@@ -2588,9 +2711,41 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             </div>
 
-                            <div class="adm-form-group" style="margin-bottom: 12px;">
-                                <label class="adm-form-label">Guest Capacity (Max Guests)</label>
-                                <input type="number" min="1" max="10" name="room_capacity[]" class="adm-form-control" value="<?php echo e($room['max_guests'] ?? 2); ?>" required>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                                <div class="adm-form-group">
+                                    <label class="adm-form-label">Base Guests</label>
+                                    <input type="number" min="1" max="10" name="room_base_guests[]" class="adm-form-control" value="<?php echo (int)($room['base_guests'] ?? 2); ?>" required title="Standard guests covered by base nightly rate (e.g. 2 for single, 4 for duplex)">
+                                    <small style="color: var(--adm-text-secondary); font-size: 10px;">In base rate</small>
+                                </div>
+                                <div class="adm-form-group">
+                                    <label class="adm-form-label">Max Capacity</label>
+                                    <input type="number" min="1" max="15" name="room_capacity[]" class="adm-form-control" value="<?php echo (int)($room['max_guests'] ?? 2); ?>" required title="Maximum allowable guests (Adults + Children)">
+                                    <small style="color: var(--adm-text-secondary); font-size: 10px;">Max guests</small>
+                                </div>
+                                <div class="adm-form-group">
+                                    <label class="adm-form-label">Extra Adult (₹/N)</label>
+                                    <input type="number" step="100" name="room_extra_rate[]" class="adm-form-control" value="<?php echo (float)($room['extra_guest_rate'] ?? 1500.00); ?>" required style="font-weight: bold; color: #2ecc71;" title="Charge per extra adult per night exceeding base count">
+                                    <small style="color: var(--adm-text-secondary); font-size: 10px;">12+ yrs extra</small>
+                                </div>
+                                <div class="adm-form-group">
+                                    <label class="adm-form-label">Extra Child (₹/N)</label>
+                                    <input type="number" step="100" name="room_extra_child_rate[]" class="adm-form-control" value="<?php echo (float)($room['extra_child_rate'] ?? 800.00); ?>" required style="font-weight: bold; color: #f59e0b;" title="Charge per extra child (5-11 yrs) per night">
+                                    <small style="color: var(--adm-text-secondary); font-size: 10px;">5-11 yrs extra</small>
+                                </div>
+                            </div>
+                            <div style="font-size: 10.5px; color: var(--adm-text-secondary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-circle-info" style="color: var(--adm-gold);"></i>
+                                <span>Adults fill base slots first; extra adults pay Extra Adult Rate; extra kids (5-11 yrs) pay Extra Child Rate. Infants &lt; 5 yrs complimentary.</span>
+                            </div>
+
+                            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px;">
+                                <span style="font-size: 12px; color: var(--adm-text-secondary);">Booking Status:</span>
+                                <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; color: #fff; margin: 0;">
+                                    <input type="checkbox" name="room_available_<?php echo $room['id']; ?>" value="1" <?php echo (!isset($room['is_available']) || $room['is_available'] == 1) ? 'checked' : ''; ?>>
+                                    <span style="font-weight: 600; color: <?php echo (!isset($room['is_available']) || $room['is_available'] == 1) ? '#2ecc71' : '#e74c3c'; ?>;">
+                                        <?php echo (!isset($room['is_available']) || $room['is_available'] == 1) ? 'Active & Bookable' : 'Temporarily Closed / Maintenance'; ?>
+                                    </span>
+                                </label>
                             </div>
 
                             <div class="adm-form-group" style="margin-bottom: 12px;">

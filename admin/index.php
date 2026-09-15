@@ -187,20 +187,19 @@ $recent_inquiries = $pdo->query("
         <table class="adm-data-table">
             <thead>
                 <tr>
-                    <th>Ref #</th>
+                    <th style="width: 85px;">Ref #</th>
                     <th>Guest Information</th>
                     <th>Villa Choice</th>
-                    <th>Check-in / Out</th>
-                    <th>Nights</th>
-                    <th>Total (₹)</th>
-                    <th>Status</th>
-                    <th>Concierge Action</th>
+                    <th>Stay Dates</th>
+                    <th style="width: 105px;">Total (₹)</th>
+                    <th class="adm-col-status">Status</th>
+                    <th class="adm-col-actions">Concierge Action</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($recent_bookings)): ?>
                     <tr>
-                        <td colspan="8" style="text-align: center; padding: 40px; color: var(--adm-text-muted);">
+                        <td colspan="7" style="text-align: center; padding: 40px; color: var(--adm-text-muted);">
                             No reservations on record yet.
                         </td>
                     </tr>
@@ -210,34 +209,56 @@ $recent_inquiries = $pdo->query("
                     ?>
                         <tr data-status="<?php echo e($b['status']); ?>">
                             <td>
-                                <strong style="font-family: monospace; color: var(--adm-gold-light); font-size: 13px;">
+                                <span class="adm-ref-badge" title="Reservation Reference #">
                                     <?php echo e($b['reference_code']); ?>
-                                </strong>
+                                </span>
                             </td>
                             <td>
-                                <div style="font-weight: 600; color: var(--adm-text-primary);"><?php echo e($b['guest_name']); ?></div>
-                                <div style="font-size: 11.5px; color: var(--adm-text-muted);"><i class="fa-solid fa-phone" style="font-size: 10px;"></i> <?php echo e($b['guest_phone']); ?></div>
+                                <div style="font-weight: 700; color: var(--adm-text-primary); margin-bottom: 2px;"><?php echo e($b['guest_name']); ?></div>
+                                <div style="font-size: 11.5px; color: var(--adm-text-muted); display: flex; align-items: center; gap: 5px;">
+                                    <i class="fa-solid fa-phone" style="font-size: 10px; color: var(--adm-gold);"></i> 
+                                    <a href="tel:<?php echo e($b['guest_phone']); ?>" style="color: inherit;" title="Call Guest"><?php echo e($b['guest_phone']); ?></a>
+                                </div>
                             </td>
                             <td>
-                                <span style="font-size: 12.5px;">
-                                    <i class="fa-solid <?php echo $b['villa_type'] === 'treehouse' ? 'fa-tree' : 'fa-house-chimney'; ?>" style="color: var(--adm-gold); margin-right: 4px;"></i>
+                                <span style="font-size: 13px; font-weight: 600; color: #FFFFFF;">
+                                    <i class="fa-solid <?php echo $b['villa_type'] === 'treehouse' ? 'fa-tree' : 'fa-house-chimney'; ?>" style="color: var(--adm-gold); margin-right: 5px;"></i>
                                     <?php echo e($villa_title); ?>
                                 </span>
                             </td>
-                            <td>
-                                <div style="font-size: 12.5px;"><?php echo date('d M Y', strtotime($b['checkin_date'])); ?></div>
-                                <div style="font-size: 11px; color: var(--adm-text-muted);">to <?php echo date('d M Y', strtotime($b['checkout_date'])); ?></div>
+                            <td style="white-space: nowrap;">
+                                <div style="font-size: 13px; font-weight: 600; color: var(--adm-text-primary);"><i class="fa-regular fa-calendar" style="font-size: 11px; color: var(--adm-gold); margin-right: 4px;"></i> <?php echo date('d M Y', strtotime($b['checkin_date'])); ?></div>
+                                <div style="font-size: 11.5px; color: var(--adm-text-muted); margin-top: 2px; display: flex; align-items: center; gap: 6px;">
+                                    <span>to <?php echo date('d M Y', strtotime($b['checkout_date'])); ?></span>
+                                    <span class="adm-night-pill"><?php echo e($b['nights']); ?>N</span>
+                                </div>
                             </td>
-                            <td><?php echo e($b['nights']); ?>N</td>
-                            <td style="font-family: var(--adm-font-title); font-weight: 700; color: var(--adm-gold-light);">
+                            <td style="font-family: var(--adm-font-title); font-weight: 700; color: var(--adm-gold-light); font-size: 15px; white-space: nowrap;">
                                 ₹<?php echo number_format($b['total_amount'], 0, '.', ','); ?>
                             </td>
-                            <td>
-                                <span class="adm-badge <?php echo e($b['status']); ?>">
-                                    <?php echo e($b['status']); ?>
+                            <td class="adm-col-status">
+                                <?php 
+                                $st = strtolower($b['status']);
+                                $icon = 'fa-clock';
+                                $label = 'Pending';
+                                if ($st === 'confirmed') {
+                                    $icon = 'fa-circle-check';
+                                    $label = 'Confirmed';
+                                } elseif ($st === 'completed') {
+                                    $icon = 'fa-flag-checkered';
+                                    $label = 'Completed';
+                                } elseif ($st === 'cancelled') {
+                                    $icon = 'fa-ban';
+                                    $label = 'Cancelled';
+                                }
+                                ?>
+                                <span class="adm-badge <?php echo e($st); ?>">
+                                    <span class="adm-badge-dot"></span>
+                                    <i class="fa-solid <?php echo $icon; ?>" style="font-size: 10px;"></i>
+                                    <span><?php echo $label; ?></span>
                                 </span>
                             </td>
-                            <td>
+                            <td class="adm-col-actions">
                                 <div class="adm-actions-cell">
                                     <!-- WhatsApp Concierge Quick Trigger -->
                                     <button type="button" class="adm-btn-icon whatsapp" title="Send WhatsApp Concierge Confirmation"
@@ -256,19 +277,19 @@ $recent_inquiries = $pdo->query("
 
                                     <!-- Quick Confirm if pending -->
                                     <?php if ($b['status'] === 'pending'): ?>
-                                        <form method="POST" style="display:inline;">
+                                        <form method="POST" style="display:inline; margin:0;">
                                             <input type="hidden" name="action" value="quick_status">
                                             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                             <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
                                             <input type="hidden" name="status" value="confirmed">
-                                            <button type="submit" class="adm-btn-icon" title="Confirm Reservation" style="color: #48BB78;">
+                                            <button type="submit" class="adm-btn-icon" title="Confirm Reservation" style="color: #48BB78; border-color: rgba(72, 187, 120, 0.35);">
                                                 <i class="fa-solid fa-check"></i>
                                             </button>
                                         </form>
                                     <?php endif; ?>
 
                                     <!-- View Details in Full Bookings Page -->
-                                    <a href="bookings.php?search=<?php echo urlencode($b['reference_code']); ?>" class="adm-btn-icon" title="View Full Details">
+                                    <a href="bookings.php?search=<?php echo urlencode($b['reference_code']); ?>" class="adm-btn-icon view" title="View Full Details">
                                         <i class="fa-solid fa-eye"></i>
                                     </a>
                                 </div>

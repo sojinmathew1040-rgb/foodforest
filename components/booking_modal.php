@@ -28,52 +28,95 @@
                 <div class="booking-section-group">
                     <h4 class="group-title font-serif">1. Select Your Stay & Dates</h4>
                     <div class="booking-grid-2">
-                        <!-- Villa Selection -->
-                        <div class="form-field">
-                            <label for="modal-villa" class="form-label font-sans">Sanctuary Villa</label>
-                            <div class="select-wrapper">
-                                <select id="modal-villa" class="form-input font-sans" required>
-                                    <?php
-                                    require_once __DIR__ . '/../admin/includes/db.php';
-                                    $modal_villas = get_all_rooms(true);
-                                    if (!empty($modal_villas)):
-                                        foreach ($modal_villas as $mv):
-                                    ?>
-                                        <option value="<?php echo htmlspecialchars($mv['slug']); ?>" data-price="<?php echo htmlspecialchars($mv['rate_per_night']); ?>" data-name="<?php echo htmlspecialchars($mv['title']); ?>">
-                                            <?php echo htmlspecialchars($mv['title']); ?> (₹<?php echo number_format($mv['rate_per_night'], 0, '.', ','); ?> / night)
-                                        </option>
-                                    <?php 
-                                        endforeach;
-                                    else: 
-                                    ?>
-                                        <option value="treehouse" data-price="14500" data-name="Luxury Canopy Treehouse">
-                                            Luxury Canopy Treehouse (₹14,500 / night)
-                                        </option>
-                                        <option value="mudhouse" data-price="11500" data-name="Traditional Earthen Mudhouse">
-                                            Traditional Earthen Mudhouse (₹11,500 / night)
-                                        </option>
-                                    <?php endif; ?>
-                                </select>
-                                <i class="fa-solid fa-chevron-down select-arrow"></i>
-                            </div>
-                        </div>
-
-                        <!-- Guests -->
-                        <div class="form-field">
-                            <label for="modal-guests" class="form-label font-sans">Guests</label>
-                            <div class="select-wrapper">
-                                <select id="modal-guests" class="form-input font-sans">
-                                    <option value="1">1 Guest</option>
-                                    <option value="2" selected>2 Guests</option>
-                                    <option value="3">3 Guests</option>
-                                    <option value="4">4 Guests (Mudhouse Family)</option>
-                                </select>
-                                <i class="fa-solid fa-chevron-down select-arrow"></i>
-                            </div>
+                    <!-- Villa Selection -->
+                    <div class="form-field" style="margin-bottom: 16px;">
+                        <label for="modal-villa" class="form-label font-sans">Sanctuary Villa or Cottage</label>
+                        <div class="select-wrapper">
+                            <select id="modal-villa" class="form-input font-sans" required>
+                                <?php
+                                require_once __DIR__ . '/../admin/includes/db.php';
+                                ensure_rooms_pricing_columns(get_db());
+                                $modal_villas = get_all_rooms(true);
+                                if (!empty($modal_villas)):
+                                    foreach ($modal_villas as $mv):
+                                        $struct = $mv['structure_type'] ?? 'single_hut';
+                                        $struct_label = ($struct === 'duplex_hut') ? 'Duplex Cottage' : 'Single Hut';
+                                        $cat_icon = ($mv['stay_type'] === 'mudhouse') ? '🌿 Mudhouse' : '🌲 Treehouse';
+                                ?>
+                                    <option value="<?php echo htmlspecialchars($mv['slug']); ?>" 
+                                            data-price="<?php echo htmlspecialchars($mv['rate_per_night']); ?>" 
+                                            data-name="<?php echo htmlspecialchars($mv['title']); ?>"
+                                            data-base-guests="<?php echo (int)($mv['base_guests'] ?? 2); ?>"
+                                            data-max-guests="<?php echo (int)($mv['max_guests'] ?? 4); ?>"
+                                            data-extra-rate="<?php echo htmlspecialchars($mv['extra_guest_rate'] ?? 1500); ?>"
+                                            data-extra-child-rate="<?php echo htmlspecialchars($mv['extra_child_rate'] ?? 800); ?>"
+                                            data-structure-type="<?php echo htmlspecialchars($struct); ?>"
+                                            data-stay-type="<?php echo htmlspecialchars($mv['stay_type'] ?? 'treehouse'); ?>">
+                                        <?php echo "{$cat_icon} [{$struct_label}]: " . htmlspecialchars($mv['title']); ?> (₹<?php echo number_format($mv['rate_per_night'], 0, '.', ','); ?>/nt • Base <?php echo (int)($mv['base_guests'] ?? 2); ?> Guests)
+                                    </option>
+                                <?php 
+                                    endforeach;
+                                else: 
+                                ?>
+                                    <option value="treehouse" data-price="14500" data-name="Luxury Canopy Treehouse" data-base-guests="2" data-max-guests="3" data-extra-rate="2000" data-extra-child-rate="1000" data-structure-type="single_hut" data-stay-type="treehouse">
+                                        🌲 Treehouse [Single Hut]: Luxury Canopy Treehouse (₹14,500/nt • Base 2 Guests)
+                                    </option>
+                                    <option value="mudhouse" data-price="11500" data-name="Traditional Earthen Mudhouse" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="mudhouse">
+                                        🌿 Mudhouse [Single Hut]: Traditional Earthen Mudhouse (₹11,500/nt • Base 2 Guests)
+                                    </option>
+                                    <option value="treehouse-double" data-price="24000" data-name="The Grand Timber Loft" data-base-guests="4" data-max-guests="6" data-extra-rate="2000" data-extra-child-rate="1000" data-structure-type="duplex_hut" data-stay-type="treehouse">
+                                        🌲 Treehouse [Duplex Cottage]: The Grand Timber Loft (₹24,000/nt • Base 4 Guests)
+                                    </option>
+                                    <option value="mudhouse-duplex" data-price="21000" data-name="The Earthen Courtyard Cottage" data-base-guests="4" data-max-guests="8" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="duplex_hut" data-stay-type="mudhouse">
+                                        🌿 Mudhouse [Duplex Cottage]: The Earthen Courtyard Cottage (₹21,000/nt • Base 4 Guests)
+                                    </option>
+                                <?php endif; ?>
+                            </select>
+                            <i class="fa-solid fa-chevron-down select-arrow"></i>
                         </div>
                     </div>
 
-                    <div class="booking-grid-2">
+                    <!-- Luxury Dual Steppers: Adults & Children -->
+                    <div class="form-field guest-steppers-container" style="margin-bottom: 16px;">
+                        <div class="steppers-header-row">
+                            <label class="form-label font-sans" style="margin-bottom: 0;">Guests & Occupancy</label>
+                            <span id="room-occupancy-note" class="font-sans occupancy-note">
+                                <i class="fa-solid fa-circle-info"></i> Base: 2 Included • Max Capacity: 4
+                            </span>
+                        </div>
+                        <div class="guest-steppers-grid">
+                            <!-- Adults Stepper -->
+                            <div class="guest-stepper-box">
+                                <div class="stepper-label-group">
+                                    <span class="stepper-title font-sans"><i class="fa-solid fa-user"></i> Adults</span>
+                                    <span class="stepper-sub font-sans">Ages 12+ yrs</span>
+                                </div>
+                                <div class="stepper-controls">
+                                    <button type="button" class="btn-stepper btn-stepper-minus" data-target="modal-adults" aria-label="Decrease Adults">−</button>
+                                    <input type="number" id="modal-adults" name="adults_count" value="2" min="1" max="10" readonly class="stepper-val font-sans">
+                                    <button type="button" class="btn-stepper btn-stepper-plus" data-target="modal-adults" aria-label="Increase Adults">+</button>
+                                </div>
+                            </div>
+
+                            <!-- Children Stepper -->
+                            <div class="guest-stepper-box">
+                                <div class="stepper-label-group">
+                                    <span class="stepper-title font-sans"><i class="fa-solid fa-child"></i> Children</span>
+                                    <span class="stepper-sub font-sans">Ages 5–11 yrs <span class="infant-tag">(Under 5 Free)</span></span>
+                                </div>
+                                <div class="stepper-controls">
+                                    <button type="button" class="btn-stepper btn-stepper-minus" data-target="modal-kids" aria-label="Decrease Children">−</button>
+                                    <input type="number" id="modal-kids" name="kids_count" value="0" min="0" max="8" readonly class="stepper-val font-sans">
+                                    <button type="button" class="btn-stepper btn-stepper-plus" data-target="modal-kids" aria-label="Increase Children">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Hidden input for backwards compatibility -->
+                        <input type="hidden" id="modal-guests" value="2">
+                    </div>
+                </div>
+
+                <div class="booking-grid-2">
                         <!-- Check-in -->
                         <div class="form-field">
                             <label for="modal-checkin" class="form-label font-sans">Check-In Date</label>
@@ -168,8 +211,21 @@
                         <span id="summary-nights" class="font-sans font-weight-600">1 Night</span>
                     </div>
                     <div class="summary-line">
-                        <span class="font-sans">Villa Rate:</span>
+                        <span class="font-sans">Base Villa Tariff:</span>
                         <span id="summary-villa-rate" class="font-sans">₹14,500</span>
+                    </div>
+                    <div class="summary-line" id="summary-extra-adults-line" style="display: none; color: #2ecc71;">
+                        <span class="font-sans"><i class="fa-solid fa-user-plus" style="font-size: 11px;"></i> <span id="summary-extra-adults-label">Extra Adults (12+ yrs):</span></span>
+                        <span id="summary-extra-adults-rate" class="font-sans font-weight-600">+₹0</span>
+                    </div>
+                    <div class="summary-line" id="summary-extra-kids-line" style="display: none; color: #f59e0b;">
+                        <span class="font-sans"><i class="fa-solid fa-child" style="font-size: 11px;"></i> <span id="summary-extra-kids-label">Extra Children (5-11 yrs):</span></span>
+                        <span id="summary-extra-kids-rate" class="font-sans font-weight-600">+₹0</span>
+                    </div>
+                    <!-- Legacy fallback -->
+                    <div class="summary-line" id="summary-extra-guests-line" style="display: none; color: #2ecc71;">
+                        <span class="font-sans"><i class="fa-solid fa-user-plus" style="font-size: 11px;"></i> <span id="summary-extra-guests-label">Extra Guests Charge:</span></span>
+                        <span id="summary-extra-guests-rate" class="font-sans font-weight-600">+₹0</span>
                     </div>
                     <div class="summary-line" id="summary-addons-line" style="display: none;">
                         <span class="font-sans">Selected Experiences:</span>

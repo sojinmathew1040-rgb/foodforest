@@ -3576,6 +3576,153 @@ body.in-walkthrough .sticky-booking-pill {
     background-color: #FFFFFF;
 }
 
+/* Guest Stepper Controls (+ / -) */
+.guest-steppers-container {
+    background: #FAFAFA;
+    border: 1px solid rgba(28, 56, 38, 0.15);
+    border-radius: 6px;
+    padding: 14px 16px;
+    transition: border-color 0.3s ease;
+}
+
+.guest-steppers-container:focus-within {
+    border-color: var(--accent-gold);
+}
+
+.steppers-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.occupancy-note {
+    font-size: 0.74rem;
+    color: var(--accent-green);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    background: rgba(197, 160, 89, 0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(197, 160, 89, 0.3);
+}
+
+.guest-steppers-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+@media (max-width: 540px) {
+    .guest-steppers-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+
+.guest-stepper-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #FFFFFF;
+    border: 1px solid rgba(28, 56, 38, 0.12);
+    border-radius: 6px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 6px rgba(11, 24, 16, 0.03);
+}
+
+.stepper-label-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.stepper-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent-green);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.stepper-title i {
+    color: var(--accent-gold);
+    font-size: 0.85rem;
+}
+
+.stepper-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+
+.stepper-sub .infant-tag {
+    color: #10B981;
+    font-weight: 600;
+}
+
+.stepper-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(28, 56, 38, 0.04);
+    border: 1px solid rgba(28, 56, 38, 0.12);
+    border-radius: 30px;
+    padding: 3px 4px;
+}
+
+.btn-stepper {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(197, 160, 89, 0.4);
+    background: #FFFFFF;
+    color: var(--accent-green);
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    padding: 0;
+}
+
+.btn-stepper:hover:not(:disabled) {
+    background: var(--accent-green);
+    color: #FFFFFF;
+    border-color: var(--accent-green);
+    transform: scale(1.08);
+}
+
+.btn-stepper:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: rgba(28, 56, 38, 0.15);
+}
+
+.stepper-val {
+    width: 36px;
+    text-align: center;
+    border: none;
+    background: transparent;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent-green);
+    pointer-events: none;
+    -moz-appearance: textfield;
+}
+
+.stepper-val::-webkit-outer-spin-button,
+.stepper-val::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 /* Addon Experiences Checkboxes */
 .addons-grid {
     display: flex;
@@ -4528,19 +4675,77 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 /* -------------------------------------------------------------
-   13. Micro-Interaction Utilities & Animations
+   13. Micro-Interaction Utilities & GSAP ScrollTrigger Enhancements
    ------------------------------------------------------------- */
-.scroll-reveal {
-    opacity: 0;
-    transform: translateY(28px);
-    transition: opacity 0.8s var(--transition-smooth), transform 0.8s var(--transition-smooth);
+.split-text {
+    perspective: 800px;
 }
 
-.scroll-reveal.revealed {
-    opacity: 1;
-    transform: translateY(0);
+.split-text-word {
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    vertical-align: top;
 }
 
 .split-text .char {
     display: inline-block;
+    transform-origin: 50% 100%;
+    will-change: transform, opacity;
+}
+
+/* Ensure smooth image parallax containment without edge exposure or layout shifts */
+.parallax-wrap,
+.luxury-image-frame,
+.why-visual-side,
+.experience-img-wrapper,
+.season-img-container,
+.gallery-card-inner,
+.mobile-tour-img-wrap {
+    overflow: hidden !important;
+    position: relative;
+}
+
+.welcome-img,
+.why-img,
+.experience-img,
+.season-img,
+.gallery-img,
+.mobile-tour-img,
+.hero-bg-img {
+    will-change: transform;
+}
+
+/* GSAP active animation overrides: eliminate CSS transition fighting */
+.gsap-active,
+.gsap-active * {
+    transition: none !important;
+}
+
+/* Legacy fallback for devices without JavaScript or prior to GSAP initialization */
+.scroll-reveal {
+    opacity: 1;
+}
+
+.no-js .scroll-reveal {
+    opacity: 1;
+    transform: none;
+}
+
+/* Accessibility: Respect Reduced Motion Preference */
+@media (prefers-reduced-motion: reduce) {
+    .split-text .char,
+    .welcome-img,
+    .why-img,
+    .experience-img,
+    .season-img,
+    .gallery-img,
+    .hero-bg-img {
+        transform: none !important;
+        transition: opacity 0.4s ease !important;
+    }
+    .scroll-reveal {
+        opacity: 1 !important;
+        transform: none !important;
+    }
 }

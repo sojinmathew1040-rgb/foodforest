@@ -72,13 +72,20 @@ $hero_rooms = get_all_rooms(true);
                 <select id="hero-villa" class="bar-select font-sans" aria-label="Select Villa">
                     <?php if (!empty($hero_rooms)): ?>
                         <?php foreach ($hero_rooms as $hr): ?>
-                            <option value="<?php echo htmlspecialchars($hr['slug']); ?>" data-price="<?php echo htmlspecialchars($hr['rate_per_night']); ?>">
+                            <option value="<?php echo htmlspecialchars($hr['slug']); ?>" 
+                                    data-price="<?php echo htmlspecialchars($hr['rate_per_night']); ?>" 
+                                    data-base-guests="<?php echo (int)($hr['base_guests'] ?? 2); ?>" 
+                                    data-max-guests="<?php echo (int)($hr['max_guests'] ?? 4); ?>" 
+                                    data-extra-rate="<?php echo htmlspecialchars($hr['extra_guest_rate'] ?? 1500); ?>" 
+                                    data-extra-child-rate="<?php echo htmlspecialchars($hr['extra_child_rate'] ?? 800); ?>"
+                                    data-structure-type="<?php echo htmlspecialchars($hr['structure_type'] ?? 'single_hut'); ?>"
+                                    data-stay-type="<?php echo htmlspecialchars($hr['stay_type'] ?? 'treehouse'); ?>">
                                 <?php echo htmlspecialchars($hr['title']); ?> (₹<?php echo number_format($hr['rate_per_night'], 0, '.', ','); ?>/nt)
                             </option>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <option value="treehouse" data-price="14500">Canopy Treehouse (₹14,500/nt)</option>
-                        <option value="mudhouse" data-price="11500">Earthen Mudhouse (₹11,500/nt)</option>
+                        <option value="treehouse" data-price="14500" data-base-guests="2" data-max-guests="3" data-extra-rate="2000" data-extra-child-rate="1000" data-structure-type="single_hut" data-stay-type="treehouse">Canopy Treehouse (₹14,500/nt)</option>
+                        <option value="mudhouse" data-price="11500" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="mudhouse">Earthen Mudhouse (₹11,500/nt)</option>
                     <?php endif; ?>
                 </select>
             </div>

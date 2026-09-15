@@ -927,32 +927,53 @@ input, select, textarea {
     max-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(197, 160, 89, 0.45) rgba(8, 18, 12, 0.9);
+}
+
+.adm-table-responsive::-webkit-scrollbar {
+    height: 7px;
+}
+
+.adm-table-responsive::-webkit-scrollbar-track {
+    background: rgba(8, 18, 12, 0.9);
+    border-radius: 4px;
+}
+
+.adm-table-responsive::-webkit-scrollbar-thumb {
+    background: rgba(197, 160, 89, 0.35);
+    border-radius: 4px;
+    border: 1px solid rgba(197, 160, 89, 0.2);
+}
+
+.adm-table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--adm-gold);
 }
 
 .adm-data-table {
     width: 100%;
-    min-width: 900px;
     border-collapse: collapse;
     text-align: left;
-    white-space: nowrap;
 }
 
 .adm-data-table th {
-    background: #09140D;
-    padding: 13px 18px;
+    background: #08140C;
+    padding: 12px 14px;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--adm-text-gold);
-    border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+    border-bottom: 1px solid rgba(197, 160, 89, 0.22);
+    white-space: nowrap;
 }
 
 .adm-data-table td {
-    padding: 15px 18px;
+    padding: 13px 14px;
     font-size: 13px;
     color: var(--adm-text-secondary);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    vertical-align: middle;
     transition: var(--adm-transition);
 }
 
@@ -961,83 +982,186 @@ input, select, textarea {
     color: #FFFFFF;
 }
 
-/* Status Badges */
+/* Actions Column - Clean natural layout (NO sticky overlap) */
+.adm-data-table th.adm-col-actions,
+.adm-data-table td.adm-col-actions {
+    text-align: right;
+    min-width: 130px;
+    width: 130px;
+    white-space: nowrap;
+}
+
+/* Status Column */
+.adm-data-table th.adm-col-status,
+.adm-data-table td.adm-col-status {
+    text-align: left;
+    min-width: 125px;
+    width: 125px;
+    white-space: nowrap;
+}
+
+/* Reference Code Badge */
+.adm-ref-badge {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--adm-gold-light);
+    background: rgba(197, 160, 89, 0.1);
+    border: 1px solid rgba(197, 160, 89, 0.28);
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-block;
+    letter-spacing: 0.5px;
+}
+
+/* Night Pill Badge */
+.adm-night-pill {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--adm-text-secondary);
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 12px;
+    display: inline-block;
+}
+
+/* Status Badges - Executive Luxury Aesthetics */
 .adm-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 9px;
+    padding: 5px 12px;
     border-radius: 20px;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transition: var(--adm-transition);
+}
+
+.adm-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
 }
 
 .adm-badge.confirmed {
-    background: var(--adm-emerald-dim);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.08));
     color: var(--adm-emerald-bright);
     border: 1px solid var(--adm-emerald-border);
 }
+.adm-badge.confirmed .adm-badge-dot {
+    background: var(--adm-emerald-bright);
+    box-shadow: 0 0 6px var(--adm-emerald-bright);
+}
 
 .adm-badge.pending {
-    background: var(--adm-amber-dim);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.08));
     color: var(--adm-amber-bright);
     border: 1px solid var(--adm-amber-border);
 }
+.adm-badge.pending .adm-badge-dot {
+    background: var(--adm-amber-bright);
+    box-shadow: 0 0 6px var(--adm-amber-bright);
+    animation: admPulseDot 2s infinite;
+}
 
 .adm-badge.cancelled {
-    background: var(--adm-terracotta-dim);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.08));
     color: var(--adm-terracotta-bright);
     border: 1px solid var(--adm-terracotta-border);
 }
+.adm-badge.cancelled .adm-badge-dot {
+    background: var(--adm-terracotta-bright);
+}
 
 .adm-badge.completed {
-    background: var(--adm-slate-dim);
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.2), rgba(148, 163, 184, 0.08));
     color: #CBD5E1;
     border: 1px solid var(--adm-slate-border);
 }
+.adm-badge.completed .adm-badge-dot {
+    background: #CBD5E1;
+}
 
-/* Table Button Action Icons */
+/* Table Button Action Icons - Executive Luxury Interactivity */
 .adm-actions-cell {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    justify-content: flex-end;
+    white-space: nowrap;
 }
 
 .adm-btn-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 7px;
+    width: 35px;
+    height: 35px;
+    border-radius: 9px;
     background: var(--adm-bg-surface-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     color: var(--adm-text-secondary);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+    padding: 0;
 }
 
 .adm-btn-icon:hover {
-    background: var(--adm-gold);
-    color: #08120B;
-    border-color: var(--adm-gold);
+    transform: translateY(-2px);
 }
 
+/* WhatsApp Concierge Action */
 .adm-btn-icon.whatsapp {
+    background: rgba(37, 211, 102, 0.14);
+    border: 1px solid rgba(37, 211, 102, 0.38);
     color: #25D366;
 }
 
 .adm-btn-icon.whatsapp:hover {
     background: #25D366;
-    color: #FFFFFF;
+    color: #08120B;
     border-color: #25D366;
+    box-shadow: 0 4px 14px rgba(37, 211, 102, 0.45);
+}
+
+/* View / Edit Modal Action */
+.adm-btn-icon.view,
+.adm-btn-icon:not(.whatsapp):not(.danger) {
+    background: rgba(197, 160, 89, 0.13);
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    color: var(--adm-gold-light);
+}
+
+.adm-btn-icon.view:hover,
+.adm-btn-icon:not(.whatsapp):not(.danger):hover {
+    background: var(--adm-gold);
+    color: #08120B;
+    border-color: var(--adm-gold);
+    box-shadow: 0 4px 14px rgba(197, 160, 89, 0.4);
+}
+
+/* Delete / Danger Action */
+.adm-btn-icon.danger {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.32);
+    color: var(--adm-terracotta-bright);
 }
 
 .adm-btn-icon.danger:hover {
     background: #EF4444;
     color: #FFFFFF;
     border-color: #EF4444;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.45);
 }
 
 /* -------------------------------------------------------------
