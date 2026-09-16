@@ -103,13 +103,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Header and Sticky Booking Pill Scroll Watcher
         function handleScrollEffects(scrolled) {
+            const headerWrapper = document.getElementById('site-header-wrapper');
             const header = document.getElementById('site-header');
-            if (header) {
-                if (scrolled > 50) {
-                    header.classList.add('scrolled');
-                } else {
-                    header.classList.remove('scrolled');
-                }
+            if (scrolled > 50) {
+                if (headerWrapper) headerWrapper.classList.add('scrolled');
+                if (header) header.classList.add('scrolled');
+            } else {
+                if (headerWrapper) headerWrapper.classList.remove('scrolled');
+                if (header) header.classList.remove('scrolled');
             }
 
             const stickyPill = document.getElementById('sticky-booking-pill');
@@ -157,8 +158,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // Hero Background Scale In
         if (heroBgImg) {
             heroTimeline.fromTo(heroBgImg,
-                { scale: 1.18, opacity: 0 },
-                { scale: 1.05, opacity: 1, duration: 1.6, ease: "power2.out" }
+                { scale: 1.14, opacity: 0.85 },
+                { scale: 1.0, opacity: 1, duration: 1.6, ease: "power2.out" }
             );
         }
 
@@ -1279,7 +1280,26 @@ document.addEventListener("DOMContentLoaded", () => {
             addonsTotal += parseInt(addon.getAttribute('data-price') || "0", 10);
         });
 
-        const stayTotal = baseVillaTotal + extraAdultsTotal + extraKidsTotal + addonsTotal;
+        // ---------------------------------------------------------
+        // Curated Food Menu Selection Calculation
+        // ---------------------------------------------------------
+        let foodTotal = 0;
+        let foodSetsCount = 0;
+        const isAllFoodSkipped = document.getElementById('toggle-skip-all-food')?.checked || false;
+
+        if (!isAllFoodSkipped) {
+            document.querySelectorAll('.modal-dish-card').forEach(card => {
+                const qtyInput = card.querySelector('.dish-qty-input');
+                const qty = parseInt(qtyInput?.value || "0", 10);
+                const price = parseFloat(card.getAttribute('data-dish-price') || "0");
+                if (qty > 0) {
+                    foodTotal += (qty * price);
+                    foodSetsCount += qty;
+                }
+            });
+        }
+
+        const stayTotal = baseVillaTotal + extraAdultsTotal + extraKidsTotal + addonsTotal + foodTotal;
 
         // Update summary elements
         const summaryNights = document.getElementById('summary-nights');
@@ -1291,6 +1311,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const summaryExtraKidsLabel = document.getElementById('summary-extra-kids-label');
         const summaryExtraKidsRate = document.getElementById('summary-extra-kids-rate');
         const summaryExtraGuestsLine = document.getElementById('summary-extra-guests-line');
+        const summaryFoodLine = document.getElementById('summary-food-line');
+        const summaryFoodLabel = document.getElementById('summary-food-label');
+        const summaryFoodRate = document.getElementById('summary-food-rate');
         const summaryAddonsLine = document.getElementById('summary-addons-line');
         const summaryAddonsRate = document.getElementById('summary-addons-rate');
         const summaryTotal = document.getElementById('summary-total');
@@ -1324,6 +1347,19 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        // Food Menu itemized line
+        if (summaryFoodLine && summaryFoodRate) {
+            if (foodTotal > 0) {
+                summaryFoodLine.style.display = 'flex';
+                if (summaryFoodLabel) {
+                    summaryFoodLabel.innerText = `Curated Gastronomy (${foodSetsCount} Sets):`;
+                }
+                summaryFoodRate.innerText = `+₹${foodTotal.toLocaleString('en-IN')}`;
+            } else {
+                summaryFoodLine.style.display = 'none';
+            }
+        }
+
         // Hide legacy line
         if (summaryExtraGuestsLine) summaryExtraGuestsLine.style.display = 'none';
 
@@ -1346,7 +1382,82 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // -------------------------------------------------------------
-    // 7. Instant WhatsApp & Live Concierge Form Dispatch
+    // Food Menu Interactive Steppers & Skip Toggles
+    // -------------------------------------------------------------
+    // Dish Quantity Steppers (+ / -)
+    document.querySelectorAll('.btn-dish-qty').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = btn.getAttribute('data-target-input');
+            const input = document.getElementById(targetId);
+            if (!input) return;
+
+            let val = parseInt(input.value || "0", 10);
+            if (btn.classList.contains('plus')) {
+                if (val < 10) val++;
+            } else if (btn.classList.contains('minus')) {
+                if (val > 0) val--;
+            }
+            input.value = val;
+            recalculateBookingSummary();
+        });
+    });
+
+    // Meal Category Skip Checkboxes
+    document.querySelectorAll('.cat-skip-checkbox').forEach(chk => {
+        chk.addEventListener('change', function() {
+            const cat = this.getAttribute('data-target-cat');
+            const grid = document.getElementById('dishes-grid-' + cat);
+            if (!grid) return;
+
+            if (this.checked) {
+                grid.style.opacity = '0.35';
+                grid.style.pointerEvents = 'none';
+                grid.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
+            } else {
+                grid.style.opacity = '1';
+                grid.style.pointerEvents = 'auto';
+            }
+            recalculateBookingSummary();
+        });
+    });
+
+    // Global Skip Food Pre-Selection Toggle
+    const toggleSkipAllFood = document.getElementById('toggle-skip-all-food');
+    if (toggleSkipAllFood) {
+        toggleSkipAllFood.addEventListener('change', function() {
+            const container = document.getElementById('food-selection-container');
+            if (!container) return;
+
+            if (this.checked) {
+                container.style.opacity = '0.35';
+                container.style.pointerEvents = 'none';
+                container.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
+            } else {
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+            }
+            recalculateBookingSummary();
+        });
+    }
+
+    // Modal Account Type Radio Switcher (Guest vs Create Permanent Account)
+    document.querySelectorAll('input[name="modal_account_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const pwdBox = document.getElementById('modal-password-container');
+            if (!pwdBox) return;
+            if (this.value === 'create_account') {
+                pwdBox.style.display = 'block';
+                document.getElementById('modal-password')?.setAttribute('required', 'required');
+            } else {
+                pwdBox.style.display = 'none';
+                document.getElementById('modal-password')?.removeAttribute('required');
+            }
+        });
+    });
+
+    // -------------------------------------------------------------
+    // 7. Instant WhatsApp & Direct Reservation Submission
     // -------------------------------------------------------------
     async function saveBookingToDatabase(payload) {
         try {
@@ -1362,183 +1473,207 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function collectBookingPayload() {
+        const guestName = document.getElementById('modal-name')?.value.trim() || '';
+        const guestPhone = document.getElementById('modal-phone')?.value.trim() || '';
+        const guestEmail = document.getElementById('modal-email')?.value.trim() || '';
+        const guestNotes = document.getElementById('modal-notes')?.value.trim() || '';
+        const villaSlug = modalVillaSelect?.value || 'treehouse';
+
+        const adultsCount = parseInt(modalAdultsInput?.value || "2", 10);
+        const kidsCount = parseInt(modalKidsInput?.value || "0", 10);
+        const guestsCount = adultsCount + kidsCount;
+
+        const checkin = modalCheckin?.value || '';
+        const checkout = modalCheckout?.value || '';
+
+        // Addons
+        const addonsList = [];
+        document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
+            const card = cb.closest('.addon-card');
+            const name = card?.querySelector('.addon-name')?.innerText || 'Experience';
+            addonsList.push(name);
+        });
+
+        // Food Items Collection
+        const foodItems = [];
+        const isAllFoodSkipped = document.getElementById('toggle-skip-all-food')?.checked || false;
+
+        if (!isAllFoodSkipped) {
+            document.querySelectorAll('.modal-dish-card').forEach(card => {
+                const qtyInput = card.querySelector('.dish-qty-input');
+                const qty = parseInt(qtyInput?.value || "0", 10);
+                if (qty > 0) {
+                    foodItems.push({
+                        id: card.getAttribute('data-dish-id'),
+                        category: card.getAttribute('data-dish-category'),
+                        heading: card.getAttribute('data-dish-name'),
+                        subtitle: card.getAttribute('data-dish-subtitle'),
+                        price: parseFloat(card.getAttribute('data-dish-price') || "0"),
+                        quantity: qty,
+                        subtotal: qty * parseFloat(card.getAttribute('data-dish-price') || "0")
+                    });
+                }
+            });
+        }
+
+        // Account Type & Password
+        const accountTypeRadio = document.querySelector('input[name="modal_account_type"]:checked');
+        const createAccount = accountTypeRadio ? (accountTypeRadio.value === 'create_account') : false;
+        const password = document.getElementById('modal-password')?.value || '';
+
+        return {
+            name: guestName,
+            phone: guestPhone,
+            email: guestEmail,
+            villa: villaSlug,
+            adults: adultsCount,
+            kids: kidsCount,
+            guests: guestsCount,
+            checkin: checkin,
+            checkout: checkout,
+            addons: addonsList.join(', '),
+            notes: guestNotes,
+            food_items: foodItems,
+            food_skipped: isAllFoodSkipped || (foodItems.length === 0),
+            create_account: createAccount,
+            password: password
+        };
+    }
+
+    function showBookingConfirmationState(res) {
+        const form = document.getElementById('luxury-booking-form');
+        const confirmBox = document.getElementById('booking-confirmation-state');
+        if (!confirmBox) return;
+
+        if (form) form.style.display = 'none';
+        confirmBox.style.display = 'block';
+
+        const refCodeEl = document.getElementById('confirm-ref-code');
+        if (refCodeEl) refCodeEl.innerText = res.reference_code || 'FF-0000';
+
+        const passcodeRow = document.getElementById('confirm-passcode-row');
+        const passcodeVal = document.getElementById('confirm-passcode-val');
+        const expiryRow = document.getElementById('confirm-expiry-row');
+        const expiryVal = document.getElementById('confirm-expiry-val');
+
+        if (res.is_guest && res.guest_access_token) {
+            if (passcodeRow && passcodeVal) {
+                passcodeRow.style.display = 'flex';
+                passcodeVal.innerText = res.guest_access_token;
+            }
+            if (expiryRow && expiryVal) {
+                expiryRow.style.display = 'flex';
+                expiryVal.innerText = res.expires_date_formatted || '30 Days';
+            }
+        } else {
+            if (passcodeRow) passcodeRow.style.display = 'none';
+            if (expiryRow) expiryRow.style.display = 'none';
+        }
+
+        const receiptBtn = document.getElementById('confirm-receipt-btn');
+        if (receiptBtn && res.receipt_url) {
+            receiptBtn.href = res.receipt_url;
+        }
+
+        const waBtn = document.getElementById('confirm-wa-btn');
+        if (waBtn) {
+            const waNum = res.concierge_whatsapp || '919234567890';
+            const waMsg = encodeURIComponent(`Hello Concierge, I have just reserved my stay under Ref: ${res.reference_code}. Please verify my reservation.`);
+            waBtn.href = `https://wa.me/${waNum}?text=${waMsg}`;
+        }
+    }
+
+    // Submit Reservation & Generate PDF Receipt
+    const submitBookingDirectBtn = document.getElementById('btn-submit-booking-direct');
+    if (submitBookingDirectBtn) {
+        submitBookingDirectBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const payload = collectBookingPayload();
+
+            if (!payload.name || !payload.phone) {
+                alert('Please enter your full name and WhatsApp contact number.');
+                document.getElementById('modal-name')?.focus();
+                return;
+            }
+
+            if (!payload.checkin || !payload.checkout) {
+                alert('Please select both Check-In and Check-Out dates.');
+                document.getElementById('modal-checkin')?.focus();
+                return;
+            }
+
+            if (payload.create_account && (!payload.password || payload.password.length < 4)) {
+                alert('Please enter a password with at least 4 characters for your permanent account.');
+                document.getElementById('modal-password')?.focus();
+                return;
+            }
+
+            submitBookingDirectBtn.disabled = true;
+            submitBookingDirectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Recording Reservation...</span>';
+
+            const res = await saveBookingToDatabase(payload);
+
+            if (res && res.success) {
+                showBookingConfirmationState(res);
+            } else {
+                submitBookingDirectBtn.disabled = false;
+                submitBookingDirectBtn.innerHTML = '<i class="fa-solid fa-receipt"></i> <span>Confirm Reservation & Generate PDF Receipt</span>';
+                alert(res?.message || 'Could not record reservation. Please connect directly via WhatsApp Concierge.');
+            }
+        });
+    }
+
+    // WhatsApp Concierge Submission
     const whatsappSubmitBtn = document.getElementById('btn-submit-whatsapp');
     if (whatsappSubmitBtn) {
         whatsappSubmitBtn.addEventListener('click', async () => {
-            const guestName = document.getElementById('modal-name')?.value.trim() || 'Guest';
-            const guestPhone = document.getElementById('modal-phone')?.value.trim() || '';
-            const guestEmail = document.getElementById('modal-email')?.value.trim() || '';
-            const guestNotes = document.getElementById('modal-notes')?.value.trim() || 'None';
+            const payload = collectBookingPayload();
 
-            if (!guestName || !guestPhone) {
+            if (!payload.name || !payload.phone) {
                 alert('Please enter your full name and WhatsApp contact number before connecting.');
                 document.getElementById('modal-name')?.focus();
                 return;
             }
 
-            const selectedOption = modalVillaSelect?.options[modalVillaSelect.selectedIndex];
-            const villaName = selectedOption?.getAttribute('data-name') || modalVillaSelect?.value || 'Sanctuary Villa';
-            const villaSlug = modalVillaSelect?.value || 'treehouse';
-            const stayType = selectedOption?.getAttribute('data-stay-type') || 'treehouse';
-            const structureType = selectedOption?.getAttribute('data-structure-type') || 'single_hut';
-            const baseGuests = parseInt(selectedOption?.getAttribute('data-base-guests') || "2", 10);
-            const extraAdultRate = parseFloat(selectedOption?.getAttribute('data-extra-rate') || "1500");
-            const extraChildRate = parseFloat(selectedOption?.getAttribute('data-extra-child-rate') || "800");
+            whatsappSubmitBtn.disabled = true;
+            whatsappSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Connecting...</span>';
 
-            const adultsCount = parseInt(modalAdultsInput?.value || "2", 10);
-            const kidsCount = parseInt(modalKidsInput?.value || "0", 10);
-            const guestsCount = adultsCount + kidsCount;
-
-            const checkin = modalCheckin?.value || '';
-            const checkout = modalCheckout?.value || '';
-
-            const checkinDate = new Date(modalCheckin.value);
-            const checkoutDate = new Date(modalCheckout.value);
-            let nights = Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24));
-            if (isNaN(nights) || nights < 1) nights = 1;
-
-            const adultsInBase = Math.min(adultsCount, baseGuests);
-            const extraAdults = Math.max(0, adultsCount - adultsInBase);
-            const remBaseSlots = Math.max(0, baseGuests - adultsInBase);
-            const kidsInBase = Math.min(kidsCount, remBaseSlots);
-            const extraKids = Math.max(0, kidsCount - kidsInBase);
-
-            const extraAdultsTotal = extraAdults * extraAdultRate * nights;
-            const extraKidsTotal = extraKids * extraChildRate * nights;
-            const total = document.getElementById('summary-total')?.innerText || '₹14,500';
-
-            const addonsList = [];
-            let addonsTotal = 0;
-            document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
-                const card = cb.closest('.addon-card');
-                const name = card?.querySelector('.addon-name')?.innerText || 'Experience';
-                const price = parseInt(cb.getAttribute('data-price') || "0", 10);
-                addonsList.push(name);
-                addonsTotal += price;
-            });
-            const addonsText = addonsList.length > 0 ? addonsList.join(', ') : 'None';
-
-            // Record in estate database
-            const dbPayload = {
-                name: guestName,
-                phone: guestPhone,
-                email: guestEmail,
-                villa: villaSlug,
-                adults: adultsCount,
-                kids: kidsCount,
-                guests: guestsCount,
-                checkin: checkin,
-                checkout: checkout,
-                addons: addonsText,
-                notes: guestNotes
-            };
-            const saveRes = await saveBookingToDatabase(dbPayload);
+            const saveRes = await saveBookingToDatabase(payload);
             const refCode = saveRes?.reference_code || 'FF-' + Math.floor(1000 + Math.random() * 9000);
 
-            const stayCategoryLabel = stayType === 'mudhouse' ? '🌿 Mudhouse Stay' : '🌲 Treehouse Stay';
-            const structLabel = structureType === 'duplex_hut' ? 'Duplex Cottage' : 'Single Hut';
-            
-            let guestsLabel = `${adultsCount} Adults`;
-            if (kidsCount > 0) guestsLabel += `, ${kidsCount} Children`;
-            if (extraAdults > 0 || extraKids > 0) {
-                guestsLabel += ` (${baseGuests} in Base Rate`;
-                if (extraAdults > 0) guestsLabel += ` + ${extraAdults} Ext Adult`;
-                if (extraKids > 0) guestsLabel += ` + ${extraKids} Ext Child`;
-                guestsLabel += `)`;
-            } else {
-                guestsLabel += ` (Included in Base Tariff)`;
+            // Construct WhatsApp message
+            const selectedOption = modalVillaSelect?.options[modalVillaSelect.selectedIndex];
+            const villaName = selectedOption?.getAttribute('data-name') || 'Sanctuary Suite';
+            const total = document.getElementById('summary-total')?.innerText || '₹14,500';
+
+            let foodSummary = 'Farm À La Carte on Arrival (Skipped)';
+            if (payload.food_items && payload.food_items.length > 0) {
+                foodSummary = payload.food_items.map(f => `${f.heading} (${f.quantity} sets)`).join(', ');
             }
 
-            const message = `🌿 *RESERVATION ENQUIRY — FOOD FOREST KANTHALLOOR* 🌿\n\n` +
+            const message = `🌿 *RESERVATION REQUEST — FOOD FOREST KANTHALLOOR* 🌿\n\n` +
                 `• *Booking Reference*: #${refCode}\n` +
-                `• *Guest Name*: ${guestName}\n` +
-                `• *Phone / WhatsApp*: ${guestPhone}\n` +
-                `• *Email*: ${guestEmail}\n\n` +
-                `• *Stay Category*: ${stayCategoryLabel} [${structLabel}]\n` +
-                `• *Sanctuary Suite*: ${villaName}\n` +
-                `• *Check-in*: ${checkin}\n` +
-                `• *Check-out*: ${checkout} (${nights} ${nights === 1 ? 'Night' : 'Nights'})\n` +
-                `• *Guests*: ${guestsLabel}\n` +
-                (extraAdults > 0 ? `• *Extra Adults Fee*: +₹${extraAdultsTotal.toLocaleString('en-IN')} (${extraAdults} Extra × ₹${extraAdultRate.toLocaleString('en-IN')}/nt × ${nights}N)\n` : '') +
-                (extraKids > 0 ? `• *Extra Children Fee (5-11 yrs)*: +₹${extraKidsTotal.toLocaleString('en-IN')} (${extraKids} Extra × ₹${extraChildRate.toLocaleString('en-IN')}/nt × ${nights}N)\n` : '') +
-                (addonsText !== 'None' ? `• *Curated Add-Ons*: ${addonsText} (+₹${addonsTotal.toLocaleString('en-IN')})\n` : '') +
-                `• *Estimated Total*: ${total} (All Organic Meals Included)\n\n` +
-                `• *Special Requests*: ${guestNotes}\n\n` +
-                `Kindly confirm availability and reserve our sanctuary stay. Thank you!`;
+                `• *Guest Name*: ${payload.name}\n` +
+                `• *Contact*: ${payload.phone}\n` +
+                `• *Suite*: ${villaName}\n` +
+                `• *Check-in*: ${payload.checkin}\n` +
+                `• *Check-out*: ${payload.checkout}\n` +
+                `• *Occupancy*: ${payload.adults} Adults, ${payload.kids} Children\n` +
+                `• *Curated Gastronomy*: ${foodSummary}\n` +
+                `• *Estimated Total*: ${total}\n\n` +
+                `Kindly confirm availability. Luxury receipt is available at Ref #${refCode}.`;
 
             const encodedMessage = encodeURIComponent(message);
             const whatsappNumber = saveRes?.concierge_whatsapp || '919234567890';
             const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
             window.open(whatsappUrl, '_blank');
-        });
-    }
 
-    // Email / Form Submit Confirmation
-    const luxuryBookingForm = document.getElementById('luxury-booking-form');
-    if (luxuryBookingForm) {
-        luxuryBookingForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const submitBtn = document.getElementById('btn-submit-email');
-            const guestName = document.getElementById('modal-name')?.value.trim();
-            const guestPhone = document.getElementById('modal-phone')?.value.trim();
-            const guestEmail = document.getElementById('modal-email')?.value.trim();
-            const guestNotes = document.getElementById('modal-notes')?.value.trim();
-            const villaSlug = modalVillaSelect?.value || 'treehouse';
-            const adultsCount = parseInt(modalAdultsInput?.value || "2", 10);
-            const kidsCount = parseInt(modalKidsInput?.value || "0", 10);
-            const guestsCount = adultsCount + kidsCount;
-            const checkin = modalCheckin?.value;
-            const checkout = modalCheckout?.value;
+            whatsappSubmitBtn.disabled = false;
+            whatsappSubmitBtn.innerHTML = '<i class="fa-brands fa-whatsapp"></i> <span>Instant WhatsApp Concierge Confirmation</span>';
 
-            const addonsList = [];
-            let addonsTotal = 0;
-            document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
-                const card = cb.closest('.addon-card');
-                const name = card?.querySelector('.addon-name')?.innerText || 'Experience';
-                const price = parseInt(cb.getAttribute('data-price') || "0", 10);
-                addonsList.push(name);
-                addonsTotal += price;
-            });
-            const addonsText = addonsList.length > 0 ? addonsList.join(', ') : 'None';
-
-            if (submitBtn) {
-                const originalHtml = submitBtn.innerHTML;
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Securing Reservation...</span>';
-
-                const dbPayload = {
-                    name: guestName,
-                    phone: guestPhone,
-                    email: guestEmail,
-                    villa: villaSlug,
-                    adults: adultsCount,
-                    kids: kidsCount,
-                    guests: guestsCount,
-                    checkin: checkin,
-                    checkout: checkout,
-                    addons: addonsText,
-                    notes: guestNotes
-                };
-
-                const res = await saveBookingToDatabase(dbPayload);
-
-                if (res && res.success) {
-                    submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Confirmed! Ref: ${res.reference_code}</span>`;
-                    submitBtn.style.backgroundColor = 'var(--accent-green)';
-                    submitBtn.style.color = '#FFFFFF';
-                    alert(`✨ Thank you, ${res.guest_name}!\n\nYour reservation request has been registered under Reference Code: ${res.reference_code}.\n\nOur Master Concierge will contact you within 30 minutes to confirm your stay.`);
-                    setTimeout(() => {
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalHtml;
-                        submitBtn.style.backgroundColor = '';
-                        submitBtn.style.color = '';
-                        closeBookingModal();
-                    }, 2500);
-                } else {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalHtml;
-                    alert('Could not submit reservation. Please connect directly via WhatsApp Concierge.');
-                }
+            if (saveRes && saveRes.success) {
+                showBookingConfirmationState(saveRes);
             }
         });
     }

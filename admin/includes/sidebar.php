@@ -55,7 +55,14 @@ $unread_inquiries = (int) $pdo->query("SELECT COUNT(*) FROM inquiries WHERE stat
         <div class="adm-nav-section" style="margin-top: 18px;">Sanctuary CMS & Control</div>
 
         <li class="adm-nav-item">
-            <a href="settings.php" class="adm-nav-link <?php echo in_array($current_script, ['settings.php', 'rooms.php', 'gallery.php', 'testimonials.php', 'experiences.php', 'content.php']) ? 'active' : ''; ?>">
+            <a href="settings.php?tab=menu" class="adm-nav-link <?php echo (isset($_GET['tab']) && $_GET['tab'] === 'menu') ? 'active' : ''; ?>">
+                <i class="fa-solid fa-utensils"></i>
+                <span>Food Menu Hub</span>
+            </a>
+        </li>
+
+        <li class="adm-nav-item">
+            <a href="settings.php" class="adm-nav-link <?php echo (in_array($current_script, ['settings.php', 'rooms.php', 'gallery.php', 'testimonials.php', 'experiences.php', 'content.php']) && (!isset($_GET['tab']) || $_GET['tab'] !== 'menu')) ? 'active' : ''; ?>">
                 <i class="fa-solid fa-sliders"></i>
                 <span>Estate Settings</span>
             </a>

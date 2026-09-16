@@ -14,6 +14,9 @@ require_once 'components/rooms.php';
 // Load Curated Experiences Section
 require_once 'components/experiences.php';
 
+// Load Food Menu & Gastronomy Section
+require_once 'components/dining.php';
+
 // Load Why Food Forest Farmstay Feature Section
 require_once 'components/why_mudhouse.php';
 

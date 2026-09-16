@@ -457,14 +457,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
             'philosophy': 'CARD 05 • SANCTUARY PHILOSOPHY & WELCOME MANIFESTO',
             'why': 'CARD 06 • WHY FOOD FOREST? (LIVING SOIL & COB ARCHITECTURE)',
             'experiences': 'CARD 07 • CURATED EXPERIENCES & RITUALS (DYNAMIC CMS)',
-            'seasons': 'CARD 08 • SEASONS OF KANTHALLOOR (DYNAMIC CMS)',
-            'sanctuary_map': 'CARD 09 • SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
-            'rooms': 'CARD 10 • VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)',
-            'gallery': 'CARD 11 • VISUAL DIARY (8 PHOTO CHRONICLE)',
-            'testimonials': 'CARD 12 • GUEST REFLECTIONS (TESTIMONIALS & REVIEWS)',
-            'protection': 'CARD 13 • WEBSITE CONTENT & IMAGE SHIELD',
-            'security': 'CARD 14 • ADMINISTRATOR SECURITY & ACCESS KEY',
-            'backup': 'CARD 15 • MYSQL DATABASE BACKUP & RESTORE'
+            'menu': 'CARD 08 • FOOD MENU & LIVING GASTRONOMY HUB (DYNAMIC CMS)',
+            'seasons': 'CARD 09 • SEASONS OF KANTHALLOOR (DYNAMIC CMS)',
+            'sanctuary_map': 'CARD 10 • SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
+            'rooms': 'CARD 11 • VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)',
+            'gallery': 'CARD 12 • VISUAL DIARY (8 PHOTO CHRONICLE)',
+            'testimonials': 'CARD 13 • GUEST REFLECTIONS (TESTIMONIALS & REVIEWS)',
+            'protection': 'CARD 14 • WEBSITE CONTENT & IMAGE SHIELD',
+            'security': 'CARD 15 • ADMINISTRATOR SECURITY & ACCESS KEY',
+            'backup': 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE'
         };
         var activeLabel = document.getElementById('active-tab-label');
         if (activeLabel && tabTitleMap[tabKey]) {

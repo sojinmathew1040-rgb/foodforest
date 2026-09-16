@@ -72,6 +72,8 @@ $f_estate_name = get_setting('estate_name', 'Food Forest Sanctuary Kanthalloor')
                         <li><a href="#rooms-experience">Canopy Treehouse</a></li>
                         <li><a href="#rooms-experience">Earthen Mudhouse</a></li>
                         <li><a href="#experiences">Activities</a></li>
+                        <li><a href="#dining">Food Menu & Hearth</a></li>
+                        <li><a href="guest_portal.php" style="color: #C5A059;"><i class="fa-solid fa-key" style="font-size: 11px;"></i> Guest Portal & Receipts</a></li>
                         <li><a href="#gallery">Visual Gallery</a></li>
                         <li><a href="#sanctuary">Estate Landscape</a></li>
                         <li><a href="#testimonials">Guest Stories</a></li>

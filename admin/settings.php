@@ -102,14 +102,15 @@ $tab_titles = [
     'philosophy' => 'CARD 05 • SANCTUARY PHILOSOPHY & WELCOME MANIFESTO',
     'why' => 'CARD 06 • WHY FOOD FOREST? (EARTHEN COB & AGROFORESTRY)',
     'experiences' => 'CARD 07 • CURATED EXPERIENCES & RITUALS',
-    'seasons' => 'CARD 08 • SEASONS OF KANTHALLOOR & HARVEST',
-    'sanctuary_map' => 'CARD 09 • SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
-    'rooms' => 'CARD 10 • VILLAS, COTTAGES & LIVE TARIFFS',
-    'gallery' => 'CARD 11 • VISUAL DIARY & PHOTOGRAPHY ARCHIVE',
-    'testimonials' => 'CARD 12 • GUEST REFLECTIONS & VERIFIED REVIEWS',
-    'protection' => 'CARD 13 • CONTENT PROTECTION & DEVTOOLS SHIELD',
-    'security' => 'CARD 14 • SECURITY & MASTER PASSWORD',
-    'backup' => 'CARD 15 • MYSQL DATABASE BACKUP & RESTORE'
+    'menu' => 'CARD 08 • FOOD MENU & GASTRONOMY HUB',
+    'seasons' => 'CARD 09 • SEASONS OF KANTHALLOOR & HARVEST',
+    'sanctuary_map' => 'CARD 10 • SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
+    'rooms' => 'CARD 11 • VILLAS, COTTAGES & LIVE TARIFFS',
+    'gallery' => 'CARD 12 • VISUAL DIARY & PHOTOGRAPHY ARCHIVE',
+    'testimonials' => 'CARD 13 • GUEST REFLECTIONS & VERIFIED REVIEWS',
+    'protection' => 'CARD 14 • CONTENT PROTECTION & DEVTOOLS SHIELD',
+    'security' => 'CARD 15 • SECURITY & MASTER PASSWORD',
+    'backup' => 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE'
 ];
 if (!array_key_exists($active_tab, $tab_titles)) {
     $active_tab = 'estate';
@@ -362,6 +363,133 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 $alert_message = 'Curated Experiences header & all individual rituals updated successfully with multi-photos and in-depth details.';
+            }
+        }
+
+        // 7b. Food Menu & Gastronomy Card (Dynamic CMS: Add, Edit, Delete Dishes)
+        elseif ($form_type === 'menu_settings') {
+            ensure_food_menu_table_exists($pdo);
+
+            if (!empty($_POST['delete_menu_id'])) {
+                $del_id = (int)$_POST['delete_menu_id'];
+                $del = $pdo->prepare("DELETE FROM food_menu WHERE id = ?");
+                $del->execute([$del_id]);
+                $alert_message = 'Dish permanently removed from food menu archive.';
+            } elseif (($_POST['action'] ?? '') === 'add_menu_item') {
+                $category = strtolower(trim($_POST['new_item_category'] ?? 'breakfast'));
+                $heading = trim($_POST['new_item_heading'] ?? '');
+                $subtitle = trim($_POST['new_item_subtitle'] ?? '');
+                $price = floatval($_POST['new_item_price'] ?? 0);
+                $price_note = trim($_POST['new_item_price_note'] ?? 'Per Set');
+                $dietary = trim($_POST['new_item_dietary_type'] ?? 'veg');
+                $badge = trim($_POST['new_item_badge'] ?? 'FARM FRESH');
+                $desc = trim($_POST['new_item_desc'] ?? '');
+                $inclusions = trim($_POST['new_item_inclusions'] ?? '');
+
+                // Image upload
+                $img = trim($_POST['new_item_image'] ?? 'assets/images/food_dosa_set.jpg');
+                if (!empty($_FILES['new_item_image_file']['name'])) {
+                    $up = handle_image_upload($_FILES['new_item_image_file'], 'food');
+                    if ($up['success']) {
+                        $img = $up['path'];
+                    }
+                }
+
+                // Gallery Images
+                $gallery_arr = [$img];
+                if (!empty($_POST['new_item_gallery_urls'])) {
+                    $urls = array_filter(array_map('trim', explode("\n", $_POST['new_item_gallery_urls'])));
+                    foreach ($urls as $u) {
+                        if (!in_array($u, $gallery_arr)) $gallery_arr[] = $u;
+                    }
+                }
+                if (!empty($_FILES['new_item_gallery_files']['name']) && !empty($_FILES['new_item_gallery_files']['name'][0])) {
+                    $uploaded_gallery = handle_multi_image_upload($_FILES['new_item_gallery_files'], 'food_gal');
+                    foreach ($uploaded_gallery as $u) {
+                        if (!in_array($u, $gallery_arr)) $gallery_arr[] = $u;
+                    }
+                }
+                $gallery_json = json_encode(array_values(array_unique($gallery_arr)));
+
+                if (!empty($heading)) {
+                    $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM food_menu WHERE category = " . $pdo->quote($category))->fetchColumn();
+                    $ins = $pdo->prepare("INSERT INTO food_menu (
+                        category, heading, subtitle, price, price_note, description, inclusions, dietary_type, badge, image_url, gallery_images, display_order, is_active
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                    $ins->execute([
+                        $category, $heading, $subtitle, $price, $price_note, $desc, $inclusions, $dietary, $badge, $img, $gallery_json, $max_order + 1
+                    ]);
+                    $alert_message = 'New dish successfully added to Food Menu & Gastronomy Hub!';
+                } else {
+                    $alert_message = 'Dish heading / title cannot be blank.';
+                    $alert_type = 'error';
+                }
+            } else {
+                // Save header settings
+                $keys = [
+                    'menu_badge', 'menu_title', 'menu_desc',
+                    'menu_time_breakfast', 'menu_desc_breakfast',
+                    'menu_time_lunch', 'menu_desc_lunch',
+                    'menu_time_snacks', 'menu_desc_snacks',
+                    'menu_time_dinner', 'menu_desc_dinner'
+                ];
+                $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+                foreach ($keys as $k) {
+                    if (isset($_POST[$k])) {
+                        $stmt->execute([$k, trim($_POST[$k])]);
+                    }
+                }
+
+                // Update individual menu items
+                if (isset($_POST['menu_id']) && is_array($_POST['menu_id'])) {
+                    $upd_menu = $pdo->prepare("UPDATE food_menu SET 
+                        heading = ?, subtitle = ?, category = ?, price = ?, price_note = ?, dietary_type = ?, badge = ?,
+                        description = ?, inclusions = ?, image_url = ?, gallery_images = ?, is_active = ?
+                        WHERE id = ?");
+
+                    foreach ($_POST['menu_id'] as $idx => $mid) {
+                        $h = trim($_POST['menu_heading'][$idx] ?? '');
+                        $sub = trim($_POST['menu_subtitle'][$idx] ?? '');
+                        $cat = strtolower(trim($_POST['menu_category'][$idx] ?? 'breakfast'));
+                        $pr = floatval($_POST['menu_price'][$idx] ?? 0);
+                        $pr_note = trim($_POST['menu_price_note'][$idx] ?? 'Per Set');
+                        $dt = trim($_POST['menu_dietary'][$idx] ?? 'veg');
+                        $bdg = trim($_POST['menu_badge'][$idx] ?? 'FARM FRESH');
+                        $d = trim($_POST['menu_desc'][$idx] ?? '');
+                        $incl = trim($_POST['menu_inclusions'][$idx] ?? '');
+                        $is_act = (isset($_POST['menu_active_' . $mid]) || (isset($_POST['menu_active'][$idx]) && $_POST['menu_active'][$idx] == '1')) ? 1 : 0;
+
+                        // Main image
+                        $img = trim($_POST['menu_image'][$idx] ?? '');
+                        if (isset($_FILES['menu_image_file'])) {
+                            $up = handle_indexed_image_upload($_FILES['menu_image_file'], $idx, 'food');
+                            if ($up['success']) {
+                                $img = $up['path'];
+                            }
+                        }
+
+                        // Gallery Images
+                        $existing_gal_raw = trim($_POST['menu_gallery_urls'][$idx] ?? '');
+                        $gal_arr = array_values(array_filter(array_map('trim', explode("\n", $existing_gal_raw))));
+                        if (!empty($img) && !in_array($img, $gal_arr)) {
+                            array_unshift($gal_arr, $img);
+                        }
+
+                        // Check indexed multi-files
+                        if (isset($_FILES['menu_gallery_files_' . $mid])) {
+                            $more_up = handle_multi_image_upload($_FILES['menu_gallery_files_' . $mid], 'food_gal');
+                            foreach ($more_up as $u) {
+                                if (!in_array($u, $gal_arr)) $gal_arr[] = $u;
+                            }
+                        }
+                        $gal_json = json_encode(array_values(array_unique($gal_arr)));
+
+                        $upd_menu->execute([
+                            $h, $sub, $cat, $pr, $pr_note, $dt, $bdg, $d, $incl, $img, $gal_json, $is_act, (int)$mid
+                        ]);
+                    }
+                }
+                $alert_message = 'Food menu dishes, prices, inclusions & category timings successfully saved!';
             }
         }
 
@@ -866,6 +994,23 @@ $all_seasons = $pdo->query("SELECT * FROM seasons ORDER BY display_order ASC, id
 ensure_sanctuary_spots_table_exists($pdo);
 $all_sanctuary_spots = $pdo->query("SELECT * FROM sanctuary_spots ORDER BY spot_number ASC, display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
 
+ensure_food_menu_table_exists($pdo);
+$all_food_menu = $pdo->query("SELECT * FROM food_menu ORDER BY FIELD(category, 'breakfast', 'lunch', 'snacks', 'dinner'), display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+foreach ($all_food_menu as &$fitem) {
+    $gal = [];
+    if (!empty($fitem['gallery_images'])) {
+        $dec = json_decode($fitem['gallery_images'], true);
+        if (is_array($dec)) {
+            $gal = array_values(array_filter($dec));
+        }
+    }
+    if (empty($gal) && !empty($fitem['image_url'])) {
+        $gal = [$fitem['image_url']];
+    }
+    $fitem['gallery_list'] = $gal;
+}
+unset($fitem);
+
 // Telemetry counts
 $tables_count = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()")->fetchColumn();
 $bookings_count = (int)$pdo->query("SELECT COUNT(*) FROM bookings")->fetchColumn();
@@ -879,6 +1024,7 @@ $tab_titles = [
     'philosophy' => 'SANCTUARY PHILOSOPHY & WELCOME MANIFESTO',
     'why' => 'WHY FOOD FOREST? (LIVING SOIL & COB ARCHITECTURE)',
     'experiences' => 'CURATED EXPERIENCES & RITUALS (DYNAMIC CMS)',
+    'menu' => 'FOOD MENU & LIVING GASTRONOMY HUB (DYNAMIC CMS)',
     'seasons' => 'SEASONS OF KANTHALLOOR (DYNAMIC CMS)',
     'sanctuary_map' => 'SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
     'rooms' => 'VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)',
@@ -943,6 +1089,22 @@ window.filterAdminRooms = function(filter, btn) {
         var stay = card.getAttribute('data-stay-type') || '';
         var struct = card.getAttribute('data-structure-type') || '';
         if (filter === 'all' || stay === filter || struct === filter) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+};
+
+window.filterAdminMenu = function(filter, btn) {
+    var buttons = document.querySelectorAll('.adm-menu-filter-bar .adm-menu-filter-btn');
+    buttons.forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+
+    var cards = document.querySelectorAll('.adm-menu-item-card');
+    cards.forEach(function(card) {
+        var cat = card.getAttribute('data-category') || '';
+        if (filter === 'all' || cat === filter) {
             card.style.display = '';
         } else {
             card.style.display = 'none';
@@ -1061,89 +1223,100 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 
-    <!-- Card 8: Seasons of Kanthalloor -->
+    <!-- Card 8: Food Menu & Gastronomy Hub -->
+    <div id="card-menu" class="adm-setting-card-btn <?php echo ($active_tab === 'menu') ? 'is-active' : ''; ?>" data-tab="menu" onclick="switchSettingsTab('menu', this, event);">
+        <div class="active-badge" style="<?php echo ($active_tab === 'menu') ? 'display:block;' : 'display:none;'; ?>"></div>
+        <div class="adm-setting-card-icon amber"><i class="fa-solid fa-utensils"></i></div>
+        <div class="adm-setting-card-content">
+            <span class="adm-setting-card-num">CARD 08 • GASTRONOMY</span>
+            <h4>Food Menu & Dining</h4>
+            <p>Breakfast, lunch, snacks & dinner dishes</p>
+        </div>
+    </div>
+
+    <!-- Card 9: Seasons of Kanthalloor -->
     <div id="card-seasons" class="adm-setting-card-btn <?php echo ($active_tab === 'seasons') ? 'is-active' : ''; ?>" data-tab="seasons" onclick="switchSettingsTab('seasons', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'seasons') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon terracotta"><i class="fa-solid fa-cloud-sun"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 08 • SEASONS</span>
+            <span class="adm-setting-card-num">CARD 09 • SEASONS</span>
             <h4>Seasons of Kanthalloor</h4>
             <p>Edit all 4 seasons, months & photos</p>
         </div>
     </div>
 
-    <!-- Card 9: Sanctuary Estate Map & Mountain Route Trails -->
+    <!-- Card 10: Sanctuary Estate Map & Mountain Route Trails -->
     <div id="card-sanctuary_map" class="adm-setting-card-btn <?php echo ($active_tab === 'sanctuary_map') ? 'is-active' : ''; ?>" data-tab="sanctuary_map" onclick="switchSettingsTab('sanctuary_map', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'sanctuary_map') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon emerald"><i class="fa-solid fa-map-location-dot"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 09 • MAP & ROUTE</span>
+            <span class="adm-setting-card-num">CARD 10 • MAP & ROUTE</span>
             <h4>Sanctuary Estate Map</h4>
             <p>Route trail (1→2→3→4), villas & spots</p>
         </div>
     </div>
 
-    <!-- Card 10: Villas & Accommodations -->
+    <!-- Card 11: Villas & Accommodations -->
     <div id="card-rooms" class="adm-setting-card-btn <?php echo ($active_tab === 'rooms') ? 'is-active' : ''; ?>" data-tab="rooms" onclick="switchSettingsTab('rooms', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'rooms') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon rose"><i class="fa-solid fa-house-chimney"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 10 • VILLAS & RATES</span>
+            <span class="adm-setting-card-num">CARD 11 • VILLAS & RATES</span>
             <h4>Villas & Cottages</h4>
             <p>Edit Treehouse & Mudhouse tariffs</p>
         </div>
     </div>
 
-    <!-- Card 11: Visual Diary (Gallery) -->
+    <!-- Card 12: Visual Diary (Gallery) -->
     <div id="card-gallery" class="adm-setting-card-btn <?php echo ($active_tab === 'gallery') ? 'is-active' : ''; ?>" data-tab="gallery" onclick="switchSettingsTab('gallery', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'gallery') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon teal"><i class="fa-solid fa-camera-retro"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 11 • GALLERY</span>
+            <span class="adm-setting-card-num">CARD 12 • GALLERY</span>
             <h4>Visual Diary (Gallery)</h4>
             <p>Edit 8 photographs, tags & titles</p>
         </div>
     </div>
 
-    <!-- Card 12: Guest Reflections -->
+    <!-- Card 13: Guest Reflections -->
     <div id="card-testimonials" class="adm-setting-card-btn <?php echo ($active_tab === 'testimonials') ? 'is-active' : ''; ?>" data-tab="testimonials" onclick="switchSettingsTab('testimonials', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'testimonials') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon blue"><i class="fa-solid fa-comment-dots"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 12 • REVIEWS</span>
+            <span class="adm-setting-card-num">CARD 13 • REVIEWS</span>
             <h4>Guest Reflections</h4>
             <p>Edit traveler reviews, stars & quotes</p>
         </div>
     </div>
 
-    <!-- Card 13: Content & Image Protection -->
+    <!-- Card 14: Content & Image Protection -->
     <div id="card-protection" class="adm-setting-card-btn <?php echo ($active_tab === 'protection') ? 'is-active' : ''; ?>" data-tab="protection" onclick="switchSettingsTab('protection', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'protection') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon emerald"><i class="fa-solid fa-shield-halved"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 13 • PROTECTION</span>
+            <span class="adm-setting-card-num">CARD 14 • PROTECTION</span>
             <h4>Content Protection</h4>
             <p>Anti-copy & DevTools shield</p>
         </div>
     </div>
 
-    <!-- Card 14: Security & Password -->
+    <!-- Card 15: Security & Password -->
     <div id="card-security" class="adm-setting-card-btn <?php echo ($active_tab === 'security') ? 'is-active' : ''; ?>" data-tab="security" onclick="switchSettingsTab('security', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'security') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon indigo"><i class="fa-solid fa-key"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 14 • ACCESS</span>
+            <span class="adm-setting-card-num">CARD 15 • ACCESS</span>
             <h4>Security & Password</h4>
             <p>Admin credentials & password</p>
         </div>
     </div>
 
-    <!-- Card 15: Backup Database -->
+    <!-- Card 16: Backup Database -->
     <div id="card-backup" class="adm-setting-card-btn <?php echo ($active_tab === 'backup') ? 'is-active' : ''; ?>" data-tab="backup" onclick="switchSettingsTab('backup', this, event);">
         <div class="active-badge" style="<?php echo ($active_tab === 'backup') ? 'display:block;' : 'display:none;'; ?>"></div>
         <div class="adm-setting-card-icon gold"><i class="fa-solid fa-database"></i></div>
         <div class="adm-setting-card-content">
-            <span class="adm-setting-card-num">CARD 15 • SQL BACKUP</span>
+            <span class="adm-setting-card-num">CARD 16 • SQL BACKUP</span>
             <h4>MySQL Database Backup</h4>
             <p>1-click phpMyAdmin SQL dump</p>
         </div>
@@ -1993,7 +2166,394 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- -------------------------------------------------------------
-         PANEL 8: SEASONS OF KANTHALLOOR (FULL DYNAMIC CMS)
+         PANEL 8: FOOD MENU & LIVING GASTRONOMY HUB (DYNAMIC CMS)
+         ------------------------------------------------------------- -->
+    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'menu') ? 'is-active' : ''; ?>" id="pane-menu">
+        <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div class="adm-setting-card-icon amber"><i class="fa-solid fa-utensils"></i></div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="adm-badge" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                            <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
+                        </span>
+                        <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 08</span>
+                    </div>
+                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">FOOD MENU & LIVING GASTRONOMY HUB (DYNAMIC CMS)</h3>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Add, edit, or delete dishes across Breakfast, Lunch, Snacks & Dinner with prices, inclusions, and sliding images.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-menu-item');">
+                    <i class="fa-solid fa-plus-circle"></i> + ADD NEW MENU DISH
+                </button>
+                <button type="submit" form="form-edit-menu" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>SAVE ALL DISHES</span>
+                </button>
+            </div>
+        </div>
+
+        <div style="padding: 24px;">
+            <!-- Expandable Add New Menu Dish Drawer -->
+            <div id="drawer-add-menu-item" class="adm-add-new-drawer" style="display: none; background: #0E1C12; border: 1px solid var(--adm-gold); border-radius: 12px; padding: 24px; margin-bottom: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <form action="settings.php?tab=menu" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                    <input type="hidden" name="form_type" value="menu_settings">
+                    <input type="hidden" name="action" value="add_menu_item">
+                    <input type="hidden" name="active_tab" value="menu">
+
+                    <div class="adm-drawer-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-circle-plus" style="color: #2ecc71; font-size: 18px;"></i>
+                            <h4 style="color: #FFFFFF; margin: 0; font-size: 15px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">CREATE NEW DISH / MENU SET</h4>
+                        </div>
+                        <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-add-menu-item');" title="Close Drawer" style="background: none; border: none; color: #aaa; font-size: 18px; cursor: pointer;">✕</button>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 14px; margin-bottom: 14px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Meal Category *</label>
+                            <select name="new_item_category" class="adm-form-control" required style="background: #14281B; color: #fff;">
+                                <option value="breakfast">Breakfast (Morning)</option>
+                                <option value="lunch">Lunch (Noon Feast)</option>
+                                <option value="snacks">Evening Snacks (Chai & Bites)</option>
+                                <option value="dinner">Dinner (Twilight Hearth)</option>
+                            </select>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Dish Title / Heading * (e.g. Signature Heritage Dosa Set)</label>
+                            <input type="text" name="new_item_heading" class="adm-form-control" placeholder="e.g. Signature Heritage Dosa Set" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Dietary Type *</label>
+                            <select name="new_item_dietary_type" class="adm-form-control" style="background: #14281B; color: #fff;">
+                                <option value="veg">Pure Vegetarian (Green)</option>
+                                <option value="vegan">Vegan / Plant-Based</option>
+                                <option value="non_veg">Non-Vegetarian (Red)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Subtitle / Tagline</label>
+                            <input type="text" name="new_item_subtitle" class="adm-form-control" placeholder="e.g. Crispy Ghee Dosas with 3 Stone-Ground Chutneys & Sambar">
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Price (₹) *</label>
+                            <input type="number" step="1" min="0" name="new_item_price" class="adm-form-control" placeholder="220" value="0" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Price Note</label>
+                            <input type="text" name="new_item_price_note" class="adm-form-control" placeholder="Per Set • Farm Breakfast" value="Per Set">
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Badge Tag</label>
+                            <input type="text" name="new_item_badge" class="adm-form-control" placeholder="e.g. ESTATE SIGNATURE" value="FARM FRESH">
+                        </div>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">Sensory Description * (Overview of how it is prepared and served)</label>
+                        <textarea name="new_item_desc" rows="2" class="adm-form-control" placeholder="e.g. Fermented batter of native red rice and lentils, ladled onto seasoned cast-iron pans and crisped with fragrant A2 farm ghee. Served piping hot on a fresh banana leaf." required></textarea>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px; background: rgba(0,0,0,0.25); padding: 14px; border-radius: 8px; border: 1px dashed rgba(197, 160, 89, 0.35);">
+                        <label class="adm-form-label" style="color: var(--adm-gold); font-weight: 700; margin-bottom: 6px;">
+                            <i class="fa-solid fa-list-check"></i> What's Included in this Dish / Set (One item per line or comma-separated)
+                        </label>
+                        <p style="font-size: 11px; color: var(--adm-text-secondary); margin: 0 0 8px;">
+                            Specify everything included in this set. For example: <strong>3 Crispy Golden Ghee Dosas</strong>, <strong>Spiced Potato Podi Masala</strong>, <strong>Fresh Coconut-Mint Chutney</strong>, <strong>Roasted Tomato-Garlic Chutney</strong>, <strong>Shallot-Kanthari Chutney</strong>, <strong>Hot Drumstick Sambar</strong>.
+                        </p>
+                        <textarea name="new_item_inclusions" rows="3" class="adm-form-control" placeholder="3 Crispy Golden Ghee Dosas&#10;Spiced Potato Podi Masala&#10;Fresh Coconut-Mint Chutney&#10;Roasted Tomato & Garlic Chutney&#10;Shallot & Kanthari White Chutney&#10;Piping Hot Drumstick Sambar"></textarea>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Primary Dish Photo (File Upload)</label>
+                            <input type="file" name="new_item_image_file" class="adm-form-control" accept="image/*">
+                            <input type="text" name="new_item_image" class="adm-form-control" placeholder="Or relative path (e.g. assets/images/food_dosa_set.jpg)" style="margin-top: 6px;">
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Sliding Image Carousel Photos (Multi-Upload or Paths)</label>
+                            <input type="file" name="new_item_gallery_files[]" class="adm-form-control" accept="image/*" multiple>
+                            <textarea name="new_item_gallery_urls" rows="2" class="adm-form-control" placeholder="Additional image paths (one per line)" style="margin-top: 6px; font-family: monospace; font-size: 11px;"></textarea>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="adm-btn-action outline" onclick="toggleAddNewDrawer('drawer-add-menu-item');">Cancel</button>
+                        <button type="submit" class="adm-btn-action emerald" style="padding: 10px 24px; font-weight: 700;">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span>PUBLISH NEW DISH TO MENU</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Fast Category Filter Bar -->
+            <?php
+            $b_count = count(array_filter($all_food_menu, function($i) { return strtolower($i['category']) === 'breakfast'; }));
+            $l_count = count(array_filter($all_food_menu, function($i) { return strtolower($i['category']) === 'lunch'; }));
+            $s_count = count(array_filter($all_food_menu, function($i) { return strtolower($i['category']) === 'snacks'; }));
+            $d_count = count(array_filter($all_food_menu, function($i) { return strtolower($i['category']) === 'dinner'; }));
+            ?>
+            <div class="adm-menu-filter-bar" style="display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--adm-border);">
+                <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; margin-right: 6px;">Filter Dishes:</span>
+                <button type="button" class="adm-menu-filter-btn active" onclick="filterAdminMenu('all', this);" style="background: var(--adm-gold); color: #000; border: none; padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 700; cursor: pointer;">
+                    All Dishes (<?php echo count($all_food_menu); ?>)
+                </button>
+                <button type="button" class="adm-menu-filter-btn" onclick="filterAdminMenu('breakfast', this);" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+                    ☕ Breakfast (<?php echo $b_count; ?>)
+                </button>
+                <button type="button" class="adm-menu-filter-btn" onclick="filterAdminMenu('lunch', this);" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+                    🍛 Lunch (<?php echo $l_count; ?>)
+                </button>
+                <button type="button" class="adm-menu-filter-btn" onclick="filterAdminMenu('snacks', this);" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+                    🍪 Evening Snacks (<?php echo $s_count; ?>)
+                </button>
+                <button type="button" class="adm-menu-filter-btn" onclick="filterAdminMenu('dinner', this);" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+                    🌙 Dinner (<?php echo $d_count; ?>)
+                </button>
+            </div>
+
+            <!-- Main Edit Form for All Dishes & Section Settings -->
+            <form action="settings.php?tab=menu" method="POST" id="form-edit-menu" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                <input type="hidden" name="form_type" value="menu_settings">
+                <input type="hidden" name="active_tab" value="menu">
+
+                <!-- Section Level Headers & Category Timings Settings Card -->
+                <div style="background: rgba(16, 31, 21, 0.6); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 20px; margin-bottom: 28px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                        <span style="font-size: 13px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.8px;">
+                            <i class="fa-solid fa-sliders"></i> SECTION HEADINGS & DINING RITUAL TIMINGS
+                        </span>
+                        <span style="font-size: 11px; color: var(--adm-text-secondary);">Controls the public website header & category descriptions</span>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 14px; margin-bottom: 14px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Section Eyebrow Badge</label>
+                            <input type="text" name="menu_badge" class="adm-form-control" value="<?php echo e(get_setting('menu_badge', 'ESTATE GASTRONOMY & ORGANIC DINING')); ?>">
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Section Title</label>
+                            <input type="text" name="menu_title" class="adm-form-control" value="<?php echo e(get_setting('menu_title', 'The Forest Hearth & Living Menu')); ?>">
+                        </div>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 16px;">
+                        <label class="adm-form-label">Section Overview Description</label>
+                        <textarea name="menu_desc" rows="2" class="adm-form-control"><?php echo e(get_setting('menu_desc', 'Food at Food Forest is a ritual. Cooked in indigenous clay pots over aromatic wood hearths, every meal is prepared with ingredients harvested minutes prior from our own organic soil.')); ?></textarea>
+                    </div>
+
+                    <!-- Category Timings Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;">
+                        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border-left: 3px solid #C5A059;">
+                            <label class="adm-form-label" style="color: #fff; font-size: 11px;">☕ Breakfast Timing</label>
+                            <input type="text" name="menu_time_breakfast" class="adm-form-control" style="font-size: 12px; margin-bottom: 6px;" value="<?php echo e(get_setting('menu_time_breakfast', '07:30 AM — 10:00 AM')); ?>">
+                            <label class="adm-form-label" style="font-size: 10px;">Subtitle Narrative</label>
+                            <input type="text" name="menu_desc_breakfast" class="adm-form-control" style="font-size: 11px;" value="<?php echo e(get_setting('menu_desc_breakfast', 'Morning in the Orchards • Fresh farm juices, lacy hoppers & stone-ground breakfast sets')); ?>">
+                        </div>
+
+                        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border-left: 3px solid #2ecc71;">
+                            <label class="adm-form-label" style="color: #fff; font-size: 11px;">🍛 Lunch Timing</label>
+                            <input type="text" name="menu_time_lunch" class="adm-form-control" style="font-size: 12px; margin-bottom: 6px;" value="<?php echo e(get_setting('menu_time_lunch', '12:30 PM — 02:30 PM')); ?>">
+                            <label class="adm-form-label" style="font-size: 10px;">Subtitle Narrative</label>
+                            <input type="text" name="menu_desc_lunch" class="adm-form-control" style="font-size: 11px;" value="<?php echo e(get_setting('menu_desc_lunch', 'Claypot Hearth Feast • Heirloom red rice, seasonal thorans & traditional banana-leaf sadya')); ?>">
+                        </div>
+
+                        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border-left: 3px solid #e67e22;">
+                            <label class="adm-form-label" style="color: #fff; font-size: 11px;">🍪 Evening Snacks Timing</label>
+                            <input type="text" name="menu_time_snacks" class="adm-form-control" style="font-size: 12px; margin-bottom: 6px;" value="<?php echo e(get_setting('menu_time_snacks', '04:30 PM — 06:30 PM')); ?>">
+                            <label class="adm-form-label" style="font-size: 10px;">Subtitle Narrative</label>
+                            <input type="text" name="menu_desc_snacks" class="adm-form-control" style="font-size: 11px;" value="<?php echo e(get_setting('menu_desc_snacks', 'Plantation Tea Ritual • Steaming Marayoor cardamom chai, hot banana fritters & steamed ela ada')); ?>">
+                        </div>
+
+                        <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border-left: 3px solid #9b59b6;">
+                            <label class="adm-form-label" style="color: #fff; font-size: 11px;">🌙 Dinner Timing</label>
+                            <input type="text" name="menu_time_dinner" class="adm-form-control" style="font-size: 12px; margin-bottom: 6px;" value="<?php echo e(get_setting('menu_time_dinner', '07:30 PM — 10:00 PM')); ?>">
+                            <label class="adm-form-label" style="font-size: 10px;">Subtitle Narrative</label>
+                            <input type="text" name="menu_desc_dinner" class="adm-form-control" style="font-size: 11px;" value="<?php echo e(get_setting('menu_desc_dinner', 'Twilight Campfire Dining • Slow-simmered stews, charcoal grills & jaggery desserts by the embers')); ?>">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dishes List Cards -->
+                <div class="adm-dishes-grid" style="display: flex; flex-direction: column; gap: 24px;">
+                    <?php if (empty($all_food_menu)): ?>
+                        <div style="text-align: center; padding: 40px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                            <p style="color: var(--adm-text-secondary); margin: 0;">No dishes found. Click "+ ADD NEW MENU DISH" above to publish your first signature dish.</p>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($all_food_menu as $idx => $m_item): 
+                            $cat = strtolower($m_item['category']);
+                            $cat_labels = [
+                                'breakfast' => '☕ BREAKFAST',
+                                'lunch' => '🍛 LUNCH',
+                                'snacks' => '🍪 EVENING SNACKS',
+                                'dinner' => '🌙 DINNER'
+                            ];
+                            $cat_color = [
+                                'breakfast' => '#C5A059',
+                                'lunch' => '#2ecc71',
+                                'snacks' => '#e67e22',
+                                'dinner' => '#9b59b6'
+                            ];
+                        ?>
+                            <div class="adm-menu-item-card" data-category="<?php echo $cat; ?>" style="background: rgba(16, 31, 21, 0.4); border: 1px solid var(--adm-border); border-radius: 12px; padding: 22px; position: relative;">
+                                <input type="hidden" name="menu_id[<?php echo $idx; ?>]" value="<?php echo $m_item['id']; ?>">
+                                
+                                <!-- Card Top Row -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span class="adm-badge" style="background: rgba(0,0,0,0.5); border: 1px solid <?php echo $cat_color[$cat] ?? '#C5A059'; ?>; color: <?php echo $cat_color[$cat] ?? '#C5A059'; ?>; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 14px;">
+                                            <?php echo $cat_labels[$cat] ?? strtoupper($cat); ?>
+                                        </span>
+                                        <span style="color: #fff; font-weight: 700; font-size: 14px;"><?php echo e($m_item['heading']); ?></span>
+                                        <span style="font-size: 12px; color: #DFC694; font-weight: 600; background: rgba(197, 160, 89, 0.15); padding: 2px 8px; border-radius: 4px;">
+                                            ₹<?php echo number_format($m_item['price'], 0); ?>
+                                        </span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 14px;">
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #fff; cursor: pointer;">
+                                            <input type="checkbox" name="menu_active_<?php echo $m_item['id']; ?>" value="1" <?php echo ($m_item['is_active'] ? 'checked' : ''); ?>>
+                                            <span>Active on Live Menu</span>
+                                        </label>
+                                        <button type="submit" 
+                                                form="form-delete-menu-<?php echo $m_item['id']; ?>" 
+                                                class="adm-btn-action danger" 
+                                                style="padding: 4px 10px; font-size: 11px;"
+                                                onclick="return confirm('Are you sure you want to permanently delete \'<?php echo addslashes($m_item['heading']); ?>\' from the menu?');">
+                                            <i class="fa-solid fa-trash-can"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="adm-form-grid" style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 14px; margin-bottom: 14px;">
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Category</label>
+                                        <select name="menu_category[<?php echo $idx; ?>]" class="adm-form-control" style="background: #14281B; color: #fff;">
+                                            <option value="breakfast" <?php echo ($cat === 'breakfast' ? 'selected' : ''); ?>>Breakfast</option>
+                                            <option value="lunch" <?php echo ($cat === 'lunch' ? 'selected' : ''); ?>>Lunch</option>
+                                            <option value="snacks" <?php echo ($cat === 'snacks' ? 'selected' : ''); ?>>Evening Snacks</option>
+                                            <option value="dinner" <?php echo ($cat === 'dinner' ? 'selected' : ''); ?>>Dinner</option>
+                                        </select>
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Dish Title / Heading *</label>
+                                        <input type="text" name="menu_heading[<?php echo $idx; ?>]" class="adm-form-control" value="<?php echo e($m_item['heading']); ?>" required>
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Dietary Type</label>
+                                        <select name="menu_dietary[<?php echo $idx; ?>]" class="adm-form-control" style="background: #14281B; color: #fff;">
+                                            <option value="veg" <?php echo (($m_item['dietary_type'] ?? 'veg') === 'veg' ? 'selected' : ''); ?>>Pure Vegetarian (Green)</option>
+                                            <option value="vegan" <?php echo (($m_item['dietary_type'] ?? '') === 'vegan' ? 'selected' : ''); ?>>Vegan / Plant-Based</option>
+                                            <option value="non_veg" <?php echo (($m_item['dietary_type'] ?? '') === 'non_veg' ? 'selected' : ''); ?>>Non-Vegetarian (Red)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="adm-form-grid" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Subtitle / Tagline</label>
+                                        <input type="text" name="menu_subtitle[<?php echo $idx; ?>]" class="adm-form-control" value="<?php echo e($m_item['subtitle'] ?? ''); ?>">
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Price (₹)</label>
+                                        <input type="number" step="1" min="0" name="menu_price[<?php echo $idx; ?>]" class="adm-form-control" value="<?php echo (int)$m_item['price']; ?>">
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Price Note</label>
+                                        <input type="text" name="menu_price_note[<?php echo $idx; ?>]" class="adm-form-control" value="<?php echo e($m_item['price_note'] ?? 'Per Set'); ?>">
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Badge Tag</label>
+                                        <input type="text" name="menu_badge[<?php echo $idx; ?>]" class="adm-form-control" value="<?php echo e($m_item['badge'] ?? 'FARM FRESH'); ?>">
+                                    </div>
+                                </div>
+
+                                <div class="adm-form-group" style="margin-bottom: 14px;">
+                                    <label class="adm-form-label">Sensory Description</label>
+                                    <textarea name="menu_desc[<?php echo $idx; ?>]" rows="2" class="adm-form-control"><?php echo e($m_item['description'] ?? ''); ?></textarea>
+                                </div>
+
+                                <!-- Inclusions Editor & Parsed Preview -->
+                                <div class="adm-form-group" style="background: rgba(0,0,0,0.3); border: 1px dashed rgba(197, 160, 89, 0.4); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <label class="adm-form-label" style="color: var(--adm-gold); font-weight: 700; margin: 0;">
+                                            <i class="fa-solid fa-list-check"></i> What's Included in this Set (One item per line or comma-separated)
+                                        </label>
+                                        <span style="font-size: 11px; color: var(--adm-text-secondary);">Rendered as checklist tags on frontend</span>
+                                    </div>
+                                    <textarea name="menu_inclusions[<?php echo $idx; ?>]" rows="3" class="adm-form-control" placeholder="e.g. 3 Ghee Dosas&#10;Potato Masala&#10;Coconut Chutney&#10;Tomato Chutney&#10;Shallot Chutney&#10;Sambar"><?php echo e($m_item['inclusions'] ?? ''); ?></textarea>
+                                </div>
+
+                                <!-- Photo and Carousel Box -->
+                                <div class="adm-form-grid" style="display: grid; grid-template-columns: 140px 1fr 1fr; gap: 16px; align-items: start;">
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 11px;">Primary Photo</label>
+                                        <div style="width: 130px; height: 95px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(197, 160, 89, 0.4); background: #101F15;">
+                                            <img id="preview_menu_<?php echo $idx; ?>" 
+                                                 src="<?php echo admin_img_src($m_item['image_url']); ?>" 
+                                                 alt="Dish" 
+                                                 style="width: 100%; height: 100%; object-fit: cover;"
+                                                 onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 11px;">Change Primary Photo</label>
+                                        <label class="adm-uploader-btn" for="menu_img_file_<?php echo $idx; ?>" style="display: inline-flex; font-size: 11px; padding: 6px 12px; margin-bottom: 6px;">
+                                            <i class="fa-solid fa-cloud-arrow-up"></i> Select New Image
+                                        </label>
+                                        <input type="file" 
+                                               name="menu_image_file[<?php echo $idx; ?>]" 
+                                               id="menu_img_file_<?php echo $idx; ?>" 
+                                               class="adm-uploader-input" 
+                                               accept="image/*" 
+                                               onchange="previewUploadImage(this, 'preview_menu_<?php echo $idx; ?>', 'badge_menu_<?php echo $idx; ?>');">
+                                        <span id="badge_menu_<?php echo $idx; ?>" class="adm-file-info-badge"></span>
+                                        <input type="text" name="menu_image[<?php echo $idx; ?>]" class="adm-form-control" value="<?php echo e($m_item['image_url']); ?>" style="font-size: 11px; margin-top: 4px;">
+                                    </div>
+
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 11px;">
+                                            <i class="fa-solid fa-images"></i> Sliding Carousel Gallery (One path per line)
+                                        </label>
+                                        <textarea name="menu_gallery_urls[<?php echo $idx; ?>]" rows="3" class="adm-form-control" style="font-family: monospace; font-size: 11px;"><?php echo e(implode("\n", $m_item['gallery_list'] ?? [])); ?></textarea>
+                                    </div>
+                                </div>
+
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(197, 160, 89, 0.2);">
+                    <button type="submit" class="adm-btn-action gold" style="padding: 12px 32px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 16px rgba(197, 160, 89, 0.4);">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>SAVE ALL FOOD MENU CHANGES</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Standalone Delete Forms for Each Menu Item -->
+            <?php foreach ($all_food_menu as $m_del): ?>
+                <form action="settings.php?tab=menu" method="POST" id="form-delete-menu-<?php echo $m_del['id']; ?>" style="display: none;">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                    <input type="hidden" name="form_type" value="menu_settings">
+                    <input type="hidden" name="delete_menu_id" value="<?php echo $m_del['id']; ?>">
+                    <input type="hidden" name="active_tab" value="menu">
+                </form>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <!-- -------------------------------------------------------------
+         PANEL 9: SEASONS OF KANTHALLOOR (FULL DYNAMIC CMS)
          ------------------------------------------------------------- -->
     <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'seasons') ? 'is-active' : ''; ?>" id="pane-seasons">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">

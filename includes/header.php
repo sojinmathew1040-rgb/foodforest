@@ -50,76 +50,95 @@
 
 <?php
 require_once __DIR__ . '/../admin/includes/db.php';
+require_once __DIR__ . '/client_auth.php';
+
 $top_location = get_setting('top_bar_location', 'Kanthalloor High Range • 1,600m Elevation • 18°C Misty Mountain Air');
 $top_accolade = get_setting('top_bar_accolade', 'Rated 4.98 / 5 • Top Sustainable Sanctuary 2026');
 $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
+
+$is_logged_client = is_client_user_logged_in();
+$is_guest_client = is_guest_booking_session_active();
+$client_label = 'Guest Portal';
+if ($is_logged_client) {
+    $client_user = get_logged_in_client_user();
+    $client_label = 'My Stays (' . htmlspecialchars(explode(' ', $client_user['full_name'])[0]) . ')';
+} elseif ($is_guest_client) {
+    $client_label = 'My Booking';
+}
 ?>
-    <!-- Top Luxury Announcement & Ambient Audio Bar -->
-    <div class="top-announcement-bar">
-        <div class="top-announcement-container">
-            <div class="top-announcement-left">
-                <span class="location-pulse"><i class="fa-solid fa-location-dot"></i></span>
-                <span class="font-sans"><?php echo htmlspecialchars($top_location); ?></span>
-            </div>
-            <div class="top-announcement-center">
-                <span class="luxury-badge-pill font-sans">
-                    <i class="fa-solid fa-award"></i> <?php echo htmlspecialchars($top_accolade); ?>
-                </span>
-            </div>
-            <div class="top-announcement-right">
-                <!-- Ambient Audio Soundscape Toggle -->
-                <button type="button" id="ambient-audio-toggle" class="ambient-audio-btn font-sans" title="Play Forest Soundscape">
-                    <span class="sound-wave-bars">
-                        <span class="bar"></span>
-                        <span class="bar"></span>
-                        <span class="bar"></span>
+    <!-- Luxury Header Wrapper (Coordinates Top Announcement & Main Navigation) -->
+    <div class="site-header-wrapper" id="site-header-wrapper">
+        <!-- Top Luxury Announcement & Ambient Audio Bar -->
+        <div class="top-announcement-bar" id="top-announcement-bar">
+            <div class="top-announcement-container">
+                <div class="top-announcement-left">
+                    <span class="location-pulse"><i class="fa-solid fa-location-dot"></i></span>
+                    <span class="font-sans"><?php echo htmlspecialchars($top_location); ?></span>
+                </div>
+                <div class="top-announcement-center">
+                    <span class="luxury-badge-pill font-sans">
+                        <i class="fa-solid fa-award"></i> <?php echo htmlspecialchars($top_accolade); ?>
                     </span>
-                    <span class="sound-text">Forest Ambience: <strong id="sound-status-label">OFF</strong></span>
-                </button>
-                <a href="https://wa.me/<?php echo htmlspecialchars($concierge_wa); ?>?text=Hello%20Food%20Forest%20Concierge,%20I%20would%20like%20to%20enquire%20about%20a%20luxury%20stay." target="_blank" class="top-whatsapp-link font-sans">
-                    <i class="fa-brands fa-whatsapp"></i> Concierge
+                </div>
+                <div class="top-announcement-right">
+                    <!-- Ambient Audio Soundscape Toggle -->
+                    <button type="button" id="ambient-audio-toggle" class="ambient-audio-btn font-sans" title="Play Forest Soundscape">
+                        <span class="sound-wave-bars">
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                            <span class="bar"></span>
+                        </span>
+                        <span class="sound-text">Forest Ambience: <strong id="sound-status-label">OFF</strong></span>
+                    </button>
+                    <a href="guest_portal.php" class="top-whatsapp-link font-sans" style="color: #C5A059; border-color: rgba(197, 160, 89, 0.4);">
+                        <i class="fa-solid fa-user"></i> <?php echo $client_label; ?>
+                    </a>
+                    <a href="https://wa.me/<?php echo htmlspecialchars($concierge_wa); ?>?text=Hello%20Food%20Forest%20Concierge,%20I%20would%20like%20to%20enquire%20about%20a%20luxury%20stay." target="_blank" class="top-whatsapp-link font-sans">
+                        <i class="fa-brands fa-whatsapp"></i> Concierge
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Luxury Header -->
+        <header class="main-header" id="site-header">
+            <div class="header-container">
+                <!-- Brand Logo -->
+                <a href="index.php" class="logo font-serif magnetic" data-strength="15">
+                    <span class="logo-main">FOOD FOREST</span>
+                    <span class="logo-sub font-sans">KANTHALLOOR • ECO SANCTUARY</span>
                 </a>
+
+                <?php
+                $is_home = (basename($_SERVER['PHP_SELF']) == 'index.php' || basename($_SERVER['PHP_SELF']) == '');
+                $nav_prefix = $is_home ? '' : 'index.php';
+                ?>
+                <!-- Editorial Nav Links -->
+                <nav class="nav-links font-sans">
+                    <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
+                    <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
+                    <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
+                    <a href="<?php echo $nav_prefix; ?>#dining" class="nav-item magnetic" data-strength="10">Food Menu</a>
+                    <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
+                    <a href="<?php echo $nav_prefix; ?>#sanctuary" class="nav-item magnetic" data-strength="10">Landscape</a>
+                    <a href="<?php echo $nav_prefix; ?>#testimonials" class="nav-item magnetic" data-strength="10">Guest Stories</a>
+                </nav>
+
+                <!-- Header Actions -->
+                <div class="header-actions">
+                    <button type="button" class="btn-book-now open-booking-modal-btn font-sans magnetic" data-strength="15">
+                        <span class="btn-sparkle"><i class="fa-solid fa-sparkles"></i></span>
+                        <span>RESERVE STAY</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                    <button class="mobile-nav-toggle" aria-label="Toggle Navigation">
+                        <span class="bar"></span>
+                        <span class="bar"></span>
+                    </button>
+                </div>
             </div>
-        </div>
+        </header>
     </div>
-
-    <!-- Main Luxury Header -->
-    <header class="main-header" id="site-header">
-        <div class="header-container">
-            <!-- Brand Logo -->
-            <a href="index.php" class="logo font-serif magnetic" data-strength="15">
-                <span class="logo-main">FOOD FOREST</span>
-                <span class="logo-sub font-sans">KANTHALLOOR • ECO SANCTUARY</span>
-            </a>
-
-            <?php
-            $is_home = (basename($_SERVER['PHP_SELF']) == 'index.php' || basename($_SERVER['PHP_SELF']) == '');
-            $nav_prefix = $is_home ? '' : 'index.php';
-            ?>
-            <!-- Editorial Nav Links -->
-            <nav class="nav-links font-sans">
-                <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
-                <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
-                <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
-                <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
-                <a href="<?php echo $nav_prefix; ?>#sanctuary" class="nav-item magnetic" data-strength="10">Landscape</a>
-                <a href="<?php echo $nav_prefix; ?>#testimonials" class="nav-item magnetic" data-strength="10">Guest Stories</a>
-            </nav>
-
-            <!-- Header Actions -->
-            <div class="header-actions">
-                <button type="button" class="btn-book-now open-booking-modal-btn font-sans magnetic" data-strength="15">
-                    <span class="btn-sparkle"><i class="fa-solid fa-sparkles"></i></span>
-                    <span>RESERVE STAY</span>
-                    <i class="fa-solid fa-arrow-right"></i>
-                </button>
-                <button class="mobile-nav-toggle" aria-label="Toggle Navigation">
-                    <span class="bar"></span>
-                    <span class="bar"></span>
-                </button>
-            </div>
-        </div>
-    </header>
 
     <!-- Mobile Menu Overlay -->
     <div class="mobile-menu font-serif">
@@ -127,9 +146,11 @@ $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
             <a href="<?php echo $nav_prefix; ?>#welcome" class="mobile-link">The Sanctuary</a>
             <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="mobile-link">Villas & Stays</a>
             <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Activities</a>
+            <a href="<?php echo $nav_prefix; ?>#dining" class="mobile-link">Food Menu</a>
             <a href="<?php echo $nav_prefix; ?>#gallery" class="mobile-link">Gallery</a>
             <a href="<?php echo $nav_prefix; ?>#sanctuary" class="mobile-link">Landscape</a>
             <a href="<?php echo $nav_prefix; ?>#testimonials" class="mobile-link">Guest Stories</a>
+            <a href="guest_portal.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-key"></i> Guest Portal / My Bookings</a>
             <a href="<?php echo $nav_prefix; ?>#contact" class="mobile-link">Contact</a>
             <button type="button" class="mobile-link btn-mobile-book open-booking-modal-btn font-sans">
                 <i class="fa-solid fa-calendar-check"></i> Check Availability

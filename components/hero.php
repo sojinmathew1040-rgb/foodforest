@@ -11,7 +11,7 @@ $hero_rooms = get_all_rooms(true);
 <section id="hero" class="hero-section">
     <!-- Hero Background Visual -->
     <div class="hero-bg-container" data-speed="-0.15">
-        <img src="<?php echo htmlspecialchars($hero_bg_image); ?>" alt="Food Forest Kanthalloor Eco-Retreat" class="hero-bg-img" onerror="this.src='assets/images/treehouse_exterior.png'">
+        <img src="<?php echo htmlspecialchars($hero_bg_image); ?>" alt="Food Forest Kanthalloor Eco-Retreat" class="hero-bg-img loaded" onload="this.classList.add('loaded')" onerror="this.src='assets/images/treehouse_exterior.png'">
         <div class="hero-overlay"></div>
     </div>
     
@@ -92,7 +92,7 @@ $hero_rooms = get_all_rooms(true);
 
             <!-- Action Button -->
             <div class="booking-bar-action">
-                <button type="button" id="btn-hero-check-availability" class="btn-primary hero-bar-submit font-sans magnetic" data-strength="15">
+                <button type="button" id="btn-hero-check-availability" class="hero-bar-submit font-sans magnetic" data-strength="15">
                     <span>Check Availability</span>
                     <i class="fa-solid fa-arrow-right"></i>
                 </button>

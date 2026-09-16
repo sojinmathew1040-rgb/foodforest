@@ -83,17 +83,85 @@ try {
     $extra_kids_fee = $extra_kids * $extra_child_rate * $nights;
     $extra_guests_fee = $extra_adults_fee + $extra_kids_fee;
 
-    // Calculate total amount
+    // Calculate room stay total
     $base_total = $rate_per_night * $nights;
+    $room_total = $base_total + $extra_guests_fee;
+
+    // Experiences Addons total
     $addons_total = 0;
     if (stripos($addons, 'dinner') !== false) $addons_total += 3000;
     if (stripos($addons, 'pottery') !== false) $addons_total += 1500;
     if (stripos($addons, 'trek') !== false) $addons_total += 2000;
 
-    $calculated_total = $base_total + $extra_guests_fee + $addons_total;
+    // Process Food Menu Selections
+    $food_items_raw = $input['food_items'] ?? [];
+    if (is_string($food_items_raw)) {
+        $food_items_array = json_decode($food_items_raw, true) ?: [];
+    } else {
+        $food_items_array = is_array($food_items_raw) ? $food_items_raw : [];
+    }
+
+    $verified_food_items = [];
+    $food_total = 0.00;
+    $food_status = (!empty($input['food_skipped']) || empty($food_items_array)) ? 'skipped' : 'selected';
+
+    if ($food_status === 'selected') {
+        foreach ($food_items_array as $fi) {
+            $qty = max(0, (int)($fi['quantity'] ?? ($fi['sets'] ?? 0)));
+            $price = max(0, (float)($fi['price'] ?? 0));
+            if ($qty > 0 && !empty($fi['heading'])) {
+                $subtotal = $qty * $price;
+                $food_total += $subtotal;
+                $verified_food_items[] = [
+                    'id' => (int)($fi['id'] ?? 0),
+                    'category' => trim($fi['category'] ?? 'general'),
+                    'category_title' => trim($fi['category_title'] ?? ucfirst($fi['category'] ?? 'Meal')),
+                    'heading' => trim($fi['heading']),
+                    'subtitle' => trim($fi['subtitle'] ?? ''),
+                    'price' => $price,
+                    'quantity' => $qty,
+                    'subtotal' => $subtotal,
+                    'inclusions' => is_array($fi['inclusions'] ?? null) ? $fi['inclusions'] : []
+                ];
+            }
+        }
+        if (empty($verified_food_items)) {
+            $food_status = 'skipped';
+        }
+    }
+
+    $calculated_total = $room_total + $addons_total + $food_total;
     $total_amount = $calculated_total;
     if (!empty($input['total_amount']) && floatval($input['total_amount']) > 0) {
         $total_amount = (float)$input['total_amount'];
+    }
+
+    // Client Authentication & User Association
+    require_once __DIR__ . '/../includes/client_auth.php';
+    ensure_users_and_guest_columns($pdo);
+
+    $user_id = null;
+    $is_guest = 1;
+    $guest_access_token = null;
+    $expires_at = null;
+
+    if (is_client_user_logged_in()) {
+        $user_id = (int)$_SESSION['ff_client_user_id'];
+        $is_guest = 0;
+    } elseif (!empty($input['create_account']) && !empty($input['password'])) {
+        // Register permanent account
+        $reg = register_client_user($guest_name, $guest_email, $guest_phone, $input['password']);
+        if ($reg['success']) {
+            $user_id = $reg['user']['id'];
+            $is_guest = 0;
+            set_client_user_session($reg['user']);
+        }
+    }
+
+    if ($is_guest) {
+        // Generate secure 4-digit passcode & 30-day auto-destruct date
+        $guest_access_token = str_pad(strval(rand(1000, 9999)), 4, '0', STR_PAD_LEFT);
+        $expires_at = date('Y-m-d H:i:s', strtotime('+30 days'));
     }
 
     // Generate unique reference code
@@ -101,15 +169,21 @@ try {
 
     $stmt = $pdo->prepare("
         INSERT INTO bookings (
-            reference_code, villa_type, guest_name, guest_phone, guest_email,
+            reference_code, user_id, is_guest, guest_access_token, expires_at,
+            villa_type, guest_name, guest_phone, guest_email,
             guests_count, adults_count, kids_count, extra_adults, extra_kids,
-            checkin_date, checkout_date, nights, addons, special_notes,
-            total_amount, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            checkin_date, checkout_date, nights, addons,
+            food_items, food_amount, room_amount, food_status,
+            special_notes, total_amount, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     ");
 
     $stmt->execute([
         $ref_code,
+        $user_id,
+        $is_guest,
+        $guest_access_token,
+        $expires_at,
         $villa_type,
         $guest_name,
         $guest_phone,
@@ -123,28 +197,52 @@ try {
         $checkout_date,
         $nights,
         $addons,
+        !empty($verified_food_items) ? json_encode($verified_food_items) : null,
+        $food_total,
+        $room_total,
+        $food_status,
         $special_notes,
         $total_amount
     ]);
 
+    // Set guest session for instant access if booking as guest
+    if ($is_guest) {
+        set_guest_booking_session([
+            'reference_code' => $ref_code,
+            'guest_name' => $guest_name
+        ]);
+    }
+
     // Fetch concierge WhatsApp
     $whatsapp_num = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'concierge_whatsapp'")->fetchColumn() ?: '919234567890';
+
+    $receipt_url = "receipt.php?ref=" . urlencode($ref_code);
+    if ($guest_access_token) {
+        $receipt_url .= "&passcode=" . urlencode($guest_access_token);
+    }
 
     echo json_encode([
         'success' => true,
         'reference_code' => $ref_code,
+        'is_guest' => (bool)$is_guest,
+        'guest_access_token' => $guest_access_token,
+        'expires_at' => $expires_at,
+        'expires_date_formatted' => $expires_at ? date('d M Y', strtotime($expires_at)) : null,
         'guest_name' => $guest_name,
         'villa_title' => $villa_title,
         'adults_count' => $adults_count,
         'kids_count' => $kids_count,
-        'extra_adults' => $extra_adults,
-        'extra_kids' => $extra_kids,
         'checkin_date' => $checkin_date,
         'checkout_date' => $checkout_date,
         'nights' => $nights,
+        'room_total' => $room_total,
+        'food_total' => $food_total,
+        'food_items_count' => count($verified_food_items),
+        'food_status' => $food_status,
         'total_amount' => $total_amount,
+        'receipt_url' => $receipt_url,
         'concierge_whatsapp' => $whatsapp_num,
-        'message' => "Your reservation request ($ref_code) has been submitted! Our Master Concierge will confirm shortly."
+        'message' => "Your reservation request ($ref_code) has been recorded! Your luxury booking receipt is ready."
     ]);
 
 } catch (Exception $e) {

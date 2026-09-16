@@ -41,6 +41,8 @@ function get_db() {
         ensure_rooms_pricing_columns($pdo);
         ensure_sanctuary_spots_table_exists($pdo);
         ensure_experiences_details_columns($pdo);
+        ensure_food_menu_table_exists($pdo);
+        ensure_users_and_guest_columns($pdo);
 
         return $pdo;
     } catch (PDOException $e) {
@@ -1054,5 +1056,568 @@ function ensure_experiences_details_columns(PDO $pdo) {
     }
 
     $checked = true;
+}
+
+/**
+ * Ensure the food_menu table exists, seed initial luxury farm dishes, and ensure images are in place
+ */
+function ensure_food_menu_table_exists(?PDO $pdo = null) {
+    static $checked = false;
+    if ($checked) return;
+
+    if (!$pdo) {
+        $pdo = get_db();
+    }
+
+    // 1. Create table
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `food_menu` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `category` VARCHAR(50) NOT NULL,
+        `heading` VARCHAR(200) NOT NULL,
+        `subtitle` VARCHAR(255) NULL,
+        `price` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        `price_note` VARCHAR(100) NULL DEFAULT 'Per Set',
+        `description` TEXT NULL,
+        `inclusions` TEXT NULL,
+        `dietary_type` VARCHAR(50) DEFAULT 'veg',
+        `badge` VARCHAR(100) DEFAULT 'Farm Fresh',
+        `image_url` VARCHAR(255) NULL,
+        `gallery_images` TEXT NULL,
+        `display_order` INT DEFAULT 0,
+        `is_active` TINYINT(1) DEFAULT 1,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    // Copy generated images if available
+    $images_dir = __DIR__ . '/../../assets/images';
+    if (!file_exists($images_dir . '/food_dosa_set.jpg')) {
+        $gen1 = 'C:/Users/sojin/.gemini/antigravity-ide/brain/2d7eb0fb-9e13-4bb7-86a4-b64ac7ed8918/food_dosa_set_1789538856869.jpg';
+        if (file_exists($gen1)) {
+            @copy($gen1, $images_dir . '/food_dosa_set.jpg');
+        }
+    }
+    if (!file_exists($images_dir . '/food_kerala_sadya.jpg')) {
+        $gen2 = 'C:/Users/sojin/.gemini/antigravity-ide/brain/2d7eb0fb-9e13-4bb7-86a4-b64ac7ed8918/food_kerala_sadya_1789538876587.jpg';
+        if (file_exists($gen2)) {
+            @copy($gen2, $images_dir . '/food_kerala_sadya.jpg');
+        }
+    }
+    if (!file_exists($images_dir . '/food_evening_snacks.jpg')) {
+        $gen3 = 'C:/Users/sojin/.gemini/antigravity-ide/brain/2d7eb0fb-9e13-4bb7-86a4-b64ac7ed8918/food_evening_snacks_1789538895799.jpg';
+        if (file_exists($gen3)) {
+            @copy($gen3, $images_dir . '/food_evening_snacks.jpg');
+        }
+    }
+
+    $dosa_img = file_exists($images_dir . '/food_dosa_set.jpg') ? 'assets/images/food_dosa_set.jpg' : 'assets/images/01 (10).jpeg';
+    $sadya_img = file_exists($images_dir . '/food_kerala_sadya.jpg') ? 'assets/images/food_kerala_sadya.jpg' : 'assets/images/01 (3).jpeg';
+    $snacks_img = file_exists($images_dir . '/food_evening_snacks.jpg') ? 'assets/images/food_evening_snacks.jpg' : 'assets/images/01 (19).jpeg';
+
+    // 2. Seed initial dishes if empty
+    $count = (int)$pdo->query("SELECT COUNT(*) FROM `food_menu`")->fetchColumn();
+    if ($count === 0) {
+        $seed_items = [
+            // Breakfast
+            [
+                'category' => 'breakfast',
+                'heading' => 'Signature Heritage Dosa Set',
+                'subtitle' => 'Crispy Ghee Dosas with 3 Stone-Ground Chutneys & Claypot Sambar',
+                'price' => 220.00,
+                'price_note' => 'Per Set • Farm Breakfast',
+                'description' => 'Fermented batter of organic red rice and black lentils, ladled onto seasoned cast-iron skillets and crisped with pure A2 farm ghee. Served piping hot on a fresh plantain leaf with three distinctive regional chutneys.',
+                'inclusions' => "3 Crispy Golden Ghee Dosas\nSpiced Potato Podi Masala\nFresh Coconut-Mint Chutney\nRoasted Tomato & Garlic Chutney\nShallot & Kanthari White Chutney\nPiping Hot Drumstick Sambar",
+                'dietary_type' => 'veg',
+                'badge' => 'ESTATE SIGNATURE',
+                'image_url' => $dosa_img,
+                'gallery_images' => json_encode([$dosa_img, 'assets/images/01 (10).jpeg', 'assets/images/01 (3).jpeg']),
+                'display_order' => 1
+            ],
+            [
+                'category' => 'breakfast',
+                'heading' => 'Clay-Baked Appam & Vegetable Ishtu',
+                'subtitle' => 'Lacy Fermented Rice Crepes with Farm Coconut Milk Stew',
+                'price' => 240.00,
+                'price_note' => 'Per Set',
+                'description' => 'Soft, pillowy centers with delicate paper-thin crispy lace edges baked in traditional earthen appachattis. Accompanied by fragrant coconut milk stew simmered with heirloom potatoes, baby carrots, and sweet garden peas.',
+                'inclusions' => "4 Lacy Steamed Appams\nFresh Coconut Milk Vegetable Ishtu\nRoasted Coconut Chammanthi\nCardamom Spiced Chai",
+                'dietary_type' => 'veg',
+                'badge' => 'VILLAGE CLASSIC',
+                'image_url' => 'assets/images/01 (10).jpeg',
+                'gallery_images' => json_encode(['assets/images/01 (10).jpeg', 'assets/images/01 (3).jpeg', $dosa_img]),
+                'display_order' => 2
+            ],
+            [
+                'category' => 'breakfast',
+                'heading' => 'Heritage Red Rice Puttu & Kadala Curry',
+                'subtitle' => 'Steamed Bamboo Puttu Cylinders with Spiced Black Chickpea Gravy',
+                'price' => 210.00,
+                'price_note' => 'Per Set',
+                'description' => 'Coarsely ground organic red matta rice flour layered with freshly grated coconut and steamed in bamboo hollows. Paired with rich black chickpea gravy roasted in native coconut oil.',
+                'inclusions' => "2 Bamboo Steamed Puttu Cylinders\nSlow-Braised Kadala Curry\nSmall Ripe Farm Banana\nPapadam & Ghee",
+                'dietary_type' => 'veg',
+                'badge' => 'ORGANIC GRAIN',
+                'image_url' => 'assets/images/01 (1).jpeg',
+                'gallery_images' => json_encode(['assets/images/01 (1).jpeg', 'assets/images/01 (10).jpeg']),
+                'display_order' => 3
+            ],
+            // Lunch
+            [
+                'category' => 'lunch',
+                'heading' => 'Kanthalloor Earthen Claypot Sadya',
+                'subtitle' => 'Full Traditional Harvest Feast Served on Fresh Plantain Leaf',
+                'price' => 480.00,
+                'price_note' => 'Per Person Feast',
+                'description' => 'A ceremonial organic banquet celebrating the biodiverse harvest of Kanthalloor. Every side is slow-simmered in native red clay pots over wood embers using cold-pressed coconut oil.',
+                'inclusions' => "Steamed Organic Red Matta Rice\nTraditional Mixed Vegetable Avial\nFarm Greens & Coconut Thoran\nSlow-Simmered Drumstick Sambar\nCurd-Tempered Pulissery\nCrispy Mountain Banana Chips & Sarkara Varatti\nStone-Ground Ginger Pickle (Inji Curry)\nCrisp Urud Papadam\nRich Marayoor Jaggery & Rice Payasam",
+                'dietary_type' => 'veg',
+                'badge' => "CHEF'S HARVEST FEAST",
+                'image_url' => $sadya_img,
+                'gallery_images' => json_encode([$sadya_img, 'assets/images/01 (3).jpeg', 'assets/images/01 (13).jpeg']),
+                'display_order' => 1
+            ],
+            [
+                'category' => 'lunch',
+                'heading' => 'Woodfire Jackfruit & Lentil Curry Set',
+                'subtitle' => 'Tender Raw Chakka Braised in Roasted Coconut & Mountain Spices',
+                'price' => 360.00,
+                'price_note' => 'Per Set',
+                'description' => 'Tender heirloom jackfruit harvested from century-old trees on the sanctuary slopes, braised slowly with toasted shallots, coriander, and freshly grated coconut.',
+                'inclusions' => "Tender Jackfruit Varutharacha Curry\nFragrant Jeera Samba Rice\nRaw Banana Podimas\nSun-Dried Chili Buttermilk (Moru)",
+                'dietary_type' => 'veg',
+                'badge' => 'HEIRLOOM FORAGED',
+                'image_url' => 'assets/images/01 (3).jpeg',
+                'gallery_images' => json_encode(['assets/images/01 (3).jpeg', $sadya_img]),
+                'display_order' => 2
+            ],
+            // Snacks
+            [
+                'category' => 'snacks',
+                'heading' => 'High-Range Evening Chai & Farm Fritters Set',
+                'subtitle' => 'Piping Hot Marayoor Cardamom Chai with Sweet & Savory Estate Bites',
+                'price' => 160.00,
+                'price_note' => 'Tea & Bites Set',
+                'description' => 'Gather on the veranda as the afternoon mist rolls into the valley. Enjoy steaming cardamom milk tea poured from brass tumblers, alongside golden nendran banana fritters and crisp lentil vadas.',
+                'inclusions' => "Steaming Marayoor Cardamom Spiced Milk Tea\n2 Golden Pazham Pori (Crispy Banana Fritters)\n2 Crispy Medu Uzhunnu Vada\nFresh Coconut & Green Chili Chutney",
+                'dietary_type' => 'veg',
+                'badge' => 'TWILIGHT RITUAL',
+                'image_url' => $snacks_img,
+                'gallery_images' => json_encode([$snacks_img, 'assets/images/01 (20).jpeg', 'assets/images/01 (30).jpeg']),
+                'display_order' => 1
+            ],
+            [
+                'category' => 'snacks',
+                'heading' => 'Steamed Sweet Ela Ada & Herbal Infusion',
+                'subtitle' => 'Banana Leaf Steamed Rice Parcels Stuffed with Marayoor Jaggery',
+                'price' => 180.00,
+                'price_note' => 'Per Set',
+                'description' => 'Delicate thin rice dough pockets filled with a rich filling of freshly grated organic coconut, crushed cardamom, and pure GI-tagged Marayoor dark molasses jaggery, wrapped in fragrant banana leaves and steamed.',
+                'inclusions' => "2 Warm Banana-Leaf Steamed Ela Ada\nHot Ginger & Lemongrass Infusion\nRoasted Salted Cashews",
+                'dietary_type' => 'veg',
+                'badge' => 'TRADITIONAL DELICACY',
+                'image_url' => 'assets/images/01 (19).jpeg',
+                'gallery_images' => json_encode(['assets/images/01 (19).jpeg', $snacks_img]),
+                'display_order' => 2
+            ],
+            // Dinner
+            [
+                'category' => 'dinner',
+                'heading' => 'Twilight Hearth Stew & Malabar Porotta Set',
+                'subtitle' => 'Aromatic Farm Vegetable Stew with Flaky Layered Hearth Breads',
+                'price' => 390.00,
+                'price_note' => 'Per Set',
+                'description' => 'Served beside the crackling embers of the open hearth. Layered artisanal porottas or soft rice pathiri served with slow-cooked vegetable and wild mushroom stew scented with whole cinnamon and crushed black pepper.',
+                'inclusions' => "3 Golden Layered Artisanal Porottas\nEarthen Pot Coconut-Vegetable Stew\nGrilled Forest Mushroom Kurma\nCaramelized Onion & Tomato Relish",
+                'dietary_type' => 'veg',
+                'badge' => 'CAMPFIRE SPECIAL',
+                'image_url' => 'assets/images/01 (31).jpeg',
+                'gallery_images' => json_encode(['assets/images/01 (31).jpeg', 'assets/images/01 (30).jpeg', 'assets/images/01 (3).jpeg']),
+                'display_order' => 1
+            ],
+            [
+                'category' => 'dinner',
+                'heading' => 'Charcoal Roasted Mountain Root Platter',
+                'subtitle' => 'Blistered Sweet Potatoes, Tapioca & Sweet Corn with Kanthari Dip',
+                'price' => 320.00,
+                'price_note' => 'Sharing Platter',
+                'description' => 'Wholesome high-altitude root vegetables and tender corn on the cob roasted over aromatic teakwood charcoal. Served with stone-crushed bird\'s eye chili and raw shallot chutney.',
+                'inclusions' => "Woodfire Blistered Farm Tapioca (Kappa)\nRoasted Sweet Mountain Potatoes\nCharred Sweet Corn Cobs with Rock Salt & Lime\nStone-Ground Kanthari Chili & Virgin Coconut Oil Dip",
+                'dietary_type' => 'veg',
+                'badge' => 'WOODFIRE ROAST',
+                'image_url' => 'assets/images/01 (25).jpeg',
+                'gallery_images' => json_encode(['assets/images/01 (25).jpeg', 'assets/images/01 (20).jpeg']),
+                'display_order' => 2
+            ]
+        ];
+
+        $ins = $pdo->prepare("INSERT INTO `food_menu` 
+            (category, heading, subtitle, price, price_note, description, inclusions, dietary_type, badge, image_url, gallery_images, display_order, is_active) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+
+        foreach ($seed_items as $item) {
+            $ins->execute([
+                $item['category'],
+                $item['heading'],
+                $item['subtitle'],
+                $item['price'],
+                $item['price_note'],
+                $item['description'],
+                $item['inclusions'],
+                $item['dietary_type'],
+                $item['badge'],
+                $item['image_url'],
+                $item['gallery_images'],
+                $item['display_order']
+            ]);
+        }
+    }
+
+    // 3. Seed default menu settings
+    $default_settings = [
+        'menu_badge' => 'ESTATE GASTRONOMY & ORGANIC DINING',
+        'menu_title' => 'The Forest Hearth & Living Menu',
+        'menu_desc' => 'Food at Food Forest is a ritual. Cooked in indigenous clay pots over aromatic wood hearths, every meal is prepared with ingredients harvested minutes prior from our own organic soil.',
+        'menu_time_breakfast' => '07:30 AM — 10:00 AM',
+        'menu_desc_breakfast' => 'Morning in the Orchards • Fresh farm juices, lacy hoppers & stone-ground breakfast sets',
+        'menu_time_lunch' => '12:30 PM — 02:30 PM',
+        'menu_desc_lunch' => 'Claypot Hearth Feast • Heirloom red rice, seasonal thorans & traditional banana-leaf sadya',
+        'menu_time_snacks' => '04:30 PM — 06:30 PM',
+        'menu_desc_snacks' => 'Plantation Tea Ritual • Steaming Marayoor cardamom chai, hot banana fritters & steamed ela ada',
+        'menu_time_dinner' => '07:30 PM — 10:00 PM',
+        'menu_desc_dinner' => 'Twilight Campfire Dining • Slow-simmered stews, charcoal grills & jaggery desserts by the embers'
+    ];
+
+    $ins_set = $pdo->prepare("INSERT IGNORE INTO `settings` (setting_key, setting_value) VALUES (?, ?)");
+    foreach ($default_settings as $k => $v) {
+        $ins_set->execute([$k, $v]);
+    }
+
+    // Ensure latest image paths for signature items
+    $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_dosa_set.jpg' WHERE `heading` LIKE '%Dosa%' AND (`image_url` IS NULL OR `image_url` NOT LIKE '%food_dosa_set%')");
+    $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_kerala_sadya.jpg' WHERE `heading` LIKE '%Sadya%' AND (`image_url` IS NULL OR `image_url` NOT LIKE '%food_kerala_sadya%')");
+    $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_evening_snacks.jpg' WHERE `heading` LIKE '%Chai%' AND (`image_url` IS NULL OR `image_url` NOT LIKE '%food_evening_snacks%')");
+
+    $checked = true;
+}
+
+/**
+ * Retrieve active or filtered food menu items
+ */
+function get_food_menu_items($category = null, $only_active = true) {
+    try {
+        $pdo = get_db();
+        ensure_food_menu_table_exists($pdo);
+        $sql = "SELECT * FROM `food_menu` WHERE 1=1";
+        $params = [];
+        if ($only_active) {
+            $sql .= " AND is_active = 1";
+        }
+        if ($category && $category !== 'all') {
+            $sql .= " AND category = ?";
+            $params[] = strtolower(trim($category));
+        }
+        $sql .= " ORDER BY display_order ASC, id ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $items = $stmt->fetchAll();
+        foreach ($items as &$item) {
+            // Process inclusions into an array of clean items
+            $inc_list = [];
+            if (!empty($item['inclusions'])) {
+                $lines = preg_split('/[\r\n]+/', $item['inclusions']);
+                foreach ($lines as $line) {
+                    $trimmed = trim($line);
+                    if ($trimmed !== '') {
+                        $inc_list[] = ltrim($trimmed, "-*• \t");
+                    }
+                }
+            }
+            $item['inclusions_list'] = $inc_list;
+
+            // Process gallery images for slider
+            $gal_list = [];
+            if (!empty($item['gallery_images'])) {
+                $dec = json_decode($item['gallery_images'], true);
+                if (is_array($dec)) {
+                    $gal_list = array_values(array_filter($dec));
+                }
+            }
+            if (empty($gal_list) && !empty($item['image_url'])) {
+                $gal_list = [$item['image_url']];
+            }
+            $item['gallery_list'] = $gal_list;
+        }
+        return $items;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Ensure users table exists and bookings table has client/guest authentication and food columns
+ */
+function ensure_users_and_guest_columns(?PDO $pdo = null) {
+    static $checked = false;
+    if ($checked) return;
+
+    if (!$pdo) {
+        $pdo = get_db();
+    }
+
+    try {
+        // 1. Ensure users table exists for permanent client logins
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `users` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `full_name` VARCHAR(150) NOT NULL,
+            `email` VARCHAR(150) UNIQUE NOT NULL,
+            `phone` VARCHAR(50) NULL,
+            `password_hash` VARCHAR(255) NOT NULL,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `last_login` DATETIME NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+        // 2. Ensure columns exist in bookings table
+        $cols = $pdo->query("SHOW COLUMNS FROM `bookings`")->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!in_array('user_id', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `user_id` INT NULL AFTER `id`");
+        }
+        if (!in_array('is_guest', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `is_guest` TINYINT(1) DEFAULT 1 AFTER `user_id`");
+        }
+        if (!in_array('guest_access_token', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `guest_access_token` VARCHAR(100) NULL AFTER `is_guest`");
+        }
+        if (!in_array('expires_at', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `expires_at` DATETIME NULL AFTER `guest_access_token`");
+        }
+        if (!in_array('food_items', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `food_items` LONGTEXT NULL AFTER `addons`");
+        }
+        if (!in_array('food_amount', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `food_amount` DECIMAL(10,2) DEFAULT 0.00 AFTER `food_items`");
+        }
+        if (!in_array('room_amount', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `room_amount` DECIMAL(10,2) DEFAULT 0.00 AFTER `food_amount`");
+        }
+        if (!in_array('food_status', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `food_status` VARCHAR(50) DEFAULT 'none' AFTER `food_amount`");
+        }
+
+        $checked = true;
+    } catch (Exception $e) {
+        // Silently skip if DB error
+    }
+}
+
+/**
+ * Register a permanent client account
+ */
+function register_client_user($full_name, $email, $phone, $password) {
+    try {
+        $pdo = get_db();
+        ensure_users_and_guest_columns($pdo);
+
+        $email = strtolower(trim($email));
+        $full_name = trim($full_name);
+        $phone = trim($phone);
+
+        if (empty($full_name) || empty($email) || empty($password)) {
+            return ['success' => false, 'message' => 'Full name, valid email, and password are required.'];
+        }
+
+        // Check duplicate email
+        $check = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $check->execute([$email]);
+        if ($check->fetchColumn()) {
+            return ['success' => false, 'message' => 'An account with this email already exists. Please sign in instead.'];
+        }
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("INSERT INTO users (full_name, email, phone, password_hash, last_login) VALUES (?, ?, ?, ?, NOW())");
+        $stmt->execute([$full_name, $email, $phone, $hash]);
+        $user_id = (int)$pdo->lastInsertId();
+
+        return [
+            'success' => true,
+            'user' => [
+                'id' => $user_id,
+                'full_name' => $full_name,
+                'email' => $email,
+                'phone' => $phone
+            ]
+        ];
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => 'Registration error: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Authenticate a permanent client account
+ */
+function authenticate_client_user($email, $password) {
+    try {
+        $pdo = get_db();
+        ensure_users_and_guest_columns($pdo);
+
+        $email = strtolower(trim($email));
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            return ['success' => false, 'message' => 'No account found with this email address.'];
+        }
+
+        if (!password_verify($password, $user['password_hash'])) {
+            return ['success' => false, 'message' => 'Incorrect password. Please verify and try again.'];
+        }
+
+        // Update last login
+        $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
+
+        unset($user['password_hash']);
+        return ['success' => true, 'user' => $user];
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => 'Authentication error: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Authenticate a 30-day guest booking login
+ */
+function authenticate_guest_booking($ref_code, $passcode_or_phone) {
+    try {
+        $pdo = get_db();
+        ensure_users_and_guest_columns($pdo);
+
+        $ref_code = strtoupper(trim($ref_code));
+        $passcode = trim($passcode_or_phone);
+
+        $clean_phone = preg_replace('/[^0-9]/', '', $passcode);
+
+        $stmt = $pdo->prepare("SELECT * FROM bookings WHERE reference_code = ?");
+        $stmt->execute([$ref_code]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$booking) {
+            return ['success' => false, 'message' => 'Reservation reference code not found. Please check your booking details.'];
+        }
+
+        // Check passcode match (guest_access_token or matched phone number)
+        $token_match = !empty($booking['guest_access_token']) && (strcasecmp($booking['guest_access_token'], $passcode) === 0);
+        $phone_clean_db = preg_replace('/[^0-9]/', '', $booking['guest_phone'] ?? '');
+        $phone_match = !empty($clean_phone) && strlen($clean_phone) >= 4 && str_ends_with($phone_clean_db, substr($clean_phone, -4));
+
+        if (!$token_match && !$phone_match) {
+            return ['success' => false, 'message' => 'Invalid passcode or registered phone number.'];
+        }
+
+        // Check 30-day auto-destruct expiration
+        if (!empty($booking['expires_at'])) {
+            $exp_time = strtotime($booking['expires_at']);
+            if ($exp_time && $exp_time < time()) {
+                return [
+                    'success' => false,
+                    'expired' => true,
+                    'message' => 'This 30-day guest reservation pass has expired. Upgrade to a permanent account or contact our concierge.'
+                ];
+            }
+        }
+
+        return ['success' => true, 'booking' => $booking];
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => 'Error accessing guest booking: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Retrieve all bookings for a registered client user
+ */
+function get_client_bookings($user_id) {
+    try {
+        $pdo = get_db();
+        ensure_users_and_guest_columns($pdo);
+
+        $stmt = $pdo->prepare("SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type
+                               FROM bookings b 
+                               LEFT JOIN rooms r ON b.villa_type = r.slug 
+                               WHERE b.user_id = ? 
+                               ORDER BY b.id DESC");
+        $stmt->execute([(int)$user_id]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$r) {
+            $r['food_items_list'] = !empty($r['food_items']) ? json_decode($r['food_items'], true) : [];
+        }
+        return $rows;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Retrieve a specific booking by reference code with room details
+ */
+function get_booking_by_ref($ref_code) {
+    try {
+        $pdo = get_db();
+        ensure_users_and_guest_columns($pdo);
+
+        $ref_code = strtoupper(trim($ref_code));
+        $stmt = $pdo->prepare("SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type, r.description AS room_description
+                               FROM bookings b 
+                               LEFT JOIN rooms r ON b.villa_type = r.slug 
+                               WHERE b.reference_code = ?");
+        $stmt->execute([$ref_code]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($booking) {
+            $booking['food_items_list'] = !empty($booking['food_items']) ? json_decode($booking['food_items'], true) : [];
+        }
+        return $booking;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
+/**
+ * Upgrade / convert a guest booking to a permanent user account
+ */
+function upgrade_guest_to_user($booking_ref, $password) {
+    try {
+        $pdo = get_db();
+        ensure_users_and_guest_columns($pdo);
+
+        $booking = get_booking_by_ref($booking_ref);
+        if (!$booking) {
+            return ['success' => false, 'message' => 'Reservation reference not found.'];
+        }
+
+        $email = strtolower(trim($booking['guest_email'] ?? ''));
+        if (empty($email)) {
+            return ['success' => false, 'message' => 'No email associated with this booking.'];
+        }
+
+        // Check if user already exists
+        $user_check = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $user_check->execute([$email]);
+        $user_id = $user_check->fetchColumn();
+
+        if (!$user_id) {
+            $reg = register_client_user($booking['guest_name'], $email, $booking['guest_phone'], $password);
+            if (!$reg['success']) {
+                return $reg;
+            }
+            $user_id = $reg['user']['id'];
+        }
+
+        // Link booking to user and remove guest expiration
+        $pdo->prepare("UPDATE bookings SET user_id = ?, is_guest = 0, expires_at = NULL WHERE reference_code = ?")
+            ->execute([$user_id, $booking['reference_code']]);
+
+        return ['success' => true, 'user_id' => $user_id, 'message' => 'Reservation successfully linked to your permanent account!'];
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => 'Upgrade error: ' . $e->getMessage()];
+    }
 }
 ?>
