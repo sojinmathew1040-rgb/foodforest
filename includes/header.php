@@ -100,7 +100,7 @@ $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
             <nav class="nav-links font-sans">
                 <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
                 <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
-                <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Curated Journeys</a>
+                <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
                 <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
                 <a href="<?php echo $nav_prefix; ?>#sanctuary" class="nav-item magnetic" data-strength="10">Landscape</a>
                 <a href="<?php echo $nav_prefix; ?>#testimonials" class="nav-item magnetic" data-strength="10">Guest Stories</a>
@@ -126,7 +126,7 @@ $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
         <div class="mobile-menu-links">
             <a href="<?php echo $nav_prefix; ?>#welcome" class="mobile-link">The Sanctuary</a>
             <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="mobile-link">Villas & Stays</a>
-            <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Curated Journeys</a>
+            <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Activities</a>
             <a href="<?php echo $nav_prefix; ?>#gallery" class="mobile-link">Gallery</a>
             <a href="<?php echo $nav_prefix; ?>#sanctuary" class="mobile-link">Landscape</a>
             <a href="<?php echo $nav_prefix; ?>#testimonials" class="mobile-link">Guest Stories</a>

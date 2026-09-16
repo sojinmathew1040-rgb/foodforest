@@ -1,2 +1,2 @@
 <?php
-// Food Forest Sanctuary — Test verified and cleared
+// Food Forest Sanctuary — Verification completed

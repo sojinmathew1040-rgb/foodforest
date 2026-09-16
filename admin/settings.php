@@ -229,18 +229,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // 7. Curated Experiences Card (Header + All Experiences in MySQL)
+        // 7. Curated Experiences Card (Dynamic CMS: Add, Edit, Delete Experiences)
         elseif ($form_type === 'experiences_settings') {
+            ensure_experiences_details_columns($pdo);
+
             if (!empty($_POST['delete_exp_id'])) {
                 $del_id = (int)$_POST['delete_exp_id'];
                 $del = $pdo->prepare("DELETE FROM experiences WHERE id = ?");
                 $del->execute([$del_id]);
-                $alert_message = 'Curated ritual experience removed successfully.';
+                $alert_message = 'Curated ritual experience permanently removed.';
             } elseif (($_POST['action'] ?? '') === 'add_experience') {
                 $title = trim($_POST['new_exp_title'] ?? '');
+                $tagline = trim($_POST['new_exp_tagline'] ?? '');
                 $badge = trim($_POST['new_exp_badge'] ?? 'INCLUDED IN STAY');
                 $timing = trim($_POST['new_exp_timing'] ?? '2 Hours • Morning');
+                $schedule = trim($_POST['new_exp_schedule'] ?? '');
+                $location = trim($_POST['new_exp_location'] ?? '');
+                $suitable = trim($_POST['new_exp_suitable'] ?? '');
+                $bring = trim($_POST['new_exp_bring'] ?? '');
                 $desc = trim($_POST['new_exp_desc'] ?? '');
+                $detailed_desc = trim($_POST['new_exp_detailed_desc'] ?? '');
+                $inclusions = trim($_POST['new_exp_inclusions'] ?? '');
+                
+                // Highlights
+                $highlights_raw = trim($_POST['new_exp_highlights'] ?? '');
+                $highlights_arr = array_values(array_filter(array_map('trim', explode("\n", $highlights_raw))));
+                $highlights_json = json_encode($highlights_arr);
+
+                // Main Backdrop Photograph
                 $img = trim($_POST['new_exp_image'] ?? 'assets/images/01 (18).jpeg');
                 if (!empty($_FILES['new_exp_image_file']['name'])) {
                     $up = handle_image_upload($_FILES['new_exp_image_file'], 'exp');
@@ -248,11 +264,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $img = $up['path'];
                     }
                 }
+
+                // Additional Gallery Images
+                $gallery_arr = [$img];
+                if (!empty($_POST['new_exp_gallery_urls'])) {
+                    $urls = array_filter(array_map('trim', explode("\n", $_POST['new_exp_gallery_urls'])));
+                    foreach ($urls as $u) {
+                        if (!in_array($u, $gallery_arr)) $gallery_arr[] = $u;
+                    }
+                }
+                if (!empty($_FILES['new_exp_gallery_files']['name']) && !empty($_FILES['new_exp_gallery_files']['name'][0])) {
+                    $uploaded_gallery = handle_multi_image_upload($_FILES['new_exp_gallery_files'], 'exp_gal');
+                    foreach ($uploaded_gallery as $u) {
+                        if (!in_array($u, $gallery_arr)) $gallery_arr[] = $u;
+                    }
+                }
+                $gallery_json = json_encode(array_values(array_unique($gallery_arr)));
+
                 if (!empty($title) && !empty($desc)) {
                     $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM experiences")->fetchColumn();
-                    $ins = $pdo->prepare("INSERT INTO experiences (title, badge, timing, description, image_url, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)");
-                    $ins->execute([$title, $badge, $timing, $desc, $img, $max_order + 1]);
-                    $alert_message = 'New curated ritual experience added successfully!';
+                    $ins = $pdo->prepare("INSERT INTO experiences (
+                        title, tagline, badge, timing, schedule_info, location_info, suitable_for, what_to_bring,
+                        description, detailed_description, highlights, inclusions, image_url, gallery_images, display_order, is_active
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                    $ins->execute([
+                        $title, $tagline, $badge, $timing, $schedule, $location, $suitable, $bring,
+                        $desc, $detailed_desc, $highlights_json, $inclusions, $img, $gallery_json, $max_order + 1
+                    ]);
+                    $alert_message = 'New curated ritual experience added successfully with full gallery and in-depth details!';
                 } else {
                     $alert_message = 'Experience title and description cannot be blank.';
                     $alert_type = 'error';
@@ -268,12 +307,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Update individual experiences
                 if (isset($_POST['exp_id']) && is_array($_POST['exp_id'])) {
-                    $upd_exp = $pdo->prepare("UPDATE experiences SET title = ?, badge = ?, timing = ?, description = ?, image_url = ? WHERE id = ?");
+                    $upd_exp = $pdo->prepare("UPDATE experiences SET 
+                        title = ?, tagline = ?, badge = ?, timing = ?, schedule_info = ?, location_info = ?, suitable_for = ?, what_to_bring = ?,
+                        description = ?, detailed_description = ?, highlights = ?, inclusions = ?, image_url = ?, gallery_images = ?
+                        WHERE id = ?");
+                    
                     foreach ($_POST['exp_id'] as $idx => $eid) {
                         $t = trim($_POST['exp_title'][$idx] ?? '');
+                        $tagline = trim($_POST['exp_tagline'][$idx] ?? '');
                         $b = trim($_POST['exp_badge'][$idx] ?? '');
                         $tm = trim($_POST['exp_timing'][$idx] ?? '');
+                        $sched = trim($_POST['exp_schedule'][$idx] ?? '');
+                        $loc = trim($_POST['exp_location'][$idx] ?? '');
+                        $suit = trim($_POST['exp_suitable'][$idx] ?? '');
+                        $bring = trim($_POST['exp_bring'][$idx] ?? '');
                         $d = trim($_POST['exp_desc'][$idx] ?? '');
+                        $detailed_d = trim($_POST['exp_detailed_desc'][$idx] ?? '');
+                        $incl = trim($_POST['exp_inclusions'][$idx] ?? '');
+
+                        // Highlights
+                        $hl_raw = trim($_POST['exp_highlights'][$idx] ?? '');
+                        $hl_arr = array_values(array_filter(array_map('trim', explode("\n", $hl_raw))));
+                        $hl_json = json_encode($hl_arr);
+
+                        // Main image
                         $img = trim($_POST['exp_image'][$idx] ?? '');
                         if (isset($_FILES['exp_image_file'])) {
                             $up = handle_indexed_image_upload($_FILES['exp_image_file'], $idx, 'exp');
@@ -281,10 +338,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $img = $up['path'];
                             }
                         }
-                        $upd_exp->execute([$t, $b, $tm, $d, $img, (int)$eid]);
+
+                        // Gallery Images from textarea
+                        $existing_gal_raw = trim($_POST['exp_gallery_urls'][$idx] ?? '');
+                        $gal_arr = array_values(array_filter(array_map('trim', explode("\n", $existing_gal_raw))));
+                        if (!empty($img) && !in_array($img, $gal_arr)) {
+                            array_unshift($gal_arr, $img);
+                        }
+
+                        // Handle multi-upload for this card index if present
+                        if (isset($_FILES['exp_gallery_files_' . $eid])) {
+                            $more_uploads = handle_multi_image_upload($_FILES['exp_gallery_files_' . $eid], 'exp_gal');
+                            foreach ($more_uploads as $mu) {
+                                if (!in_array($mu, $gal_arr)) $gal_arr[] = $mu;
+                            }
+                        }
+                        $gal_json = json_encode(array_values(array_unique($gal_arr)));
+
+                        $upd_exp->execute([
+                            $t, $tagline, $b, $tm, $sched, $loc, $suit, $bring,
+                            $d, $detailed_d, $hl_json, $incl, $img, $gal_json, (int)$eid
+                        ]);
                     }
                 }
-                $alert_message = 'Curated Experiences header & all individual rituals updated successfully.';
+                $alert_message = 'Curated Experiences header & all individual rituals updated successfully with multi-photos and in-depth details.';
             }
         }
 
@@ -753,7 +830,33 @@ while ($row = $settings_stmt->fetch()) {
 }
 
 // Fetch database records for dynamic card editing
+ensure_experiences_details_columns($pdo);
 $all_experiences = $pdo->query("SELECT * FROM experiences ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+foreach ($all_experiences as &$exp) {
+    $gallery = [];
+    if (!empty($exp['gallery_images'])) {
+        $dec = json_decode($exp['gallery_images'], true);
+        if (is_array($dec)) {
+            $gallery = array_values(array_filter($dec));
+        }
+    }
+    if (empty($gallery) && !empty($exp['image_url'])) {
+        $gallery = [$exp['image_url']];
+    }
+    $exp['gallery_list'] = $gallery;
+
+    $highlights = [];
+    if (!empty($exp['highlights'])) {
+        $dec = json_decode($exp['highlights'], true);
+        if (is_array($dec)) {
+            $highlights = array_values(array_filter($dec));
+        } else {
+            $highlights = array_values(array_filter(array_map('trim', explode("\n", $exp['highlights']))));
+        }
+    }
+    $exp['highlights_list'] = $highlights;
+}
+unset($exp);
 ensure_rooms_pricing_columns($pdo);
 $all_rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
 $all_testimonials = $pdo->query("SELECT * FROM testimonials ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -1589,7 +1692,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-add-experience');" title="Close Drawer">✕</button>
                     </div>
 
-                    <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 14px;">
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px;">
                         <div class="adm-form-group">
                             <label class="adm-form-label">Experience Title *</label>
                             <input type="text" name="new_exp_title" class="adm-form-control" placeholder="e.g. Organic Coffee Tasting & Bean Roasting" required>
@@ -1598,14 +1701,60 @@ document.addEventListener('DOMContentLoaded', function() {
                             <label class="adm-form-label">Badge Tag *</label>
                             <input type="text" name="new_exp_badge" class="adm-form-control" placeholder="e.g. INCLUDED IN STAY, WORKSHOP, ADVENTURE" value="INCLUDED IN STAY" required>
                         </div>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">Editorial Tagline (Shown in Modal Header)</label>
+                        <input type="text" name="new_exp_tagline" class="adm-form-control" placeholder="e.g. Hand-pluck crisp mountain fruits in certified organic permaculture orchards.">
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 14px;">
                         <div class="adm-form-group">
                             <label class="adm-form-label">Timing / Duration *</label>
                             <input type="text" name="new_exp_timing" class="adm-form-control" placeholder="e.g. 2 Hours • Morning" value="2 Hours • Morning" required>
                         </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Schedule Info</label>
+                            <input type="text" name="new_exp_schedule" class="adm-form-control" placeholder="e.g. Daily at 07:30 AM & 10:30 AM">
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Location on Estate</label>
+                            <input type="text" name="new_exp_location" class="adm-form-control" placeholder="e.g. Terraced Mountain Orchards">
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Suitable For</label>
+                            <input type="text" name="new_exp_suitable" class="adm-form-control" placeholder="e.g. Couples, Families of all ages">
+                        </div>
                     </div>
 
                     <div class="adm-form-group" style="margin-bottom: 14px;">
-                        <label class="adm-form-label">Backdrop Photograph</label>
+                        <label class="adm-form-label">What to Bring (Notes for Guests)</label>
+                        <input type="text" name="new_exp_bring" class="adm-form-control" placeholder="e.g. Comfortable walking shoes, sun hat, light layer for morning mist.">
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">Short Card Summary * (Shown on the 4-Column Card Grid)</label>
+                        <textarea name="new_exp_desc" rows="2" class="adm-form-control" placeholder="A concise 1-2 sentence preview shown on the public grid card..." required></textarea>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">In-Depth Experience Narrative (Shown in the "View in Detail" Modal Popup)</label>
+                        <textarea name="new_exp_detailed_desc" rows="4" class="adm-form-control" placeholder="Detailed multi-paragraph description of the sensory experience, what guests do, and what makes it special..."></textarea>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Key Highlights (One bullet point per line)</label>
+                            <textarea name="new_exp_highlights" rows="3" class="adm-form-control" placeholder="Guided walk led by botanist&#10;Seasonal fruit harvesting&#10;Permaculture biodiversity demo&#10;Freshly pressed juice tasting"></textarea>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">What is Included</label>
+                            <textarea name="new_exp_inclusions" rows="3" class="adm-form-control" placeholder="e.g. Handcrafted harvest basket, botanical notes, fruit tasting, freshly pressed juice."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="adm-form-group" style="margin-bottom: 14px;">
+                        <label class="adm-form-label">Primary Backdrop Photograph</label>
                         <div class="adm-uploader-card">
                             <div class="adm-uploader-preview-box">
                                 <img id="new_exp_preview" src="../assets/images/01 (18).jpeg" alt="Experience Preview" onerror="this.src='../assets/images/treehouse_exterior.png';">
@@ -1613,13 +1762,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="adm-uploader-controls">
                                 <div class="adm-uploader-btn-wrap">
                                     <label class="adm-uploader-btn" for="new_exp_image_file">
-                                        <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
+                                        <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Main Photo
                                     </label>
                                     <input type="file" name="new_exp_image_file" id="new_exp_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'new_exp_preview', 'new_exp_info');">
                                     <span id="new_exp_info" class="adm-file-info-badge"></span>
-                                </div>
-                                <div class="adm-uploader-hint">
-                                    <i class="fa-solid fa-circle-info"></i> JPG, PNG, WEBP, or GIF up to 15MB.
                                 </div>
                                 <input type="hidden" name="new_exp_image" value="assets/images/01 (18).jpeg">
                             </div>
@@ -1627,8 +1773,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
 
                     <div class="adm-form-group" style="margin-bottom: 16px;">
-                        <label class="adm-form-label">Experience Description *</label>
-                        <textarea name="new_exp_desc" rows="3" class="adm-form-control" placeholder="Describe the ritual, sensory highlights, atmosphere, and what guests will experience..." required></textarea>
+                        <label class="adm-form-label">Multiple Gallery Photos (Shown in Modal Carousel)</label>
+                        <div style="background: rgba(0,0,0,0.25); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px;">
+                            <div style="margin-bottom: 10px;">
+                                <label class="adm-uploader-btn" for="new_exp_gal_files" style="display: inline-flex; font-size: 11.5px; padding: 7px 14px;">
+                                    <i class="fa-solid fa-images"></i> Select Multiple Photos to Upload
+                                </label>
+                                <input type="file" name="new_exp_gallery_files[]" id="new_exp_gal_files" class="adm-uploader-input" accept="image/*" multiple onchange="document.getElementById('new_exp_gal_info').textContent = this.files.length + ' photo(s) selected';">
+                                <span id="new_exp_gal_info" class="adm-file-info-badge"></span>
+                            </div>
+                            <label class="adm-form-label" style="font-size: 11px; margin-bottom: 4px;">Or specify relative image paths (One path per line):</label>
+                            <textarea name="new_exp_gallery_urls" rows="2" class="adm-form-control" style="font-family: monospace; font-size: 11px;" placeholder="assets/images/01 (18).jpeg&#10;assets/images/01 (19).jpeg"></textarea>
+                        </div>
                     </div>
 
                     <div style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -1653,7 +1809,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 14px;">
                         <div class="adm-form-group">
                             <label class="adm-form-label">Section Eyebrow</label>
-                            <input type="text" name="experiences_badge" class="adm-form-control" value="<?php echo e($s['experiences_badge'] ?? 'Curated Journeys'); ?>" required>
+                            <input type="text" name="experiences_badge" class="adm-form-control" value="<?php echo e($s['experiences_badge'] ?? 'ACTIVITIES'); ?>" required>
                         </div>
                         <div class="adm-form-group">
                             <label class="adm-form-label">Section Headline</label>
@@ -1676,7 +1832,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 24px; margin-bottom: 24px;">
                     <?php if (empty($all_experiences)): ?>
                         <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
                             <i class="fa-solid fa-person-hiking" style="font-size: 32px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
@@ -1687,23 +1843,36 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     <?php else: ?>
                         <?php foreach ($all_experiences as $idx => $exp): ?>
-                            <div style="background: rgba(8, 18, 11, 0.85); border: 1px solid var(--adm-border); border-radius: 12px; padding: 18px; position: relative;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 10px;">
-                                    <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase;">
-                                        RITUAL #<?php echo ($idx + 1); ?> • ID: <?php echo $exp['id']; ?>
-                                    </span>
+                            <div style="background: rgba(8, 18, 11, 0.88); border: 1px solid var(--adm-border); border-radius: 12px; padding: 22px; position: relative;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                                    <div>
+                                        <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.8px;">
+                                            RITUAL #<?php echo ($idx + 1); ?> • ID: <?php echo $exp['id']; ?>
+                                        </span>
+                                        <span style="font-size: 11px; color: var(--adm-text-secondary); margin-left: 10px;">
+                                            <i class="fa-solid fa-images"></i> <?php echo count($exp['gallery_list'] ?? []); ?> Gallery Photos
+                                        </span>
+                                    </div>
                                     <button type="submit" name="delete_exp_id" value="<?php echo $exp['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="return confirm('Permanently delete experience <?php echo e(addslashes($exp['title'])); ?>? This cannot be undone.');" title="Delete this experience">
                                         <i class="fa-solid fa-trash-can"></i> Delete
                                     </button>
                                 </div>
                                 <input type="hidden" name="exp_id[]" value="<?php echo $exp['id']; ?>">
 
-                                <div class="adm-form-group" style="margin-bottom: 12px;">
-                                    <label class="adm-form-label">Experience Title</label>
-                                    <input type="text" name="exp_title[]" class="adm-form-control" value="<?php echo e($exp['title']); ?>" required>
+                                <!-- Title & Tagline -->
+                                <div style="display: grid; grid-template-columns: 1.5fr 2fr; gap: 12px; margin-bottom: 12px;">
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Experience Title</label>
+                                        <input type="text" name="exp_title[]" class="adm-form-control" value="<?php echo e($exp['title']); ?>" required>
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Editorial Tagline (Modal Header)</label>
+                                        <input type="text" name="exp_tagline[]" class="adm-form-control" value="<?php echo e($exp['tagline'] ?? ''); ?>" placeholder="Poetic subtitle for the in-depth modal...">
+                                    </div>
                                 </div>
 
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                <!-- Badge, Timing, Schedule, Location -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px;">
                                     <div class="adm-form-group">
                                         <label class="adm-form-label">Badge Tag</label>
                                         <input type="text" name="exp_badge[]" class="adm-form-control" value="<?php echo e($exp['badge']); ?>" required>
@@ -1712,15 +1881,55 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <label class="adm-form-label">Timing / Duration</label>
                                         <input type="text" name="exp_timing[]" class="adm-form-control" value="<?php echo e($exp['timing']); ?>" required>
                                     </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Schedule Info</label>
+                                        <input type="text" name="exp_schedule[]" class="adm-form-control" value="<?php echo e($exp['schedule_info'] ?? ''); ?>" placeholder="e.g. Daily at 07:30 AM">
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Location on Estate</label>
+                                        <input type="text" name="exp_location[]" class="adm-form-control" value="<?php echo e($exp['location_info'] ?? ''); ?>" placeholder="e.g. Terraced Orchards">
+                                    </div>
                                 </div>
 
+                                <!-- Suitable For & What to Bring -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Suitable For</label>
+                                        <input type="text" name="exp_suitable[]" class="adm-form-control" value="<?php echo e($exp['suitable_for'] ?? ''); ?>" placeholder="e.g. Couples, Families of all ages">
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">What to Bring</label>
+                                        <input type="text" name="exp_bring[]" class="adm-form-control" value="<?php echo e($exp['what_to_bring'] ?? ''); ?>" placeholder="e.g. Walking shoes, sun hat, light layer">
+                                    </div>
+                                </div>
+
+                                <!-- Short Card Summary -->
                                 <div class="adm-form-group" style="margin-bottom: 12px;">
-                                    <label class="adm-form-label">Description</label>
-                                    <textarea name="exp_desc[]" rows="3" class="adm-form-control" required><?php echo e($exp['description']); ?></textarea>
+                                    <label class="adm-form-label">Short Card Summary (Displayed on 4-Column Public Grid)</label>
+                                    <textarea name="exp_desc[]" rows="2" class="adm-form-control" required><?php echo e($exp['description']); ?></textarea>
                                 </div>
 
-                                <div class="adm-form-group">
-                                    <label class="adm-form-label">Photograph</label>
+                                <!-- In-Depth Modal Narrative -->
+                                <div class="adm-form-group" style="margin-bottom: 12px;">
+                                    <label class="adm-form-label">In-Depth Experience Narrative (Displayed in "View in Detail" Modal Popup)</label>
+                                    <textarea name="exp_detailed_desc[]" rows="3" class="adm-form-control" placeholder="Full descriptive paragraphs for the detailed modal view..."><?php echo e($exp['detailed_description'] ?? ''); ?></textarea>
+                                </div>
+
+                                <!-- Highlights & Inclusions -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Key Highlights (One bullet per line)</label>
+                                        <textarea name="exp_highlights[]" rows="3" class="adm-form-control" placeholder="Guided walk led by botanist&#10;Seasonal fruit harvesting&#10;Permaculture demo"><?php echo e(implode("\n", $exp['highlights_list'] ?? [])); ?></textarea>
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">What's Included</label>
+                                        <textarea name="exp_inclusions[]" rows="3" class="adm-form-control" placeholder="What is provided for this activity..."><?php echo e($exp['inclusions'] ?? ''); ?></textarea>
+                                    </div>
+                                </div>
+
+                                <!-- Main Backdrop Photo -->
+                                <div class="adm-form-group" style="margin-bottom: 14px;">
+                                    <label class="adm-form-label">Primary Backdrop Photograph</label>
                                     <div class="adm-uploader-card adm-uploader-compact">
                                         <div class="adm-uploader-preview-box">
                                             <img id="exp_prev_<?php echo $exp['id']; ?>" src="<?php echo admin_img_src($exp['image_url']); ?>" alt="Exp" onerror="this.src='../assets/images/treehouse_exterior.png';">
@@ -1728,7 +1937,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <div class="adm-uploader-controls">
                                             <div class="adm-uploader-btn-wrap">
                                                 <label class="adm-uploader-btn" for="exp_file_<?php echo $exp['id']; ?>">
-                                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Photo
+                                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Change Main Photo
                                                 </label>
                                                 <input type="file" name="exp_image_file[<?php echo $idx; ?>]" id="exp_file_<?php echo $exp['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'exp_prev_<?php echo $exp['id']; ?>', 'exp_info_<?php echo $exp['id']; ?>');">
                                                 <span id="exp_info_<?php echo $exp['id']; ?>" class="adm-file-info-badge"></span>
@@ -1736,6 +1945,37 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <input type="hidden" name="exp_image[]" value="<?php echo e($exp['image_url']); ?>">
                                         </div>
                                     </div>
+                                </div>
+
+                                <!-- Multi-Photo Gallery Box -->
+                                <div class="adm-form-group" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 14px;">
+                                    <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <span style="color: var(--adm-gold); font-weight: 700;"><i class="fa-solid fa-images"></i> Multiple Gallery Photos</span>
+                                        <span style="font-size: 11px; color: var(--adm-text-secondary);"><?php echo count($exp['gallery_list'] ?? []); ?> Active Photos in Modal</span>
+                                    </label>
+                                    
+                                    <!-- Previews -->
+                                    <?php if (!empty($exp['gallery_list'])): ?>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                                            <?php foreach ($exp['gallery_list'] as $g_idx => $g_img): ?>
+                                                <div style="position: relative; width: 68px; height: 50px; border-radius: 5px; overflow: hidden; border: 1px solid rgba(197, 160, 89, 0.4); background: #101F15;" title="Photo #<?php echo ($g_idx + 1); ?>">
+                                                    <img src="<?php echo admin_img_src($g_img); ?>" alt="Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                                    <span style="position: absolute; bottom: 2px; right: 2px; font-size: 9px; background: rgba(0,0,0,0.75); color: #fff; padding: 1px 4px; border-radius: 3px;"><?php echo ($g_idx + 1); ?></span>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <div style="margin-bottom: 8px;">
+                                        <label class="adm-uploader-btn" for="exp_gal_files_<?php echo $exp['id']; ?>" style="display: inline-flex; font-size: 11px; padding: 6px 12px;">
+                                            <i class="fa-solid fa-cloud-arrow-up"></i> Upload More Photos to Gallery (Multi-Select)
+                                        </label>
+                                        <input type="file" name="exp_gallery_files_<?php echo $exp['id']; ?>[]" id="exp_gal_files_<?php echo $exp['id']; ?>" class="adm-uploader-input" accept="image/*" multiple onchange="document.getElementById('exp_gal_info_<?php echo $exp['id']; ?>').textContent = this.files.length + ' photo(s) selected';">
+                                        <span id="exp_gal_info_<?php echo $exp['id']; ?>" class="adm-file-info-badge"></span>
+                                    </div>
+
+                                    <label class="adm-form-label" style="font-size: 11px; margin-bottom: 4px;">Gallery Image Paths (One path per line):</label>
+                                    <textarea name="exp_gallery_urls[<?php echo $idx; ?>]" rows="3" class="adm-form-control" style="font-family: monospace; font-size: 11px;"><?php echo e(implode("\n", $exp['gallery_list'] ?? [])); ?></textarea>
                                 </div>
                             </div>
                         <?php endforeach; ?>

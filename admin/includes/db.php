@@ -40,6 +40,7 @@ function get_db() {
         ensure_rooms_360_column($pdo);
         ensure_rooms_pricing_columns($pdo);
         ensure_sanctuary_spots_table_exists($pdo);
+        ensure_experiences_details_columns($pdo);
 
         return $pdo;
     } catch (PDOException $e) {
@@ -404,11 +405,37 @@ function get_testimonials($limit = null) {
 function get_experiences($limit = null) {
     try {
         $pdo = get_db();
+        ensure_experiences_details_columns($pdo);
         $sql = "SELECT * FROM experiences WHERE is_active = 1 ORDER BY display_order ASC, id ASC";
         if ($limit) {
             $sql .= " LIMIT " . (int)$limit;
         }
-        return $pdo->query($sql)->fetchAll();
+        $exps = $pdo->query($sql)->fetchAll();
+        foreach ($exps as &$exp) {
+            $gallery = [];
+            if (!empty($exp['gallery_images'])) {
+                $dec = json_decode($exp['gallery_images'], true);
+                if (is_array($dec)) {
+                    $gallery = array_values(array_filter($dec));
+                }
+            }
+            if (empty($gallery) && !empty($exp['image_url'])) {
+                $gallery = [$exp['image_url']];
+            }
+            $exp['gallery_list'] = $gallery;
+
+            $highlights = [];
+            if (!empty($exp['highlights'])) {
+                $dec = json_decode($exp['highlights'], true);
+                if (is_array($dec)) {
+                    $highlights = array_values(array_filter($dec));
+                } else {
+                    $highlights = array_values(array_filter(array_map('trim', explode("\n", $exp['highlights']))));
+                }
+            }
+            $exp['highlights_list'] = $highlights;
+        }
+        return $exps;
     } catch (Exception $e) {
         return [];
     }
@@ -850,5 +877,182 @@ function get_all_sanctuary_spots($only_active = false) {
     } catch (Exception $e) {
         return [];
     }
+}
+
+/**
+ * Ensure in-depth specification and multi-photo gallery columns exist in experiences table.
+ * Seeds rich default content if records exist but are empty.
+ */
+function ensure_experiences_details_columns(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
+
+    try {
+        $cols = $pdo->query("SHOW COLUMNS FROM `experiences`")->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!in_array('tagline', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `tagline` VARCHAR(255) NULL AFTER `title`");
+        }
+        if (!in_array('detailed_description', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `detailed_description` TEXT NULL AFTER `description`");
+        }
+        if (!in_array('highlights', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `highlights` TEXT NULL AFTER `detailed_description`");
+        }
+        if (!in_array('inclusions', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `inclusions` TEXT NULL AFTER `highlights`");
+        }
+        if (!in_array('schedule_info', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `schedule_info` VARCHAR(255) NULL AFTER `timing`");
+        }
+        if (!in_array('location_info', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `location_info` VARCHAR(255) NULL AFTER `schedule_info`");
+        }
+        if (!in_array('suitable_for', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `suitable_for` VARCHAR(255) NULL AFTER `location_info`");
+        }
+        if (!in_array('what_to_bring', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `what_to_bring` TEXT NULL AFTER `suitable_for`");
+        }
+        if (!in_array('gallery_images', $cols)) {
+            $pdo->exec("ALTER TABLE `experiences` ADD COLUMN `gallery_images` TEXT NULL AFTER `image_url`");
+        }
+
+        // Seed initial data for ID 1, 2, 3, 4 if tagline is empty
+        $exp1_tagline = $pdo->query("SELECT tagline FROM `experiences` WHERE id = 1")->fetchColumn();
+        if (empty($exp1_tagline)) {
+            $pdo->prepare("UPDATE `experiences` SET 
+                tagline = ?,
+                detailed_description = ?,
+                highlights = ?,
+                inclusions = ?,
+                schedule_info = ?,
+                location_info = ?,
+                suitable_for = ?,
+                what_to_bring = ?,
+                gallery_images = ?
+                WHERE id = 1")->execute([
+                    'Hand-pluck crisp mountain fruits in certified organic permaculture orchards.',
+                    'Wander through our terraced mountain orchards accompanied by resident botanists and native horticulturists. Stroll through mist-kissed rows of heirloom apples, wild blackberries, passion fruit trellises, and sweet tamarillo (tree tomato) groves. Learn the ancestral principles of multi-tiered food forestry, regenerative compost cycles, and natural pest balancing without a single drop of synthetic chemicals. Pluck sun-ripened fruits right off the branch and savor freshly pressed organic juice prepared on-site.',
+                    json_encode([
+                        'Guided walk led by resident botanist & indigenous farmers',
+                        'Hand-pluck seasonal heirloom apples, blackberries & tree tomatoes',
+                        'Multi-layer permaculture & living soil biodiversity demo',
+                        'Freshly pressed organic orchard juice & fruit tasting session'
+                    ]),
+                    'Handwoven harvest wicker basket, guided botanical notes, organic fruit tasting, freshly pressed estate juice.',
+                    'Daily at 07:30 AM & 10:30 AM (Duration: 2 Hours)',
+                    'Terraced Mountain Orchards & Botanical Nursery',
+                    'Couples, Families, and Nature Enthusiasts of all ages',
+                    'Comfortable walking shoes, sun hat, and a light jacket for morning mist.',
+                    json_encode([
+                        'assets/images/01 (18).jpeg',
+                        'assets/images/01 (19).jpeg',
+                        'assets/images/01 (20).jpeg',
+                        'assets/images/01 (27).jpeg'
+                    ])
+                ]);
+
+            $pdo->prepare("UPDATE `experiences` SET 
+                tagline = ?,
+                detailed_description = ?,
+                highlights = ?,
+                inclusions = ?,
+                schedule_info = ?,
+                location_info = ?,
+                suitable_for = ?,
+                what_to_bring = ?,
+                gallery_images = ?
+                WHERE id = 2")->execute([
+                    'Twilight slate stone fires, hot cardamom brews, and ancestral mountain folklore.',
+                    'As dusk blankets the Western Ghats with deep indigo mist and the high-range night turns crisp and cold, gather around our open slate stone fire pit beneath an unpolluted Milky Way sky. Warm your hands against dancing flames of teak embers and breathe in the rich aroma of mountain wood smoke. Sip piping hot cardamom and crushed ginger spiced mountain tea, enjoy wood-roasted sweet farm corn sprinkled with Marayoor sea salt, and listen to timeless legends of Kanthalloor’s ancient megalithic dolmens and tribal mountain lore told by indigenous elders.',
+                    json_encode([
+                        'Open slate hearth campfire beneath dark celestial skies',
+                        'Steaming Marayoor cardamom-ginger spiced brew & roasted farm corn',
+                        'Folk stories of tribal ancestors and high-range wildlife legends',
+                        'Acoustic native music and tranquil meditation by the embers'
+                    ]),
+                    'Unlimited cardamom spiced farm tea, fire-roasted sweet corn, handwoven wool shawls for the mountain chill.',
+                    'Every Evening • 07:00 PM to 09:30 PM',
+                    'Central Amphitheater & Stone Hearth Courtyard',
+                    'All residing guests seeking cozy evening tranquility',
+                    'Warm jacket or fleece sweater, camera for starry night photography.',
+                    json_encode([
+                        'assets/images/01 (30).jpeg',
+                        'assets/images/01 (31).jpeg',
+                        'assets/images/01 (32).jpeg',
+                        'assets/images/01 (7).jpeg'
+                    ])
+                ]);
+
+            $pdo->prepare("UPDATE `experiences` SET 
+                tagline = ?,
+                detailed_description = ?,
+                highlights = ?,
+                inclusions = ?,
+                schedule_info = ?,
+                location_info = ?,
+                suitable_for = ?,
+                what_to_bring = ?,
+                gallery_images = ?
+                WHERE id = 3")->execute([
+                    'Ground your hands in red earth, vetiver straw, and ancestral thermal architecture.',
+                    'Connect deeply with the living earth beneath your feet. In this deeply tactile and grounding workshop, our master vernacular builders introduce you to the timeless art of earthen cob construction. Discover how native red earth, fine river sand, chopped vetiver grass, and slaked lime create breathable, thermally stable walls that keep interiors cool by day and cozy through chilly mountain nights. Knead the clay mix, sculpt miniature wall alcoves, and try your hand at smooth terracotta plastering using traditional wooden floats.',
+                    json_encode([
+                        'Hands-on mixing of native red clay, lime plaster, and vetiver straw',
+                        'Understanding thermal physics and breathable zero-carbon design',
+                        'Sculpting earthen wall niches, decorative reliefs & pottery forms',
+                        'Mentored by veteran native cob and thatch craftsmen'
+                    ]),
+                    'Natural clay sculpting materials, protective studio aprons, traditional herbal tea and farm refreshment.',
+                    'Tuesdays, Thursdays & Saturdays • 02:30 PM to 05:00 PM',
+                    'The Artisan Cob Studio & Clay Courtyard',
+                    'Adults, architecture buffs, curious creative souls, and kids',
+                    'Comfortable clothes you do not mind getting clay on, slip-on shoes.',
+                    json_encode([
+                        'assets/images/01 (6).jpeg',
+                        'assets/images/01 (1).jpeg',
+                        'assets/images/01 (17).jpeg',
+                        'assets/images/01 (14).jpeg'
+                    ])
+                ]);
+
+            $pdo->prepare("UPDATE `experiences` SET 
+                tagline = ?,
+                detailed_description = ?,
+                highlights = ?,
+                inclusions = ?,
+                schedule_info = ?,
+                location_info = ?,
+                suitable_for = ?,
+                what_to_bring = ?,
+                gallery_images = ?
+                WHERE id = 4")->execute([
+                    'Ascend misty high-range ridges to witness golden dawn across the Anaimudi peaks.',
+                    'Begin before first light, ascending along ancient forest trails through fragrant wild lemongrass meadows, private sandalwood groves, and emerald tea estate fringes. Reach the panoramic ridge just as the first amber rays ignite the mist rolling off the Anaimudi peak range and the expansive Marayoor valley below. Enjoy freshly steeped estate black tea poured from thermos flasks with hot organic harvest pastries atop the cliff while spotting rare high-altitude birds such as the Nilgiri Pipit and Malabar Whistling Thrush.',
+                    json_encode([
+                        'Guided 5km sunrise trek through sandalwood & tea estate frontiers',
+                        'Breathtaking 360-degree dawn panorama across the Western Ghats',
+                        'Cliffside tea ceremony with freshly steeped high-altitude black tea',
+                        'Birdwatching & wildlife tracking with our native naturalist'
+                    ]),
+                    'Hand-carved wooden trekking pole, thermos mountain tea, organic fruit & nut energy packs, binoculars.',
+                    'Daily Departure at 05:45 AM Sharp (Duration: 3.5 Hours)',
+                    'Departs from Sanctuary Welcome Lounge',
+                    'Guests with moderate fitness levels (beginner-to-intermediate trail)',
+                    'Sturdy walking / hiking footwear, windbreaker or jacket, reusable water flask.',
+                    json_encode([
+                        'assets/images/01 (33).jpeg',
+                        'assets/images/01 (34).jpeg',
+                        'assets/images/01 (35).jpeg',
+                        'assets/images/01 (28).jpeg'
+                    ])
+                ]);
+        }
+    } catch (Exception $e) {
+        // Silently skip if DB error
+    }
+
+    $checked = true;
 }
 ?>

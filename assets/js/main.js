@@ -1176,6 +1176,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.style.overflow = 'hidden';
         if (lenis) lenis.stop();
     }
+    window.openBookingModal = openBookingModal;
 
     function closeBookingModal() {
         if (!bookingModal) return;
@@ -1183,6 +1184,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.style.overflow = '';
         if (lenis) lenis.start();
     }
+    window.closeBookingModal = closeBookingModal;
 
     // Allow native scrolling and wheel propagation within modal container
     const modalScrollContainer = document.querySelector('.booking-modal-container');
