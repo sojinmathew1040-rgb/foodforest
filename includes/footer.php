@@ -5,6 +5,13 @@ $f_whatsapp = get_setting('concierge_whatsapp', '919234567890');
 $f_email = get_setting('concierge_email', 'concierge@foodforestkanthalloor.com');
 $f_location = get_setting('location', 'Kanthalloor, Marayoor Valley, Idukki District, Kerala 685620');
 $f_estate_name = get_setting('estate_name', 'Food Forest Sanctuary Kanthalloor');
+$f_tagline = get_setting('footer_tagline', 'An intimate sanctuary where ancestral architecture meets untamed nature. Rediscover silence, wholesome farm-to-table flavors, and deep mountain tranquility.');
+$f_hours = get_setting('concierge_hours', '08:00 AM – 09:00 PM');
+$f_instagram = get_setting('instagram_url', '#');
+$f_facebook = get_setting('facebook_url', '#');
+$f_youtube = get_setting('youtube_url', '#');
+$site_name = get_setting('site_name', 'FOOD FOREST');
+$site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
 ?>
         <!-- Ultra-Luxury Footer Section -->
         <footer id="contact" class="main-footer section-padding">
@@ -15,29 +22,29 @@ $f_estate_name = get_setting('estate_name', 'Food Forest Sanctuary Kanthalloor')
                 <div class="footer-badge-item">
                     <i class="fa-solid fa-seedling"></i>
                     <div>
-                        <strong class="font-serif">100% Organic Soil</strong>
-                        <p class="font-sans">Zero synthetic pesticides or fertilizers</p>
+                        <strong class="font-serif"><?php echo htmlspecialchars(get_setting('footer_badge1_title', '100% Organic Soil')); ?></strong>
+                        <p class="font-sans"><?php echo htmlspecialchars(get_setting('footer_badge1_desc', 'Zero synthetic pesticides or fertilizers')); ?></p>
                     </div>
                 </div>
                 <div class="footer-badge-item">
                     <i class="fa-solid fa-house-chimney"></i>
                     <div>
-                        <strong class="font-serif">Vernacular Cob Clay</strong>
-                        <p class="font-sans">Traditional low-carbon architecture</p>
+                        <strong class="font-serif"><?php echo htmlspecialchars(get_setting('footer_badge2_title', 'Vernacular Cob Clay')); ?></strong>
+                        <p class="font-sans"><?php echo htmlspecialchars(get_setting('footer_badge2_desc', 'Traditional low-carbon architecture')); ?></p>
                     </div>
                 </div>
                 <div class="footer-badge-item">
                     <i class="fa-solid fa-droplet"></i>
                     <div>
-                        <strong class="font-serif">Mountain Spring Water</strong>
-                        <p class="font-sans">Filtered natural water, zero single-use plastic</p>
+                        <strong class="font-serif"><?php echo htmlspecialchars(get_setting('footer_badge3_title', 'Mountain Spring Water')); ?></strong>
+                        <p class="font-sans"><?php echo htmlspecialchars(get_setting('footer_badge3_desc', 'Filtered natural water, zero single-use plastic')); ?></p>
                     </div>
                 </div>
                 <div class="footer-badge-item">
                     <i class="fa-solid fa-people-roof"></i>
                     <div>
-                        <strong class="font-serif">Local Community First</strong>
-                        <p class="font-sans">Crafted & staffed by native artisans</p>
+                        <strong class="font-serif"><?php echo htmlspecialchars(get_setting('footer_badge4_title', 'Local Community First')); ?></strong>
+                        <p class="font-sans"><?php echo htmlspecialchars(get_setting('footer_badge4_desc', 'Crafted & staffed by native artisans')); ?></p>
                     </div>
                 </div>
             </div>
@@ -46,20 +53,20 @@ $f_estate_name = get_setting('estate_name', 'Food Forest Sanctuary Kanthalloor')
                 <!-- Brand Bio -->
                 <div class="footer-brand">
                     <a href="#" class="logo font-serif">
-                        <span class="logo-main">FOOD FOREST</span>
-                        <span class="logo-sub font-sans">KANTHALLOOR • ECO SANCTUARY</span>
+                        <span class="logo-main"><?php echo htmlspecialchars($site_name); ?></span>
+                        <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
                     </a>
                     <p class="footer-tagline font-sans">
-                        An intimate sanctuary where ancestral architecture meets untamed nature. Rediscover silence, wholesome farm-to-table flavors, and deep mountain tranquility.
+                        <?php echo htmlspecialchars($f_tagline); ?>
                     </p>
                     <div class="footer-concierge-badge font-sans">
                         <span class="status-indicator"></span>
-                        <span>Estate Concierge Available • 08:00 AM – 09:00 PM</span>
+                        <span>Estate Concierge Available • <?php echo htmlspecialchars($f_hours); ?></span>
                     </div>
                     <div class="social-links">
-                        <a href="#" class="social-icon magnetic" data-strength="10" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
-                        <a href="#" class="social-icon magnetic" data-strength="10" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
-                        <a href="#" class="social-icon magnetic" data-strength="10" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+                        <a href="<?php echo htmlspecialchars($f_instagram); ?>" class="social-icon magnetic" data-strength="10" aria-label="Instagram" target="_blank"><i class="fa-brands fa-instagram"></i></a>
+                        <a href="<?php echo htmlspecialchars($f_facebook); ?>" class="social-icon magnetic" data-strength="10" aria-label="Facebook" target="_blank"><i class="fa-brands fa-facebook-f"></i></a>
+                        <a href="<?php echo htmlspecialchars($f_youtube); ?>" class="social-icon magnetic" data-strength="10" aria-label="YouTube" target="_blank"><i class="fa-brands fa-youtube"></i></a>
                         <a href="https://wa.me/<?php echo htmlspecialchars($f_whatsapp); ?>" target="_blank" class="social-icon magnetic" data-strength="10" aria-label="WhatsApp Concierge"><i class="fa-brands fa-whatsapp"></i></a>
                     </div>
                 </div>

@@ -1026,6 +1026,73 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalAdultsInput = document.getElementById('modal-adults');
     const modalKidsInput = document.getElementById('modal-kids');
 
+    // -------------------------------------------------------------
+    // Duplex Explainer Modal & Architectural Guide Functions
+    // -------------------------------------------------------------
+    function openDuplexExplainer() {
+        const modal = document.getElementById('duplex-explainer-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            const currentModalTier = document.querySelector('input[name="modal_tier"]:checked')?.value || 
+                                     document.querySelector('input[name="sac_tier_choice"]:checked')?.value || 'full';
+            selectDuplexOption(currentModalTier);
+        }
+    }
+    window.openDuplexExplainer = openDuplexExplainer;
+
+    function closeDuplexExplainer() {
+        const modal = document.getElementById('duplex-explainer-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+            const bModal = document.getElementById('booking-modal');
+            if (!bModal || !bModal.classList.contains('active')) {
+                document.body.style.overflow = '';
+            }
+        }
+    }
+    window.closeDuplexExplainer = closeDuplexExplainer;
+
+    function selectDuplexOption(tier) {
+        const cardSingle = document.getElementById('choice-card-single');
+        const cardFull = document.getElementById('choice-card-full');
+        const radioSingle = document.getElementById('radio-choice-single');
+        const radioFull = document.getElementById('radio-choice-full');
+
+        if (tier === 'single_room') {
+            if (cardSingle) cardSingle.classList.add('active-selected');
+            if (cardFull) cardFull.classList.remove('active-selected');
+            if (radioSingle) radioSingle.checked = true;
+        } else {
+            if (cardFull) cardFull.classList.add('active-selected');
+            if (cardSingle) cardSingle.classList.remove('active-selected');
+            if (radioFull) radioFull.checked = true;
+        }
+    }
+    window.selectDuplexOption = selectDuplexOption;
+
+    function applyDuplexChoice(tier) {
+        // Update Booking Modal tier radio
+        const modalRadio = document.querySelector(`input[name="modal_tier"][value="${tier}"]`);
+        if (modalRadio) {
+            modalRadio.checked = true;
+            modalRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Update Booking Page sidebar radio if present
+        const sacRadio = document.querySelector(`input[name="sac_tier_choice"][value="${tier}"]`);
+        if (sacRadio) {
+            sacRadio.checked = true;
+            sacRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        closeDuplexExplainer();
+    }
+    window.applyDuplexChoice = applyDuplexChoice;
+
     function updateGuestOptions(selectElement, baseGuests, maxGuests, extraRate, preferredVal) {
         if (!selectElement) return;
         const currentVal = parseInt(preferredVal || selectElement.value || "2", 10);
@@ -1049,10 +1116,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updateStepperButtons() {
         const selectedOption = modalVillaSelect ? modalVillaSelect.options[modalVillaSelect.selectedIndex] : null;
-        const maxRoomGuests = parseInt(selectedOption?.getAttribute('data-max-guests') || "4", 10);
-        const baseGuests = parseInt(selectedOption?.getAttribute('data-base-guests') || "2", 10);
         const structureType = selectedOption?.getAttribute('data-structure-type') || 'single_hut';
-        const structLabel = (structureType === 'duplex_hut') ? 'Duplex Cottage' : 'Single Hut';
+        const isDuplex = (structureType === 'duplex_hut');
+        
+        const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
+        const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
+
+        let maxRoomGuests = parseInt(selectedOption?.getAttribute('data-max-guests') || "4", 10);
+        let baseGuests = parseInt(selectedOption?.getAttribute('data-base-guests') || "2", 10);
+        let minGuests = parseInt(selectedOption?.getAttribute('data-min-guests') || "2", 10);
+
+        if (isDuplex) {
+            if (modalTier === 'single_room') {
+                baseGuests = 2;
+                maxRoomGuests = 4;
+                minGuests = 2;
+            } else {
+                baseGuests = parseInt(selectedOption?.getAttribute('data-base-guests') || "4", 10);
+                maxRoomGuests = parseInt(selectedOption?.getAttribute('data-max-guests') || "8", 10);
+                minGuests = parseInt(selectedOption?.getAttribute('data-min-guests') || "2", 10);
+            }
+        }
+
+        let structLabel = 'Single Cottage';
+        if (isDuplex) {
+            structLabel = (modalTier === 'single_room') ? 'Duplex (Single Room Suite)' : 'Entire Duplex (Both Suites)';
+        }
 
         let currentAdults = parseInt(modalAdultsInput?.value || "2", 10);
         let currentKids = parseInt(modalKidsInput?.value || "0", 10);
@@ -1233,9 +1322,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function onModalVillaChange() {
         if (!modalVillaSelect) return;
+        const selectedOption = modalVillaSelect.options[modalVillaSelect.selectedIndex];
+        const structureType = selectedOption?.getAttribute('data-structure-type') || 'single_hut';
+        const isDuplex = (structureType === 'duplex_hut');
+        
+        const duplexTierBox = document.getElementById('modal-duplex-tier-box');
+        if (duplexTierBox) {
+            if (isDuplex) {
+                duplexTierBox.style.display = 'block';
+                const fullPrice = parseFloat(selectedOption.getAttribute('data-price') || "24000");
+                const singlePrice = parseFloat(selectedOption.getAttribute('data-single-rate') || "14500");
+                const fullTxt = document.getElementById('modal-duplex-full-rate-txt');
+                const singleTxt = document.getElementById('modal-duplex-single-rate-txt');
+                if (fullTxt) fullTxt.innerText = `₹${fullPrice.toLocaleString('en-IN')}/nt`;
+                if (singleTxt) singleTxt.innerText = `₹${singlePrice.toLocaleString('en-IN')}/nt`;
+            } else {
+                duplexTierBox.style.display = 'none';
+                const fullRadio = document.querySelector('input[name="modal_tier"][value="full"]');
+                if (fullRadio) fullRadio.checked = true;
+            }
+        }
+
         updateStepperButtons();
         recalculateBookingSummary();
     }
+
+    // Modal Duplex Tier Radio Buttons Listener
+    document.querySelectorAll('input[name="modal_tier"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const labelFull = document.getElementById('modal-tier-label-full');
+            const labelSingle = document.getElementById('modal-tier-label-single');
+            if (radio.value === 'full') {
+                if (labelFull) { labelFull.style.borderColor = 'var(--accent-gold)'; labelFull.style.background = 'rgba(197, 160, 89, 0.15)'; }
+                if (labelSingle) { labelSingle.style.borderColor = 'rgba(255,255,255,0.15)'; labelSingle.style.background = 'rgba(0,0,0,0.3)'; }
+            } else {
+                if (labelSingle) { labelSingle.style.borderColor = '#56c2c9'; labelSingle.style.background = 'rgba(86, 194, 201, 0.15)'; }
+                if (labelFull) { labelFull.style.borderColor = 'rgba(255,255,255,0.15)'; labelFull.style.background = 'rgba(0,0,0,0.3)'; }
+            }
+            updateStepperButtons();
+            recalculateBookingSummary();
+        });
+    });
 
     // Price Calculation
     function recalculateBookingSummary() {
@@ -1249,13 +1376,30 @@ document.addEventListener("DOMContentLoaded", () => {
         const selectedOption = modalVillaSelect.options[modalVillaSelect.selectedIndex];
         if (!selectedOption) return;
 
-        const villaPrice = parseFloat(selectedOption.getAttribute('data-price') || "14500");
-        const villaName = selectedOption.getAttribute('data-name') || "Luxury Canopy Treehouse";
-        const baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
-        const maxGuests = parseInt(selectedOption.getAttribute('data-max-guests') || "4", 10);
+        const structureType = selectedOption.getAttribute('data-structure-type') || "single_hut";
+        const isDuplex = (structureType === 'duplex_hut');
+        const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
+        const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
+
+        let villaPrice = parseFloat(selectedOption.getAttribute('data-price') || "14500");
+        let villaName = selectedOption.getAttribute('data-name') || "Luxury Canopy Treehouse";
+        let baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
+        let maxGuests = parseInt(selectedOption.getAttribute('data-max-guests') || "4", 10);
         const extraAdultRate = parseFloat(selectedOption.getAttribute('data-extra-rate') || "1500");
         const extraChildRate = parseFloat(selectedOption.getAttribute('data-extra-child-rate') || "800");
         const stayType = selectedOption.getAttribute('data-stay-type') || "treehouse";
+
+        if (isDuplex) {
+            if (modalTier === 'single_room') {
+                villaPrice = parseFloat(selectedOption.getAttribute('data-single-rate') || "14500");
+                baseGuests = 2;
+                maxGuests = 4;
+            } else {
+                villaPrice = parseFloat(selectedOption.getAttribute('data-price') || "24000");
+                baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "4", 10);
+                maxGuests = parseInt(selectedOption.getAttribute('data-max-guests') || "8", 10);
+            }
+        }
 
         const adultsCount = parseInt(modalAdultsInput?.value || "2", 10);
         const kidsCount = parseInt(modalKidsInput?.value || "0", 10);
@@ -1487,6 +1631,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const checkin = modalCheckin?.value || '';
         const checkout = modalCheckout?.value || '';
 
+        // Duplex tier choice
+        const tierRadio = document.querySelector('input[name="modal_tier"]:checked');
+        const modalTier = tierRadio ? tierRadio.value : 'full';
+
         // Addons
         const addonsList = [];
         document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
@@ -1527,6 +1675,7 @@ document.addEventListener("DOMContentLoaded", () => {
             phone: guestPhone,
             email: guestEmail,
             villa: villaSlug,
+            tier: modalTier,
             adults: adultsCount,
             kids: kidsCount,
             guests: guestsCount,
@@ -1644,7 +1793,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Construct WhatsApp message
             const selectedOption = modalVillaSelect?.options[modalVillaSelect.selectedIndex];
-            const villaName = selectedOption?.getAttribute('data-name') || 'Sanctuary Suite';
+            let villaName = selectedOption?.getAttribute('data-name') || 'Sanctuary Suite';
+            const structureType = selectedOption?.getAttribute('data-structure-type') || 'single_hut';
+            if (structureType === 'duplex_hut') {
+                villaName += (payload.tier === 'single_room') ? ' [Duplex: Single Room Suite]' : ' [Full Duplex: Both Suites]';
+            }
             const total = document.getElementById('summary-total')?.innerText || '₹14,500';
 
             let foodSummary = 'Farm À La Carte on Arrival (Skipped)';
@@ -1760,42 +1913,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     photosArr = ['assets/images/01 (10).jpeg'];
                 }
+                const isStay = (s.is_stay == 1 || s.category === 'stays');
+                const rate = parseFloat(s.room_rate || s.stay_price || 0);
+                const roomSlug = s.linked_room_slug || (s.title && s.title.toLowerCase().includes('treehouse') ? 'treehouse' : (s.title && s.title.toLowerCase().includes('woodhouse') ? 'woodhouse' : 'mudhouse'));
+
                 return {
                     id: parseInt(s.id, 10),
                     spotNum: parseInt(s.spot_number, 10) || (idx + 1),
-                    num: "ROUTE SPOT " + String(s.spot_number || (idx + 1)).padStart(2, '0'),
+                    num: "SPOT " + String(s.spot_number || (idx + 1)).padStart(2, '0'),
                     title: s.title || '',
                     desc: s.description || '',
+                    category: s.category || 'nature',
+                    isStay: isStay,
+                    roomSlug: roomSlug,
+                    rate: rate,
+                    singleRoomRate: parseFloat(s.single_room_rate || 0),
+                    structureType: s.structure_type || 'single_hut',
+                    ctaLink: s.cta_link || (isStay ? `booking.php?villa=${roomSlug}` : '#experiences'),
+                    ctaText: s.cta_text || (isStay ? 'Book This Stay' : 'Explore Details'),
                     photos: photosArr
                 };
             });
-        } else {
-            zones = [
-                {
-                    id: 1,
-                    spotNum: 1,
-                    num: "ROUTE SPOT 01",
-                    title: "Farmhouse Kitchen & Organic Dining",
-                    desc: "Central farm hearth serving 100% organic farm-to-table meals harvested daily from our heirloom orchards. Wood-fired open kitchen and mountain view dining.",
-                    photos: ['assets/images/01 (10).jpeg', 'assets/images/01 (20).jpeg']
-                },
-                {
-                    id: 2,
-                    spotNum: 2,
-                    num: "ROUTE SPOT 02",
-                    title: "Handcrafted Mudhouse Villa",
-                    desc: "Handcrafted cob clay cottages sculpted from native red soil, river sand, and straw. Naturally insulated against chilly nights with a private plantation sit-out.",
-                    photos: ['assets/images/mudhouse_exterior.png', 'assets/images/01 (26).jpeg']
-                },
-                {
-                    id: 3,
-                    spotNum: 3,
-                    num: "ROUTE SPOT 03",
-                    title: "High-Altitude Canopy Treehouse",
-                    desc: "Elevated living among towering mountain trees. Floor-to-ceiling panoramic glass windows looking out over cascading mist, apple terraces, and sunrise valleys.",
-                    photos: ['assets/images/treehouse_exterior.png', 'assets/images/treehouse_curved_window.png']
-                }
-            ];
         }
 
         let currentIdx = 0;
@@ -1804,12 +1942,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Inspector DOM Elements
         const insNum = document.getElementById('ins-zone-num');
+        const insZoneType = document.getElementById('ins-zone-type');
+        const insPriceBadge = document.getElementById('ins-price-badge');
         const insTitle = document.getElementById('ins-title');
         const insDesc = document.getElementById('ins-desc');
         const insImg = document.getElementById('ins-img');
         const insCurrIdx = document.getElementById('ins-curr-idx');
         const insPrevBtn = document.getElementById('ins-prev-btn');
         const insNextBtn = document.getElementById('ins-next-btn');
+        const insCtaBtn = document.getElementById('ins-cta-btn');
+        const insCtaText = document.getElementById('ins-cta-text');
+        const insQuickBookBtn = document.getElementById('ins-quick-book-btn');
 
         // Photo Gallery Elements
         const photoPrevBtn = document.getElementById('ins-photo-prev-btn');
@@ -1870,9 +2013,49 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             if (insNum) insNum.innerText = zone.num;
+            if (insZoneType) {
+                if (zone.isStay) {
+                    const isDup = (zone.structureType === 'duplex_hut' || (zone.title && zone.title.toLowerCase().includes('duplex')));
+                    insZoneType.innerHTML = isDup ? '<i class="fa-solid fa-layer-group"></i> 🏰 DUPLEX CHALET (2 SUITES)' : '<i class="fa-solid fa-house-chimney"></i> 🏡 SINGLE COTTAGE';
+                    insZoneType.style.color = isDup ? '#56C2C9' : '#C5A059';
+                } else {
+                    insZoneType.innerHTML = zone.category === 'dining' ? '<i class="fa-solid fa-utensils"></i> 🍲 FARM DINING' : '<i class="fa-solid fa-water"></i> 🌿 ESTATE FACILITY';
+                    insZoneType.style.color = '#56c2c9';
+                }
+            }
+
+            if (insPriceBadge) {
+                if (zone.isStay && zone.rate > 0) {
+                    insPriceBadge.innerText = `₹${zone.rate.toLocaleString('en-IN')}/nt`;
+                    insPriceBadge.style.display = 'inline-block';
+                } else {
+                    insPriceBadge.innerText = '';
+                    insPriceBadge.style.display = 'none';
+                }
+            }
+
             if (insTitle) insTitle.innerText = zone.title;
             if (insDesc) insDesc.innerText = zone.desc;
             if (insCurrIdx) insCurrIdx.innerText = index + 1;
+
+            if (insCtaBtn) {
+                if (zone.isStay) {
+                    insCtaBtn.href = `booking.php?villa=${zone.roomSlug}`;
+                    if (insCtaText) insCtaText.innerText = 'Reserve Stay (Map Booking)';
+                } else {
+                    insCtaBtn.href = zone.ctaLink;
+                    if (insCtaText) insCtaText.innerText = 'Explore Feature';
+                }
+            }
+
+            if (insQuickBookBtn) {
+                if (zone.isStay) {
+                    insQuickBookBtn.style.display = 'inline-flex';
+                    insQuickBookBtn.setAttribute('data-villa', zone.roomSlug);
+                } else {
+                    insQuickBookBtn.style.display = 'none';
+                }
+            }
 
             updatePhotoView();
         }
@@ -1930,36 +2113,57 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // Category Filter Buttons
-        filterBtns.forEach(btn => {
+        // Map Category Filter Buttons
+        const mapFilterBtns = document.querySelectorAll('.sanctuary-filter-btn[data-map-filter]');
+        mapFilterBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                filterBtns.forEach(b => b.classList.remove('active'));
+                mapFilterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
-                const filter = btn.getAttribute('data-filter');
+                const filter = btn.getAttribute('data-map-filter');
                 let firstVisibleIdx = -1;
 
                 pins.forEach((pin, pIdx) => {
                     const pinCategory = pin.getAttribute('data-category');
-                    if (filter === 'all' || pinCategory === filter) {
-                        pin.classList.remove('filtered-out');
+                    const isStay = pin.getAttribute('data-is-stay') === '1';
+                    const isDuplex = pin.getAttribute('data-is-duplex') === '1';
+
+                    let isMatch = false;
+                    if (filter === 'all') {
+                        isMatch = true;
+                    } else if (filter === 'stays') {
+                        isMatch = isStay;
+                    } else if (filter === 'single') {
+                        isMatch = (isStay && !isDuplex);
+                    } else if (filter === 'duplex') {
+                        isMatch = (isStay && isDuplex);
+                    } else if (filter === 'dining') {
+                        isMatch = (pinCategory === 'dining');
+                    } else if (filter === 'amenities') {
+                        isMatch = (pinCategory === 'amenities' || pinCategory === 'nature');
+                    }
+
+                    if (isMatch) {
+                        pin.style.opacity = '1';
+                        pin.style.pointerEvents = 'auto';
+                        pin.style.transform = 'scale(1)';
                         if (firstVisibleIdx === -1) {
                             firstVisibleIdx = pIdx;
                         }
                     } else {
-                        pin.classList.add('filtered-out');
+                        pin.style.opacity = '0.15';
+                        pin.style.pointerEvents = 'none';
+                        pin.style.transform = 'scale(0.8)';
                     }
                 });
 
                 // If current zone is now filtered out, switch to first visible
-                const currentPin = pins[currentIdx];
-                if (currentPin && currentPin.classList.contains('filtered-out') && firstVisibleIdx !== -1) {
-                    updateZoneView(firstVisibleIdx);
+                if (firstVisibleIdx !== -1) {
+                    updateZoneView(firstVisibleIdx, true);
                 }
             });
         });
 
-        // Sync Audio button with Header Sound Player
         // Sync Audio button with Header Sound Player
         if (insSoundBtn) {
             const masterAudioBtn = document.getElementById('ambient-audio-toggle');
@@ -1978,135 +2182,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initSanctuaryMap();
 
     // -------------------------------------------------------------
-    // 13. Sanctuary Visual Gallery & Interactive Lightbox Controller
+    // 13. Sanctuary Visual Gallery & Collections Engine handled in initGalleryCollections()
     // -------------------------------------------------------------
-    function initGallery() {
-        const galleryGrid = document.getElementById('gallery-grid');
-        const lightbox = document.getElementById('luxury-lightbox');
-        if (!galleryGrid || !lightbox) return;
-
-        const cards = Array.from(galleryGrid.querySelectorAll('.gallery-card'));
-        const filterBtns = document.querySelectorAll('.gallery-filter-btn');
-
-        // Lightbox Elements
-        const lbImg = document.getElementById('lb-active-img');
-        const lbTitle = document.getElementById('lb-title');
-        const lbCaption = document.getElementById('lb-caption');
-        const lbTag = document.getElementById('lb-tag');
-        const lbCurrIdx = document.getElementById('lb-curr-index');
-        const lbTotalCount = document.getElementById('lb-total-count');
-        const lbCloseBtn = document.getElementById('lb-close-btn');
-        const lbPrevBtn = document.getElementById('lb-prev-btn');
-        const lbNextBtn = document.getElementById('lb-next-btn');
-        const lbBackdrop = lightbox.querySelector('.lightbox-backdrop');
-
-        let currentActiveCards = [...cards];
-        let currentPhotoIndex = 0;
-
-        function getCardData(card) {
-            const img = card.querySelector('.gallery-img');
-            return {
-                src: img ? img.src : '',
-                title: card.getAttribute('data-title') || '',
-                caption: card.getAttribute('data-caption') || '',
-                tag: card.getAttribute('data-tag') || 'SANCTUARY'
-            };
-        }
-
-        function updateLightboxContent() {
-            const activeCard = currentActiveCards[currentPhotoIndex];
-            if (!activeCard) return;
-            const data = getCardData(activeCard);
-
-            if (lbImg) {
-                lbImg.classList.add('fade');
-                setTimeout(() => {
-                    lbImg.src = data.src;
-                    lbImg.alt = data.title;
-                    lbImg.classList.remove('fade');
-                }, 140);
-            }
-
-            if (lbTitle) lbTitle.innerText = data.title;
-            if (lbCaption) lbCaption.innerText = data.caption;
-            if (lbTag) lbTag.innerText = data.tag;
-            if (lbCurrIdx) lbCurrIdx.innerText = String(currentPhotoIndex + 1).padStart(2, '0');
-            if (lbTotalCount) lbTotalCount.innerText = String(currentActiveCards.length).padStart(2, '0');
-        }
-
-        function openLightbox(index) {
-            if (index < 0 || index >= currentActiveCards.length) return;
-            currentPhotoIndex = index;
-            updateLightboxContent();
-            lightbox.classList.add('active');
-            lightbox.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeLightbox() {
-            lightbox.classList.remove('active');
-            lightbox.setAttribute('aria-hidden', 'true');
-            document.body.style.overflow = '';
-        }
-
-        function nextPhoto() {
-            if (currentActiveCards.length === 0) return;
-            currentPhotoIndex = (currentPhotoIndex + 1) % currentActiveCards.length;
-            updateLightboxContent();
-        }
-
-        function prevPhoto() {
-            if (currentActiveCards.length === 0) return;
-            currentPhotoIndex = (currentPhotoIndex - 1 + currentActiveCards.length) % currentActiveCards.length;
-            updateLightboxContent();
-        }
-
-        // Card Click Handlers
-        cards.forEach((card) => {
-            card.addEventListener('click', () => {
-                const idxInActive = currentActiveCards.indexOf(card);
-                if (idxInActive !== -1) {
-                    openLightbox(idxInActive);
-                }
-            });
-        });
-
-        // Lightbox Navigation Controls
-        if (lbCloseBtn) lbCloseBtn.addEventListener('click', closeLightbox);
-        if (lbBackdrop) lbBackdrop.addEventListener('click', closeLightbox);
-        if (lbNextBtn) lbNextBtn.addEventListener('click', nextPhoto);
-        if (lbPrevBtn) lbPrevBtn.addEventListener('click', prevPhoto);
-
-        // Keyboard Navigation
-        window.addEventListener('keydown', (e) => {
-            if (!lightbox.classList.contains('active')) return;
-            if (e.key === 'Escape') closeLightbox();
-            if (e.key === 'ArrowRight') nextPhoto();
-            if (e.key === 'ArrowLeft') prevPhoto();
-        });
-
-        // Category Filter Buttons
-        filterBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                filterBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                const filter = btn.getAttribute('data-filter');
-                currentActiveCards = [];
-
-                cards.forEach(card => {
-                    const cardCat = card.getAttribute('data-category');
-                    if (filter === 'all' || cardCat === filter) {
-                        card.classList.remove('hidden');
-                        currentActiveCards.push(card);
-                    } else {
-                        card.classList.add('hidden');
-                    }
-                });
-            });
-        });
-    }
-    initGallery();
 
     // -------------------------------------------------------------
     // 15. Guest Stories (Testimonials) Interactive Carousel Controller
@@ -2206,27 +2283,460 @@ document.addEventListener("DOMContentLoaded", () => {
     initTestimonialsCarousel();
 
     // -------------------------------------------------------------
-    // 16. Magnetic Button Micro-Interactions
+    // 17. Sanctuary Multi-Photo Collection Showcase & Zoom Lightbox
     // -------------------------------------------------------------
-    const isDesktop = window.innerWidth > 1024;
-    if (isDesktop) {
-        document.querySelectorAll('.magnetic').forEach(elem => {
-            const strength = parseFloat(elem.getAttribute('data-strength')) || 10;
-            elem.addEventListener('mousemove', (e) => {
-                const rect = elem.getBoundingClientRect();
-                const x = e.clientX - rect.left - rect.width / 2;
-                const y = e.clientY - rect.top - rect.height / 2;
-                elem.style.transform = `translate(${x * (strength / 50)}px, ${y * (strength / 50)}px)`;
-            });
+    function initGalleryCollections() {
+        const lightbox = document.getElementById('luxury-lightbox');
+        if (!lightbox) return;
 
-            elem.addEventListener('mouseleave', () => {
-                elem.style.transform = 'translate(0px, 0px)';
-                elem.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-            });
+        // Ensure lightbox is a direct child of body to prevent any parent container transforms or clipping
+        if (lightbox.parentElement !== document.body) {
+            document.body.appendChild(lightbox);
+        }
 
-            elem.addEventListener('mouseenter', () => {
-                elem.style.transition = 'none';
-            });
+        // Lightbox Elements
+        const lbBackdrop = document.getElementById('lb-backdrop');
+        const lbCloseBtn = document.getElementById('lb-close-btn');
+        const lbTag = document.getElementById('lb-tag');
+        const lbCollectionTitle = document.getElementById('lb-collection-title');
+        const lbCurrIndex = document.getElementById('lb-curr-index');
+        const lbTotalCount = document.getElementById('lb-total-count');
+        const lbTitle = document.getElementById('lb-title');
+        const lbCaption = document.getElementById('lb-caption');
+        const lbActiveImg = document.getElementById('lb-active-img');
+        const lbCanvas = document.getElementById('lb-canvas');
+        const lbViewport = document.getElementById('lb-viewport');
+        const lbPrevBtn = document.getElementById('lb-prev-btn');
+        const lbNextBtn = document.getElementById('lb-next-btn');
+        const lbThumbnailsStrip = document.getElementById('lb-thumbnails-strip');
+        const lbZoomIn = document.getElementById('lb-zoom-in');
+        const lbZoomOut = document.getElementById('lb-zoom-out');
+        const lbZoomReset = document.getElementById('lb-zoom-reset');
+        const lbZoomLevelText = document.getElementById('lb-zoom-level-text');
+        const lbFullscreenBtn = document.getElementById('lb-fullscreen-btn');
+        const lbFsIcon = document.getElementById('lb-fs-icon');
+        const lbZoomHint = document.getElementById('lb-zoom-hint');
+
+        // State
+        let currentCollection = null;
+        let currentPhotos = [];
+        let currentPhotoIdx = 0;
+        let scale = 1.0;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let initialTranslateX = 0;
+        let initialTranslateY = 0;
+        let hintTimeout = null;
+
+        // Apply Transform to Canvas
+        function updateTransform(smooth = true) {
+            if (!lbCanvas) return;
+            lbCanvas.style.transition = smooth ? 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
+            lbCanvas.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
+
+            if (lbZoomLevelText) {
+                lbZoomLevelText.innerText = Math.round(scale * 100) + '%';
+            }
+
+            if (lbViewport) {
+                if (scale > 1.05) {
+                    lbViewport.classList.add('is-zoomed');
+                    lbViewport.style.cursor = isDragging ? 'grabbing' : 'grab';
+                } else {
+                    lbViewport.classList.remove('is-zoomed');
+                    lbViewport.style.cursor = 'default';
+                }
+            }
+        }
+
+        // Zoom Operations
+        function zoomIn(step = 0.4) {
+            const prevScale = scale;
+            scale = Math.min(3.5, scale + step);
+            if (scale > prevScale && scale > 1.05) {
+                translateX = Math.max(-500, Math.min(500, translateX));
+                translateY = Math.max(-400, Math.min(400, translateY));
+            }
+            updateTransform(true);
+        }
+
+        function zoomOut(step = 0.4) {
+            scale = Math.max(1.0, scale - step);
+            if (scale <= 1.05) {
+                scale = 1.0;
+                translateX = 0;
+                translateY = 0;
+            }
+            updateTransform(true);
+        }
+
+        function resetZoom() {
+            scale = 1.0;
+            translateX = 0;
+            translateY = 0;
+            updateTransform(true);
+        }
+
+        function toggleZoom() {
+            if (scale > 1.2) {
+                resetZoom();
+            } else {
+                scale = 2.2;
+                updateTransform(true);
+            }
+        }
+
+        // Render Active Photo
+        function renderPhoto(idx, smooth = true) {
+            if (!currentPhotos || currentPhotos.length === 0) return;
+            if (idx < 0) idx = currentPhotos.length - 1;
+            if (idx >= currentPhotos.length) idx = 0;
+
+            currentPhotoIdx = idx;
+            const photo = currentPhotos[currentPhotoIdx];
+
+            // Reset Zoom for new photo
+            resetZoom();
+
+            if (lbActiveImg) {
+                if (smooth) {
+                    lbActiveImg.classList.add('fade-out');
+                    setTimeout(() => {
+                        lbActiveImg.src = photo.src;
+                        lbActiveImg.alt = photo.title || 'Sanctuary Photo';
+                        lbActiveImg.classList.remove('fade-out');
+                    }, 80);
+                } else {
+                    lbActiveImg.src = photo.src;
+                    lbActiveImg.alt = photo.title || 'Sanctuary Photo';
+                    lbActiveImg.classList.remove('fade-out');
+                }
+            }
+
+            if (lbCurrIndex) lbCurrIndex.innerText = String(currentPhotoIdx + 1).padStart(2, '0');
+            if (lbTotalCount) lbTotalCount.innerText = String(currentPhotos.length).padStart(2, '0');
+            if (lbTitle) lbTitle.innerText = photo.title || currentCollection.title;
+            if (lbCaption) lbCaption.innerText = photo.caption || currentCollection.description || '';
+
+            // Update active thumbnail in strip
+            if (lbThumbnailsStrip) {
+                const thumbs = lbThumbnailsStrip.querySelectorAll('.lb-thumb');
+                thumbs.forEach((t, tIdx) => {
+                    if (tIdx === currentPhotoIdx) {
+                        t.classList.add('active');
+                        t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    } else {
+                        t.classList.remove('active');
+                    }
+                });
+            }
+        }
+
+        // Open Lightbox with Collection
+        function openCollection(collectionData, startIdx = 0) {
+            if (!collectionData) return;
+            currentCollection = collectionData;
+            currentPhotos = (collectionData.photos && collectionData.photos.length > 0) ? collectionData.photos : [{
+                src: collectionData.cover_image || collectionData.image_url,
+                title: collectionData.title,
+                caption: collectionData.description || collectionData.caption
+            }];
+
+            if (lbTag) lbTag.innerText = currentCollection.tag || currentCollection.category || 'SANCTUARY';
+            if (lbCollectionTitle) lbCollectionTitle.innerText = currentCollection.title || 'Sanctuary Showcase';
+
+            // Build Thumbnails Strip
+            if (lbThumbnailsStrip) {
+                lbThumbnailsStrip.innerHTML = '';
+                currentPhotos.forEach((p, pIdx) => {
+                    const thumb = document.createElement('div');
+                    thumb.className = `lb-thumb ${pIdx === startIdx ? 'active' : ''}`;
+                    thumb.setAttribute('data-photo-idx', pIdx);
+                    thumb.setAttribute('title', p.title || `Photo ${pIdx + 1}`);
+                    thumb.innerHTML = `
+                        <img src="${p.src}" alt="${p.title || 'Photo'}" loading="lazy">
+                        <span class="lb-thumb-num font-sans">${pIdx + 1}</span>
+                    `;
+                    thumb.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        renderPhoto(pIdx, true);
+                    });
+                    lbThumbnailsStrip.appendChild(thumb);
+                });
+            }
+
+            renderPhoto(startIdx, false);
+
+            lightbox.style.display = 'flex';
+            lightbox.classList.add('active');
+            lightbox.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+
+            // Show hint briefly
+            if (lbZoomHint) {
+                lbZoomHint.style.opacity = '1';
+                clearTimeout(hintTimeout);
+                hintTimeout = setTimeout(() => {
+                    lbZoomHint.style.opacity = '0';
+                }, 3500);
+            }
+        }
+
+        // Expose globally for inline and external triggers
+        window.openGalleryCollection = function(idx) {
+            if (window.sanctuaryGalleryCollections && window.sanctuaryGalleryCollections[idx]) {
+                openCollection(window.sanctuaryGalleryCollections[idx], 0);
+                return;
+            }
+            const allCards = document.querySelectorAll('.gallery-card');
+            if (allCards[idx]) {
+                const colAttr = allCards[idx].getAttribute('data-collection');
+                if (colAttr) {
+                    try {
+                        const colData = JSON.parse(colAttr);
+                        openCollection(colData, 0);
+                        return;
+                    } catch (e) {}
+                }
+            }
+        };
+
+        // Close Lightbox
+        function closeLightbox() {
+            lightbox.classList.remove('active');
+            lightbox.setAttribute('aria-hidden', 'true');
+            setTimeout(() => {
+                if (!lightbox.classList.contains('active')) {
+                    lightbox.style.display = 'none';
+                }
+            }, 300);
+            document.body.style.overflow = '';
+            resetZoom();
+            if (document.fullscreenElement) {
+                document.exitFullscreen?.().catch(() => {});
+            }
+        }
+        window.closeGalleryLightbox = closeLightbox;
+
+        // Global Event Delegation for Gallery Card Clicks
+        document.addEventListener('click', (e) => {
+            const card = e.target.closest('.gallery-card');
+            if (card) {
+                e.preventDefault();
+                const idxStr = card.getAttribute('data-index');
+                const idx = idxStr !== null ? parseInt(idxStr, 10) : -1;
+                if (idx >= 0 && window.sanctuaryGalleryCollections && window.sanctuaryGalleryCollections[idx]) {
+                    openCollection(window.sanctuaryGalleryCollections[idx], 0);
+                    return;
+                }
+
+                const colAttr = card.getAttribute('data-collection');
+                if (colAttr) {
+                    try {
+                        const colData = JSON.parse(colAttr);
+                        openCollection(colData, 0);
+                        return;
+                    } catch (err) {
+                        console.warn("Collection parse error:", err);
+                    }
+                }
+
+                const fallbackData = {
+                    title: card.getAttribute('data-title') || 'Sanctuary Photo',
+                    category: card.getAttribute('data-tag') || 'Gallery',
+                    tag: card.getAttribute('data-tag') || 'CANOPY DWELLING',
+                    description: card.getAttribute('data-caption') || '',
+                    cover_image: card.querySelector('.gallery-img')?.src || '',
+                    photos: [{
+                        src: card.querySelector('.gallery-img')?.src || '',
+                        title: card.getAttribute('data-title') || 'Sanctuary Photo',
+                        caption: card.getAttribute('data-caption') || ''
+                    }]
+                };
+                openCollection(fallbackData, 0);
+            }
         });
+
+        // Close Handlers
+        if (lbCloseBtn) lbCloseBtn.addEventListener('click', closeLightbox);
+        if (lbBackdrop) lbBackdrop.addEventListener('click', closeLightbox);
+
+        // Next / Prev Handlers
+        if (lbNextBtn) lbNextBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            renderPhoto(currentPhotoIdx + 1, true);
+        });
+
+        if (lbPrevBtn) lbPrevBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            renderPhoto(currentPhotoIdx - 1, true);
+        });
+
+        // Zoom Button Handlers
+        if (lbZoomIn) lbZoomIn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            zoomIn(0.4);
+        });
+
+        if (lbZoomOut) lbZoomOut.addEventListener('click', (e) => {
+            e.stopPropagation();
+            zoomOut(0.4);
+        });
+
+        if (lbZoomReset) lbZoomReset.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetZoom();
+        });
+
+        // Fullscreen Toggle
+        if (lbFullscreenBtn) lbFullscreenBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!document.fullscreenElement) {
+                lightbox.requestFullscreen?.().catch(() => {});
+                if (lbFsIcon) lbFsIcon.className = 'fa-solid fa-compress';
+            } else {
+                document.exitFullscreen?.().catch(() => {});
+                if (lbFsIcon) lbFsIcon.className = 'fa-solid fa-expand';
+            }
+        });
+
+        // Double-click to Toggle Zoom
+        if (lbViewport) {
+            lbViewport.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                toggleZoom();
+            });
+
+            // Mouse Wheel Zoom
+            lbViewport.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                if (e.deltaY < 0) {
+                    zoomIn(0.25);
+                } else {
+                    zoomOut(0.25);
+                }
+            }, { passive: false });
+
+            // Mouse Drag Pan when Zoomed
+            lbViewport.addEventListener('mousedown', (e) => {
+                if (scale <= 1.05) return;
+                isDragging = true;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                initialTranslateX = translateX;
+                initialTranslateY = translateY;
+                updateTransform(false);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - dragStartX;
+                const dy = e.clientY - dragStartY;
+                translateX = initialTranslateX + dx;
+                translateY = initialTranslateY + dy;
+                updateTransform(false);
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    updateTransform(true);
+                }
+            });
+
+            // Touch Drag Pan for Mobile & Tablets
+            let touchStartX = 0;
+            let touchStartY = 0;
+            lbViewport.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1 && scale > 1.05) {
+                    isDragging = true;
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                    initialTranslateX = translateX;
+                    initialTranslateY = translateY;
+                }
+            }, { passive: true });
+
+            lbViewport.addEventListener('touchmove', (e) => {
+                if (isDragging && e.touches.length === 1) {
+                    const dx = e.touches[0].clientX - touchStartX;
+                    const dy = e.touches[0].clientY - touchStartY;
+                    translateX = initialTranslateX + dx;
+                    translateY = initialTranslateY + dy;
+                    updateTransform(false);
+                }
+            }, { passive: true });
+
+            lbViewport.addEventListener('touchend', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    updateTransform(true);
+                }
+            }, { passive: true });
+        }
+
+        // Global Keyboard Controls
+        window.addEventListener('keydown', (e) => {
+            if (!lightbox.classList.contains('active')) return;
+
+            switch (e.key) {
+                case 'Escape':
+                    closeLightbox();
+                    break;
+                case 'ArrowRight':
+                    renderPhoto(currentPhotoIdx + 1, true);
+                    break;
+                case 'ArrowLeft':
+                    renderPhoto(currentPhotoIdx - 1, true);
+                    break;
+                case '+':
+                case '=':
+                    zoomIn(0.4);
+                    break;
+                case '-':
+                case '_':
+                    zoomOut(0.4);
+                    break;
+                case '0':
+                    resetZoom();
+                    break;
+                case 'f':
+                case 'F':
+                    lbFullscreenBtn?.click();
+                    break;
+            }
+        });
+
+        // Filter Tabs for Dedicated Gallery Page
+        const filterBtns = document.querySelectorAll('.gallery-filter-btn');
+        const galleryGrid = document.getElementById('gallery-grid');
+        if (filterBtns.length > 0 && galleryGrid) {
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    const filter = btn.getAttribute('data-filter') || 'all';
+                    const allCards = galleryGrid.querySelectorAll('.gallery-card');
+
+                    allCards.forEach(card => {
+                        const cardCat = card.getAttribute('data-category') || '';
+                        if (filter === 'all' || cardCat === filter) {
+                            card.style.display = 'block';
+                            setTimeout(() => { card.style.opacity = '1'; card.style.transform = 'translateY(0)'; }, 50);
+                        } else {
+                            card.style.opacity = '0';
+                            card.style.transform = 'translateY(15px)';
+                            setTimeout(() => { card.style.display = 'none'; }, 250);
+                        }
+                    });
+                });
+            });
+        }
     }
+    initGalleryCollections();
 });
+

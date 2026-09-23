@@ -450,19 +450,19 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
         // 4. Update banner indicator text if present
         var tabTitleMap = {
-            'estate': 'CARD 01 • ESTATE BRANDING & OPERATIONAL IDENTITY',
-            'whatsapp': 'CARD 02 • WHATSAPP CONCIERGE & COMMUNICATION CHANNELS',
-            'hero': 'CARD 03 • HERO MARQUEE & VISUAL BACKDROP',
-            'climate': 'CARD 04 • CLIMATE TICKER & SANCTUARY ACCOLADES',
-            'philosophy': 'CARD 05 • SANCTUARY PHILOSOPHY & WELCOME MANIFESTO',
-            'why': 'CARD 06 • WHY FOOD FOREST? (LIVING SOIL & COB ARCHITECTURE)',
-            'experiences': 'CARD 07 • CURATED EXPERIENCES & RITUALS (DYNAMIC CMS)',
-            'menu': 'CARD 08 • FOOD MENU & LIVING GASTRONOMY HUB (DYNAMIC CMS)',
+            'climate': 'CARD 01 • CLIMATE TICKER & SANCTUARY ACCOLADES',
+            'hero': 'CARD 02 • HERO MARQUEE & VISUAL BACKDROP',
+            'philosophy': 'CARD 03 • SANCTUARY PHILOSOPHY & WELCOME MANIFESTO',
+            'rooms': 'CARD 04 • VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)',
+            'experiences': 'CARD 05 • CURATED EXPERIENCES & RITUALS (DYNAMIC CMS)',
+            'menu': 'CARD 06 • FOOD MENU & LIVING GASTRONOMY HUB (DYNAMIC CMS)',
+            'why': 'CARD 07 • WHY FOOD FOREST? (LIVING SOIL & COB ARCHITECTURE)',
+            'sanctuary_map': 'CARD 08 • SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
             'seasons': 'CARD 09 • SEASONS OF KANTHALLOOR (DYNAMIC CMS)',
-            'sanctuary_map': 'CARD 10 • SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
-            'rooms': 'CARD 11 • VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)',
-            'gallery': 'CARD 12 • VISUAL DIARY (8 PHOTO CHRONICLE)',
-            'testimonials': 'CARD 13 • GUEST REFLECTIONS (TESTIMONIALS & REVIEWS)',
+            'gallery': 'CARD 10 • VISUAL DIARY (8 PHOTO CHRONICLE)',
+            'testimonials': 'CARD 11 • GUEST REFLECTIONS (TESTIMONIALS & REVIEWS)',
+            'whatsapp': 'CARD 12 • WHATSAPP CONCIERGE & COMMUNICATION CHANNELS',
+            'estate': 'CARD 13 • ESTATE BRANDING & OPERATIONAL IDENTITY',
             'protection': 'CARD 14 • WEBSITE CONTENT & IMAGE SHIELD',
             'security': 'CARD 15 • ADMINISTRATOR SECURITY & ACCESS KEY',
             'backup': 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE'
@@ -472,7 +472,43 @@ $current_page = basename($_SERVER['PHP_SELF']);
             activeLabel.textContent = tabTitleMap[tabKey];
         }
 
-        // 5. Update browser URL parameter without reloading
+        // 5. Update Quick Jump Dropdown if present
+        var jumpSelect = document.getElementById('adm-section-jump-select');
+        if (jumpSelect) {
+            jumpSelect.value = tabKey;
+        }
+
+        // 6. Update Live Website Anchor Link
+        var anchorMap = {
+            'estate': '../index.php',
+            'whatsapp': '../index.php#whatsapp',
+            'hero': '../index.php#hero',
+            'climate': '../index.php#climate',
+            'philosophy': '../index.php#welcome',
+            'why': '../index.php#why-mudhouse',
+            'experiences': '../index.php#experiences',
+            'menu': '../index.php#dining',
+            'seasons': '../index.php#seasons',
+            'sanctuary_map': '../index.php#sanctuary-map',
+            'rooms': '../index.php#villas',
+            'gallery': '../index.php#gallery',
+            'testimonials': '../index.php#reviews',
+            'protection': '../index.php',
+            'security': 'settings.php?tab=security',
+            'backup': 'settings.php?tab=backup'
+        };
+        var liveAnchorLink = document.getElementById('adm-btn-live-anchor');
+        if (liveAnchorLink && anchorMap[tabKey]) {
+            liveAnchorLink.href = anchorMap[tabKey];
+        }
+
+        // 7. Update Live Preview Frame iframe source
+        var pvIframe = document.getElementById('adm-live-preview-iframe');
+        if (pvIframe) {
+            pvIframe.src = 'preview_frame.php?section=' + tabKey;
+        }
+
+        // 8. Update browser URL parameter without reloading
         if (window.history && window.history.replaceState) {
             var url = new URL(window.location);
             url.searchParams.set('tab', tabKey);
@@ -481,6 +517,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     }
     window.switchSettingsTab = switchSettingsTab;
     </script>
+    <script src="assets/js/live_preview.js?v=<?php echo time(); ?>" defer></script>
 </head>
 <body class="adm-body">
 
@@ -501,15 +538,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </div>
 
             <div class="adm-topbar-right">
-                <div class="adm-estate-live-badge">
-                    <span class="adm-pulse-dot"></span>
-                    <span>Sanctuary Operational</span>
-                </div>
-
-                <a href="../index.php" target="_blank" class="adm-btn-site-preview" title="Open Public Website">
-                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                    <span>Live Sanctuary</span>
-                </a>
             </div>
         </header>
 

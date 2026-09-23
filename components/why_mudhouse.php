@@ -26,26 +26,26 @@ $why_image = get_setting('why_image', 'assets/images/01 (26).jpeg');
                 
                 <div class="why-feature scroll-reveal">
                     <div class="why-feature-icon"><i class="fa-solid fa-tree"></i></div>
-                    <h4 class="why-feature-title font-serif">Canopy & Mud Living</h4>
-                    <p class="why-feature-desc font-sans">Choose between elevated treehouses nestled 30ft in ancient branches or traditional clay cob mudhouses with thermal regulation.</p>
+                    <h4 class="why-feature-title font-serif"><?php echo htmlspecialchars(get_setting('why_feat1_title', 'Canopy & Mud Living')); ?></h4>
+                    <p class="why-feature-desc font-sans"><?php echo htmlspecialchars(get_setting('why_feat1_desc', 'Choose between elevated treehouses nestled 30ft in ancient branches or traditional clay cob mudhouses with thermal regulation.')); ?></p>
                 </div>
                 
                 <div class="why-feature scroll-reveal" style="transition-delay: 0.1s;">
                     <div class="why-feature-icon"><i class="fa-solid fa-seedling"></i></div>
-                    <h4 class="why-feature-title font-serif">100% Organic Farmstay</h4>
-                    <p class="why-feature-desc font-sans">Live right inside chemical-free apple, plum, and tree tomato orchards. Every meal is harvested fresh from our fertile soil.</p>
+                    <h4 class="why-feature-title font-serif"><?php echo htmlspecialchars(get_setting('why_feat2_title', '100% Organic Farmstay')); ?></h4>
+                    <p class="why-feature-desc font-sans"><?php echo htmlspecialchars(get_setting('why_feat2_desc', 'Live right inside chemical-free apple, plum, and tree tomato orchards. Every meal is harvested fresh from our fertile soil.')); ?></p>
                 </div>
                 
                 <div class="why-feature scroll-reveal" style="transition-delay: 0.2s;">
                     <div class="why-feature-icon"><i class="fa-solid fa-bowl-food"></i></div>
-                    <h4 class="why-feature-title font-serif">Claypot Hearth Cuisine</h4>
-                    <p class="why-feature-desc font-sans">Authentic Kerala slow cooking in earthenware over teak wood fires, flavored with indigenous Marayoor forest spices.</p>
+                    <h4 class="why-feature-title font-serif"><?php echo htmlspecialchars(get_setting('why_feat3_title', 'Claypot Hearth Cuisine')); ?></h4>
+                    <p class="why-feature-desc font-sans"><?php echo htmlspecialchars(get_setting('why_feat3_desc', 'Authentic Kerala slow cooking in earthenware over teak wood fires, flavored with indigenous Marayoor forest spices.')); ?></p>
                 </div>
                 
                 <div class="why-feature scroll-reveal" style="transition-delay: 0.3s;">
                     <div class="why-feature-icon"><i class="fa-solid fa-mountain"></i></div>
-                    <h4 class="why-feature-title font-serif">High-Range Serenity</h4>
-                    <p class="why-feature-desc font-sans">Perched at 1,600 meters in Kanthalloor. Wake up to heavy mountain fog, native birdsong, and total acoustic tranquility.</p>
+                    <h4 class="why-feature-title font-serif"><?php echo htmlspecialchars(get_setting('why_feat4_title', 'High-Range Serenity')); ?></h4>
+                    <p class="why-feature-desc font-sans"><?php echo htmlspecialchars(get_setting('why_feat4_desc', 'Perched at 1,600 meters in Kanthalloor. Wake up to heavy mountain fog, native birdsong, and total acoustic tranquility.')); ?></p>
                 </div>
                 
             </div>

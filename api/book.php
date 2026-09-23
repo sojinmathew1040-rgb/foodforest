@@ -61,13 +61,37 @@ try {
     $cout = new DateTime($checkout_date);
     $nights = max(1, $cin->diff($cout)->days);
 
+    // Dual Adult & Child Occupancy Math:
     // Retrieve active room specifications
-    $room_stmt = $pdo->prepare("SELECT rate_per_night, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type FROM rooms WHERE slug = ?");
+    $room_stmt = $pdo->prepare("SELECT rate_per_night, single_room_rate, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type FROM rooms WHERE slug = ?");
     $room_stmt->execute([$villa_type]);
     $room = $room_stmt->fetch(PDO::FETCH_ASSOC);
-    $rate_per_night = $room ? (float)$room['rate_per_night'] : ($villa_type === 'treehouse' ? 14500 : 11500);
-    $villa_title = $room ? $room['title'] : ($villa_type === 'treehouse' ? 'Luxury Canopy Treehouse' : 'Traditional Earthen Mudhouse');
+
+    // Double-Booking & Multi-Channel Availability Check
+    if (!check_room_availability($pdo, $villa_type, $checkin_date, $checkout_date)) {
+        http_response_code(409);
+        echo json_encode([
+            'success' => false,
+            'message' => 'We apologize, but ' . ($room['title'] ?? 'this chalet') . ' has already been reserved for the selected dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates.'
+        ]);
+        exit;
+    }
+
+    $booking_tier = trim($input['tier'] ?? ($input['pricing_tier'] ?? 'full'));
+    $rate_per_night = $room ? (float)$room['rate_per_night'] : 14500;
     $base_guests = $room ? (int)($room['base_guests'] ?? 2) : 2;
+
+    // If single room option in duplex is selected
+    if ($booking_tier === 'single_room' && !empty($room['single_room_rate'])) {
+        $rate_per_night = (float)$room['single_room_rate'];
+        $base_guests = 2; // Single room accommodates base 2 guests
+    }
+
+    $villa_title = $room ? $room['title'] : 'Sanctuary Villa';
+    if ($booking_tier === 'single_room' && !empty($room['structure_type']) && $room['structure_type'] === 'duplex_hut') {
+        $villa_title .= ' (Single Room)';
+    }
+
     $extra_adult_rate = $room ? (float)($room['extra_guest_rate'] ?? 1500) : 1500;
     $extra_child_rate = $room ? (float)($room['extra_child_rate'] ?? 800) : 800;
 
@@ -170,12 +194,12 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO bookings (
             reference_code, user_id, is_guest, guest_access_token, expires_at,
-            villa_type, guest_name, guest_phone, guest_email,
+            villa_type, booking_source, guest_name, guest_phone, guest_email,
             guests_count, adults_count, kids_count, extra_adults, extra_kids,
             checkin_date, checkout_date, nights, addons,
             food_items, food_amount, room_amount, food_status,
             special_notes, total_amount, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        ) VALUES (?, ?, ?, ?, ?, ?, 'direct_website', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     ");
 
     $stmt->execute([

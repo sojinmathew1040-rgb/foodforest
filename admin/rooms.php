@@ -1,6 +1,6 @@
 <?php
-// Food Forest Sanctuary — Villas moved to Settings Card 09
-header('Location: settings.php?tab=rooms');
+// Food Forest Sanctuary — Villas moved to Settings Card 04
+header('Location: edit_section.php?section=rooms');
 exit;
 require_once __DIR__ . '/includes/header.php';
 

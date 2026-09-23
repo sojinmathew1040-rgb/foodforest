@@ -4,9 +4,58 @@
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    // 1. Mobile Sidebar Drawer Toggle
+    // 1. Sidebar Minimize / Expand & Mobile Drawer Toggle
     const mobileToggle = document.getElementById("adm-mobile-toggle");
     const sidebar = document.getElementById("adm-sidebar");
+    const sidebarToggleBtn = document.getElementById("adm-sidebar-toggle-btn");
+    const appLayout = document.querySelector(".adm-app-layout");
+    const COLLAPSE_KEY = "foodforest_adm_sidebar_collapsed";
+
+    function setSidebarCollapsed(collapsed) {
+        if (!sidebar) return;
+        if (collapsed) {
+            sidebar.classList.add("is-collapsed");
+            if (appLayout) appLayout.classList.add("sidebar-collapsed");
+            if (sidebarToggleBtn) {
+                const icon = sidebarToggleBtn.querySelector("i");
+                if (icon) {
+                    icon.className = "fa-solid fa-angles-right";
+                }
+                sidebarToggleBtn.title = "Expand Menu";
+                sidebarToggleBtn.setAttribute("aria-label", "Expand Menu");
+            }
+            try { localStorage.setItem(COLLAPSE_KEY, "1"); } catch(e){}
+        } else {
+            sidebar.classList.remove("is-collapsed");
+            if (appLayout) appLayout.classList.remove("sidebar-collapsed");
+            if (sidebarToggleBtn) {
+                const icon = sidebarToggleBtn.querySelector("i");
+                if (icon) {
+                    icon.className = "fa-solid fa-angles-left";
+                }
+                sidebarToggleBtn.title = "Minimize Menu";
+                sidebarToggleBtn.setAttribute("aria-label", "Minimize Menu");
+            }
+            try { localStorage.setItem(COLLAPSE_KEY, "0"); } catch(e){}
+        }
+    }
+
+    // Restore saved minimize preference on desktop
+    try {
+        if (localStorage.getItem(COLLAPSE_KEY) === "1" && window.innerWidth > 992) {
+            setSidebarCollapsed(true);
+        }
+    } catch(e){}
+
+    if (sidebarToggleBtn && sidebar) {
+        sidebarToggleBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const isCollapsed = sidebar.classList.contains("is-collapsed");
+            setSidebarCollapsed(!isCollapsed);
+        });
+    }
+
     if (mobileToggle && sidebar) {
         mobileToggle.addEventListener("click", () => {
             sidebar.classList.toggle("is-open");
@@ -153,34 +202,25 @@ document.addEventListener("DOMContentLoaded", () => {
     // 8. Settings Cards Click Engine
     document.querySelectorAll(".adm-setting-card-btn").forEach(card => {
         card.addEventListener("click", function(e) {
-            if (e && e.preventDefault) e.preventDefault();
+            const href = this.getAttribute("href");
+            if (href && href !== "#" && !href.startsWith("javascript:")) {
+                // If this is a page navigation link, allow direct navigation
+                return;
+            }
             const tabKey = this.getAttribute("data-tab");
             if (tabKey && typeof window.switchSettingsTab === "function") {
+                if (e && e.preventDefault) e.preventDefault();
                 window.switchSettingsTab(tabKey, this, e, true);
             }
         });
     });
 
-    // Auto-activate tab from URL parameter if on settings page
-    if (document.querySelector(".adm-settings-cards-grid")) {
+    // Auto-activate tab from URL parameter if on edit section page with panels
+    if (document.getElementById("adm-panels-container")) {
         const urlParams = new URLSearchParams(window.location.search);
-        const activeTab = urlParams.get("tab") || "estate";
+        const activeTab = urlParams.get("section") || urlParams.get("tab") || "estate";
         if (typeof window.switchSettingsTab === "function") {
             window.switchSettingsTab(activeTab, null, null, false);
-            // If explicit tab was in URL, scroll smoothly to the editing form
-            if (urlParams.has("tab") && urlParams.get("tab") !== "estate") {
-                setTimeout(() => {
-                    const target = document.getElementById("pane-" + activeTab);
-                    if (target) {
-                        try {
-                            target.scrollIntoView({ behavior: "smooth", block: "start" });
-                        } catch(e) {
-                            const topPos = window.pageYOffset + target.getBoundingClientRect().top - 85;
-                            window.scrollTo({ top: Math.max(0, topPos), behavior: "smooth" });
-                        }
-                    }
-                }, 100);
-            }
         }
     }
 

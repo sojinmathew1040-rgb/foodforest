@@ -69,33 +69,65 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                     if (!empty($modal_villas)):
                                         foreach ($modal_villas as $mv):
                                             $struct = $mv['structure_type'] ?? 'single_hut';
-                                            $struct_label = ($struct === 'duplex_hut') ? 'Duplex Cottage' : 'Single Hut';
+                                            $struct_label = ($struct === 'duplex_hut') ? 'Duplex (2-Room Suite)' : 'Single Cottage';
                                             $cat_icon = ($mv['stay_type'] === 'mudhouse') ? '🌿 Mudhouse' : '🌲 Treehouse';
                                     ?>
                                         <option value="<?php echo htmlspecialchars($mv['slug']); ?>" 
                                                 data-price="<?php echo htmlspecialchars($mv['rate_per_night']); ?>" 
+                                                data-single-rate="<?php echo htmlspecialchars($mv['single_room_rate'] ?? $mv['rate_per_night']); ?>"
                                                 data-name="<?php echo htmlspecialchars($mv['title']); ?>"
+                                                data-min-guests="<?php echo (int)($mv['min_guests'] ?? 2); ?>"
                                                 data-base-guests="<?php echo (int)($mv['base_guests'] ?? 2); ?>"
                                                 data-max-guests="<?php echo (int)($mv['max_guests'] ?? 4); ?>"
                                                 data-extra-rate="<?php echo htmlspecialchars($mv['extra_guest_rate'] ?? 1500); ?>"
                                                 data-extra-child-rate="<?php echo htmlspecialchars($mv['extra_child_rate'] ?? 800); ?>"
                                                 data-structure-type="<?php echo htmlspecialchars($struct); ?>"
                                                 data-stay-type="<?php echo htmlspecialchars($mv['stay_type'] ?? 'treehouse'); ?>">
-                                            <?php echo "{$cat_icon} [{$struct_label}]: " . htmlspecialchars($mv['title']); ?> (₹<?php echo number_format($mv['rate_per_night'], 0, '.', ','); ?>/nt • Base <?php echo (int)($mv['base_guests'] ?? 2); ?> Guests)
+                                            <?php echo "{$cat_icon} [{$struct_label}]: " . htmlspecialchars($mv['title']); ?> (From ₹<?php echo number_format($mv['rate_per_night'], 0, '.', ','); ?>/nt • Base <?php echo (int)($mv['base_guests'] ?? 2); ?> Guests)
                                         </option>
                                     <?php 
                                         endforeach;
                                     else: 
                                     ?>
-                                        <option value="treehouse" data-price="14500" data-name="Luxury Canopy Treehouse" data-base-guests="2" data-max-guests="3" data-extra-rate="2000" data-extra-child-rate="1000" data-structure-type="single_hut" data-stay-type="treehouse">
-                                            🌲 Treehouse [Single Hut]: Luxury Canopy Treehouse (₹14,500/nt • Base 2 Guests)
+                                        <option value="treehouse" data-price="14500" data-single-rate="14500" data-name="Luxury Canopy Treehouse" data-min-guests="2" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="treehouse">
+                                            🌲 Treehouse [Single Cottage]: Luxury Canopy Treehouse (₹14,500/nt • Base 2 Guests)
                                         </option>
-                                        <option value="mudhouse" data-price="11500" data-name="Traditional Earthen Mudhouse" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="mudhouse">
-                                            🌿 Mudhouse [Single Hut]: Traditional Earthen Mudhouse (₹11,500/nt • Base 2 Guests)
+                                        <option value="mudhouse" data-price="11500" data-single-rate="11500" data-name="Traditional Earthen Mudhouse" data-min-guests="2" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="mudhouse">
+                                            🌿 Mudhouse [Single Cottage]: Traditional Earthen Mudhouse (₹11,500/nt • Base 2 Guests)
                                         </option>
                                     <?php endif; ?>
                                 </select>
                                 <i class="fa-solid fa-chevron-down select-arrow"></i>
+                            </div>
+
+                            <!-- Duplex Tier Switcher & Visual Architecture Guide Button -->
+                            <div id="modal-duplex-tier-box" style="display: none; margin-top: 10px; background: rgba(197, 160, 89, 0.08); border: 1px dashed rgba(197, 160, 89, 0.4); border-radius: 8px; padding: 10px 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                                    <span class="font-sans" style="font-size: 11px; font-weight: 700; color: var(--accent-gold); text-transform: uppercase; letter-spacing: 0.5px;">
+                                        <i class="fa-solid fa-layer-group"></i> Duplex Reservation Options:
+                                    </span>
+                                    <button type="button" class="btn-open-duplex-guide font-sans" onclick="openDuplexExplainer();" style="background: transparent; border: none; color: #56c2c9; font-size: 11px; cursor: pointer; text-decoration: underline; display: flex; align-items: center; gap: 4px; padding: 0;">
+                                        <i class="fa-solid fa-circle-question"></i> What is a Duplex? View Layout Plan
+                                    </button>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                    <label class="modal-tier-radio-label" id="modal-tier-label-full" style="background: rgba(0,0,0,0.3); border: 1.5px solid var(--accent-gold); border-radius: 6px; padding: 8px; cursor: pointer; display: flex; align-items: flex-start; gap: 6px;">
+                                        <input type="radio" name="modal_tier" value="full" checked style="margin-top: 2px;">
+                                        <div>
+                                            <strong style="font-size: 11.5px; color: #FFFFFF; display: block;">Entire Duplex (2 Rooms)</strong>
+                                            <span style="font-size: 11px; color: var(--accent-gold); font-weight: 700;" id="modal-duplex-full-rate-txt">₹24,000/nt</span>
+                                            <small style="font-size: 9.5px; color: #94A3B8; display: block;">Base 4 Guests • Max 8</small>
+                                        </div>
+                                    </label>
+                                    <label class="modal-tier-radio-label" id="modal-tier-label-single" style="background: rgba(0,0,0,0.3); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 8px; cursor: pointer; display: flex; align-items: flex-start; gap: 6px;">
+                                        <input type="radio" name="modal_tier" value="single_room" style="margin-top: 2px;">
+                                        <div>
+                                            <strong style="font-size: 11.5px; color: #FFFFFF; display: block;">Single Room in Duplex</strong>
+                                            <span style="font-size: 11px; color: #56c2c9; font-weight: 700;" id="modal-duplex-single-rate-txt">₹14,500/nt</span>
+                                            <small style="font-size: 9.5px; color: #94A3B8; display: block;">Base 2 Guests • Max 4</small>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -449,3 +481,8 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
         </div>
     </div>
 </div>
+
+<?php
+// Load Duplex Explainer & Layout Guide Modal
+require_once __DIR__ . '/duplex_explainer_modal.php';
+?>

@@ -22,29 +22,29 @@ $welcome_image = get_setting('welcome_image', 'assets/images/01 (7).jpeg');
                 <div class="detail-card scroll-reveal">
                     <div class="detail-icon"><i class="fa-solid fa-leaf"></i></div>
                     <div>
-                        <h4 class="detail-title font-serif">Ecological Vernacular</h4>
-                        <p class="detail-desc font-sans">Earthen clay, raw stone, reclaimed teak, and zero plastic across the retreat.</p>
+                        <h4 class="detail-title font-serif"><?php echo htmlspecialchars(get_setting('welcome_feat1_title', 'Ecological Vernacular')); ?></h4>
+                        <p class="detail-desc font-sans"><?php echo htmlspecialchars(get_setting('welcome_feat1_desc', 'Earthen clay, raw stone, reclaimed teak, and zero plastic across the retreat.')); ?></p>
                     </div>
                 </div>
                 <div class="detail-card scroll-reveal" style="transition-delay: 0.1s;">
                     <div class="detail-icon"><i class="fa-solid fa-seedling"></i></div>
                     <div>
-                        <h4 class="detail-title font-serif">Pure Farm-to-Table</h4>
-                        <p class="detail-desc font-sans">Organic chemical-free orchards. Meals harvested minutes before cooking over earthen wood fires.</p>
+                        <h4 class="detail-title font-serif"><?php echo htmlspecialchars(get_setting('welcome_feat2_title', 'Pure Farm-to-Table')); ?></h4>
+                        <p class="detail-desc font-sans"><?php echo htmlspecialchars(get_setting('welcome_feat2_desc', 'Organic chemical-free orchards. Meals harvested minutes before cooking over earthen wood fires.')); ?></p>
                     </div>
                 </div>
                 <div class="detail-card scroll-reveal" style="transition-delay: 0.2s;">
                     <div class="detail-icon"><i class="fa-solid fa-wind"></i></div>
                     <div>
-                        <h4 class="detail-title font-serif">High-Range Climate</h4>
-                        <p class="detail-desc font-sans">Situated at 1,600m altitude. Chilly night mists, crisp mountain breeze, and clear skies.</p>
+                        <h4 class="detail-title font-serif"><?php echo htmlspecialchars(get_setting('welcome_feat3_title', 'High-Range Climate')); ?></h4>
+                        <p class="detail-desc font-sans"><?php echo htmlspecialchars(get_setting('welcome_feat3_desc', 'Situated at 1,600m altitude. Chilly night mists, crisp mountain breeze, and clear skies.')); ?></p>
                     </div>
                 </div>
                 <div class="detail-card scroll-reveal" style="transition-delay: 0.3s;">
                     <div class="detail-icon"><i class="fa-solid fa-shield-heart"></i></div>
                     <div>
-                        <h4 class="detail-title font-serif">Intimate & Private</h4>
-                        <p class="detail-desc font-sans">Only two exclusive living stay concepts to guarantee absolute privacy and silence.</p>
+                        <h4 class="detail-title font-serif"><?php echo htmlspecialchars(get_setting('welcome_feat4_title', 'Intimate & Private')); ?></h4>
+                        <p class="detail-desc font-sans"><?php echo htmlspecialchars(get_setting('welcome_feat4_desc', 'Exclusive living stay concepts nestled among organic orchards to guarantee absolute privacy and silence.')); ?></p>
                     </div>
                 </div>
             </div>

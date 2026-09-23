@@ -44,6 +44,31 @@ $spots_count = count($sanctuary_spots);
         <div class="sanctuary-header text-center">
             <span class="section-label"><?php echo e($sec_label); ?></span>
             <h3 class="section-title font-serif split-text" style="color: var(--accent-green);"><?php echo e($sec_title); ?></h3>
+            <p class="sanctuary-subtitle font-sans" style="max-width: 680px; margin: 10px auto 24px; color: var(--text-light); font-size: 0.95rem;">
+                Explore our terraced mountain estate. Distinct <strong style="color: var(--accent-gold);">Stay Accommodations</strong> (Treehouses, Mudhouses & Woodhouses) are nestled among orchards, natural streams, and communal dining hearths.
+            </p>
+
+            <!-- Map Filter Chips (Stays vs Facilities) -->
+            <div class="sanctuary-filter-bar">
+                <button type="button" class="sanctuary-filter-btn active" data-map-filter="all">
+                    <i class="fa-solid fa-compass"></i> All Locations (<?php echo $spots_count; ?>)
+                </button>
+                <button type="button" class="sanctuary-filter-btn filter-single-btn" data-map-filter="single">
+                    <i class="fa-solid fa-house-chimney"></i> 🏡 Single Cottages
+                </button>
+                <button type="button" class="sanctuary-filter-btn filter-duplex-btn" data-map-filter="duplex" style="color: #56C2C9; border-color: rgba(86, 194, 201, 0.4);">
+                    <i class="fa-solid fa-layer-group"></i> 🏰 Duplex Chalets
+                </button>
+                <button type="button" class="sanctuary-filter-btn" data-map-filter="dining">
+                    <i class="fa-solid fa-utensils"></i> 🍲 Farm Dining
+                </button>
+                <button type="button" class="sanctuary-filter-btn" data-map-filter="amenities">
+                    <i class="fa-solid fa-water"></i> 🌊 Brook & Glades
+                </button>
+                <a href="booking.php" class="sanctuary-filter-btn map-bookmyshow-link" title="Open Interactive Estate Booking Page">
+                    <i class="fa-solid fa-calendar-check"></i> Book Chalets Online <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; margin-left: 3px;"></i>
+                </a>
+            </div>
         </div>
 
 
@@ -148,17 +173,53 @@ $spots_count = count($sanctuary_spots);
 
                     <!-- Dynamic Hotspot Pins on the Map -->
                     <div class="sanctuary-pins-container">
-                        <?php foreach ($sanctuary_spots as $idx => $sp): ?>
-                            <div class="sanctuary-pin <?php echo $idx === 0 ? 'active' : ''; ?>" 
+                        <?php foreach ($sanctuary_spots as $idx => $sp): 
+                            $is_stay = !empty($sp['is_stay']) || $sp['category'] === 'stays';
+                            $struct = $sp['structure_type'] ?? 'single_hut';
+                            $is_duplex = ($is_stay && ($struct === 'duplex_hut' || stripos($sp['title'], 'duplex') !== false));
+
+                            if ($is_duplex) {
+                                $stay_class = 'is-stay-pin is-duplex-pin';
+                                $stay_icon = '<i class="fa-solid fa-layer-group"></i>';
+                                $stay_tag = '🏰 DUPLEX CHALET (2 SUITES)';
+                            } elseif ($is_stay) {
+                                $stay_class = 'is-stay-pin is-single-pin';
+                                $stay_icon = '<i class="fa-solid fa-house-chimney"></i>';
+                                $stay_tag = '🏡 SINGLE COTTAGE';
+                            } else {
+                                $stay_class = 'is-facility-pin';
+                                $stay_tag = '🌿 ESTATE HUB';
+                                if ($sp['category'] === 'dining') {
+                                    $stay_icon = '<i class="fa-solid fa-utensils"></i>';
+                                } elseif ($sp['category'] === 'amenities') {
+                                    $stay_icon = '<i class="fa-solid fa-water"></i>';
+                                } else {
+                                    $stay_icon = '<i class="fa-solid fa-tree"></i>';
+                                }
+                            }
+                        ?>
+                            <div class="sanctuary-pin <?php echo $idx === 0 ? 'active' : ''; ?> <?php echo $stay_class; ?>" 
                                  data-zone="<?php echo (int)$sp['id']; ?>" 
                                  data-spot-num="<?php echo (int)$sp['spot_number']; ?>"
+                                 data-category="<?php echo htmlspecialchars($sp['category'] ?? 'nature'); ?>"
+                                 data-is-stay="<?php echo $is_stay ? '1' : '0'; ?>"
+                                 data-is-duplex="<?php echo $is_duplex ? '1' : '0'; ?>"
+                                 data-structure="<?php echo htmlspecialchars($struct); ?>"
                                  style="top: <?php echo (float)$sp['y_coord']; ?>%; left: <?php echo (float)$sp['x_coord']; ?>%;">
                                 <div class="pin-beacon"></div>
                                 <div class="pin-marker">
+                                    <span class="pin-stay-icon"><?php echo $stay_icon; ?></span>
                                     <span class="pin-index"><?php echo sprintf('%02d', $sp['spot_number']); ?></span>
+                                    <?php if ($is_duplex): ?>
+                                        <span class="pin-duplex-indicator" title="2-Suite Duplex">2S</span>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="pin-tooltip">
+                                    <span class="pin-stay-tag"><?php echo $stay_tag; ?></span>
                                     <span class="pin-title"><?php echo htmlspecialchars($sp['title']); ?></span>
+                                    <?php if ($is_stay && !empty($sp['room_rate'])): ?>
+                                        <span class="pin-price font-sans">From ₹<?php echo number_format($sp['room_rate'], 0, '.', ','); ?>/nt</span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -171,7 +232,8 @@ $spots_count = count($sanctuary_spots);
                     <!-- Zone Card Header -->
                     <div class="inspector-header">
                         <div class="inspector-zone-pill">
-                            <span class="inspector-zone-num" id="ins-zone-num">ROUTE SPOT <?php echo $first_spot ? sprintf('%02d', $first_spot['spot_number']) : '01'; ?></span>
+                            <span class="inspector-zone-num" id="ins-zone-num">SPOT <?php echo $first_spot ? sprintf('%02d', $first_spot['spot_number']) : '01'; ?></span>
+                            <span class="inspector-zone-type" id="ins-zone-type" style="margin-left: 6px;"><?php echo (!empty($first_spot['is_stay']) || ($first_spot['category'] ?? '') === 'stays') ? '🏡 BOOKABLE STAY' : '🌿 ESTATE FACILITY'; ?></span>
                         </div>
                         <div class="inspector-nav-arrows">
                             <button class="ins-arrow-btn" id="ins-prev-btn" aria-label="Previous Spot" title="Previous Spot">
@@ -199,17 +261,31 @@ $spots_count = count($sanctuary_spots);
 
                         <!-- Photo Counter Badge -->
                         <div class="ins-photo-badge" id="ins-photo-badge">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
                             <span id="ins-photo-indicator">1 / <?php echo !empty($first_spot['photos_list']) ? count($first_spot['photos_list']) : 1; ?></span>
                         </div>
                     </div>
 
                     <!-- Zone Title & Description -->
                     <div class="inspector-body" style="padding-top: 10px;">
-                        <h4 class="inspector-title font-serif" id="ins-title" style="margin-bottom: 8px; font-size: 1.18rem;"><?php echo $first_spot ? htmlspecialchars($first_spot['title']) : 'Farmhouse Kitchen & Organic Dining'; ?></h4>
-                        <p class="inspector-desc font-sans" id="ins-desc" style="margin-bottom: 0; line-height: 1.6; font-size: 0.84rem;">
+                        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+                            <h4 class="inspector-title font-serif" id="ins-title" style="margin-bottom: 6px; font-size: 1.18rem;"><?php echo $first_spot ? htmlspecialchars($first_spot['title']) : 'Farmhouse Kitchen & Organic Dining'; ?></h4>
+                            <span id="ins-price-badge" class="font-sans" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-gold); white-space: nowrap;"><?php echo (!empty($first_spot['room_rate'])) ? '₹' . number_format($first_spot['room_rate'], 0, '.', ',') . '/nt' : ''; ?></span>
+                        </div>
+                        <p class="inspector-desc font-sans" id="ins-desc" style="margin-bottom: 12px; line-height: 1.6; font-size: 0.84rem;">
                             <?php echo $first_spot ? htmlspecialchars($first_spot['description']) : 'Central hearth serving organic farm-to-table meals.'; ?>
                         </p>
+
+                        <!-- Dynamic CTA Button (Reserve Stay or Explore) -->
+                        <div class="inspector-actions" style="margin-top: auto; display: flex; gap: 8px;">
+                            <a href="booking.php" id="ins-cta-btn" class="btn-primary font-sans" style="flex: 1; text-align: center; padding: 9px 14px; font-size: 0.82rem; text-decoration: none; justify-content: center; display: inline-flex; align-items: center; gap: 6px;">
+                                <span id="ins-cta-text">Book Online</span>
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </a>
+                            <button type="button" id="ins-quick-book-btn" class="btn-outline font-sans open-booking-modal-btn" data-villa="treehouse" style="padding: 9px 12px; font-size: 0.82rem; border-color: rgba(197, 160, 89, 0.4); color: var(--accent-green);" title="Quick Reserve Modal">
+                                <i class="fa-solid fa-bolt"></i> Quick Book
+                            </button>
+                        </div>
                     </div>
 
                 </div>
@@ -217,8 +293,6 @@ $spots_count = count($sanctuary_spots);
             </div>
 
         </div>
-
-
 
     </div>
 </section>

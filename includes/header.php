@@ -65,6 +65,18 @@ if ($is_logged_client) {
 } elseif ($is_guest_client) {
     $client_label = 'My Booking';
 }
+$site_name = get_setting('site_name', 'FOOD FOREST');
+$site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
+
+// Compute minimum starting room rate dynamically from database
+$all_header_rooms = get_all_rooms(true);
+$min_start_rate = 11500;
+if (!empty($all_header_rooms)) {
+    $rates = array_map(function($r) { 
+        return min((float)$r['rate_per_night'], (float)($r['single_room_rate'] ?? $r['rate_per_night'])); 
+    }, $all_header_rooms);
+    $min_start_rate = min($rates);
+}
 ?>
     <!-- Luxury Header Wrapper (Coordinates Top Announcement & Main Navigation) -->
     <div class="site-header-wrapper" id="site-header-wrapper">
@@ -105,8 +117,8 @@ if ($is_logged_client) {
             <div class="header-container">
                 <!-- Brand Logo -->
                 <a href="index.php" class="logo font-serif magnetic" data-strength="15">
-                    <span class="logo-main">FOOD FOREST</span>
-                    <span class="logo-sub font-sans">KANTHALLOOR • ECO SANCTUARY</span>
+                    <span class="logo-main"><?php echo htmlspecialchars($site_name); ?></span>
+                    <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
                 </a>
 
                 <?php
@@ -117,6 +129,7 @@ if ($is_logged_client) {
                 <nav class="nav-links font-sans">
                     <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
                     <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
+                    <a href="booking.php" class="nav-item magnetic" data-strength="10" style="color: var(--accent-gold); font-weight: 700;"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
                     <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
                     <a href="<?php echo $nav_prefix; ?>#dining" class="nav-item magnetic" data-strength="10">Food Menu</a>
                     <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
@@ -126,11 +139,11 @@ if ($is_logged_client) {
 
                 <!-- Header Actions -->
                 <div class="header-actions">
-                    <button type="button" class="btn-book-now open-booking-modal-btn font-sans magnetic" data-strength="15">
+                    <a href="booking.php" class="btn-book-now font-sans magnetic" data-strength="15" style="text-decoration: none;">
                         <span class="btn-sparkle"><i class="fa-solid fa-sparkles"></i></span>
                         <span>RESERVE STAY</span>
                         <i class="fa-solid fa-arrow-right"></i>
-                    </button>
+                    </a>
                     <button class="mobile-nav-toggle" aria-label="Toggle Navigation">
                         <span class="bar"></span>
                         <span class="bar"></span>
@@ -145,6 +158,7 @@ if ($is_logged_client) {
         <div class="mobile-menu-links">
             <a href="<?php echo $nav_prefix; ?>#welcome" class="mobile-link">The Sanctuary</a>
             <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="mobile-link">Villas & Stays</a>
+            <a href="booking.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-map-location-dot"></i> Interactive Map Booking</a>
             <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Activities</a>
             <a href="<?php echo $nav_prefix; ?>#dining" class="mobile-link">Food Menu</a>
             <a href="<?php echo $nav_prefix; ?>#gallery" class="mobile-link">Gallery</a>
@@ -152,17 +166,17 @@ if ($is_logged_client) {
             <a href="<?php echo $nav_prefix; ?>#testimonials" class="mobile-link">Guest Stories</a>
             <a href="guest_portal.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-key"></i> Guest Portal / My Bookings</a>
             <a href="<?php echo $nav_prefix; ?>#contact" class="mobile-link">Contact</a>
-            <button type="button" class="mobile-link btn-mobile-book open-booking-modal-btn font-sans">
-                <i class="fa-solid fa-calendar-check"></i> Check Availability
-            </button>
+            <a href="booking.php" class="mobile-link btn-mobile-book font-sans" style="text-decoration: none; text-align: center;">
+                <i class="fa-solid fa-calendar-check"></i> Book Chalet Online
+            </a>
         </div>
     </div>
 
     <!-- Floating Sticky Quick-Booking Pill (appears on scroll) -->
     <div class="sticky-booking-pill font-sans" id="sticky-booking-pill">
         <div class="pill-info">
-            <span class="pill-title font-serif">Food Forest Kanthalloor</span>
-            <span class="pill-rates">From ₹11,500/night • All Organic Farm Meals Included</span>
+            <span class="pill-title font-serif"><?php echo htmlspecialchars($site_name); ?></span>
+            <span class="pill-rates">From ₹<?php echo number_format($min_start_rate, 0, '.', ','); ?>/night • All Organic Farm Meals Included</span>
         </div>
         <button type="button" class="pill-btn open-booking-modal-btn">
             <span>Check Availability</span>
