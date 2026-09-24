@@ -43,7 +43,8 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Public Website Stylesheet -->
-    <link rel="stylesheet" href="../assets/css/style.css?v=<?php echo time(); ?>">
+    <base href="../">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?php echo time(); ?>">
 
     <style>
         /* Preview-specific isolation & helper styles */
@@ -63,6 +64,16 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
             max-width: 100%;
             margin: 0 auto;
             position: relative;
+        }
+
+        .scroll-reveal {
+            opacity: 1 !important;
+            transform: none !important;
+            visibility: visible !important;
+        }
+
+        .section-padding {
+            padding: 30px 0 !important;
         }
 
         .preview-highlight-pulse {
@@ -358,266 +369,120 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         </div>
 
     <?php elseif ($section === 'philosophy'): ?>
-        <!-- CARD 05: PHILOSOPHY & ETHOS PREVIEW -->
+        <!-- CARD 03: PHILOSOPHY & ETHOS PREVIEW -->
         <?php
-        $welcome_badge = $s['welcome_badge'] ?? 'SANCTUARY ETHOS';
-        $welcome_title = $s['welcome_title'] ?? 'Rooted in Earth. Nurtured by Harmony.';
-        $welcome_paragraph = $s['welcome_paragraph'] ?? 'Food Forest Sanctuary is born from a reverence for natural ecosystems. Here, living soil meets vernacular cob architecture and ancestral permaculture wisdom.';
-        $welcome_image = $s['welcome_image'] ?? '../assets/images/portrait_farm.jpg';
+        $welcome_badge = $s['welcome_badge'] ?? 'THE SANCTUARY PHILOSOPHY';
+        $welcome_title = $s['welcome_title'] ?? 'Rooted in Earth, Reverence & Time';
+        $welcome_paragraph = $s['welcome_paragraph'] ?? 'Food Forest is not merely a getaway; it is a conscious return to living in harmony with nature. Tucked into the mist-veiled terraced hills of Kanthalloor, Kerala, our estate was conceived as a living ecosystem where luxury means silence, pure mountain spring water, and unhurried peace.';
+        $welcome_image = $s['welcome_image'] ?? '../assets/images/01 (7).jpeg';
         if (!empty($welcome_image) && strpos($welcome_image, 'http') !== 0 && strpos($welcome_image, '../') !== 0 && strpos($welcome_image, '/') !== 0) {
             $welcome_image = '../' . $welcome_image;
         }
+
+        $feat1_t = $s['welcome_feat1_title'] ?? 'Ecological Vernacular';
+        $feat1_d = $s['welcome_feat1_desc'] ?? 'Earthen clay, raw stone, reclaimed teak, and zero plastic across the retreat.';
+        $feat2_t = $s['welcome_feat2_title'] ?? 'Pure Farm-to-Table';
+        $feat2_d = $s['welcome_feat2_desc'] ?? 'Organic chemical-free orchards. Meals harvested minutes before cooking over earthen wood fires.';
+        $feat3_t = $s['welcome_feat3_title'] ?? 'High-Range Climate';
+        $feat3_d = $s['welcome_feat3_desc'] ?? 'Situated at 1,600m altitude. Chilly night mists, crisp mountain breeze, and clear skies.';
+        $feat4_t = $s['welcome_feat4_title'] ?? 'Intimate & Private';
+        $feat4_d = $s['welcome_feat4_desc'] ?? 'Exclusive living stay concepts nestled among organic orchards to guarantee absolute privacy and silence.';
         ?>
-        <section style="padding: 50px 24px; max-width: 1000px; margin: 0 auto;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+        <section style="padding: 50px 24px; max-width: 1040px; margin: 0 auto;">
+            <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 40px; align-items: flex-start; margin-bottom: 36px;">
                 <div>
                     <span id="pv-wel-badge" style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase; display: block; margin-bottom: 12px;"><?php echo htmlspecialchars($welcome_badge); ?></span>
-                    <h2 id="pv-wel-title" style="font-family: var(--font-serif); font-size: 32px; color: #FFFFFF; font-weight: 400; line-height: 1.3; margin: 0 0 20px;"><?php echo htmlspecialchars($welcome_title); ?></h2>
-                    <p id="pv-wel-desc" style="font-size: 14px; line-height: 1.8; color: #CBD5E1; margin: 0 0 20px;"><?php echo nl2br(htmlspecialchars($welcome_paragraph)); ?></p>
+                    <h2 id="pv-wel-title" style="font-family: var(--font-serif); font-size: 30px; color: #FFFFFF; font-weight: 400; line-height: 1.3; margin: 0 0 18px;"><?php echo htmlspecialchars($welcome_title); ?></h2>
+                    <p id="pv-wel-desc" style="font-size: 14px; line-height: 1.8; color: #CBD5E1; margin: 0;"><?php echo nl2br(htmlspecialchars($welcome_paragraph)); ?></p>
                 </div>
                 <div style="position: relative;">
-                    <img id="pv-wel-img" src="<?php echo htmlspecialchars($welcome_image); ?>" alt="Sanctuary Portrait" style="width: 100%; height: 360px; object-fit: cover; border-radius: 12px; border: 1px solid rgba(197, 160, 89, 0.3); box-shadow: 0 16px 40px rgba(0,0,0,0.5);" onerror="this.src='../assets/images/treehouse_exterior.png'">
+                    <img id="pv-wel-img" src="<?php echo htmlspecialchars($welcome_image); ?>" alt="Sanctuary Portrait" style="width: 100%; height: 320px; object-fit: cover; border-radius: 12px; border: 1px solid rgba(197, 160, 89, 0.3); box-shadow: 0 16px 40px rgba(0,0,0,0.5);" onerror="this.src='../assets/images/mudhouse_exterior.png'">
+                </div>
+            </div>
+
+            <!-- 4 Philosophy & Ecological Pillars Preview -->
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 18px; display: flex; gap: 14px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(46, 204, 113, 0.15); color: #2ecc71; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;"><i class="fa-solid fa-leaf"></i></div>
+                    <div>
+                        <h4 id="pv-wel-f1-t" style="font-family: var(--font-serif); font-size: 15px; color: #FFF; margin: 0 0 6px; font-weight: 600;"><?php echo htmlspecialchars($feat1_t); ?></h4>
+                        <p id="pv-wel-f1-d" style="font-size: 12px; color: #CBD5E1; margin: 0; line-height: 1.6;"><?php echo htmlspecialchars($feat1_d); ?></p>
+                    </div>
+                </div>
+
+                <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 18px; display: flex; gap: 14px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(197, 160, 89, 0.15); color: #C5A059; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;"><i class="fa-solid fa-seedling"></i></div>
+                    <div>
+                        <h4 id="pv-wel-f2-t" style="font-family: var(--font-serif); font-size: 15px; color: #FFF; margin: 0 0 6px; font-weight: 600;"><?php echo htmlspecialchars($feat2_t); ?></h4>
+                        <p id="pv-wel-f2-d" style="font-size: 12px; color: #CBD5E1; margin: 0; line-height: 1.6;"><?php echo htmlspecialchars($feat2_d); ?></p>
+                    </div>
+                </div>
+
+                <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 18px; display: flex; gap: 14px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(56, 189, 248, 0.15); color: #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;"><i class="fa-solid fa-wind"></i></div>
+                    <div>
+                        <h4 id="pv-wel-f3-t" style="font-family: var(--font-serif); font-size: 15px; color: #FFF; margin: 0 0 6px; font-weight: 600;"><?php echo htmlspecialchars($feat3_t); ?></h4>
+                        <p id="pv-wel-f3-d" style="font-size: 12px; color: #CBD5E1; margin: 0; line-height: 1.6;"><?php echo htmlspecialchars($feat3_d); ?></p>
+                    </div>
+                </div>
+
+                <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 18px; display: flex; gap: 14px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(244, 63, 94, 0.15); color: #f43f5e; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;"><i class="fa-solid fa-shield-heart"></i></div>
+                    <div>
+                        <h4 id="pv-wel-f4-t" style="font-family: var(--font-serif); font-size: 15px; color: #FFF; margin: 0 0 6px; font-weight: 600;"><?php echo htmlspecialchars($feat4_t); ?></h4>
+                        <p id="pv-wel-f4-d" style="font-size: 12px; color: #CBD5E1; margin: 0; line-height: 1.6;"><?php echo htmlspecialchars($feat4_d); ?></p>
+                    </div>
                 </div>
             </div>
         </section>
 
     <?php elseif ($section === 'why'): ?>
-        <!-- CARD 06: WHY FOOD FOREST PREVIEW -->
-        <?php
-        $why_badge = $s['why_badge'] ?? 'LIVING ARCHITECTURE';
-        $why_title = $s['why_title'] ?? 'Why Choose an Earthen Mudhouse & Forest Farmstay?';
-        $why_desc = $s['why_desc'] ?? 'Hand-sculpted with cob clay, straw, and stone, our mudhouses breathe naturally with the mountain air, staying cool under the afternoon sun and warm during frosty nights.';
-        $why_image = $s['why_image'] ?? '../assets/images/cob_mudhouse.jpg';
-        if (!empty($why_image) && strpos($why_image, 'http') !== 0 && strpos($why_image, '../') !== 0 && strpos($why_image, '/') !== 0) {
-            $why_image = '../' . $why_image;
-        }
-        ?>
-        <section style="padding: 50px 24px; max-width: 1000px; margin: 0 auto;">
-            <div style="text-align: center; max-width: 700px; margin: 0 auto 36px;">
-                <span id="pv-why-badge" style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase;"><?php echo htmlspecialchars($why_badge); ?></span>
-                <h2 id="pv-why-title" style="font-family: var(--font-serif); font-size: 30px; color: #FFFFFF; font-weight: 400; margin: 8px 0 14px;"><?php echo htmlspecialchars($why_title); ?></h2>
-                <p id="pv-why-desc" style="font-size: 14px; color: #CBD5E1; line-height: 1.7;"><?php echo htmlspecialchars($why_desc); ?></p>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
-                <div style="background: rgba(16, 31, 21, 0.8); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 12px; padding: 22px;">
-                    <div style="color: #2ecc71; font-size: 22px; margin-bottom: 12px;"><i class="fa-solid fa-leaf"></i></div>
-                    <h4 style="font-family: var(--font-display); color: #FFF; font-size: 14px; margin-bottom: 6px;">Living Organic Soil</h4>
-                    <p style="font-size: 12px; color: #839788;">Zero chemicals or pesticides across all orchard groves.</p>
-                </div>
-                <div style="background: rgba(16, 31, 21, 0.8); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 12px; padding: 22px;">
-                    <div style="color: #C5A059; font-size: 22px; margin-bottom: 12px;"><i class="fa-solid fa-house-chimney"></i></div>
-                    <h4 style="font-family: var(--font-display); color: #FFF; font-size: 14px; margin-bottom: 6px;">Cob Mud Architecture</h4>
-                    <p style="font-size: 12px; color: #839788;">Breathable earthen thermal mass built with natural clay.</p>
-                </div>
-                <div style="background: rgba(16, 31, 21, 0.8); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 12px; padding: 22px;">
-                    <div style="color: #e74c3c; font-size: 22px; margin-bottom: 12px;"><i class="fa-solid fa-fire"></i></div>
-                    <h4 style="font-family: var(--font-display); color: #FFF; font-size: 14px; margin-bottom: 6px;">Slow Woodfire Hearth</h4>
-                    <p style="font-size: 12px; color: #839788;">Clay hearth dining infused with wild mountain herbs.</p>
-                </div>
-            </div>
-        </section>
+        <!-- CARD 07: WHY FOOD FOREST (EXACT PUBLIC FRONTEND COMPONENT) -->
+        <div style="padding: 10px 0;">
+            <?php include __DIR__ . '/../components/why_mudhouse.php'; ?>
+        </div>
 
     <?php elseif ($section === 'experiences'): ?>
-        <!-- CARD 07: CURATED EXPERIENCES PREVIEW -->
-        <?php
-        $exps = $pdo->query("SELECT * FROM experiences ORDER BY display_order ASC, id ASC LIMIT 4")->fetchAll(PDO::FETCH_ASSOC);
-        ?>
-        <section style="padding: 40px 20px; max-width: 1000px; margin: 0 auto;">
-            <div style="text-align: center; margin-bottom: 30px;">
-                <span style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase;">IMMERSIVE RITUALS</span>
-                <h2 style="font-family: var(--font-serif); font-size: 30px; color: #FFFFFF; font-weight: 400; margin: 6px 0;">Curated Sanctuary Experiences</h2>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px;">
-                <?php foreach ($exps as $e): 
-                    $img = $e['image_url'] ?? '';
-                    if (!empty($img) && strpos($img, 'http') !== 0 && strpos($img, '../') !== 0 && strpos($img, '/') !== 0) $img = '../' . $img;
-                ?>
-                <div style="background: rgba(16, 31, 21, 0.9); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 12px; overflow: hidden;">
-                    <div style="height: 140px; position: relative;">
-                        <img src="<?php echo htmlspecialchars($img); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png'">
-                        <span style="position: absolute; top: 10px; left: 10px; background: rgba(11,24,16,0.85); color: #C5A059; font-size: 10px; padding: 4px 8px; border-radius: 4px; font-weight: 700;">
-                            <?php echo htmlspecialchars($e['badge'] ?? 'RITUAL'); ?>
-                        </span>
-                    </div>
-                    <div style="padding: 16px;">
-                        <h4 style="font-family: var(--font-display); font-size: 14px; color: #FFF; margin: 0 0 6px;"><?php echo htmlspecialchars($e['title']); ?></h4>
-                        <p style="font-size: 12px; color: #839788; margin: 0 0 10px; line-height: 1.5;"><?php echo htmlspecialchars($e['tagline'] ?? ''); ?></p>
-                        <span style="font-size: 11px; color: #C5A059;"><i class="fa-regular fa-clock"></i> <?php echo htmlspecialchars($e['timing'] ?? ''); ?></span>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
+        <!-- CARD 05: CURATED EXPERIENCES (EXACT PUBLIC FRONTEND COMPONENT) -->
+        <div style="padding: 10px 0;">
+            <?php include __DIR__ . '/../components/experiences.php'; ?>
+        </div>
 
-    <?php elseif ($section === 'menu'): ?>
-        <!-- CARD 08: FOOD MENU PREVIEW -->
-        <?php
-        $menus = $pdo->query("SELECT * FROM food_menu ORDER BY id ASC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
-        ?>
-        <section style="padding: 40px 20px; max-width: 1000px; margin: 0 auto;">
-            <div style="text-align: center; margin-bottom: 24px;">
-                <span style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase;">ORGANIC GASTRONOMY</span>
-                <h2 style="font-family: var(--font-serif); font-size: 28px; color: #FFFFFF; font-weight: 400; margin: 6px 0;">Living Farm-to-Table Menu</h2>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-                <?php foreach ($menus as $m): 
-                    $m_img = $m['image_url'] ?? '';
-                    if (!empty($m_img) && strpos($m_img, 'http') !== 0 && strpos($m_img, '../') !== 0 && strpos($m_img, '/') !== 0) $m_img = '../' . $m_img;
-                ?>
-                <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px; display: flex; gap: 14px; align-items: center;">
-                    <?php if (!empty($m_img)): ?>
-                        <img src="<?php echo htmlspecialchars($m_img); ?>" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;" onerror="this.style.display='none'">
-                    <?php endif; ?>
-                    <div style="flex: 1;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <h4 style="font-family: var(--font-display); font-size: 13.5px; color: #FFF; margin: 0;"><?php echo htmlspecialchars($m['heading'] ?? ($m['item_name'] ?? 'Dish')); ?></h4>
-                            <strong style="color: #C5A059; font-size: 13px;"><?php echo htmlspecialchars($currency_symbol . number_format((float)($m['price'] ?? 0))); ?></strong>
-                        </div>
-                        <p style="font-size: 11.5px; color: #839788; margin: 4px 0 0; line-height: 1.4;"><?php echo htmlspecialchars($m['description'] ?? ($m['subtitle'] ?? '')); ?></p>
-                        <span style="font-size: 10px; color: #2ecc71; text-transform: uppercase; font-weight: 600; margin-top: 4px; display: inline-block;"><?php echo htmlspecialchars($m['category'] ?? 'Dining'); ?></span>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
+    <?php elseif ($section === 'menu' || $section === 'dining'): ?>
+        <!-- CARD 06: LIVING FOOD MENU & DINING (EXACT PUBLIC FRONTEND COMPONENT) -->
+        <div style="padding: 10px 0;">
+            <?php include __DIR__ . '/../components/dining.php'; ?>
+        </div>
 
     <?php elseif ($section === 'seasons'): ?>
-        <!-- CARD 09: SEASONS PREVIEW -->
-        <?php
-        $seasons = $pdo->query("SELECT * FROM seasons ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
-        ?>
-        <section style="padding: 40px 20px; max-width: 1000px; margin: 0 auto;">
-            <div style="text-align: center; margin-bottom: 24px;">
-                <span style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase;">MICROCLIMATE CYCLES</span>
-                <h2 style="font-family: var(--font-serif); font-size: 28px; color: #FFFFFF; font-weight: 400; margin: 6px 0;">4 Seasons of Kanthalloor</h2>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                <?php foreach ($seasons as $sn): 
-                    $sn_img = $sn['image_url'] ?? '';
-                    if (!empty($sn_img) && strpos($sn_img, 'http') !== 0 && strpos($sn_img, '../') !== 0 && strpos($sn_img, '/') !== 0) $sn_img = '../' . $sn_img;
-                    $sn_title = $sn['title'] ?? ($sn['name'] ?? 'Season');
-                ?>
-                <div style="background: rgba(16, 31, 21, 0.9); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 12px; overflow: hidden;">
-                    <div style="height: 110px;">
-                        <img src="<?php echo htmlspecialchars($sn_img); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png'">
-                    </div>
-                    <div style="padding: 14px;">
-                        <span style="font-size: 10px; color: #C5A059; font-weight: 700; text-transform: uppercase;"><?php echo htmlspecialchars($sn['months'] ?? ''); ?></span>
-                        <h4 style="font-family: var(--font-display); font-size: 14px; color: #FFF; margin: 2px 0 6px;"><?php echo htmlspecialchars($sn_title); ?></h4>
-                        <span style="font-size: 11px; color: #2ecc71; display: block;"><i class="fa-solid fa-temperature-half"></i> <?php echo htmlspecialchars($sn['temperature'] ?? '18°C - 24°C'); ?></span>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
+        <!-- CARD 09: SEASONS OF KANTHALLOOR (EXACT PUBLIC FRONTEND COMPONENT) -->
+        <div style="padding: 10px 0;">
+            <?php include __DIR__ . '/../components/seasons.php'; ?>
+        </div>
 
     <?php elseif ($section === 'sanctuary_map'): ?>
-        <!-- CARD 10: SANCTUARY ESTATE MAP PREVIEW -->
-        <section style="padding: 30px 20px; max-width: 900px; margin: 0 auto; text-align: center;">
-            <div style="margin-bottom: 20px;">
-                <span style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase;">MOUNTAIN TRAIL & MAP</span>
-                <h2 style="font-family: var(--font-serif); font-size: 26px; color: #FFFFFF; font-weight: 400; margin: 6px 0;">Sanctuary Landscape Topography</h2>
-            </div>
-            <div style="position: relative; border-radius: 14px; overflow: hidden; border: 1px solid rgba(197, 160, 89, 0.3);">
-                <img src="../assets/images/map_bg.jpg" style="width: 100%; height: 320px; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png'">
-                <div style="position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(11,24,16,0.4); display: flex; align-items: center; justify-content: center;">
-                    <div style="background: rgba(16, 31, 21, 0.9); padding: 16px 24px; border-radius: 30px; border: 1px solid #C5A059; color: #FFF; font-size: 13px; font-weight: 600;">
-                        <i class="fa-solid fa-map-pin" style="color: #2ecc71; margin-right: 8px;"></i> Interactive 4-Point Trail Route Map Active
-                    </div>
-                </div>
-            </div>
-        </section>
+        <!-- CARD 08: SANCTUARY ESTATE MAP (EXACT PUBLIC FRONTEND COMPONENT) -->
+        <div style="padding: 10px 0;">
+            <?php include __DIR__ . '/../components/sanctuary_map.php'; ?>
+        </div>
 
     <?php elseif ($section === 'rooms'): ?>
-        <!-- CARD 11: VILLAS & RATES PREVIEW -->
-        <?php
-        $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
-        ?>
-        <section style="padding: 40px 20px; max-width: 1000px; margin: 0 auto;">
-            <div style="text-align: center; margin-bottom: 24px;">
-                <span style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase;">PRIVATE ACCOMMODATIONS</span>
-                <h2 style="font-family: var(--font-serif); font-size: 28px; color: #FFFFFF; font-weight: 400; margin: 6px 0;">Villas & Earthen Cottages</h2>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px;">
-                <?php foreach ($rooms as $rm): 
-                    $rm_img = $rm['image_url'] ?? '';
-                    if (!empty($rm_img) && strpos($rm_img, 'http') !== 0 && strpos($rm_img, '../') !== 0 && strpos($rm_img, '/') !== 0) $rm_img = '../' . $rm_img;
-                    $rm_title = $rm['title'] ?? ($rm['name'] ?? 'Sanctuary Suite');
-                    $rm_rate = (float)($rm['rate_per_night'] ?? ($rm['price_per_night'] ?? 14500));
-                    $is_duplex = (($rm['structure_type'] ?? '') === 'duplex_hut');
-                    $single_rate = (float)($rm['single_room_rate'] ?? $rm_rate);
-                ?>
-                <div style="background: rgba(16, 31, 21, 0.9); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 12px; overflow: hidden;">
-                    <div style="height: 140px; position: relative;">
-                        <img src="<?php echo htmlspecialchars($rm_img); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png'">
-                        <span style="position: absolute; top: 10px; right: 10px; background: rgba(11,24,16,0.85); color: #C5A059; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700;">
-                            <?php echo htmlspecialchars($currency_symbol . number_format($rm_rate)); ?> / night
-                        </span>
-                        <?php if ($is_duplex): ?>
-                            <span style="position: absolute; bottom: 8px; left: 8px; background: rgba(86, 194, 201, 0.9); color: #08120B; font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 800;">
-                                <i class="fa-solid fa-layer-group"></i> DUPLEX (2 SUITES)
-                            </span>
-                        <?php endif; ?>
-                    </div>
-                    <div style="padding: 16px;">
-                        <h4 style="font-family: var(--font-display); font-size: 14px; color: #FFF; margin: 0 0 6px;"><?php echo htmlspecialchars($rm_title); ?></h4>
-                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #839788;">
-                            <span><i class="fa-solid fa-user-group"></i> Base <?php echo (int)($rm['base_guests'] ?? 2); ?> • Max <?php echo (int)($rm['max_guests'] ?? 4); ?></span>
-                            <?php if ($is_duplex): ?>
-                                <span style="color: #56c2c9; font-size: 11px;">Single: ₹<?php echo number_format($single_rate); ?></span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
+        <!-- CARD 04: VILLAS & ACCOMMODATIONS (EXACT PUBLIC FRONTEND COMPONENT) -->
+        <div style="padding: 10px 0;">
+            <?php include __DIR__ . '/../components/rooms.php'; ?>
+        </div>
 
     <?php elseif ($section === 'gallery'): ?>
-        <!-- CARD 12: GALLERY PREVIEW -->
-        <?php
-        $gallery = $pdo->query("SELECT * FROM gallery ORDER BY id ASC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
-        ?>
-        <section style="padding: 30px 20px; max-width: 1000px; margin: 0 auto;">
-            <div style="text-align: center; margin-bottom: 20px;">
-                <span style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase;">VISUAL DIARY</span>
-                <h2 style="font-family: var(--font-serif); font-size: 26px; color: #FFFFFF; font-weight: 400; margin: 4px 0;">Photo Chronicle of Sanctuary</h2>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
-                <?php foreach ($gallery as $g): 
-                    $g_img = $g['image_url'] ?? '';
-                    if (!empty($g_img) && strpos($g_img, 'http') !== 0 && strpos($g_img, '../') !== 0 && strpos($g_img, '/') !== 0) $g_img = '../' . $g_img;
-                ?>
-                <div style="height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(197, 160, 89, 0.2);">
-                    <img src="<?php echo htmlspecialchars($g_img); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png'">
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
+        <!-- CARD 10: VISUAL DIARY (EXACT PUBLIC FRONTEND COMPONENT) -->
+        <div style="padding: 10px 0;">
+            <?php include __DIR__ . '/../components/gallery.php'; ?>
+        </div>
 
     <?php elseif ($section === 'testimonials'): ?>
-        <!-- CARD 13: TESTIMONIALS PREVIEW -->
-        <?php
-        $reviews = $pdo->query("SELECT * FROM testimonials ORDER BY id ASC LIMIT 3")->fetchAll(PDO::FETCH_ASSOC);
-        ?>
-        <section style="padding: 40px 20px; max-width: 900px; margin: 0 auto;">
-            <div style="text-align: center; margin-bottom: 24px;">
-                <span style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase;">TRAVELER REFLECTIONS</span>
-                <h2 style="font-family: var(--font-serif); font-size: 26px; color: #FFFFFF; font-weight: 400; margin: 6px 0;">Guest Voices & High Praise</h2>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
-                <?php foreach ($reviews as $rev): ?>
-                <div style="background: rgba(16, 31, 21, 0.9); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 12px; padding: 20px;">
-                    <div style="color: #F59E0B; font-size: 13px; margin-bottom: 10px;">
-                        <?php for ($i=0; $i<(int)($rev['rating'] ?? 5); $i++): ?><i class="fa-solid fa-star"></i><?php endfor; ?>
-                    </div>
-                    <p style="font-size: 13px; color: #CBD5E1; font-style: italic; line-height: 1.6; margin: 0 0 14px;">"<?php echo htmlspecialchars($rev['review_text']); ?>"</p>
-                    <strong style="color: #FFF; font-size: 13px; display: block;"><?php echo htmlspecialchars($rev['guest_name']); ?></strong>
-                    <span style="font-size: 11px; color: #839788;"><?php echo htmlspecialchars($rev['stay_type'] ?? 'Verified Guest'); ?></span>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
+        <!-- CARD 11: GUEST REFLECTIONS (EXACT PUBLIC FRONTEND COMPONENT) -->
+        <div style="padding: 10px 0;">
+            <?php include __DIR__ . '/../components/testimonials.php'; ?>
+        </div>
 
     <?php elseif ($section === 'protection'): ?>
         <!-- CARD 14: CONTENT PROTECTION PREVIEW -->
@@ -634,10 +499,9 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         <div style="padding: 40px 20px; max-width: 500px; margin: 0 auto;">
             <div style="background: rgba(16, 31, 21, 0.9); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 14px; padding: 24px; text-align: center;">
                 <i class="fa-solid fa-key" style="font-size: 36px; color: #C5A059; margin-bottom: 14px;"></i>
-                <h3 style="font-family: var(--font-display); color: #FFF; font-size: 18px; margin: 0 0 6px;">Concierge Authentication Layer</h3>
-                <p style="font-size: 12px; color: #839788; margin: 0 0 16px;">Bcrypt-hashed master password protection active.</p>
+                <p style="font-size: 12px; color: #839788; margin: 0 0 16px;">Direct master access key protection active.</p>
                 <div style="background: rgba(11,24,16,0.8); padding: 10px; border-radius: 6px; font-size: 12px; color: #2ecc71;">
-                    <i class="fa-solid fa-lock"></i> Session Authenticated & Encrypted
+                    <i class="fa-solid fa-lock"></i> Master Session Authenticated
                 </div>
             </div>
         </div>
@@ -657,12 +521,103 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
                 </a>
             </div>
         </div>
+
+    <?php elseif ($section === 'bank'): ?>
+        <!-- CARD 17: BANK & UPI PAYMENT QR PREVIEW -->
+        <?php
+        $b_holder = $s['bank_account_holder'] ?? 'Food Forest Eco Sanctuary';
+        $b_name = $s['bank_name'] ?? 'State Bank of India';
+        $b_branch = $s['bank_branch'] ?? 'Munnar / Kanthalloor Branch';
+        $b_acc = $s['bank_account_number'] ?? '40982314981';
+        $b_ifsc = $s['bank_ifsc'] ?? 'SBIN0070123';
+        $b_type = $s['bank_account_type'] ?? 'Current Account';
+        $b_upi = $s['bank_upi_id'] ?? 'foodforest@upi';
+        $b_qr = !empty($s['bank_qr_image']) ? (str_starts_with($s['bank_qr_image'], 'http') || str_starts_with($s['bank_qr_image'], 'assets/') ? '../' . $s['bank_qr_image'] : '../' . $s['bank_qr_image']) : '../assets/images/foodforest_upi_qr.svg';
+        $b_gst = $s['gst_number'] ?? '32AAECF1234M1Z5';
+        $b_show_bank = ($s['bill_show_bank_details'] ?? '1') === '1';
+        $b_show_qr = ($s['bill_show_qr_code'] ?? '1') === '1';
+        ?>
+        <div style="padding: 30px 16px; max-width: 680px; margin: 0 auto;">
+            <div style="background: #FFFFFF; border: 1.5px solid #C5A059; border-radius: 12px; padding: 24px; color: #101F15; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #F1F5F9; padding-bottom: 14px; margin-bottom: 18px;">
+                    <div>
+                        <span style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 1px; text-transform: uppercase;">OFFICIAL SETTLEMENT CHANNELS</span>
+                        <h3 style="font-family: 'Cinzel', serif; font-size: 18px; margin: 2px 0 0; color: #101F15;">Food Forest Sanctuary Folio Banking</h3>
+                    </div>
+                    <span style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px;">
+                        <i class="fa-solid fa-circle-check"></i> VERIFIED
+                    </span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; align-items: start;">
+                    <!-- QR Code Card -->
+                    <div style="background: #F8FAF9; border: 1px solid #E2E8F0; border-radius: 10px; padding: 18px; text-align: center;">
+                        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748B; margin-bottom: 8px;">Scan & Pay via UPI</div>
+                        <div style="background: #FFF; padding: 10px; border-radius: 8px; display: inline-block; border: 1px solid #CBD5E1; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                            <img src="<?php echo htmlspecialchars($b_qr); ?>" alt="UPI QR" style="width: 140px; height: 140px; object-fit: contain; display: block;" onerror="this.src='../assets/images/foodforest_upi_qr.svg';">
+                        </div>
+                        <div style="font-size: 12px; font-weight: 700; color: #101F15; margin-top: 10px; font-family: monospace; background: #FFF; padding: 4px 8px; border-radius: 4px; border: 1px dashed #CBD5E1;">
+                            <?php echo htmlspecialchars($b_upi); ?>
+                        </div>
+                        <div style="font-size: 10.5px; color: #64748B; margin-top: 6px;">GPay • PhonePe • Paytm • BHIM</div>
+                    </div>
+
+                    <!-- Bank Details Table -->
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748B; margin-bottom: 10px;">Direct IMPS / NEFT Transfer</div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12.5px;">
+                            <tr style="border-bottom: 1px solid #F1F5F9;">
+                                <td style="padding: 6px 0; color: #64748B;">Account Holder:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #101F15; text-align: right;"><?php echo htmlspecialchars($b_holder); ?></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #F1F5F9;">
+                                <td style="padding: 6px 0; color: #64748B;">Bank Name:</td>
+                                <td style="padding: 6px 0; font-weight: 600; color: #101F15; text-align: right;"><?php echo htmlspecialchars($b_name); ?></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #F1F5F9;">
+                                <td style="padding: 6px 0; color: #64748B;">Account Number:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #101F15; font-family: monospace; font-size: 13px; text-align: right;"><?php echo htmlspecialchars($b_acc); ?></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #F1F5F9;">
+                                <td style="padding: 6px 0; color: #64748B;">IFSC Code:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #101F15; font-family: monospace; text-align: right;"><?php echo htmlspecialchars($b_ifsc); ?></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #F1F5F9;">
+                                <td style="padding: 6px 0; color: #64748B;">Account Type:</td>
+                                <td style="padding: 6px 0; font-weight: 600; color: #101F15; text-align: right;"><?php echo htmlspecialchars($b_type); ?></td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #F1F5F9;">
+                                <td style="padding: 6px 0; color: #64748B;">Branch:</td>
+                                <td style="padding: 6px 0; font-weight: 600; color: #101F15; text-align: right;"><?php echo htmlspecialchars($b_branch); ?></td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 6px 0; color: #64748B;">GSTIN / Tax ID:</td>
+                                <td style="padding: 6px 0; font-weight: 600; color: #101F15; font-family: monospace; text-align: right;"><?php echo htmlspecialchars($b_gst); ?></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div style="margin-top: 18px; padding-top: 12px; border-top: 1px dashed #CBD5E1; font-size: 11.5px; color: #64748B; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                    <div><i class="fa-solid fa-print"></i> Default on Bills: <strong><?php echo $b_show_bank ? 'Bank Table (ON)' : 'Bank Table (OFF)'; ?></strong> • <strong><?php echo $b_show_qr ? 'QR Code (ON)' : 'QR Code (OFF)'; ?></strong></div>
+                    <div style="color: #059669; font-weight: 600;"><i class="fa-solid fa-shield-halved"></i> 100% Secure Sanctuary Gateway</div>
+                </div>
+            </div>
+        </div>
     <?php endif; ?>
 
 </div>
 
 <!-- Real-Time Two-Way Synchronization Script -->
 <script>
+function resolvePreviewImgSrc(path) {
+    if (!path || !path.trim()) return '../assets/images/treehouse_exterior.png';
+    path = path.trim();
+    if (/^https?:\/\//i.test(path) || /^data:/i.test(path) || /^blob:/i.test(path)) return path;
+    if (path.indexOf('../') === 0) return path;
+    return '../' + path.replace(/^\/+/, '');
+}
+
 window.addEventListener('message', function(event) {
     if (!event.data) return;
     var data = event.data;
@@ -681,7 +636,7 @@ window.addEventListener('message', function(event) {
     if (data.type === 'update_image' && data.selector && data.src) {
         var img = document.querySelector(data.selector);
         if (img) {
-            img.src = data.src;
+            img.src = resolvePreviewImgSrc(data.src);
             img.classList.add('preview-highlight-pulse');
             setTimeout(function() { img.classList.remove('preview-highlight-pulse'); }, 1200);
         }
@@ -748,7 +703,7 @@ window.addEventListener('message', function(event) {
         }
         if (f.hero_bg_image) {
             var el = document.getElementById('pv-hero-bg');
-            if (el) el.src = f.hero_bg_image;
+            if (el) el.src = resolvePreviewImgSrc(f.hero_bg_image);
         }
 
         // Climate
@@ -778,6 +733,42 @@ window.addEventListener('message', function(event) {
             var el = document.getElementById('pv-wel-desc');
             if (el) el.innerHTML = f.welcome_paragraph.replace(/\n/g, '<br>');
         }
+        if (f.welcome_image) {
+            var el = document.getElementById('pv-wel-img');
+            if (el) el.src = resolvePreviewImgSrc(f.welcome_image);
+        }
+        if (f.welcome_feat1_title) {
+            var el = document.getElementById('pv-wel-f1-t');
+            if (el) el.textContent = f.welcome_feat1_title;
+        }
+        if (f.welcome_feat1_desc) {
+            var el = document.getElementById('pv-wel-f1-d');
+            if (el) el.textContent = f.welcome_feat1_desc;
+        }
+        if (f.welcome_feat2_title) {
+            var el = document.getElementById('pv-wel-f2-t');
+            if (el) el.textContent = f.welcome_feat2_title;
+        }
+        if (f.welcome_feat2_desc) {
+            var el = document.getElementById('pv-wel-f2-d');
+            if (el) el.textContent = f.welcome_feat2_desc;
+        }
+        if (f.welcome_feat3_title) {
+            var el = document.getElementById('pv-wel-f3-t');
+            if (el) el.textContent = f.welcome_feat3_title;
+        }
+        if (f.welcome_feat3_desc) {
+            var el = document.getElementById('pv-wel-f3-d');
+            if (el) el.textContent = f.welcome_feat3_desc;
+        }
+        if (f.welcome_feat4_title) {
+            var el = document.getElementById('pv-wel-f4-t');
+            if (el) el.textContent = f.welcome_feat4_title;
+        }
+        if (f.welcome_feat4_desc) {
+            var el = document.getElementById('pv-wel-f4-d');
+            if (el) el.textContent = f.welcome_feat4_desc;
+        }
 
         // Why
         if (f.why_badge) {
@@ -791,6 +782,10 @@ window.addEventListener('message', function(event) {
         if (f.why_desc) {
             var el = document.getElementById('pv-why-desc');
             if (el) el.textContent = f.why_desc;
+        }
+        if (f.why_image) {
+            var el = document.getElementById('pv-why-img');
+            if (el) el.src = resolvePreviewImgSrc(f.why_image);
         }
     }
 });

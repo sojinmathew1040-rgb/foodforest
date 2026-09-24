@@ -9,6 +9,8 @@ $pdo = get_db();
 $pending_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'")->fetchColumn();
 $inhouse_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'inhouse'")->fetchColumn();
 $unread_inquiries = (int) $pdo->query("SELECT COUNT(*) FROM inquiries WHERE status = 'unread'")->fetchColumn();
+ensure_testimonials_columns($pdo);
+$pending_reviews_count = (int) $pdo->query("SELECT COUNT(*) FROM testimonials WHERE status = 'pending'")->fetchColumn();
 ?>
 
 <aside class="adm-sidebar" id="adm-sidebar">
@@ -83,6 +85,16 @@ $unread_inquiries = (int) $pdo->query("SELECT COUNT(*) FROM inquiries WHERE stat
         <div class="adm-nav-section" style="margin-top: 18px;">Sanctuary CMS & Control</div>
 
         <li class="adm-nav-item">
+            <a href="edit_section.php?section=testimonials" class="adm-nav-link <?php echo ($current_script === 'edit_section.php' && (($_GET['section'] ?? '') === 'testimonials' || ($_GET['tab'] ?? '') === 'testimonials')) ? 'active' : ''; ?>" title="Guest Stories & Reflections">
+                <i class="fa-solid fa-comment-dots"></i>
+                <span>Guest Reflections</span>
+                <?php if ($pending_reviews_count > 0): ?>
+                    <span class="adm-nav-badge adm-nav-badge-alert" title="<?php echo $pending_reviews_count; ?> pending verification"><?php echo $pending_reviews_count; ?></span>
+                <?php endif; ?>
+            </a>
+        </li>
+
+        <li class="adm-nav-item">
             <a href="edit_section.php?section=menu" class="adm-nav-link <?php echo ($current_script === 'edit_section.php' && (($_GET['section'] ?? '') === 'menu' || ($_GET['tab'] ?? '') === 'menu')) ? 'active' : ''; ?>" title="Food Menu Hub">
                 <i class="fa-solid fa-utensils"></i>
                 <span>Food Menu Hub</span>
@@ -93,6 +105,14 @@ $unread_inquiries = (int) $pdo->query("SELECT COUNT(*) FROM inquiries WHERE stat
             <a href="settings.php" class="adm-nav-link <?php echo (in_array($current_script, ['settings.php', 'edit_section.php', 'rooms.php', 'gallery.php', 'testimonials.php', 'experiences.php', 'content.php']) && (($_GET['section'] ?? '') !== 'menu' && ($_GET['tab'] ?? '') !== 'menu')) ? 'active' : ''; ?>" title="Estate Settings">
                 <i class="fa-solid fa-sliders"></i>
                 <span>Estate Settings</span>
+            </a>
+        </li>
+
+        <li class="adm-nav-item">
+            <a href="user_manual.php" class="adm-nav-link <?php echo ($current_script === 'user_manual.php') ? 'active' : ''; ?>" title="User Manual & Onboarding Guide">
+                <i class="fa-solid fa-book-open"></i>
+                <span>User Manual</span>
+                <span class="adm-nav-badge" style="background: rgba(197, 160, 89, 0.25); color: #DFC289; border: 1px solid rgba(197, 160, 89, 0.4);">Guide</span>
             </a>
         </li>
     </ul>

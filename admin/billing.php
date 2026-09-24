@@ -378,6 +378,14 @@ $currency = get_setting('currency_symbol', '₹');
             <span class="adm-badge-count" style="padding: 2px 7px; border-radius: 12px; font-size: 11px; <?php echo ($active_tab === 'all') ? 'background: #101F15; color: #FFF;' : 'background: rgba(255,255,255,0.1); color: #FFF;'; ?>"><?php echo $tab_count_all; ?></span>
         </a>
 
+        <a href="edit_section.php?section=bank" 
+           class="adm-tab-btn" 
+           style="padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; margin-left: auto; background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35);" 
+           title="Configure Bank Account Number, IFSC, UPI ID & Payment QR">
+            <i class="fa-solid fa-building-columns"></i>
+            <span>Bank & UPI QR Settings</span>
+        </a>
+
     </div>
 
     <!-- Multi-Filter & Search Bar -->

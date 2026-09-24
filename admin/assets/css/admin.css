@@ -1843,7 +1843,9 @@ input, select, textarea {
 }
 
 .adm-settings-tab-pane.is-active {
-    display: block;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     animation: admFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -2557,10 +2559,11 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
 
 /* =========================================================================
    Food Forest — Split-Screen Live Real-Time Section Editor & Preview
+   Side-by-Side: Left (Editing Form) + Right (Live Preview)
    ========================================================================= */
 .adm-split-layout-wrapper {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(360px, 1.15fr) minmax(320px, 0.85fr) !important;
     gap: 20px !important;
     align-items: start !important;
     margin-top: 14px !important;
@@ -2574,6 +2577,8 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
     min-width: 0 !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
+    display: block !important;
+    visibility: visible !important;
 }
 
 .adm-preview-col {
@@ -2592,17 +2597,10 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
     box-sizing: border-box !important;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .adm-split-layout-wrapper {
-        grid-template-columns: 1fr !important;
-    }
-    .adm-editor-col {
-        grid-column: 1 / -1 !important;
-    }
-    .adm-preview-col {
-        grid-column: 1 / -1 !important;
-        position: static !important;
-        height: 600px !important;
+        grid-template-columns: minmax(280px, 1fr) minmax(260px, 1fr) !important;
+        gap: 14px !important;
     }
 }
 

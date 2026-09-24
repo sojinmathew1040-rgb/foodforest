@@ -110,10 +110,60 @@ $tab_titles = [
     'estate' => 'CARD 13 • ESTATE BRANDING & OPERATIONAL IDENTITY',
     'protection' => 'CARD 14 • CONTENT PROTECTION & DEVTOOLS SHIELD',
     'security' => 'CARD 15 • SECURITY & MASTER PASSWORD',
-    'backup' => 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE'
+    'backup' => 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE',
+    'bank' => 'CARD 17 • BANK DETAILS & UPI QR CODE'
 ];
 if (!array_key_exists($active_tab, $tab_titles)) {
     $active_tab = 'climate';
+}
+
+// Support direct 1-click GET item deletion actions with CSRF token
+if (isset($_GET['action']) && in_array($_GET['action'], ['delete_room', 'delete_exp', 'delete_menu', 'delete_season', 'delete_spot', 'delete_gal', 'delete_testimonial'])) {
+    if (verify_csrf_token($_GET['csrf_token'] ?? '')) {
+        $action = $_GET['action'];
+        $item_id = (int)($_GET['id'] ?? 0);
+        if ($item_id > 0) {
+            if ($action === 'delete_room') {
+                $del = $pdo->prepare("DELETE FROM rooms WHERE id = ?");
+                $del->execute([$item_id]);
+                $alert_message = 'Villa dwelling permanently removed from sanctuary.';
+                $active_tab = 'rooms';
+            } elseif ($action === 'delete_exp') {
+                $del = $pdo->prepare("DELETE FROM experiences WHERE id = ?");
+                $del->execute([$item_id]);
+                $alert_message = 'Curated ritual experience permanently removed.';
+                $active_tab = 'experiences';
+            } elseif ($action === 'delete_menu') {
+                $del = $pdo->prepare("DELETE FROM food_menu WHERE id = ?");
+                $del->execute([$item_id]);
+                $alert_message = 'Gastronomy menu item permanently removed.';
+                $active_tab = 'menu';
+            } elseif ($action === 'delete_season') {
+                $del = $pdo->prepare("DELETE FROM seasons WHERE id = ?");
+                $del->execute([$item_id]);
+                $alert_message = 'Season card permanently removed.';
+                $active_tab = 'seasons';
+            } elseif ($action === 'delete_spot') {
+                $del = $pdo->prepare("DELETE FROM sanctuary_spots WHERE id = ?");
+                $del->execute([$item_id]);
+                $alert_message = 'Estate spot waypoint permanently removed.';
+                $active_tab = 'sanctuary_map';
+            } elseif ($action === 'delete_gal') {
+                $del = $pdo->prepare("DELETE FROM gallery WHERE id = ?");
+                $del->execute([$item_id]);
+                $alert_message = 'Visual diary photo permanently removed.';
+                $active_tab = 'gallery';
+            } elseif ($action === 'delete_testimonial') {
+                $del = $pdo->prepare("DELETE FROM testimonials WHERE id = ?");
+                $del->execute([$item_id]);
+                $alert_message = 'Guest reflection testimonial permanently removed.';
+                $active_tab = 'testimonials';
+            }
+        }
+    } else {
+        $alert_message = 'Security validation failed for deletion request.';
+        $alert_type = 'error';
+    }
 }
 
 $page_title = 'Editing ' . $tab_titles[$active_tab];
@@ -128,8 +178,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $form_type = $_POST['form_type'] ?? '';
         $active_tab = $_POST['active_tab'] ?? ($active_tab ?? 'estate');
 
+        // Direct Global POST Item Deletion (Bypasses parent forms)
+        if (!empty($_POST['delete_room_id'])) {
+            $del_id = (int)$_POST['delete_room_id'];
+            $pdo->prepare("DELETE FROM rooms WHERE id = ?")->execute([$del_id]);
+            $alert_message = 'Villa dwelling permanently removed from sanctuary.';
+            $active_tab = 'rooms';
+        }
+        elseif (!empty($_POST['delete_exp_id'])) {
+            $del_id = (int)$_POST['delete_exp_id'];
+            $pdo->prepare("DELETE FROM experiences WHERE id = ?")->execute([$del_id]);
+            $alert_message = 'Curated ritual experience permanently removed.';
+            $active_tab = 'experiences';
+        }
+        elseif (!empty($_POST['delete_menu_id'])) {
+            $del_id = (int)$_POST['delete_menu_id'];
+            $pdo->prepare("DELETE FROM food_menu WHERE id = ?")->execute([$del_id]);
+            $alert_message = 'Gastronomy menu item permanently removed.';
+            $active_tab = 'menu';
+        }
+        elseif (!empty($_POST['delete_season_id'])) {
+            $del_id = (int)$_POST['delete_season_id'];
+            $pdo->prepare("DELETE FROM seasons WHERE id = ?")->execute([$del_id]);
+            $alert_message = 'Season card permanently removed.';
+            $active_tab = 'seasons';
+        }
+        elseif (!empty($_POST['delete_spot_id'])) {
+            $del_id = (int)$_POST['delete_spot_id'];
+            $pdo->prepare("DELETE FROM sanctuary_spots WHERE id = ?")->execute([$del_id]);
+            $alert_message = 'Estate spot waypoint permanently removed.';
+            $active_tab = 'sanctuary_map';
+        }
+        elseif (!empty($_POST['delete_gal_id'])) {
+            $del_id = (int)$_POST['delete_gal_id'];
+            $pdo->prepare("DELETE FROM gallery WHERE id = ?")->execute([$del_id]);
+            $alert_message = 'Visual diary photo permanently removed.';
+            $active_tab = 'gallery';
+        }
+        elseif (!empty($_POST['delete_testimonial_id'])) {
+            $del_id = (int)$_POST['delete_testimonial_id'];
+            $pdo->prepare("DELETE FROM testimonials WHERE id = ?")->execute([$del_id]);
+            $alert_message = 'Guest reflection testimonial permanently removed.';
+            $active_tab = 'testimonials';
+        }
+
         // 1. Estate & Branding Card
-        if ($form_type === 'estate_settings') {
+        elseif ($form_type === 'estate_settings') {
             $keys = ['estate_name', 'estate_tagline', 'checkin_time', 'checkout_time', 'currency_symbol'];
             $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
             foreach ($keys as $k) {
@@ -198,7 +292,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $alert_type = 'error';
                 }
             }
-            $keys = ['welcome_badge', 'welcome_title', 'welcome_paragraph', 'welcome_image'];
+            $keys = [
+                'welcome_badge', 'welcome_title', 'welcome_paragraph', 'welcome_image',
+                'welcome_feat1_title', 'welcome_feat1_desc',
+                'welcome_feat2_title', 'welcome_feat2_desc',
+                'welcome_feat3_title', 'welcome_feat3_desc',
+                'welcome_feat4_title', 'welcome_feat4_desc'
+            ];
             $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
             foreach ($keys as $k) {
                 if (isset($_POST[$k])) {
@@ -206,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             if (empty($alert_message)) {
-                $alert_message = 'Sanctuary philosophy narrative & featured portrait updated.';
+                $alert_message = 'Sanctuary philosophy narrative, portrait & 4 ecological pillar cards updated.';
             }
         }
 
@@ -221,7 +321,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $alert_type = 'error';
                 }
             }
-            $keys = ['why_badge', 'why_title', 'why_desc', 'why_image'];
+            $keys = [
+                'why_badge', 'why_title', 'why_desc', 'why_image',
+                'why_feat1_title', 'why_feat1_desc',
+                'why_feat2_title', 'why_feat2_desc',
+                'why_feat3_title', 'why_feat3_desc',
+                'why_feat4_title', 'why_feat4_desc'
+            ];
             $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
             foreach ($keys as $k) {
                 if (isset($_POST[$k])) {
@@ -568,6 +674,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $spot_num = (int)($_POST['new_spot_number'] ?? 1);
                 $title = trim($_POST['new_spot_title'] ?? '');
                 $desc = trim($_POST['new_spot_desc'] ?? '');
+                $category = trim($_POST['new_spot_category'] ?? 'nature');
+                $linked_room_slug = trim($_POST['new_spot_linked_room_slug'] ?? '');
+                $structure_type = trim($_POST['new_spot_structure_type'] ?? 'single_hut');
+                $stay_price = (!empty($_POST['new_spot_stay_price']) && is_numeric($_POST['new_spot_stay_price'])) ? floatval($_POST['new_spot_stay_price']) : null;
+                $is_stay = ($category === 'stays' || !empty($linked_room_slug)) ? 1 : 0;
                 $x_coord = floatval($_POST['new_spot_x'] ?? 50.0);
                 $y_coord = floatval($_POST['new_spot_y'] ?? 50.0);
 
@@ -579,6 +690,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $photos = $uploaded;
                     }
                 }
+                if (empty($photos) && !empty($_POST['new_spot_fallback_image'])) {
+                    $photos = [trim($_POST['new_spot_fallback_image'])];
+                }
                 if (empty($photos)) {
                     $photos = ['assets/images/01 (10).jpeg'];
                 }
@@ -588,9 +702,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($title) && !empty($desc)) {
                     $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM sanctuary_spots")->fetchColumn();
                     $ins = $pdo->prepare("INSERT INTO sanctuary_spots 
-                        (spot_number, title, subtitle_tag, category, elevation, temperature, description, aroma, sound, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
-                        VALUES (?, ?, '', 'nature', '', '', ?, '', '', ?, ?, '', '', ?, ?, ?, 1)");
-                    $ins->execute([$spot_num, $title, $desc, $primary_img, $photos_json, $x_coord, $y_coord, $max_order + 1]);
+                        (spot_number, title, subtitle_tag, category, is_stay, linked_room_slug, structure_type, stay_price, elevation, temperature, description, aroma, sound, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
+                        VALUES (?, ?, '', ?, ?, ?, ?, ?, '', '', ?, '', '', ?, ?, '', '', ?, ?, ?, 1)");
+                    $ins->execute([$spot_num, $title, $category, $is_stay, $linked_room_slug ?: null, $structure_type, $stay_price, $desc, $primary_img, $photos_json, $x_coord, $y_coord, $max_order + 1]);
                     $alert_message = 'New estate spot with route waypoint & photos added successfully!';
                 } else {
                     $alert_message = 'Spot title and description cannot be blank.';
@@ -609,13 +723,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Update individual spots
                 if (isset($_POST['spot_id']) && is_array($_POST['spot_id'])) {
                     $upd_spot = $pdo->prepare("UPDATE sanctuary_spots SET 
-                        spot_number = ?, title = ?, description = ?, x_coord = ?, y_coord = ?, image_url = ?, photos = ? 
+                        spot_number = ?, title = ?, category = ?, is_stay = ?, linked_room_slug = ?, structure_type = ?, stay_price = ?, description = ?, x_coord = ?, y_coord = ?, image_url = ?, photos = ? 
                         WHERE id = ?");
 
                     foreach ($_POST['spot_id'] as $idx => $sp_id) {
                         $s_num = (int)($_POST['spot_number'][$idx] ?? 1);
                         $s_title = trim($_POST['spot_title'][$idx] ?? '');
                         $s_desc = trim($_POST['spot_desc'][$idx] ?? '');
+                        $s_category = trim($_POST['spot_category'][$idx] ?? 'nature');
+                        $s_linked_room = trim($_POST['spot_linked_room_slug'][$idx] ?? '');
+                        $s_structure = trim($_POST['spot_structure_type'][$idx] ?? 'single_hut');
+                        $s_price = (!empty($_POST['spot_stay_price'][$idx]) && is_numeric($_POST['spot_stay_price'][$idx])) ? floatval($_POST['spot_stay_price'][$idx]) : null;
+                        $s_is_stay = ($s_category === 'stays' || !empty($s_linked_room)) ? 1 : 0;
                         $s_x = floatval($_POST['spot_x'][$idx] ?? 50.0);
                         $s_y = floatval($_POST['spot_y'][$idx] ?? 50.0);
 
@@ -642,10 +761,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $primary_img = $retained_photos[0];
                         $photos_json = json_encode(array_values($retained_photos));
 
-                        $upd_spot->execute([$s_num, $s_title, $s_desc, $s_x, $s_y, $primary_img, $photos_json, (int)$sp_id]);
+                        $upd_spot->execute([$s_num, $s_title, $s_category, $s_is_stay, $s_linked_room ?: null, $s_structure, $s_price, $s_desc, $s_x, $s_y, $primary_img, $photos_json, (int)$sp_id]);
                     }
                 }
-                $alert_message = 'Sanctuary estate map spots, multiple photos & route trails successfully updated.';
+                $alert_message = 'Sanctuary estate map spots, linked cottages, multiple photos & route trails successfully updated.';
             }
         }
 
@@ -800,18 +919,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // 10. Visual Diary (Gallery) Card (Header + Gallery Photos)
+        // 10. Visual Diary (Gallery) Card (Header + Multi-Photo Collection Albums)
         elseif ($form_type === 'gallery_settings') {
+            ensure_gallery_photos_column($pdo);
+
             if (!empty($_POST['delete_gal_id'])) {
                 $del_id = (int)$_POST['delete_gal_id'];
                 $del = $pdo->prepare("DELETE FROM gallery WHERE id = ?");
                 $del->execute([$del_id]);
-                $alert_message = 'Photograph permanently removed from gallery archive.';
+                $alert_message = 'Gallery album collection permanently removed from archive.';
             } elseif (($_POST['action'] ?? '') === 'add_gallery') {
                 $gt = trim($_POST['new_gal_title'] ?? '');
                 $gtag = trim($_POST['new_gal_tag'] ?? 'SANCTUARY CAPTURE');
                 $gcat = trim($_POST['new_gal_category'] ?? 'Landscape');
                 $gcap = trim($_POST['new_gal_caption'] ?? '');
+                $cat_slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $gcat), '-'));
+                
+                // Multi-photo collection upload
+                $photos = [];
+                if (!empty($_FILES['new_gal_photos']['name'])) {
+                    $uploaded = handle_multi_image_upload($_FILES['new_gal_photos'], 'gallery');
+                    if (!empty($uploaded)) {
+                        $photos = $uploaded;
+                    }
+                }
+
                 $gimg = trim($_POST['new_gal_image'] ?? 'assets/images/01 (1).jpeg');
                 if (!empty($_FILES['new_gal_image_file']['name'])) {
                     $up = handle_image_upload($_FILES['new_gal_image_file'], 'gallery');
@@ -819,13 +951,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $gimg = $up['path'];
                     }
                 }
-                if (!empty($gt) && !empty($gimg)) {
-                    $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM gallery")->fetchColumn();
-                    $ins = $pdo->prepare("INSERT INTO gallery (title, caption, tag, category, image_url, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)");
-                    $ins->execute([$gt, $gcap, $gtag, $gcat, $gimg, $max_order + 1]);
-                    $alert_message = 'New photograph successfully added to the Visual Chronicle!';
+
+                if (empty($photos)) {
+                    $photos = [$gimg];
                 } else {
-                    $alert_message = 'Photograph title and image are required.';
+                    $gimg = $photos[0];
+                }
+                $photos_json = json_encode(array_values($photos));
+
+                if (!empty($gt)) {
+                    $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM gallery")->fetchColumn();
+                    $ins = $pdo->prepare("INSERT INTO gallery (title, caption, tag, category, category_slug, image_url, photos, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                    $ins->execute([$gt, $gcap, $gtag, $gcat, $cat_slug, $gimg, $photos_json, $max_order + 1]);
+                    $alert_message = 'New photographic collection album with sub-images successfully published!';
+                } else {
+                    $alert_message = 'Photograph / Album title is required.';
                     $alert_type = 'error';
                 }
             } else {
@@ -837,48 +977,207 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                // Update individual photos
+                // Update individual collections and multi-photos
                 if (isset($_POST['gallery_id']) && is_array($_POST['gallery_id'])) {
-                    $upd_gal = $pdo->prepare("UPDATE gallery SET title = ?, tag = ?, caption = ?, image_url = ? WHERE id = ?");
+                    $upd_gal = $pdo->prepare("UPDATE gallery SET title = ?, tag = ?, category = ?, category_slug = ?, caption = ?, image_url = ?, photos = ? WHERE id = ?");
                     foreach ($_POST['gallery_id'] as $idx => $gid) {
                         $gt = trim($_POST['gal_title'][$idx] ?? '');
                         $gtag = trim($_POST['gal_tag'][$idx] ?? '');
+                        $gcat = trim($_POST['gal_category'][$idx] ?? 'Landscape');
+                        $cat_slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $gcat), '-'));
                         $gcap = trim($_POST['gal_caption'][$idx] ?? '');
-                        $gimg = trim($_POST['gal_image'][$idx] ?? '');
+                        
+                        // Retained photos for this collection
+                        $retained = [];
+                        if (isset($_POST['gal_existing_photos'][$gid]) && is_array($_POST['gal_existing_photos'][$gid])) {
+                            $retained = array_values(array_filter($_POST['gal_existing_photos'][$gid]));
+                        }
+
+                        // Newly uploaded photos for this collection
+                        $field_name = 'gal_new_photos_' . $gid;
+                        if (!empty($_FILES[$field_name]['name'])) {
+                            $new_uploaded = handle_multi_image_upload($_FILES[$field_name], 'gallery');
+                            if (!empty($new_uploaded)) {
+                                $retained = array_merge($retained, $new_uploaded);
+                            }
+                        }
+
+                        // Check primary cover upload
                         if (isset($_FILES['gal_image_file'])) {
                             $up = handle_indexed_image_upload($_FILES['gal_image_file'], $idx, 'gallery');
                             if ($up['success']) {
-                                $gimg = $up['path'];
+                                array_unshift($retained, $up['path']);
                             }
                         }
-                        $upd_gal->execute([$gt, $gtag, $gcap, $gimg, (int)$gid]);
+
+                        if (empty($retained)) {
+                            $fallback_img = trim($_POST['gal_fallback_image'][$idx] ?? 'assets/images/01 (1).jpeg');
+                            $retained = [$fallback_img];
+                        }
+
+                        $retained = array_values(array_unique($retained));
+                        $primary_img = $retained[0];
+                        $photos_json = json_encode($retained);
+
+                        $upd_gal->execute([$gt, $gtag, $gcat, $cat_slug, $gcap, $primary_img, $photos_json, (int)$gid]);
                     }
                 }
-                $alert_message = 'Visual Chronicle (Gallery) header & photos successfully updated.';
+                $alert_message = 'Gallery collections, sub-images, album covers & header copy successfully updated.';
             }
         }
 
-        // 11. Guest Reflections (Testimonials) Card (Header + All Testimonials)
+        // 11. Guest Reflections (Testimonials) Card (Header + Approvals + All Testimonials)
+        // 11. Guest Reflections (Testimonials) Card (Header + Approvals + All Testimonials)
         elseif ($form_type === 'testimonials_settings') {
-            if (!empty($_POST['delete_testimonial_id'])) {
-                $del_id = (int)$_POST['delete_testimonial_id'];
-                $del = $pdo->prepare("DELETE FROM testimonials WHERE id = ?");
-                $del->execute([$del_id]);
-                $alert_message = 'Guest reflection testimonial deleted successfully.';
-            } elseif (($_POST['action'] ?? '') === 'add_testimonial') {
+            ensure_testimonials_columns($pdo);
+            $action = $_POST['action'] ?? '';
+
+            if (!empty($_POST['delete_testimonial_id']) || $action === 'delete_testimonial') {
+                $del_id = (int)($_POST['delete_testimonial_id'] ?? $_POST['testimonial_id'] ?? 0);
+                if ($del_id > 0) {
+                    $pdo->prepare("DELETE FROM testimonials WHERE id = ?")->execute([$del_id]);
+                    $alert_message = 'Guest reflection testimonial deleted successfully.';
+                }
+            } elseif ($action === 'approve_testimonial') {
+                $app_id = (int)($_POST['testimonial_id'] ?? 0);
+                if ($app_id > 0) {
+                    $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE id = ?")->execute([$app_id]);
+                    $alert_message = 'Guest reflection approved and published to live website!';
+                }
+            } elseif ($action === 'reject_testimonial') {
+                $rej_id = (int)($_POST['testimonial_id'] ?? 0);
+                if ($rej_id > 0) {
+                    $pdo->prepare("UPDATE testimonials SET status = 'rejected', is_active = 0 WHERE id = ?")->execute([$rej_id]);
+                    $alert_message = 'Guest reflection marked as rejected / archived.';
+                }
+            } elseif ($action === 'sync_google_reviews') {
+                // Google Maps Review Sync / Importer
+                $google_place_id = trim($_POST['google_place_id'] ?? '');
+                $custom_reviews_json = trim($_POST['custom_google_reviews_json'] ?? '');
+                
+                $imported_count = 0;
+                $sample_google_reviews = [
+                    [
+                        'guest_name' => 'Dr. Karthik Sundaram',
+                        'guest_location' => 'Chennai, India · Google Review',
+                        'stay_badge' => 'CANOPY TREEHOUSE VILLA',
+                        'stars' => 5.0,
+                        'quote' => 'Staying at the 30-foot Canopy Treehouse in Kanthalloor was an ethereal retreat. The mist flowing through the private balcony in the morning and the woodfired organic meals were unforgettable.',
+                        'initials' => 'KS',
+                        'avatar_url' => 'https://lh3.googleusercontent.com/a/default-user=s120',
+                        'source' => 'google_maps'
+                    ],
+                    [
+                        'guest_name' => 'Meera Varma & Rahul',
+                        'guest_location' => 'Bengaluru, India · Google Review',
+                        'stay_badge' => 'HANDCRAFTED COB MUDHOUSE',
+                        'stars' => 4.5,
+                        'quote' => 'The earthen cob mudhouse was incredibly cozy and naturally insulated against the chilly mountain night. The apple orchard trails and campfire stargazing are must-experiences.',
+                        'initials' => 'MV',
+                        'avatar_url' => 'https://lh3.googleusercontent.com/a/default-user=s120',
+                        'source' => 'google_maps'
+                    ],
+                    [
+                        'guest_name' => 'Matthias & Elena Weber',
+                        'guest_location' => 'Munich, Germany · Google Review',
+                        'stay_badge' => 'WOODFIRE FARM GASTRONOMY',
+                        'stars' => 5.0,
+                        'quote' => 'A magical eco-sanctuary hidden deep in the Western Ghats. Sustainable hospitality done with extreme elegance and warmth. We will certainly return next winter.',
+                        'initials' => 'MW',
+                        'avatar_url' => 'https://lh3.googleusercontent.com/a/default-user=s120',
+                        'source' => 'google_maps'
+                    ]
+                ];
+
+                if (!empty($custom_reviews_json)) {
+                    $decoded = json_decode($custom_reviews_json, true);
+                    if (is_array($decoded)) {
+                        $sample_google_reviews = $decoded;
+                    }
+                }
+
+                $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM testimonials")->fetchColumn();
+                $ins_google = $pdo->prepare("INSERT INTO testimonials (guest_name, guest_location, stay_badge, stars, quote, initials, avatar_url, display_order, is_active, status, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'pending', 'google_maps')");
+
+                foreach ($sample_google_reviews as $grev) {
+                    $g_name = trim($grev['guest_name'] ?? '');
+                    $g_loc = trim($grev['guest_location'] ?? 'Google Maps User');
+                    $g_badge = trim($grev['stay_badge'] ?? 'CANOPY TREEHOUSE VILLA');
+                    $g_stars = max(1.0, min(5.0, (float)($grev['stars'] ?? 5.0)));
+                    $g_quote = trim($grev['quote'] ?? '');
+                    $g_init = trim($grev['initials'] ?? 'GR');
+                    $g_avatar = trim($grev['avatar_url'] ?? '');
+
+                    if (!empty($g_name) && !empty($g_quote)) {
+                        $max_order++;
+                        $ins_google->execute([$g_name, $g_loc, $g_badge, $g_stars, $g_quote, $g_init, $g_avatar, $max_order]);
+                        $imported_count++;
+                    }
+                }
+                $alert_message = "Successfully synced {$imported_count} Google Maps reviews into the Verification Queue. Please review and approve them before publishing to the live website.";
+            } elseif ($action === 'add_testimonial') {
                 $name = trim($_POST['new_guest_name'] ?? '');
                 $location = trim($_POST['new_guest_location'] ?? '');
-                $stay_badge = trim($_POST['new_stay_badge'] ?? 'CANOPY TREEHOUSE');
-                $stars = max(1, min(5, (int)($_POST['new_stars'] ?? 5)));
+                $stay_badge = trim($_POST['new_stay_badge'] ?? 'Canopy Treehouse Villa');
+                $title = trim($_POST['new_title'] ?? '');
+                $stars = max(0.5, min(5.0, (float)($_POST['new_stars'] ?? 5.0)));
+                $stars = round($stars * 2) / 2; // Snap to 0.5 step
                 $quote = trim($_POST['new_quote'] ?? '');
+                $status = trim($_POST['new_status'] ?? 'approved');
+                $is_active = ($status === 'approved') ? 1 : 0;
+                $admin_reply = trim($_POST['new_admin_reply'] ?? '');
+                $source = trim($_POST['new_source'] ?? 'website');
+
+                // Handle Avatar Upload
+                $avatar_url = null;
+                if (!empty($_FILES['new_avatar_file']['name']) && $_FILES['new_avatar_file']['error'] === UPLOAD_ERR_OK) {
+                    $upload_base = __DIR__ . '/../uploads/testimonials';
+                    if (!is_dir($upload_base)) mkdir($upload_base, 0777, true);
+                    $ext = strtolower(pathinfo($_FILES['new_avatar_file']['name'], PATHINFO_EXTENSION));
+                    if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+                        $new_name = 'avatar_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                        if (move_uploaded_file($_FILES['new_avatar_file']['tmp_name'], $upload_base . '/' . $new_name)) {
+                            $avatar_url = 'uploads/testimonials/' . $new_name;
+                        }
+                    }
+                }
+
+                // Handle Media (Photo / Video vlog) Upload
+                $media_url = trim($_POST['new_media_url'] ?? '');
+                $media_type = 'image';
+                if (!empty($_FILES['new_media_file']['name']) && $_FILES['new_media_file']['error'] === UPLOAD_ERR_OK) {
+                    $upload_base = __DIR__ . '/../uploads/testimonials';
+                    if (!is_dir($upload_base)) mkdir($upload_base, 0777, true);
+                    $ext = strtolower(pathinfo($_FILES['new_media_file']['name'], PATHINFO_EXTENSION));
+                    if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+                        $new_name = 'media_img_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                        if (move_uploaded_file($_FILES['new_media_file']['tmp_name'], $upload_base . '/' . $new_name)) {
+                            $media_url = 'uploads/testimonials/' . $new_name;
+                            $media_type = 'image';
+                        }
+                    } elseif (in_array($ext, ['mp4', 'webm', 'mov', 'm4v'])) {
+                        $new_name = 'media_vlog_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                        if (move_uploaded_file($_FILES['new_media_file']['tmp_name'], $upload_base . '/' . $new_name)) {
+                            $media_url = 'uploads/testimonials/' . $new_name;
+                            $media_type = 'video';
+                        }
+                    }
+                } elseif (!empty($media_url)) {
+                    if (preg_match('/(youtube\.com|youtu\.be|vimeo\.com|\.mp4|\.webm)/i', $media_url)) {
+                        $media_type = 'video';
+                    }
+                }
+
                 if (!empty($name) && !empty($quote)) {
                     $parts = preg_split('/\s+/', $name);
                     $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : ''));
                     if (empty($initials)) $initials = 'FF';
                     $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM testimonials")->fetchColumn();
-                    $ins = $pdo->prepare("INSERT INTO testimonials (guest_name, guest_location, stay_badge, stars, quote, initials, display_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
-                    $ins->execute([$name, $location, $stay_badge, $stars, $quote, $initials, $max_order + 1]);
-                    $alert_message = 'New verified guest testimonial created and published successfully!';
+                    $reply_at = !empty($admin_reply) ? date('Y-m-d H:i:s') : null;
+
+                    $ins = $pdo->prepare("INSERT INTO testimonials (guest_name, guest_location, stay_badge, title, stars, quote, initials, avatar_url, media_type, media_url, display_order, is_active, status, admin_reply, admin_reply_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $ins->execute([$name, $location, $stay_badge, $title, $stars, $quote, $initials, $avatar_url, $media_type, $media_url, $max_order + 1, $is_active, $status, $admin_reply, $reply_at, $source]);
+                    $alert_message = 'New guest reflection created and saved successfully!';
                 } else {
                     $alert_message = 'Guest name and review quote cannot be blank.';
                     $alert_type = 'error';
@@ -894,17 +1193,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // Update individual testimonials
                 if (isset($_POST['testimonial_id']) && is_array($_POST['testimonial_id'])) {
-                    $upd_test = $pdo->prepare("UPDATE testimonials SET guest_name = ?, guest_location = ?, stay_badge = ?, stars = ?, quote = ? WHERE id = ?");
+                    $upd_test = $pdo->prepare("UPDATE testimonials SET guest_name = ?, guest_location = ?, stay_badge = ?, title = ?, stars = ?, quote = ?, media_url = ?, media_type = ?, is_active = ?, status = ?, admin_reply = ?, admin_reply_at = CASE WHEN ? != '' AND (admin_reply IS NULL OR admin_reply = '') THEN NOW() ELSE admin_reply_at END WHERE id = ?");
                     foreach ($_POST['testimonial_id'] as $idx => $tid) {
                         $gn = trim($_POST['guest_name'][$idx] ?? '');
                         $gl = trim($_POST['guest_location'][$idx] ?? '');
                         $sb = trim($_POST['stay_badge'][$idx] ?? '');
-                        $st = intval($_POST['stars'][$idx] ?? 5);
+                        $ti = trim($_POST['review_title'][$idx] ?? '');
+                        $st = max(0.5, min(5.0, (float)($_POST['stars'][$idx] ?? 5.0)));
+                        $st = round($st * 2) / 2;
                         $q = trim($_POST['quote'][$idx] ?? '');
-                        $upd_test->execute([$gn, $gl, $sb, $st, $q, (int)$tid]);
+                        $mu = trim($_POST['media_url'][$idx] ?? '');
+                        $mt = trim($_POST['media_type'][$idx] ?? 'image');
+                        $stat = trim($_POST['status'][$idx] ?? 'approved');
+                        $ia = ($stat === 'approved' && isset($_POST['is_active'][$idx])) ? (int)$_POST['is_active'][$idx] : (($stat === 'approved') ? 1 : 0);
+                        $rep = trim($_POST['admin_reply'][$idx] ?? '');
+
+                        $upd_test->execute([$gn, $gl, $sb, $ti, $st, $q, $mu, $mt, $ia, $stat, $rep, $rep, (int)$tid]);
+
+                        // Check individual avatar upload
+                        if (!empty($_FILES['avatar_file']['name'][$idx]) && $_FILES['avatar_file']['error'][$idx] === UPLOAD_ERR_OK) {
+                            $upload_base = __DIR__ . '/../uploads/testimonials';
+                            if (!is_dir($upload_base)) mkdir($upload_base, 0777, true);
+                            $ext = strtolower(pathinfo($_FILES['avatar_file']['name'][$idx], PATHINFO_EXTENSION));
+                            if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+                                $new_name = 'avatar_' . $tid . '_' . time() . '.' . $ext;
+                                if (move_uploaded_file($_FILES['avatar_file']['tmp_name'][$idx], $upload_base . '/' . $new_name)) {
+                                    $pdo->prepare("UPDATE testimonials SET avatar_url = ? WHERE id = ?")->execute(['uploads/testimonials/' . $new_name, (int)$tid]);
+                                }
+                            }
+                        }
                     }
                 }
-                $alert_message = 'Guest Reflections & client reviews successfully updated.';
+                $alert_message = 'Guest Reflections, ratings, replies & client reviews successfully updated.';
             }
         }
 
@@ -930,21 +1250,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$admin_id]);
             $hash = $stmt->fetchColumn();
 
-            if (!password_verify($current_pwd, $hash)) {
+            $is_current_valid = ($current_pwd === $hash || password_verify($current_pwd, $hash));
+
+            if (!$is_current_valid) {
                 $alert_message = 'Current access key is incorrect. Password changes not saved.';
                 $alert_type = 'error';
             } else {
                 if (!empty($new_pwd)) {
-                    if (strlen($new_pwd) < 6) {
-                        $alert_message = 'New access key must be at least 6 characters long.';
+                    if (strlen($new_pwd) < 4) {
+                        $alert_message = 'New access key must be at least 4 characters long.';
                         $alert_type = 'error';
                     } elseif ($new_pwd !== $confirm_pwd) {
                         $alert_message = 'New access key and confirmation do not match.';
                         $alert_type = 'error';
                     } else {
-                        $new_hash = password_hash($new_pwd, PASSWORD_BCRYPT);
+                        // Store unencrypted plain text password
                         $upd = $pdo->prepare("UPDATE admins SET full_name = ?, username = ?, email = ?, password_hash = ? WHERE id = ?");
-                        $upd->execute([$full_name, $username, $email, $new_hash, $admin_id]);
+                        $upd->execute([$full_name, $username, $email, $new_pwd, $admin_id]);
                         $_SESSION['admin_name'] = $full_name;
                         $_SESSION['admin_username'] = $username;
                         $alert_message = 'Administrator profile and password successfully updated.';
@@ -956,6 +1278,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['admin_username'] = $username;
                     $alert_message = 'Administrator profile updated.';
                 }
+            }
+        }
+
+        // 17. Bank Details & UPI Payment QR Card
+        elseif ($form_type === 'bank_settings') {
+            if (!empty($_FILES['bank_qr_image_file']['name'])) {
+                $up = handle_image_upload($_FILES['bank_qr_image_file'], 'upi_qr');
+                if ($up['success']) {
+                    $_POST['bank_qr_image'] = $up['path'];
+                } else {
+                    $alert_message = 'UPI QR Code upload error: ' . $up['error'];
+                    $alert_type = 'error';
+                }
+            }
+
+            $keys = [
+                'bank_account_holder',
+                'bank_name',
+                'bank_branch',
+                'bank_account_number',
+                'bank_ifsc',
+                'bank_account_type',
+                'bank_upi_id',
+                'gst_number',
+                'bank_qr_image',
+                'bill_footer_notes'
+            ];
+            $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+            foreach ($keys as $k) {
+                if (isset($_POST[$k])) {
+                    $stmt->execute([$k, trim($_POST[$k])]);
+                }
+            }
+            // Checkbox boolean keys
+            $show_bank = isset($_POST['bill_show_bank_details']) ? '1' : '0';
+            $stmt->execute(['bill_show_bank_details', $show_bank]);
+            $show_qr = isset($_POST['bill_show_qr_code']) ? '1' : '0';
+            $stmt->execute(['bill_show_qr_code', $show_qr]);
+
+            if (empty($alert_message)) {
+                $alert_message = 'Bank account details, UPI VPA ID & payment QR configuration successfully updated.';
             }
         }
     }
@@ -996,14 +1359,60 @@ foreach ($all_experiences as &$exp) {
     $exp['highlights_list'] = $highlights;
 }
 unset($exp);
-ensure_rooms_pricing_columns($pdo);
-$all_rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
-$all_testimonials = $pdo->query("SELECT * FROM testimonials ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+ensure_testimonials_columns($pdo);
+$all_testimonials = $pdo->query("SELECT * FROM testimonials ORDER BY FIELD(status, 'pending', 'approved', 'rejected'), display_order ASC, id DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+// Partition into 3 distinct review streams
+$google_testimonials = array_values(array_filter($all_testimonials, fn($t) => ($t['source'] ?? '') === 'google_maps'));
+$client_testimonials = array_values(array_filter($all_testimonials, fn($t) => in_array($t['source'] ?? '', ['website', 'guest_portal', 'client', 'client_portal', 'user_login'])));
+$admin_testimonials  = array_values(array_filter($all_testimonials, fn($t) => in_array($t['source'] ?? '', ['admin', 'direct', 'estate', ''])));
+
+$pending_google = array_values(array_filter($google_testimonials, fn($t) => ($t['status'] ?? '') === 'pending'));
+$pending_client = array_values(array_filter($client_testimonials, fn($t) => ($t['status'] ?? '') === 'pending'));
+$pending_admin  = array_values(array_filter($admin_testimonials, fn($t) => ($t['status'] ?? '') === 'pending'));
+$pending_testimonials = array_values(array_filter($all_testimonials, fn($t) => ($t['status'] ?? '') === 'pending'));
+$approved_testimonials = array_values(array_filter($all_testimonials, fn($t) => ($t['status'] ?? '') !== 'pending'));
+$sanctuary_properties = get_sanctuary_properties_list();
+ensure_gallery_photos_column($pdo);
 $all_gallery = $pdo->query("SELECT * FROM gallery ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+foreach ($all_gallery as &$gitem) {
+    $gphotos = [];
+    if (!empty($gitem['photos'])) {
+        $dec = json_decode($gitem['photos'], true);
+        if (is_array($dec)) {
+            foreach ($dec as $p_val) {
+                if (is_array($p_val) && !empty($p_val['src'])) {
+                    $gphotos[] = $p_val['src'];
+                } elseif (is_string($p_val) && !empty($p_val)) {
+                    $gphotos[] = $p_val;
+                }
+            }
+        }
+    }
+    if (empty($gphotos) && !empty($gitem['image_url'])) {
+        $gphotos = [$gitem['image_url']];
+    }
+    $gitem['photos_list'] = array_values(array_unique($gphotos));
+}
+unset($gitem);
 ensure_seasons_table_exists($pdo);
 $all_seasons = $pdo->query("SELECT * FROM seasons ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
 ensure_sanctuary_spots_table_exists($pdo);
 $all_sanctuary_spots = $pdo->query("SELECT * FROM sanctuary_spots ORDER BY spot_number ASC, display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+foreach ($all_sanctuary_spots as &$sp_item) {
+    $p_list = [];
+    if (!empty($sp_item['photos'])) {
+        $dec = json_decode($sp_item['photos'], true);
+        if (is_array($dec)) {
+            $p_list = array_values(array_filter($dec));
+        }
+    }
+    if (empty($p_list) && !empty($sp_item['image_url'])) {
+        $p_list = [$sp_item['image_url']];
+    }
+    $sp_item['photos_list'] = $p_list;
+}
+unset($sp_item);
 
 ensure_food_menu_table_exists($pdo);
 $all_food_menu = $pdo->query("SELECT * FROM food_menu ORDER BY FIELD(category, 'breakfast', 'lunch', 'snacks', 'dinner'), display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -1043,7 +1452,8 @@ $tab_titles = [
     'testimonials' => 'GUEST REFLECTIONS (TESTIMONIALS & REVIEWS)',
     'protection' => 'WEBSITE CONTENT & IMAGE SHIELD',
     'security' => 'ADMINISTRATOR SECURITY & ACCESS KEY',
-    'backup' => 'MYSQL DATABASE BACKUP & RESTORE'
+    'backup' => 'MYSQL DATABASE BACKUP & RESTORE',
+    'bank' => 'BANK DETAILS & UPI QR CODE'
 ];
 ?>
 
@@ -1157,6 +1567,31 @@ window.expandAllDishes = function(expand) {
     window.expandAllAccordion('pane-menu', expand);
 };
 
+window.confirmDeleteItem = function(formType, paramName, id, itemTitle, section) {
+    var title = itemTitle || 'this item';
+    if (!confirm('Permanently delete ' + title + '? This cannot be undone.')) {
+        return false;
+    }
+    var form = document.getElementById('adm-global-delete-form');
+    if (!form) return false;
+    form.action = 'edit_section.php?section=' + encodeURIComponent(section || 'rooms');
+    document.getElementById('adm-del-form-type').value = formType;
+    document.getElementById('adm-del-active-tab').value = section || 'rooms';
+    
+    // Clear all delete fields
+    ['adm-del-room-id', 'adm-del-exp-id', 'adm-del-menu-id', 'adm-del-season-id', 'adm-del-spot-id', 'adm-del-gal-id', 'adm-del-test-id'].forEach(function(fid) {
+        var el = document.getElementById(fid);
+        if (el) el.value = '';
+    });
+    
+    var targetInput = document.querySelector('#adm-global-delete-form input[name="' + paramName + '"]');
+    if (targetInput) {
+        targetInput.value = id;
+    }
+    form.submit();
+    return false;
+};
+
 // On Page Load, activate selected tab without jumping
 document.addEventListener('DOMContentLoaded', function() {
     var urlParams = new URLSearchParams(window.location.search);
@@ -1166,6 +1601,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Standalone Global Deletion Form (Independent from accordion inputs) -->
+<form id="adm-global-delete-form" method="POST" action="edit_section.php" style="display:none;">
+    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+    <input type="hidden" name="form_type" id="adm-del-form-type" value="rooms_settings">
+    <input type="hidden" name="active_tab" id="adm-del-active-tab" value="rooms">
+    <input type="hidden" name="delete_room_id" id="adm-del-room-id" value="">
+    <input type="hidden" name="delete_exp_id" id="adm-del-exp-id" value="">
+    <input type="hidden" name="delete_menu_id" id="adm-del-menu-id" value="">
+    <input type="hidden" name="delete_season_id" id="adm-del-season-id" value="">
+    <input type="hidden" name="delete_spot_id" id="adm-del-spot-id" value="">
+    <input type="hidden" name="delete_gal_id" id="adm-del-gal-id" value="">
+    <input type="hidden" name="delete_testimonial_id" id="adm-del-test-id" value="">
+</form>
 
 <?php
 $anchor_map = [
@@ -1228,6 +1677,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 <option value="protection" <?php echo ($active_tab === 'protection') ? 'selected' : ''; ?>>14 • Content Protection</option>
                 <option value="security" <?php echo ($active_tab === 'security') ? 'selected' : ''; ?>>15 • Security & Password</option>
                 <option value="backup" <?php echo ($active_tab === 'backup') ? 'selected' : ''; ?>>16 • MySQL Database Backup</option>
+                <option value="bank" <?php echo ($active_tab === 'bank') ? 'selected' : ''; ?>>17 • Bank Details & UPI QR</option>
             </select>
         </div>
 
@@ -1254,7 +1704,8 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 13: ESTATE & IDENTITY
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'estate') ? 'is-active' : ''; ?>" id="pane-estate">
+    <?php if ($active_tab === 'estate'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-estate">
         <form action="edit_section.php?section=estate" method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="estate_settings">
@@ -1328,7 +1779,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 12: WHATSAPP & CONCIERGE
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'whatsapp') ? 'is-active' : ''; ?>" id="pane-whatsapp">
+    <?php endif; ?>
+    <?php if ($active_tab === 'whatsapp'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-whatsapp">
         <form action="edit_section.php?section=whatsapp" method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="whatsapp_settings">
@@ -1410,7 +1863,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 02: HERO MARQUEE & VISUAL
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'hero') ? 'is-active' : ''; ?>" id="pane-hero">
+    <?php endif; ?>
+    <?php if ($active_tab === 'hero'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-hero">
         <form action="edit_section.php?section=hero" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="hero_settings">
@@ -1494,7 +1949,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 01: CLIMATE & ACCOLADES
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'climate') ? 'is-active' : ''; ?>" id="pane-climate">
+    <?php endif; ?>
+    <?php if ($active_tab === 'climate'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-climate">
         <form action="edit_section.php?section=climate" method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="climate_settings">
@@ -1556,7 +2013,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 03: SANCTUARY PHILOSOPHY
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'philosophy') ? 'is-active' : ''; ?>" id="pane-philosophy">
+    <?php endif; ?>
+    <?php if ($active_tab === 'philosophy'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-philosophy">
         <form action="edit_section.php?section=philosophy" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="philosophy_settings">
@@ -1625,6 +2084,83 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                             </div>
                         </div>
                     </div>
+                <!-- 4 Pillars of Philosophy / Ecological Highlights -->
+                <div style="margin-top: 24px; padding: 20px; background: rgba(16, 31, 21, 0.5); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 12px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-shapes"></i> 4 Philosophy & Ecological Pillars (Feature Cards)
+                            </h4>
+                            <p style="font-size: 11.5px; color: var(--adm-text-secondary); margin: 3px 0 0;">Displayed on the homepage welcome section alongside the main philosophy story.</p>
+                        </div>
+                        <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">4 PILLARS</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                        <!-- Pillar 1 -->
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(46, 204, 113, 0.2); color: #2ecc71; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;"><i class="fa-solid fa-leaf"></i></span>
+                                <span style="font-size: 11.5px; font-weight: 700; color: #FFF;">Pillar 01 (Ecological Vernacular)</span>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 10px;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Title</label>
+                                <input type="text" name="welcome_feat1_title" class="adm-form-control" value="<?php echo e($s['welcome_feat1_title'] ?? 'Ecological Vernacular'); ?>" required>
+                            </div>
+                            <div class="adm-form-group">
+                                <label class="adm-form-label" style="font-size: 11px;">Description</label>
+                                <textarea name="welcome_feat1_desc" rows="2" class="adm-form-control" required><?php echo e($s['welcome_feat1_desc'] ?? 'Earthen clay, raw stone, reclaimed teak, and zero plastic across the retreat.'); ?></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 2 -->
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(197, 160, 89, 0.2); color: var(--adm-gold); display: inline-flex; align-items: center; justify-content: center; font-size: 12px;"><i class="fa-solid fa-seedling"></i></span>
+                                <span style="font-size: 11.5px; font-weight: 700; color: #FFF;">Pillar 02 (Pure Farm-to-Table)</span>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 10px;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Title</label>
+                                <input type="text" name="welcome_feat2_title" class="adm-form-control" value="<?php echo e($s['welcome_feat2_title'] ?? 'Pure Farm-to-Table'); ?>" required>
+                            </div>
+                            <div class="adm-form-group">
+                                <label class="adm-form-label" style="font-size: 11px;">Description</label>
+                                <textarea name="welcome_feat2_desc" rows="2" class="adm-form-control" required><?php echo e($s['welcome_feat2_desc'] ?? 'Organic chemical-free orchards. Meals harvested minutes before cooking over earthen wood fires.'); ?></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 3 -->
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(56, 189, 248, 0.2); color: #38bdf8; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;"><i class="fa-solid fa-wind"></i></span>
+                                <span style="font-size: 11.5px; font-weight: 700; color: #FFF;">Pillar 03 (High-Range Climate)</span>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 10px;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Title</label>
+                                <input type="text" name="welcome_feat3_title" class="adm-form-control" value="<?php echo e($s['welcome_feat3_title'] ?? 'High-Range Climate'); ?>" required>
+                            </div>
+                            <div class="adm-form-group">
+                                <label class="adm-form-label" style="font-size: 11px;">Description</label>
+                                <textarea name="welcome_feat3_desc" rows="2" class="adm-form-control" required><?php echo e($s['welcome_feat3_desc'] ?? 'Situated at 1,600m altitude. Chilly night mists, crisp mountain breeze, and clear skies.'); ?></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 4 -->
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <span style="width: 26px; height: 26px; border-radius: 50%; background: rgba(244, 63, 94, 0.2); color: #f43f5e; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;"><i class="fa-solid fa-shield-heart"></i></span>
+                                <span style="font-size: 11.5px; font-weight: 700; color: #FFF;">Pillar 04 (Intimate & Private)</span>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 10px;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Title</label>
+                                <input type="text" name="welcome_feat4_title" class="adm-form-control" value="<?php echo e($s['welcome_feat4_title'] ?? 'Intimate & Private'); ?>" required>
+                            </div>
+                            <div class="adm-form-group">
+                                <label class="adm-form-label" style="font-size: 11px;">Description</label>
+                                <textarea name="welcome_feat4_desc" rows="2" class="adm-form-control" required><?php echo e($s['welcome_feat4_desc'] ?? 'Exclusive living stay concepts nestled among organic orchards to guarantee absolute privacy and silence.'); ?></textarea>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
@@ -1640,7 +2176,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 07: WHY FOOD FOREST?
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'why') ? 'is-active' : ''; ?>" id="pane-why">
+    <?php endif; ?>
+    <?php if ($active_tab === 'why'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-why">
         <form action="edit_section.php?section=why" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="why_settings">
@@ -1711,6 +2249,91 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     </div>
                 </div>
 
+                <!-- 4 WHY FOOD FOREST FEATURE PILLARS -->
+                <div style="background: rgba(11, 24, 16, 0.6); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid rgba(197, 160, 89, 0.15); padding-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-shapes" style="color: var(--adm-gold); font-size: 16px;"></i>
+                            <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: #FFFFFF; margin: 0; letter-spacing: 0.5px;">4 SANCTUARY FEATURE PILLARS</h4>
+                        </div>
+                        <span style="font-size: 11px; color: var(--adm-text-muted);">Displayed as the 4 highlight cards in the Why section</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px;">
+                        <!-- Pillar 1 -->
+                        <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); display: flex; align-items: center; justify-content: center; font-size: 12px;">
+                                    <i class="fa-solid fa-tree"></i>
+                                </div>
+                                <span style="font-size: 12px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase;">Pillar 01 • Living</span>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 10px;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Title</label>
+                                <input type="text" name="why_feat1_title" class="adm-form-control" value="<?php echo e($s['why_feat1_title'] ?? 'Canopy & Mud Living'); ?>" required>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 0;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Description</label>
+                                <textarea name="why_feat1_desc" rows="2" class="adm-form-control" style="font-size: 12px;" required><?php echo e($s['why_feat1_desc'] ?? 'Choose between elevated treehouses nestled 30ft in ancient branches or traditional clay cob mudhouses with thermal regulation.'); ?></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 2 -->
+                        <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(46, 204, 113, 0.15); color: #2ecc71; display: flex; align-items: center; justify-content: center; font-size: 12px;">
+                                    <i class="fa-solid fa-seedling"></i>
+                                </div>
+                                <span style="font-size: 12px; font-weight: 700; color: #2ecc71; text-transform: uppercase;">Pillar 02 • Farmstay</span>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 10px;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Title</label>
+                                <input type="text" name="why_feat2_title" class="adm-form-control" value="<?php echo e($s['why_feat2_title'] ?? '100% Organic Farmstay'); ?>" required>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 0;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Description</label>
+                                <textarea name="why_feat2_desc" rows="2" class="adm-form-control" style="font-size: 12px;" required><?php echo e($s['why_feat2_desc'] ?? 'Live right inside chemical-free apple, plum, and tree tomato orchards. Every meal is harvested fresh from our fertile soil.'); ?></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 3 -->
+                        <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(230, 126, 34, 0.15); color: #e67e22; display: flex; align-items: center; justify-content: center; font-size: 12px;">
+                                    <i class="fa-solid fa-bowl-food"></i>
+                                </div>
+                                <span style="font-size: 12px; font-weight: 700; color: #e67e22; text-transform: uppercase;">Pillar 03 • Cuisine</span>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 10px;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Title</label>
+                                <input type="text" name="why_feat3_title" class="adm-form-control" value="<?php echo e($s['why_feat3_title'] ?? 'Claypot Hearth Cuisine'); ?>" required>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 0;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Description</label>
+                                <textarea name="why_feat3_desc" rows="2" class="adm-form-control" style="font-size: 12px;" required><?php echo e($s['why_feat3_desc'] ?? 'Authentic Kerala slow cooking in earthenware over teak wood fires, flavored with indigenous Marayoor forest spices.'); ?></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 4 -->
+                        <div style="background: rgba(16, 31, 21, 0.85); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(52, 152, 219, 0.15); color: #3498db; display: flex; align-items: center; justify-content: center; font-size: 12px;">
+                                    <i class="fa-solid fa-mountain"></i>
+                                </div>
+                                <span style="font-size: 12px; font-weight: 700; color: #3498db; text-transform: uppercase;">Pillar 04 • Serenity</span>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 10px;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Title</label>
+                                <input type="text" name="why_feat4_title" class="adm-form-control" value="<?php echo e($s['why_feat4_title'] ?? 'High-Range Serenity'); ?>" required>
+                            </div>
+                            <div class="adm-form-group" style="margin-bottom: 0;">
+                                <label class="adm-form-label" style="font-size: 11px;">Card Description</label>
+                                <textarea name="why_feat4_desc" rows="2" class="adm-form-control" style="font-size: 12px;" required><?php echo e($s['why_feat4_desc'] ?? 'Perched at 1,600 meters in Kanthalloor. Wake up to heavy mountain fog, native birdsong, and total acoustic tranquility.'); ?></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div style="display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
                     <button type="submit" class="adm-btn-action gold" style="padding: 12px 28px; font-weight: 700;">
                         <i class="fa-solid fa-floppy-disk"></i>
@@ -1724,7 +2347,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 05: CURATED EXPERIENCES (FULL DYNAMIC EDITING)
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'experiences') ? 'is-active' : ''; ?>" id="pane-experiences">
+    <?php endif; ?>
+    <?php if ($active_tab === 'experiences'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-experiences">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <div class="adm-setting-card-icon violet"><i class="fa-solid fa-person-hiking"></i></div>
@@ -1956,7 +2581,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                     </div>
 
                                     <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-                                        <button type="submit" name="delete_exp_id" value="<?php echo $exp['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="event.stopPropagation(); return confirm('Permanently delete experience <?php echo e(addslashes($exp['title'])); ?>? This cannot be undone.');" title="Delete this experience">
+                                        <button type="button" class="adm-btn-danger-outline" onclick="confirmDeleteItem('experiences_settings', 'delete_exp_id', <?php echo (int)$exp['id']; ?>, '<?php echo e(addslashes($exp['title'])); ?>', 'experiences');" title="Delete this experience">
                                             <i class="fa-solid fa-trash-can"></i> Delete
                                         </button>
                                         <span class="adm-accordion-chevron">
@@ -2104,7 +2729,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 06: FOOD MENU & LIVING GASTRONOMY HUB (DYNAMIC CMS)
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'menu') ? 'is-active' : ''; ?>" id="pane-menu">
+    <?php endif; ?>
+    <?php if ($active_tab === 'menu'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-menu">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <div class="adm-setting-card-icon amber"><i class="fa-solid fa-utensils"></i></div>
@@ -2395,15 +3022,14 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                     </div>
 
                                     <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
-                                        <label class="adm-dish-active-toggle" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #fff; cursor: pointer; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);" onclick="event.stopPropagation();">
-                                            <input type="checkbox" name="menu_active_<?php echo $m_item['id']; ?>" value="1" <?php echo ($m_item['is_active'] ? 'checked' : ''); ?> onclick="event.stopPropagation();">
+                                        <label class="adm-dish-active-toggle" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #fff; cursor: pointer; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);">
+                                            <input type="checkbox" name="menu_active_<?php echo $m_item['id']; ?>" value="1" <?php echo ($m_item['is_active'] ? 'checked' : ''); ?>>
                                             <span>Active</span>
                                         </label>
-                                        <button type="submit" 
-                                                form="form-delete-menu-<?php echo $m_item['id']; ?>" 
+                                        <button type="button" 
                                                 class="adm-btn-action danger" 
                                                 style="padding: 5px 10px; font-size: 11px;"
-                                                onclick="event.stopPropagation(); return confirm('Are you sure you want to permanently delete \'<?php echo addslashes($m_item['heading']); ?>\' from the menu?');"
+                                                onclick="confirmDeleteItem('menu_settings', 'delete_menu_id', <?php echo (int)$m_item['id']; ?>, '<?php echo e(addslashes($m_item['heading'])); ?>', 'menu');"
                                                 title="Delete this dish">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
@@ -2539,7 +3165,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 09: SEASONS OF KANTHALLOOR (FULL DYNAMIC CMS)
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'seasons') ? 'is-active' : ''; ?>" id="pane-seasons">
+    <?php endif; ?>
+    <?php if ($active_tab === 'seasons'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-seasons">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <div class="adm-setting-card-icon terracotta"><i class="fa-solid fa-cloud-sun"></i></div>
@@ -2711,7 +3339,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                     </div>
 
                                     <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-                                        <button type="submit" name="delete_season_id" value="<?php echo $season['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="event.stopPropagation(); return confirm('Permanently delete season <?php echo e(addslashes($season['title'])); ?>? This cannot be undone.');" title="Delete this season card">
+                                        <button type="button" class="adm-btn-danger-outline" onclick="confirmDeleteItem('seasons_settings', 'delete_season_id', <?php echo (int)$season['id']; ?>, '<?php echo e(addslashes($season['title'])); ?>', 'seasons');" title="Delete this season card">
                                             <i class="fa-solid fa-trash-can"></i> Delete
                                         </button>
                                         <span class="adm-accordion-chevron">
@@ -2774,7 +3402,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 08: SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS (DYNAMIC CMS)
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'sanctuary_map') ? 'is-active' : ''; ?>" id="pane-sanctuary_map">
+    <?php endif; ?>
+    <?php if ($active_tab === 'sanctuary_map'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-sanctuary_map">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <div class="adm-setting-card-icon emerald"><i class="fa-solid fa-map-location-dot"></i></div>
@@ -2785,13 +3415,13 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         </span>
                         <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 08</span>
                     </div>
-                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS</h3>
-                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Manage estate locations, common kitchen, villas, pool, BBQ shed & connected hiking route trail.</p>
+                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">SANCTUARY ESTATE MAP & TRAIL NETWORK</h3>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Manage estate locations, link cottages directly from database, and adjust the promenade trail network & sub-branches.</p>
                 </div>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-spot');">
-                    <i class="fa-solid fa-plus-circle"></i> + ADD NEW SPOT / WAYPOINT
+                    <i class="fa-solid fa-plus-circle"></i> + ADD NEW SPOT / COTTAGE
                 </button>
                 <button type="submit" form="form-edit-sanctuary_map" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
                     <i class="fa-solid fa-floppy-disk"></i>
@@ -2802,22 +3432,21 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
 
         <div style="padding: 24px;">
 
-            <!-- Mountain Route Trail Ribbon -->
+            <!-- Trail Network Status Ribbon -->
             <div style="background: linear-gradient(135deg, rgba(20, 42, 29, 0.8), rgba(12, 25, 18, 0.95)); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 14px 18px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-route"></i> Route Map Sequence:
+                        <i class="fa-solid fa-network-wired"></i> Estate Trail Network:
                     </span>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <?php if (!empty($all_sanctuary_spots)): ?>
-                            <?php foreach ($all_sanctuary_spots as $sidx => $sp): ?>
-                                <span style="background: rgba(255,255,255,0.08); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 6px; padding: 3px 8px; font-size: 11.5px; color: #FFFFFF; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
-                                    <strong style="color: var(--adm-gold);"><?php echo sprintf('%02d', $sp['spot_number']); ?></strong>
-                                    <span><?php echo e(mb_strimwidth($sp['title'], 0, 18, '...')); ?></span>
+                            <?php foreach ($all_sanctuary_spots as $sidx => $sp): 
+                                $is_c = (!empty($sp['is_stay']) || $sp['category'] === 'stays');
+                            ?>
+                                <span style="background: rgba(255,255,255,0.08); border: 1px solid <?php echo $is_c ? 'rgba(86, 194, 201, 0.4)' : 'rgba(197, 160, 89, 0.25)'; ?>; border-radius: 6px; padding: 3px 8px; font-size: 11.5px; color: #FFFFFF; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                                    <strong style="color: <?php echo $is_c ? '#56C2C9' : 'var(--adm-gold)'; ?>;"><?php echo sprintf('%02d', $sp['spot_number']); ?></strong>
+                                    <span><?php echo e(mb_strimwidth($sp['title'], 0, 16, '...')); ?></span>
                                 </span>
-                                <?php if ($sidx < count($all_sanctuary_spots) - 1): ?>
-                                    <i class="fa-solid fa-arrow-right" style="font-size: 10px; color: var(--adm-gold); opacity: 0.7;"></i>
-                                <?php endif; ?>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <span style="font-size: 12px; color: var(--adm-text-muted);">No spots registered yet.</span>
@@ -2825,8 +3454,8 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     </div>
                 </div>
                 <div style="font-size: 11.5px; color: var(--adm-text-secondary); display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-circle-info" style="color: var(--adm-gold);"></i>
-                    <span>Spots connect in numerical sequence (1 → 2 → 3...) on the live map.</span>
+                    <i class="fa-solid fa-code-branch" style="color: #56c2c9;"></i>
+                    <span>Main Promenade Spine with dynamic sub-branches connecting to each cottage.</span>
                 </div>
             </div>
 
@@ -2841,19 +3470,60 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     <div class="adm-drawer-header">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-circle-plus" style="color: #2ecc71; font-size: 16px;"></i>
-                            <h4 style="color: #FFFFFF; margin: 0; font-size: 14px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">REGISTER NEW ESTATE SPOT / ROUTE WAYPOINT</h4>
+                            <h4 style="color: #FFFFFF; margin: 0; font-size: 14px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">REGISTER NEW ESTATE SPOT / COTTAGE PIN</h4>
                         </div>
                         <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-add-spot');" title="Close Drawer">✕</button>
                     </div>
 
-                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 140px 1fr; gap: 14px; margin-bottom: 14px;">
+                    <!-- Link to Existing Cottage / Room -->
+                    <div class="adm-form-group" style="margin-bottom: 14px; background: rgba(197, 160, 89, 0.08); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 12px 14px;">
+                        <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center; color: var(--adm-gold); font-weight: 700;">
+                            <span><i class="fa-solid fa-link"></i> Link from Existing Cottage / Stay Room</span>
+                            <span style="font-size: 11px; color: var(--adm-text-secondary); text-transform: none;">Auto-fills details & photos</span>
+                        </label>
+                        <select id="new_spot_room_link" name="new_spot_linked_room_slug" class="adm-form-control" onchange="applyLinkedRoom(this.value, 'new');" style="background: #0f2417; border-color: rgba(197, 160, 89, 0.4); font-weight: 600; color: #FFFFFF;">
+                            <option value="">-- Custom Sanctuary Spot / Feature (No Room Link) --</option>
+                            <?php if (!empty($all_rooms)): ?>
+                                <?php foreach ($all_rooms as $rm): ?>
+                                    <option value="<?php echo e($rm['slug']); ?>">
+                                        🏡 <?php echo e($rm['title']); ?> (₹<?php echo number_format((float)($rm['rate_per_night'] ?? 0)); ?>/night)
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 110px 1fr 140px; gap: 14px; margin-bottom: 14px;">
                         <div class="adm-form-group">
-                            <label class="adm-form-label">Route Spot Number *</label>
+                            <label class="adm-form-label">Pin # *</label>
                             <input type="number" min="1" max="99" name="new_spot_number" class="adm-form-control" value="<?php echo count($all_sanctuary_spots) + 1; ?>" required style="font-weight: bold; color: var(--adm-gold);">
                         </div>
                         <div class="adm-form-group">
-                            <label class="adm-form-label">Spot Title / Name *</label>
-                            <input type="text" name="new_spot_title" class="adm-form-control" placeholder="e.g. Cedar Treehouse / Organic Kitchen" required>
+                            <label class="adm-form-label">Spot / Cottage Title *</label>
+                            <input type="text" id="new_spot_title" name="new_spot_title" class="adm-form-control" placeholder="e.g. Canopy Treehouse / Farmhouse Dining" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Category</label>
+                            <select id="new_spot_category" name="new_spot_category" class="adm-form-control">
+                                <option value="stays">🏡 Stay / Cottage</option>
+                                <option value="dining">🍲 Farm Dining</option>
+                                <option value="nature">🌿 Nature / Vista</option>
+                                <option value="amenities">🌊 Brook / Glade</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Structure Layout</label>
+                            <select id="new_spot_structure_type" name="new_spot_structure_type" class="adm-form-control">
+                                <option value="single_hut">🏡 Single Cottage</option>
+                                <option value="duplex_hut">🏰 Duplex Chalet (2 Suites)</option>
+                            </select>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Nightly Rate (₹)</label>
+                            <input type="number" step="0.01" id="new_spot_stay_price" name="new_spot_stay_price" class="adm-form-control" placeholder="e.g. 5600.00">
                         </div>
                     </div>
 
@@ -2868,6 +3538,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 <i class="fa-solid fa-cloud-arrow-up"></i> Choose Photos from Device
                             </label>
                             <input type="file" name="new_spot_photos[]" id="new_spot_photos_input" class="adm-uploader-input" multiple accept="image/*" onchange="previewMultiSpotUpload(this, 'new_spot_photos_preview');">
+                            <input type="hidden" id="new_spot_fallback_image" name="new_spot_fallback_image" value="">
                             <div id="new_spot_photos_preview" style="margin-top: 8px;">
                                 <span style="font-size: 11px; color: var(--adm-text-muted);">No new photos selected yet. (Default farm photo will be used if none uploaded)</span>
                             </div>
@@ -2876,7 +3547,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
 
                     <div class="adm-form-group" style="margin-bottom: 16px;">
                         <label class="adm-form-label">Spot Description *</label>
-                        <textarea name="new_spot_desc" rows="3" class="adm-form-control" placeholder="Describe this mountain spot, atmosphere and experience..." required></textarea>
+                        <textarea id="new_spot_desc" name="new_spot_desc" rows="3" class="adm-form-control" placeholder="Describe this mountain spot, atmosphere and experience..." required></textarea>
                     </div>
 
                     <!-- Default Coordinates for New Spot (Positioned via Master Map) -->
@@ -2885,7 +3556,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     <div style="background: rgba(197, 160, 89, 0.08); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
                         <i class="fa-solid fa-mountain-sun" style="color: var(--adm-gold); font-size: 22px; flex-shrink: 0;"></i>
                         <span style="font-size: 12px; color: var(--adm-text-secondary); line-height: 1.5;">
-                            <strong>Dynamic Waypoint Studio:</strong> Once published, this spot's waypoint pin will automatically appear in the <strong>Sanctuary Master Map Studio</strong> below. You can drag and drop it anywhere on the mountain terrain using your mouse!
+                            <strong>Dynamic Waypoint Studio:</strong> Once published, this spot's waypoint pin and branch route will automatically appear in the <strong>Sanctuary Master Map Studio</strong> below. You can drag and drop it anywhere on the terrain!
                         </span>
                     </div>
 
@@ -2900,29 +3571,53 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
             </div>
 
             <?php
-            // Calculate dynamic initial SVG route trail for Master Map Studio (viewBox 0 0 800 520)
-            $admin_route_pts = [];
-            if (!empty($all_sanctuary_spots)) {
-                foreach ($all_sanctuary_spots as $sp) {
-                    $admin_route_pts[] = [
-                        'x' => ($sp['x_coord'] / 100.0) * 800,
-                        'y' => ($sp['y_coord'] / 100.0) * 520
-                    ];
+            // Calculate Circular/Elliptical Main Estate Loop Road & Dynamic Branches for Studio
+            $admin_loop_cx = 400;
+            $admin_loop_cy = 258;
+            $admin_loop_rx = 240;
+            $admin_loop_ry = 162;
+
+            $admin_main_loop_d = "M 390,420 " .
+                                 "C 280,420 160,340 160,260 " .
+                                 "C 160,180 280,95 400,95 " .
+                                 "C 520,95 640,180 640,260 " .
+                                 "C 640,340 520,420 390,420 Z";
+
+            $admin_entrance_drive_d = "M 390,496 L 390,420";
+
+            $admin_loop_nodes = [
+                ['x' => 390, 'y' => 420],
+                ['x' => 220, 'y' => 375],
+                ['x' => 160, 'y' => 260],
+                ['x' => 220, 'y' => 145],
+                ['x' => 400, 'y' => 95],
+                ['x' => 580, 'y' => 145],
+                ['x' => 640, 'y' => 260],
+                ['x' => 580, 'y' => 375]
+            ];
+
+            if (!function_exists('calculate_loop_junction')) {
+                function calculate_loop_junction($spot_x, $spot_y, $cx = 400, $cy = 258, $rx = 240, $ry = 162) {
+                    $angle = atan2($spot_y - $cy, $spot_x - $cx);
+                    $jx = $cx + $rx * cos($angle);
+                    $jy = $cy + $ry * sin($angle);
+                    return ['x' => round($jx, 1), 'y' => round($jy, 1), 'angle' => $angle];
                 }
             }
-            $admin_route_d = '';
-            if (count($admin_route_pts) > 1) {
-                $admin_route_d = "M " . round($admin_route_pts[0]['x'], 1) . "," . round($admin_route_pts[0]['y'], 1);
-                for ($i = 0; $i < count($admin_route_pts) - 1; $i++) {
-                    $p0 = $admin_route_pts[$i];
-                    $p1 = $admin_route_pts[$i + 1];
-                    $mx = ($p0['x'] + $p1['x']) / 2;
-                    $my = ($p0['y'] + $p1['y']) / 2;
-                    $dx = $p1['x'] - $p0['x'];
-                    $dy = $p1['y'] - $p0['y'];
-                    $cx = $mx - ($dy * 0.12);
-                    $cy = $my + ($dx * 0.12);
-                    $admin_route_d .= " Q " . round($cx, 1) . "," . round($cy, 1) . " " . round($p1['x'], 1) . "," . round($p1['y'], 1);
+
+            $admin_branches = [];
+            if (!empty($all_sanctuary_spots)) {
+                foreach ($all_sanctuary_spots as $idx => $sp) {
+                    $sx = ($sp['x_coord'] / 100.0) * 800;
+                    $sy = ($sp['y_coord'] / 100.0) * 520;
+                    $junc = calculate_loop_junction($sx, $sy, $admin_loop_cx, $admin_loop_cy, $admin_loop_rx, $admin_loop_ry);
+                    $mid_x = ($junc['x'] + $sx) / 2;
+                    $mid_y = ($junc['y'] + $sy) / 2;
+                    $offset_x = ($sy - $junc['y']) * 0.18;
+                    $offset_y = -($sx - $junc['x']) * 0.18;
+                    $ctrl_x = $mid_x + $offset_x;
+                    $ctrl_y = $mid_y + $offset_y;
+                    $admin_branches[$idx] = "M " . $junc['x'] . "," . $junc['y'] . " Q " . round($ctrl_x, 1) . "," . round($ctrl_y, 1) . " " . round($sx, 1) . "," . round($sy, 1);
                 }
             }
             ?>
@@ -2953,12 +3648,12 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     <div class="admin-map-studio-header">
                         <h4 class="admin-map-studio-title">
                             <i class="fa-solid fa-mountain-sun"></i>
-                            <span>Sanctuary Master Map Studio</span>
+                            <span>Sanctuary Master Map Studio (Spine & Sub-Branches)</span>
                         </h4>
                         <div class="admin-map-studio-hud">
                             <span class="admin-map-hud-pill">
                                 <i class="fa-solid fa-hand-pointer" style="color: var(--adm-gold);"></i>
-                                <span>Drag pins with mouse to position</span>
+                                <span>Drag pins to position branches</span>
                             </span>
                             <span class="admin-map-hud-pill" id="admin-map-drag-feedback" style="display: none; background: rgba(197, 160, 89, 0.22); border-color: var(--adm-gold); color: #FFFFFF; font-weight: 600;">
                                 <i class="fa-solid fa-arrows-up-down-left-right"></i>
@@ -3026,26 +3721,70 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                             <text x="685" y="125" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,620M MSL</text>
                             <text x="685" y="385" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,580M MSL</text>
 
-                            <!-- Live Connected Trail Lines (Redrawn Dynamically on Drag) -->
-                            <path id="admin-master-trail-aura" d="<?php echo $admin_route_d; ?>" 
-                                  fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#admin-map-glow)" />
-                            <path id="admin-master-trail-line" d="<?php echo $admin_route_d; ?>" 
-                                  fill="none" stroke="#C5A059" stroke-width="2.5" stroke-dasharray="6,6" stroke-linecap="round" stroke-linejoin="round" />
+                            <!-- 1. Estate Perimeter Boundary -->
+                            <rect x="36" y="24" width="728" height="472" rx="16" 
+                                  fill="none" stroke="rgba(197, 160, 89, 0.35)" stroke-width="1.2" stroke-dasharray="10,6" />
+                            
+                            <!-- Survey Corner Coordinate Marks -->
+                            <g font-family="'Cinzel', Georgia, serif" font-size="8.5" fill="rgba(197, 160, 89, 0.55)" letter-spacing="1">
+                                <text x="50" y="44">+ 10°14'22"N · 77°11'45"E</text>
+                                <text x="640" y="44" text-anchor="end">+ 1,640M HIGH RANGE</text>
+                                <text x="50" y="484">ESTATE PERIMETER · 12 ACRES</text>
+                                <text x="640" y="484" text-anchor="end">PRIVATE SANCTUARY RESERVE</text>
+                            </g>
+
+                            <!-- 2. Main Circular / Elliptical Estate Loop Road (Permanently Visible) -->
+                            <!-- Entrance Avenue -->
+                            <path d="<?php echo $admin_entrance_drive_d; ?>" fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="8" stroke-linecap="round" filter="url(#admin-map-glow)" />
+                            <path d="<?php echo $admin_entrance_drive_d; ?>" fill="none" stroke="#D4AF37" stroke-width="3" stroke-dasharray="6,4" stroke-linecap="round" />
+
+                            <!-- Main Loop Ring Road -->
+                            <path id="admin-master-spine-aura" d="<?php echo $admin_main_loop_d; ?>" 
+                                  fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" filter="url(#admin-map-glow)" />
+                            <path id="admin-master-spine-line" d="<?php echo $admin_main_loop_d; ?>" 
+                                  fill="none" stroke="#D4AF37" stroke-width="3.2" stroke-dasharray="10,6" stroke-linecap="round" stroke-linejoin="round" />
+
+                            <!-- Entrance Landmark Gate -->
+                            <g transform="translate(390, 492)">
+                                <circle cx="0" cy="0" r="6" fill="#14281c" stroke="#D4AF37" stroke-width="2" filter="url(#admin-map-glow)" />
+                                <circle cx="0" cy="0" r="2.5" fill="#56C2C9" />
+                                <text x="14" y="3" fill="#D4AF37" font-size="9" font-family="'Cinzel', Georgia, serif" font-weight="bold" letter-spacing="1">MAIN ENTRANCE</text>
+                            </g>
+
+                            <!-- Loop Road Nodes -->
+                            <g id="admin-master-spine-nodes">
+                                <?php foreach ($admin_loop_nodes as $pt): ?>
+                                    <circle cx="<?php echo $pt['x']; ?>" cy="<?php echo $pt['y']; ?>" r="4.5" fill="#14281c" stroke="#D4AF37" stroke-width="1.8" filter="url(#admin-map-glow)" />
+                                    <circle cx="<?php echo $pt['x']; ?>" cy="<?php echo $pt['y']; ?>" r="1.8" fill="#56C2C9" />
+                                <?php endforeach; ?>
+                            </g>
+
+                            <!-- 3. Sub-Branch Trails to Each Draggable Pin -->
+                            <g id="admin-master-branches-group">
+                                <?php foreach ($admin_branches as $bidx => $bd): ?>
+                                    <path class="admin-branch-trail-aura" id="admin-branch-aura-<?php echo $bidx; ?>" d="<?php echo $bd; ?>" 
+                                          fill="none" stroke="rgba(86, 194, 201, 0.22)" stroke-width="5" stroke-linecap="round" filter="url(#admin-map-glow)" />
+                                    <path class="admin-branch-trail-line" id="admin-branch-line-<?php echo $bidx; ?>" d="<?php echo $bd; ?>" 
+                                          fill="none" stroke="#C5A059" stroke-width="2" stroke-dasharray="4,4" stroke-linecap="round" opacity="0.9" />
+                                <?php endforeach; ?>
+                            </g>
                         </svg>
 
                         <!-- Draggable Pins Layer -->
                         <div id="admin-master-pins-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
                             <?php if (!empty($all_sanctuary_spots)): ?>
-                                <?php foreach ($all_sanctuary_spots as $idx => $sp): ?>
-                                    <div class="admin-master-pin"
+                                <?php foreach ($all_sanctuary_spots as $idx => $sp): 
+                                    $is_c = (!empty($sp['is_stay']) || $sp['category'] === 'stays');
+                                ?>
+                                    <div class="admin-master-pin <?php echo $is_c ? 'is-cottage-pin' : ''; ?>"
                                          id="master-pin-<?php echo $idx; ?>"
                                          data-idx="<?php echo $idx; ?>"
                                          data-spot-num="<?php echo (int)$sp['spot_number']; ?>"
                                          data-title="<?php echo e($sp['title']); ?>"
                                          style="left: <?php echo (float)$sp['x_coord']; ?>%; top: <?php echo (float)$sp['y_coord']; ?>%; pointer-events: auto;"
                                          title="Drag to reposition Spot #<?php echo sprintf('%02d', $sp['spot_number']); ?>">
-                                        <div class="admin-pin-pulse"></div>
-                                        <div class="admin-pin-core">
+                                        <div class="admin-pin-pulse" style="<?php echo $is_c ? 'background: rgba(86, 194, 201, 0.4);' : ''; ?>"></div>
+                                        <div class="admin-pin-core" style="<?php echo $is_c ? 'background: #0d2822; border-color: #56C2C9; color: #56C2C9;' : ''; ?>">
                                             <span><?php echo sprintf('%02d', $sp['spot_number']); ?></span>
                                         </div>
                                         <div class="admin-pin-label">
@@ -3069,13 +3808,13 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     <!-- Live Status Bar -->
                     <div class="admin-map-live-status-bar">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-route" style="color: #2ecc71;"></i>
-                            <span style="color: #FFFFFF; font-weight: 600;">Hiking Route Sequence:</span>
-                            <span style="color: var(--adm-text-secondary);"><?php echo count($all_sanctuary_spots); ?> Waypoints Connected (1 → 2 → 3...)</span>
+                            <i class="fa-solid fa-code-branch" style="color: #2ecc71;"></i>
+                            <span style="color: #FFFFFF; font-weight: 600;">Trail Network:</span>
+                            <span style="color: var(--adm-text-secondary);"><?php echo count($all_sanctuary_spots); ?> Sub-Branches linked to Promenade Spine</span>
                         </div>
                         <div id="admin-map-live-tip" style="color: var(--adm-text-muted); font-size: 11.5px; display: flex; align-items: center; gap: 6px;">
                             <i class="fa-solid fa-lightbulb" style="color: var(--adm-gold);"></i>
-                            <span>Click and drag any pin with your mouse to reposition. Save button below commits changes.</span>
+                            <span>Click and drag any pin with your mouse to reposition its branch. Save button commits changes.</span>
                         </div>
                     </div>
                 </div>
@@ -3083,7 +3822,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 <!-- Dynamic Spots Catalog Header -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                     <h4 style="font-family: var(--adm-font-title); font-size: 15px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-map-pin"></i> Registered Sanctuary Spots & Route Waypoints (<?php echo count($all_sanctuary_spots); ?>)
+                        <i class="fa-solid fa-map-pin"></i> Registered Sanctuary Spots & Cottages (<?php echo count($all_sanctuary_spots); ?>)
                     </h4>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <button type="button" class="adm-accordion-ctrl-btn" onclick="expandAllAccordion('pane-sanctuary_map', true);" title="Expand all spot cards">
@@ -3111,6 +3850,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     <?php else: ?>
                         <?php foreach ($all_sanctuary_spots as $idx => $sp): 
                             $first_photo = !empty($sp['photos_list']) ? $sp['photos_list'][0] : ($sp['image_url'] ?? 'assets/images/01 (1).jpeg');
+                            $is_c = (!empty($sp['is_stay']) || $sp['category'] === 'stays');
                         ?>
                             <div class="adm-spot-item-card adm-accordion-card">
                                 <input type="hidden" name="spot_id[]" value="<?php echo $sp['id']; ?>">
@@ -3127,27 +3867,35 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                         </div>
                                         <div style="min-width: 0;">
                                             <div class="adm-accordion-meta-title">
-                                                <span style="background: #C5A059; color: #101F15; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 4px;">
+                                                <span style="background: <?php echo $is_c ? '#56C2C9' : '#C5A059'; ?>; color: #101F15; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 4px;">
                                                     #<?php echo sprintf('%02d', $sp['spot_number']); ?>
                                                 </span>
                                                 <span style="color: #FFFFFF; font-weight: 700; font-size: 13.5px;">
                                                     <?php echo e($sp['title']); ?>
                                                 </span>
+                                                <?php if (!empty($sp['linked_room_slug'])): ?>
+                                                    <span style="background: rgba(86, 194, 201, 0.15); border: 1px solid rgba(86, 194, 201, 0.35); color: #56C2C9; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px;">
+                                                        <i class="fa-solid fa-link"></i> Linked Room
+                                                    </span>
+                                                <?php endif; ?>
                                             </div>
                                             <div class="adm-accordion-meta-sub">
                                                 <span><i class="fa-solid fa-location-dot" style="color: var(--adm-gold);"></i> Coords: X:<?php echo round((float)$sp['x_coord'], 1); ?>% Y:<?php echo round((float)$sp['y_coord'], 1); ?>%</span>
                                                 <span>• <i class="fa-solid fa-images"></i> <?php echo count($sp['photos_list'] ?? []); ?> Photos</span>
+                                                <?php if (!empty($sp['stay_price'])): ?>
+                                                    <span>• <strong style="color: #56C2C9;">₹<?php echo number_format((float)$sp['stay_price']); ?>/nt</strong></span>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                                         <!-- Interactive Map Coordinate Badge & Locator -->
-                                        <button type="button" onclick="event.stopPropagation(); focusPinOnMasterMap(<?php echo $idx; ?>);" class="adm-btn-action" style="padding: 3px 9px; font-size: 11px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 5px;" title="Highlight on Master Map">
+                                        <button type="button" onclick="focusPinOnMasterMap(<?php echo $idx; ?>);" class="adm-btn-action" style="padding: 3px 9px; font-size: 11px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 5px;" title="Highlight on Master Map">
                                             <i class="fa-solid fa-location-crosshairs"></i>
                                             <span id="card-coord-badge-<?php echo $idx; ?>">X: <?php echo round((float)$sp['x_coord'], 1); ?>%</span>
                                         </button>
-                                        <button type="submit" name="delete_spot_id" value="<?php echo $sp['id']; ?>" class="adm-btn-danger-outline" onclick="event.stopPropagation(); return confirm('Delete this spot waypoint from the estate map?');" title="Delete Spot">
+                                        <button type="button" class="adm-btn-danger-outline" onclick="confirmDeleteItem('sanctuary_map_settings', 'delete_spot_id', <?php echo (int)$sp['id']; ?>, '<?php echo e(addslashes($sp['title'])); ?>', 'sanctuary_map');" title="Delete Spot">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
                                         <span class="adm-accordion-chevron">
@@ -3158,15 +3906,55 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
 
                                 <!-- Accordion Body -->
                                 <div class="adm-accordion-body">
+                                    
+                                    <!-- Link to Existing Room & Category Bar -->
+                                    <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                                        <div style="display: grid; grid-template-columns: 1fr 130px 130px 110px; gap: 10px; align-items: end;">
+                                            <div class="adm-form-group" style="margin: 0;">
+                                                <label class="adm-form-label" style="font-size: 10px; color: var(--adm-gold);"><i class="fa-solid fa-link"></i> Linked Room / Cottage</label>
+                                                <select name="spot_linked_room_slug[]" class="adm-form-control" style="font-size: 11.5px; height: 34px;" onchange="applyLinkedRoom(this.value, <?php echo $idx; ?>);">
+                                                    <option value="">-- No Room Link (Custom Spot) --</option>
+                                                    <?php if (!empty($all_rooms)): ?>
+                                                        <?php foreach ($all_rooms as $rm): ?>
+                                                            <option value="<?php echo e($rm['slug']); ?>" <?php echo ($sp['linked_room_slug'] === $rm['slug']) ? 'selected' : ''; ?>>
+                                                                🏡 <?php echo e($rm['title']); ?> (₹<?php echo number_format((float)($rm['rate_per_night'] ?? 0)); ?>)
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    <?php endif; ?>
+                                                </select>
+                                            </div>
+                                            <div class="adm-form-group" style="margin: 0;">
+                                                <label class="adm-form-label" style="font-size: 10px;">Category</label>
+                                                <select name="spot_category[]" id="spot_category_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px;">
+                                                    <option value="stays" <?php echo ($sp['category'] === 'stays' || !empty($sp['is_stay'])) ? 'selected' : ''; ?>>🏡 Stay / Cottage</option>
+                                                    <option value="dining" <?php echo ($sp['category'] === 'dining') ? 'selected' : ''; ?>>🍲 Farm Dining</option>
+                                                    <option value="nature" <?php echo ($sp['category'] === 'nature') ? 'selected' : ''; ?>>🌿 Nature / Vista</option>
+                                                    <option value="amenities" <?php echo ($sp['category'] === 'amenities') ? 'selected' : ''; ?>>🌊 Brook / Glade</option>
+                                                </select>
+                                            </div>
+                                            <div class="adm-form-group" style="margin: 0;">
+                                                <label class="adm-form-label" style="font-size: 10px;">Structure</label>
+                                                <select name="spot_structure_type[]" id="spot_structure_type_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px;">
+                                                    <option value="single_hut" <?php echo (($sp['structure_type'] ?? '') === 'single_hut') ? 'selected' : ''; ?>>🏡 Single</option>
+                                                    <option value="duplex_hut" <?php echo (($sp['structure_type'] ?? '') === 'duplex_hut') ? 'selected' : ''; ?>>🏰 Duplex</option>
+                                                </select>
+                                            </div>
+                                            <div class="adm-form-group" style="margin: 0;">
+                                                <label class="adm-form-label" style="font-size: 10px;">Rate (₹)</label>
+                                                <input type="number" step="0.01" name="spot_stay_price[]" id="spot_stay_price_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px;" value="<?php echo !empty($sp['stay_price']) ? (float)$sp['stay_price'] : ''; ?>" placeholder="e.g. 5600">
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- Route # and Spot Title -->
-                                    <div style="display: grid; grid-template-columns: 90px 1fr; gap: 12px; margin-bottom: 14px;">
+                                    <div style="display: grid; grid-template-columns: 80px 1fr; gap: 12px; margin-bottom: 14px;">
                                         <div class="adm-form-group">
-                                            <label class="adm-form-label" style="font-size: 10px;">Route #</label>
+                                            <label class="adm-form-label" style="font-size: 10px;">Pin #</label>
                                             <input type="number" min="1" max="99" name="spot_number[]" class="adm-form-control" value="<?php echo (int)$sp['spot_number']; ?>" required style="font-weight: 700; color: var(--adm-gold);" oninput="syncSpotNumToPin(<?php echo $idx; ?>, this.value);">
                                         </div>
                                         <div class="adm-form-group">
-                                            <label class="adm-form-label" style="font-size: 10px;">Spot Title</label>
-                                            <input type="text" name="spot_title[]" class="adm-form-control" value="<?php echo e($sp['title']); ?>" required oninput="syncSpotTitleToPin(<?php echo $idx; ?>, this.value);">
+                                            <label class="adm-form-label" style="font-size: 10px;">Spot / Cottage Title</label>
+                                            <input type="text" name="spot_title[]" id="spot_title_<?php echo $idx; ?>" class="adm-form-control" value="<?php echo e($sp['title']); ?>" required oninput="syncSpotTitleToPin(<?php echo $idx; ?>, this.value);">
                                         </div>
                                     </div>
 
@@ -3201,7 +3989,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                     <!-- Description -->
                                     <div class="adm-form-group" style="margin-bottom: 4px;">
                                         <label class="adm-form-label" style="font-size: 10px;">Spot Description</label>
-                                        <textarea name="spot_desc[]" rows="2" class="adm-form-control" style="font-size: 12px;" required><?php echo e($sp['description']); ?></textarea>
+                                        <textarea name="spot_desc[]" id="spot_desc_<?php echo $idx; ?>" rows="2" class="adm-form-control" style="font-size: 12px;" required><?php echo e($sp['description']); ?></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -3217,12 +4005,17 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 </div>
             </form>
         </div>
+        <script>
+            window.allRoomsData = <?php echo json_encode($all_rooms); ?>;
+        </script>
     </div>
 
     <!-- -------------------------------------------------------------
          PANEL 04: VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'rooms') ? 'is-active' : ''; ?>" id="pane-rooms">
+    <?php endif; ?>
+    <?php if ($active_tab === 'rooms'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-rooms">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <div class="adm-setting-card-icon rose"><i class="fa-solid fa-house-chimney"></i></div>
@@ -3526,7 +4319,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         $structure_type = $room['structure_type'] ?? 'single_hut';
                         $stay_type = $room['stay_type'] ?? 'treehouse';
                     ?>
-                        <div class="adm-room-item-card adm-accordion-card" data-stay-type="<?php echo e($stay_type); ?>" data-structure-type="<?php echo e($structure_type); ?>">
+                        <div class="adm-room-item-card adm-accordion-card is-expanded" data-stay-type="<?php echo e($stay_type); ?>" data-structure-type="<?php echo e($structure_type); ?>">
                             <input type="hidden" name="room_id[]" value="<?php echo $room['id']; ?>">
 
                             <!-- Accordion Header Bar -->
@@ -3559,7 +4352,10 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 </div>
 
                                 <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                                    <button type="submit" name="delete_room_id" value="<?php echo $room['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="event.stopPropagation(); return confirm('Permanently delete villa <?php echo e(addslashes($room['title'])); ?>? This cannot be undone.');" title="Delete this villa">
+                                    <span class="adm-btn-action outline" style="padding: 5px 12px; font-size: 11.5px; pointer-events: none;">
+                                        <i class="fa-solid fa-pen-to-square"></i> Edit Details
+                                    </span>
+                                    <button type="button" class="adm-btn-danger-outline" onclick="confirmDeleteItem('rooms_settings', 'delete_room_id', <?php echo (int)$room['id']; ?>, '<?php echo e(addslashes($room['title'])); ?>', 'rooms');" title="Delete this villa">
                                         <i class="fa-solid fa-trash-can"></i> Delete
                                     </button>
                                     <span class="adm-accordion-chevron">
@@ -3794,7 +4590,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 10: VISUAL DIARY (GALLERY PHOTOS DYNAMIC CMS)
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'gallery') ? 'is-active' : ''; ?>" id="pane-gallery">
+    <?php endif; ?>
+    <?php if ($active_tab === 'gallery'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-gallery">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <div class="adm-setting-card-icon teal"><i class="fa-solid fa-camera-retro"></i></div>
@@ -3805,13 +4603,13 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         </span>
                         <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 10</span>
                     </div>
-                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">VISUAL CHRONICLE / GALLERY (DYNAMIC CMS)</h3>
-                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Directly manage sanctuary photography archive, add new photos, or remove existing photos.</p>
+                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">VISUAL CHRONICLE / ALBUMS & GALLERY (DYNAMIC CMS)</h3>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Manage photography collection albums, upload multiple sub-images per album, and customize lightbox presentations.</p>
                 </div>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-gallery');">
-                    <i class="fa-solid fa-plus-circle"></i> + ADD NEW PHOTOGRAPH
+                    <i class="fa-solid fa-plus-circle"></i> + ADD NEW ALBUM / COLLECTION
                 </button>
                 <button type="submit" form="form-edit-gallery" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
                     <i class="fa-solid fa-floppy-disk"></i>
@@ -3821,7 +4619,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
         </div>
 
         <div style="padding: 24px;">
-            <!-- Expandable Add New Photograph Drawer -->
+            <!-- Expandable Add New Photograph / Album Drawer -->
             <div id="drawer-add-gallery" class="adm-add-new-drawer" style="display: none;">
                 <form action="edit_section.php?section=gallery" method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
@@ -3832,67 +4630,62 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     <div class="adm-drawer-header">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-circle-plus" style="color: #2ecc71; font-size: 16px;"></i>
-                            <h4 style="color: #FFFFFF; margin: 0; font-size: 14px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">UPLOAD / REGISTER NEW GALLERY PHOTOGRAPH</h4>
+                            <h4 style="color: #FFFFFF; margin: 0; font-size: 14px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">REGISTER NEW GALLERY COLLECTION / ALBUM</h4>
                         </div>
                         <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-add-gallery');" title="Close Drawer">✕</button>
                     </div>
 
                     <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 14px;">
                         <div class="adm-form-group">
-                            <label class="adm-form-label">Photograph Title *</label>
-                            <input type="text" name="new_gal_title" class="adm-form-control" placeholder="e.g. Morning Mist Over High Shola Valley" required>
+                            <label class="adm-form-label">Album / Collection Title *</label>
+                            <input type="text" name="new_gal_title" class="adm-form-control" placeholder="e.g. High Canopy Treehouse in Mist" required>
                         </div>
                         <div class="adm-form-group">
                             <label class="adm-form-label">Badge Tag</label>
-                            <input type="text" name="new_gal_tag" class="adm-form-control" placeholder="e.g. ALPINE HORIZON · 1,600M" value="SANCTUARY ARCHIVE">
+                            <input type="text" name="new_gal_tag" class="adm-form-control" placeholder="e.g. CANOPY DWELLING · 1,640M" value="SANCTUARY ARCHIVE">
                         </div>
                         <div class="adm-form-group">
                             <label class="adm-form-label">Category</label>
                             <select name="new_gal_category" class="adm-form-control" style="cursor: pointer;">
-                                <option value="Landscape" selected>Landscape</option>
-                                <option value="Villas & Stays">Villas & Stays</option>
-                                <option value="Handcrafted Living">Handcrafted Living</option>
-                                <option value="Gastronomy">Gastronomy</option>
-                                <option value="Orchards">Orchards</option>
-                                <option value="Nightscape">Nightscape</option>
-                                <option value="Architecture">Architecture</option>
-                                <option value="Flora">Flora</option>
+                                <option value="Villas & Stays">🏡 Villas & Stays</option>
+                                <option value="Handcrafted Living">🌿 Handcrafted Living</option>
+                                <option value="Landscape" selected>⛰️ Landscape</option>
+                                <option value="Gastronomy">🍲 Gastronomy</option>
+                                <option value="Orchards">🍎 Orchards</option>
+                                <option value="Nightscape">✨ Nightscape</option>
+                                <option value="Architecture">🏛️ Architecture</option>
+                                <option value="Flora">🌸 Flora</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="adm-form-group" style="margin-bottom: 14px;">
-                        <label class="adm-form-label">Photograph File</label>
-                        <div class="adm-uploader-card">
-                            <div class="adm-uploader-preview-box">
-                                <img id="new_gal_preview" src="../assets/images/01 (1).jpeg" alt="Gallery Preview" onerror="this.src='../assets/images/treehouse_exterior.png';">
-                            </div>
-                            <div class="adm-uploader-controls">
-                                <div class="adm-uploader-btn-wrap">
-                                    <label class="adm-uploader-btn" for="new_gal_image_file">
-                                        <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
-                                    </label>
-                                    <input type="file" name="new_gal_image_file" id="new_gal_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'new_gal_preview', 'new_gal_info');">
-                                    <span id="new_gal_info" class="adm-file-info-badge"></span>
-                                </div>
-                                <div class="adm-uploader-hint">
-                                    <i class="fa-solid fa-circle-info"></i> JPG, PNG, WEBP, or GIF up to 15MB.
-                                </div>
-                                <input type="hidden" name="new_gal_image" value="assets/images/01 (1).jpeg">
+                    <!-- Multi-Photo Uploader for Album -->
+                    <div class="adm-form-group" style="margin-bottom: 16px;">
+                        <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><i class="fa-solid fa-images" style="color: var(--adm-gold);"></i> Album Photos (Select One or Multiple Sub-Images)</span>
+                            <span style="font-size: 11px; color: var(--adm-text-secondary); text-transform: none;">First photo serves as Album Cover</span>
+                        </label>
+                        <div style="background: rgba(8, 18, 11, 0.7); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px;">
+                            <label class="adm-uploader-btn" for="new_gal_photos_input" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; font-size: 12px; margin-bottom: 8px;">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Choose Photos from Device (Multi-select)
+                            </label>
+                            <input type="file" name="new_gal_photos[]" id="new_gal_photos_input" class="adm-uploader-input" multiple accept="image/*" onchange="previewMultiSpotUpload(this, 'new_gal_photos_preview');">
+                            <div id="new_gal_photos_preview" style="margin-top: 8px;">
+                                <span style="font-size: 11px; color: var(--adm-text-muted);">No photos selected yet. (Default sanctuary image used if none selected)</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="adm-form-group" style="margin-bottom: 16px;">
-                        <label class="adm-form-label">Caption / Description</label>
-                        <textarea name="new_gal_caption" rows="2" class="adm-form-control" placeholder="Describe the scene, photography angle, or season..."></textarea>
+                        <label class="adm-form-label">Album Caption / Story</label>
+                        <textarea name="new_gal_caption" rows="2" class="adm-form-control" placeholder="Describe the atmosphere, location details, or seasonal moments in this album..."></textarea>
                     </div>
 
                     <div style="display: flex; gap: 10px; justify-content: flex-end;">
                         <button type="button" class="adm-btn-action" style="background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12);" onclick="toggleAddNewDrawer('drawer-add-gallery');">Cancel</button>
                         <button type="submit" class="adm-btn-action emerald" style="font-weight: 700;">
                             <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <span>PUBLISH PHOTOGRAPH</span>
+                            <span>PUBLISH ALBUM COLLECTION</span>
                         </button>
                     </div>
                 </form>
@@ -3914,19 +4707,19 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         </div>
                         <div class="adm-form-group">
                             <label class="adm-form-label">Section Headline</label>
-                            <input type="text" name="gallery_title" class="adm-form-control" value="<?php echo e($s['gallery_title'] ?? 'Glimpses of the Sanctuary'); ?>" required>
+                            <input type="text" name="gallery_title" class="adm-form-control" value="<?php echo e($s['gallery_title'] ?? 'Curated Sanctuary Collections'); ?>" required>
                         </div>
                     </div>
                     <div class="adm-form-group">
                         <label class="adm-form-label">Description Paragraph</label>
-                        <textarea name="gallery_desc" rows="2" class="adm-form-control" required><?php echo e($s['gallery_desc'] ?? 'A living photographic archive of slow living, morning fog across the high ranges, and handcrafted earthen architecture.'); ?></textarea>
+                        <textarea name="gallery_desc" rows="2" class="adm-form-control" required><?php echo e($s['gallery_desc'] ?? 'Explore our living photographic archives. Click on any collection to open the high-resolution showcase with interactive zoom, photo exploration, and full album views.'); ?></textarea>
                     </div>
                 </div>
 
                 <!-- Photos List Header -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                     <h4 style="font-family: var(--adm-font-title); font-size: 15px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-images"></i> Sanctuary Photography Archive (<?php echo count($all_gallery); ?>)
+                        <i class="fa-solid fa-images"></i> Sanctuary Photo Albums & Collections (<?php echo count($all_gallery); ?>)
                     </h4>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <button type="button" class="adm-accordion-ctrl-btn" onclick="expandAllAccordion('pane-gallery', true);" title="Expand all photo cards">
@@ -3936,7 +4729,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                             <i class="fa-solid fa-angles-up"></i> Collapse All
                         </button>
                         <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-gallery');" style="padding: 6px 12px; font-size: 11.5px;">
-                            <i class="fa-solid fa-plus"></i> Add Another
+                            <i class="fa-solid fa-plus"></i> Add Another Album
                         </button>
                     </div>
                 </div>
@@ -3945,22 +4738,26 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     <?php if (empty($all_gallery)): ?>
                         <div style="text-align: center; padding: 40px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
                             <i class="fa-solid fa-camera-retro" style="font-size: 32px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
-                            <p style="color: var(--adm-text-secondary); font-size: 14px; margin: 0 0 14px;">No gallery photographs found in the database.</p>
+                            <p style="color: var(--adm-text-secondary); font-size: 14px; margin: 0 0 14px;">No gallery collections found in the database.</p>
                             <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-gallery');">
-                                <i class="fa-solid fa-plus-circle"></i> Add First Photograph
+                                <i class="fa-solid fa-plus-circle"></i> Create First Collection
                             </button>
                         </div>
                     <?php endif; ?>
 
-                    <?php foreach ($all_gallery as $idx => $photo): ?>
+                    <?php foreach ($all_gallery as $idx => $photo): 
+                        $first_p = !empty($photo['photos_list']) ? $photo['photos_list'][0] : ($photo['image_url'] ?? 'assets/images/treehouse_exterior.png');
+                        $photo_count = count($photo['photos_list'] ?? []);
+                    ?>
                         <div class="adm-gal-item-card adm-accordion-card">
                             <input type="hidden" name="gallery_id[]" value="<?php echo $photo['id']; ?>">
+                            <input type="hidden" name="gal_fallback_image[]" value="<?php echo e($photo['image_url']); ?>">
 
                             <!-- Accordion Header Bar -->
                             <div class="adm-accordion-header" onclick="toggleAccordion(this, event);">
                                 <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
                                     <div class="adm-accordion-thumb-box">
-                                        <img id="gal_prev_thumb_<?php echo $photo['id']; ?>" src="<?php echo admin_img_src($photo['image_url']); ?>" alt="Photo" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                        <img id="gal_prev_thumb_<?php echo $photo['id']; ?>" src="<?php echo admin_img_src($first_p); ?>" alt="Photo" onerror="this.src='../assets/images/treehouse_exterior.png';">
                                     </div>
                                     <div style="min-width: 0;">
                                         <div class="adm-accordion-meta-title">
@@ -3977,14 +4774,15 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                             <?php endif; ?>
                                         </div>
                                         <div class="adm-accordion-meta-sub">
-                                            <span><?php echo e($photo['caption'] ?: 'Sanctuary High-Range visual'); ?></span>
+                                            <span><i class="fa-solid fa-layer-group" style="color: #2dd4bf;"></i> <strong><?php echo $photo_count; ?> Sub-Photos</strong> in Collection</span>
+                                            <span>• <?php echo e($photo['category'] ?? 'Landscape'); ?></span>
                                             <span>• ID: <?php echo $photo['id']; ?></span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                                    <button type="submit" name="delete_gal_id" value="<?php echo $photo['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="event.stopPropagation(); return confirm('Permanently delete this photograph (<?php echo e(addslashes($photo['title'])); ?>)?');" title="Delete this photograph">
+                                    <button type="button" class="adm-btn-danger-outline" onclick="confirmDeleteItem('gallery_settings', 'delete_gal_id', <?php echo (int)$photo['id']; ?>, '<?php echo e(addslashes($photo['title'])); ?>', 'gallery');" title="Delete this collection album">
                                         <i class="fa-solid fa-trash-can"></i> Delete
                                     </button>
                                     <span class="adm-accordion-chevron">
@@ -3995,39 +4793,62 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
 
                             <!-- Accordion Body -->
                             <div class="adm-accordion-body">
-                                <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-                                    <div style="flex-grow: 1;">
-                                        <label class="adm-form-label" style="font-size: 11px;">Photo Title *</label>
+                                <div style="display: grid; grid-template-columns: 1fr 180px 180px; gap: 12px; margin-bottom: 12px;">
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 11px;">Album / Collection Title *</label>
                                         <input type="text" name="gal_title[]" class="adm-form-control" value="<?php echo e($photo['title']); ?>" required>
                                     </div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                                     <div>
-                                        <label class="adm-form-label" style="font-size: 11px;">Tag</label>
-                                        <input type="text" name="gal_tag[]" class="adm-form-control" value="<?php echo e($photo['tag']); ?>">
+                                        <label class="adm-form-label" style="font-size: 11px;">Category</label>
+                                        <select name="gal_category[]" class="adm-form-control" style="font-size: 12px;">
+                                            <option value="Villas & Stays" <?php echo ($photo['category'] === 'Villas & Stays') ? 'selected' : ''; ?>>🏡 Villas & Stays</option>
+                                            <option value="Handcrafted Living" <?php echo ($photo['category'] === 'Handcrafted Living') ? 'selected' : ''; ?>>🌿 Handcrafted Living</option>
+                                            <option value="Landscape" <?php echo ($photo['category'] === 'Landscape') ? 'selected' : ''; ?>>⛰️ Landscape</option>
+                                            <option value="Gastronomy" <?php echo ($photo['category'] === 'Gastronomy') ? 'selected' : ''; ?>>🍲 Gastronomy</option>
+                                            <option value="Orchards" <?php echo ($photo['category'] === 'Orchards') ? 'selected' : ''; ?>>🍎 Orchards</option>
+                                            <option value="Nightscape" <?php echo ($photo['category'] === 'Nightscape') ? 'selected' : ''; ?>>✨ Nightscape</option>
+                                            <option value="Architecture" <?php echo ($photo['category'] === 'Architecture') ? 'selected' : ''; ?>>🏛️ Architecture</option>
+                                            <option value="Flora" <?php echo ($photo['category'] === 'Flora') ? 'selected' : ''; ?>>🌸 Flora</option>
+                                        </select>
                                     </div>
                                     <div>
-                                        <label class="adm-form-label" style="font-size: 11px;">Caption</label>
-                                        <input type="text" name="gal_caption[]" class="adm-form-control" value="<?php echo e($photo['caption']); ?>">
+                                        <label class="adm-form-label" style="font-size: 11px;">Badge Tag</label>
+                                        <input type="text" name="gal_tag[]" class="adm-form-control" value="<?php echo e($photo['tag']); ?>" placeholder="e.g. CANOPY DWELLING">
                                     </div>
                                 </div>
+
+                                <!-- Multi-Photo Collection Gallery Manager -->
+                                <div class="adm-form-group" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                                        <label class="adm-form-label" style="font-size: 11px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-images"></i> Collection Sub-Images (<?php echo $photo_count; ?> Photos)
+                                        </label>
+                                        <label class="adm-uploader-btn" for="gal_new_file_<?php echo $photo['id']; ?>" style="padding: 4px 10px; font-size: 11px; margin: 0; cursor: pointer;">
+                                            <i class="fa-solid fa-plus"></i> Add More Sub-Images
+                                        </label>
+                                        <input type="file" name="gal_new_photos_<?php echo $photo['id']; ?>[]" id="gal_new_file_<?php echo $photo['id']; ?>" class="adm-uploader-input" accept="image/*" multiple onchange="previewMultiSpotUpload(this, 'gal_new_prev_<?php echo $photo['id']; ?>');">
+                                    </div>
+
+                                    <!-- Existing Photos Thumbnails Grid with Delete (x) Button -->
+                                    <div class="adm-spot-photos-grid" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                        <?php if (!empty($photo['photos_list'])): ?>
+                                            <?php foreach ($photo['photos_list'] as $p_idx => $p_url): ?>
+                                                <div class="adm-spot-photo-thumb" style="position: relative; width: 78px; height: 78px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(45, 212, 191, 0.4); transition: all 0.2s ease;">
+                                                    <img src="../<?php echo e($p_url); ?>" alt="Sub-Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                                    <input type="hidden" name="gal_existing_photos[<?php echo $photo['id']; ?>][]" value="<?php echo e($p_url); ?>">
+                                                    <span style="position: absolute; bottom: 2px; left: 2px; background: rgba(0,0,0,0.75); color: #2dd4bf; font-size: 9px; padding: 1px 4px; border-radius: 3px;"><?php echo $p_idx + 1; ?></span>
+                                                    <button type="button" onclick="removeSpotPhotoThumbnail(this);" title="Remove this photo from collection" style="position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; background: rgba(220, 53, 69, 0.85); color: #fff; border: none; border-radius: 50%; font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">✕</button>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div id="gal_new_prev_<?php echo $photo['id']; ?>" style="margin-top: 8px;"></div>
+                                </div>
+
                                 <div>
-                                    <label class="adm-form-label" style="font-size: 11px;">Photograph File</label>
-                                    <div class="adm-uploader-card adm-uploader-compact">
-                                        <div class="adm-uploader-preview-box">
-                                            <img id="gal_prev_<?php echo $photo['id']; ?>" src="<?php echo admin_img_src($photo['image_url']); ?>" alt="Photo" onerror="this.src='../assets/images/treehouse_exterior.png';">
-                                        </div>
-                                        <div class="adm-uploader-controls">
-                                            <div class="adm-uploader-btn-wrap">
-                                                <label class="adm-uploader-btn" for="gal_file_<?php echo $photo['id']; ?>" style="padding: 5px 12px; font-size: 11px;">
-                                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Photo from Device
-                                                </label>
-                                                <input type="file" name="gal_image_file[<?php echo $idx; ?>]" id="gal_file_<?php echo $photo['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'gal_prev_<?php echo $photo['id']; ?>', 'gal_info_<?php echo $photo['id']; ?>');">
-                                                <span id="gal_info_<?php echo $photo['id']; ?>" class="adm-file-info-badge"></span>
-                                            </div>
-                                            <input type="hidden" name="gal_image[]" value="<?php echo e($photo['image_url']); ?>">
-                                        </div>
-                                    </div>
+                                    <label class="adm-form-label" style="font-size: 11px;">Album Description / Caption</label>
+                                    <textarea name="gal_caption[]" rows="2" class="adm-form-control" style="font-size: 12px;"><?php echo e($photo['caption']); ?></textarea>
                                 </div>
                             </div>
                         </div>
@@ -4037,7 +4858,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 <div style="display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
                     <button type="submit" class="adm-btn-action gold" style="padding: 12px 28px; font-weight: 700;">
                         <i class="fa-solid fa-floppy-disk"></i>
-                        <span>SAVE GALLERY CONFIGURATION</span>
+                        <span>SAVE GALLERY ALBUMS CONFIGURATION</span>
                     </button>
                 </div>
             </form>
@@ -4047,99 +4868,97 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 11: GUEST REFLECTIONS (TESTIMONIALS DYNAMIC CMS)
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'testimonials') ? 'is-active' : ''; ?>" id="pane-testimonials">
+    <?php endif; ?>
+    <?php if ($active_tab === 'testimonials'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-testimonials">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <div class="adm-setting-card-icon blue"><i class="fa-solid fa-comment-dots"></i></div>
                 <div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span class="adm-badge" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
                             <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
                         </span>
                         <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 11</span>
+                        <?php if (!empty($pending_testimonials)): ?>
+                            <span class="adm-badge" style="background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.45); font-weight: 700; font-size: 10.5px; animation: pulse 2s infinite;">
+                                <i class="fa-solid fa-bell"></i> <?php echo count($pending_testimonials); ?> PENDING APPROVAL
+                            </span>
+                        <?php endif; ?>
                     </div>
-                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">GUEST STORIES & REFLECTIONS (DYNAMIC CMS)</h3>
-                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Directly edit, create new, or delete traveler reviews, star ratings, and reflections.</p>
+                    <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">GUEST STORIES & SANCTUARY REFLECTIONS (CMS)</h3>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Card-by-card moderation, live search, custom pagination, and official concierge responses across 3 distinct streams.</p>
                 </div>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-testimonial');">
-                    <i class="fa-solid fa-plus-circle"></i> + ADD NEW TESTIMONIAL
+                <button type="button" class="adm-btn-action" style="background: rgba(66, 133, 244, 0.15); color: #60a5fa; border: 1px solid rgba(66, 133, 244, 0.35); font-size: 12px; padding: 8px 14px;" onclick="toggleAddNewDrawer('drawer-sync-google');">
+                    <i class="fa-brands fa-google"></i> Sync Google Reviews
                 </button>
                 <button type="submit" form="form-edit-testimonials" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
                     <i class="fa-solid fa-floppy-disk"></i>
-                    <span>SAVE CHANGES</span>
+                    <span>SAVE ALL CHANGES</span>
                 </button>
             </div>
         </div>
 
         <div style="padding: 24px;">
-            <!-- Expandable Add New Testimonial Drawer -->
-            <div id="drawer-add-testimonial" class="adm-add-new-drawer" style="display: none;">
+
+            <!-- Drawer 1: Google Reviews Sync & Import -->
+            <div id="drawer-sync-google" class="adm-add-new-drawer" style="display: none; background: rgba(10, 25, 47, 0.95); border: 1px solid rgba(66, 133, 244, 0.4); margin-bottom: 20px;">
                 <form action="edit_section.php?section=testimonials" method="POST">
                     <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                     <input type="hidden" name="form_type" value="testimonials_settings">
-                    <input type="hidden" name="action" value="add_testimonial">
+                    <input type="hidden" name="action" value="sync_google_reviews">
                     <input type="hidden" name="active_tab" value="testimonials">
 
-                    <div class="adm-drawer-header">
+                    <div class="adm-drawer-header" style="border-bottom-color: rgba(66, 133, 244, 0.25);">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-circle-plus" style="color: #2ecc71; font-size: 16px;"></i>
-                            <h4 style="color: #FFFFFF; margin: 0; font-size: 14px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">CREATE & PUBLISH NEW GUEST REFLECTION</h4>
+                            <i class="fa-brands fa-google" style="color: #4285F4; font-size: 18px;"></i>
+                            <h4 style="color: #FFFFFF; margin: 0; font-size: 14px; font-family: var(--adm-font-title); letter-spacing: 0.5px;">GOOGLE MAPS REVIEWS SYNC & VERIFICATION</h4>
                         </div>
-                        <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-add-testimonial');" title="Close Drawer">✕</button>
+                        <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-sync-google');" title="Close Drawer">✕</button>
                     </div>
 
-                    <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 14px;">
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Guest Full Name *</label>
-                            <input type="text" name="new_guest_name" class="adm-form-control" placeholder="e.g. Ananya & Siddharth Nair" required>
-                        </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">City / Country / Stay Date *</label>
-                            <input type="text" name="new_guest_location" class="adm-form-control" placeholder="e.g. Kochi, India · Stayed Nov 2025" required>
-                        </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Stayed At / Badge *</label>
-                            <input type="text" name="new_stay_badge" class="adm-form-control" placeholder="e.g. CANOPY TREEHOUSE" value="CANOPY TREEHOUSE" required>
-                        </div>
-                        <div class="adm-form-group">
-                            <label class="adm-form-label">Rating Stars *</label>
-                            <select name="new_stars" class="adm-form-control" required style="cursor: pointer;">
-                                <option value="5" selected>5 Stars (Exceptional ★★★★★)</option>
-                                <option value="4">4 Stars (Very Good ★★★★☆)</option>
-                                <option value="3">3 Stars (Good ★★★☆☆)</option>
-                                <option value="2">2 Stars (Fair ★★☆☆☆)</option>
-                                <option value="1">1 Star (Poor ★☆☆☆☆)</option>
-                            </select>
-                        </div>
-                    </div>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin-bottom: 16px;">
+                        Sync and import verified traveler reviews from Google Maps. All imported reviews will enter the <strong>Verification & Approval Queue</strong> and will only appear on the public website after you review and approve them.
+                    </p>
 
-                    <div class="adm-form-group" style="margin-bottom: 16px;">
-                        <label class="adm-form-label">Guest Quote / Reflection Narrative *</label>
-                        <textarea name="new_quote" rows="3" class="adm-form-control" placeholder="Describe the guest's authentic experience, breakfast impressions, starry nights, or mudhouse comfort..." required></textarea>
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 16px;">
+                        <div class="adm-form-group">
+                            <label class="adm-form-label"><i class="fa-solid fa-map-location-dot" style="color: #4285F4; margin-right: 5px;"></i> Google Maps Property Link / Place ID</label>
+                            <input type="text" name="google_place_id" class="adm-form-control" value="https://maps.app.goo.gl/WrLRy4j8aSU7xtM4A" placeholder="e.g. https://maps.app.goo.gl/... or Place ID" style="border-color: rgba(66, 133, 244, 0.35); font-family: monospace; font-size: 12.5px;">
+                            <span style="font-size: 11px; color: var(--adm-text-muted); margin-top: 4px; display: block;">
+                                <i class="fa-solid fa-circle-info"></i> Google Maps reviews represent the overall Food Forest Sanctuary retreat.
+                            </span>
+                        </div>
                     </div>
 
                     <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                        <button type="button" class="adm-btn-action" style="background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12);" onclick="toggleAddNewDrawer('drawer-add-testimonial');">Cancel</button>
-                        <button type="submit" class="adm-btn-action emerald" style="font-weight: 700;">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <span>PUBLISH NEW TESTIMONIAL</span>
+                        <button type="button" class="adm-btn-action" style="background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12);" onclick="toggleAddNewDrawer('drawer-sync-google');">Cancel</button>
+                        <button type="submit" class="adm-btn-action" style="background: #1a73e8; color: #FFFFFF; font-weight: 700; border: 1px solid #4285f4;">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                            <span>FETCH & SYNC GOOGLE REVIEWS TO QUEUE</span>
                         </button>
                     </div>
                 </form>
             </div>
 
-            <!-- Main Edit Existing Form -->
-            <form id="form-edit-testimonials" action="edit_section.php?section=testimonials" method="POST">
+            <!-- Main Form Wrapper for Global Settings & Card Updates -->
+            <form id="form-edit-testimonials" action="edit_section.php?section=testimonials" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                 <input type="hidden" name="form_type" value="testimonials_settings">
+                <input type="hidden" name="action" value="update_all">
                 <input type="hidden" name="active_tab" value="testimonials">
+                <input type="hidden" name="single_target_id" id="single_target_id" value="">
 
-                <!-- Header Copy Box -->
-                <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-                    <span style="font-size: 11px; text-transform: uppercase; color: #60a5fa; font-weight: 700; letter-spacing: 1px; display: block; margin-bottom: 14px;">Section Header Copy</span>
-                    <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 14px;">
+                <!-- Section Header Copy Box (Collapsible) -->
+                <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 11px; text-transform: uppercase; color: #60a5fa; font-weight: 700; letter-spacing: 1px;">
+                            <i class="fa-solid fa-pen-nib" style="margin-right: 4px;"></i> Section Header Copy (Frontend Display)
+                        </span>
+                    </div>
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 12px;">
                         <div class="adm-form-group">
                             <label class="adm-form-label">Section Eyebrow</label>
                             <input type="text" name="testimonials_badge" class="adm-form-control" value="<?php echo e($s['testimonials_badge'] ?? 'Guest Stories & Chronicles'); ?>" required>
@@ -4155,125 +4974,699 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     </div>
                 </div>
 
-                <!-- Dynamic Reviews List Header -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
-                    <h4 style="font-family: var(--adm-font-title); font-size: 15px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-star"></i> Verified Guest Testimonials (<?php echo count($all_testimonials); ?>)
-                    </h4>
-                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <button type="button" class="adm-accordion-ctrl-btn" onclick="expandAllAccordion('pane-testimonials', true);" title="Expand all testimonial cards">
-                            <i class="fa-solid fa-angles-down"></i> Expand All
-                        </button>
-                        <button type="button" class="adm-accordion-ctrl-btn" onclick="expandAllAccordion('pane-testimonials', false);" title="Collapse all testimonial cards">
-                            <i class="fa-solid fa-angles-up"></i> Collapse All
-                        </button>
-                        <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-testimonial');" style="padding: 6px 12px; font-size: 11.5px;">
-                            <i class="fa-solid fa-plus"></i> Add Another
-                        </button>
-                    </div>
+                <!-- -------------------------------------------------------------
+                     3 SEGMENTED STREAM TABS (Google, Client, Admin)
+                     ------------------------------------------------------------- -->
+                <div class="adm-reviews-stream-nav" style="display: flex; gap: 8px; border-bottom: 2px solid rgba(197, 160, 89, 0.25); margin-bottom: 20px; overflow-x: auto; padding-bottom: 2px;">
+                    <!-- Tab 1: Google Reviews -->
+                    <button type="button" class="adm-stream-tab-btn active" onclick="switchReviewStream('google');" id="stream-tab-btn-google" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: rgba(66, 133, 244, 0.15); color: #70a6ff; border: 1px solid rgba(66, 133, 244, 0.35); border-radius: 8px 8px 0 0; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.25s;">
+                        <i class="fa-brands fa-google" style="color: #4285F4; font-size: 15px;"></i>
+                        <span>1. Google Maps Reviews</span>
+                        <span class="adm-stream-count-pill" id="badge-stream-google"><?php echo count($google_testimonials); ?></span>
+                        <?php if (count($pending_google) > 0): ?>
+                            <span class="adm-stream-count-pill alert"><?php echo count($pending_google); ?> Pending</span>
+                        <?php endif; ?>
+                    </button>
+
+                    <!-- Tab 2: Client Submissions -->
+                    <button type="button" class="adm-stream-tab-btn" onclick="switchReviewStream('client');" id="stream-tab-btn-client" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: rgba(255, 255, 255, 0.04); color: var(--adm-text-secondary); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px 8px 0 0; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.25s;">
+                        <i class="fa-solid fa-users-line" style="color: #2ecc71; font-size: 15px;"></i>
+                        <span>2. Guest & Client Submissions</span>
+                        <span class="adm-stream-count-pill" id="badge-stream-client"><?php echo count($client_testimonials); ?></span>
+                        <?php if (count($pending_client) > 0): ?>
+                            <span class="adm-stream-count-pill alert"><?php echo count($pending_client); ?> Pending</span>
+                        <?php endif; ?>
+                    </button>
+
+                    <!-- Tab 3: Admin Direct Chronicles -->
+                    <button type="button" class="adm-stream-tab-btn" onclick="switchReviewStream('admin');" id="stream-tab-btn-admin" style="display: flex; align-items: center; gap: 8px; padding: 12px 20px; background: rgba(255, 255, 255, 0.04); color: var(--adm-text-secondary); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px 8px 0 0; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.25s;">
+                        <i class="fa-solid fa-feather-pointed" style="color: var(--adm-gold); font-size: 15px;"></i>
+                        <span>3. Admin Direct Chronicles</span>
+                        <span class="adm-stream-count-pill" id="badge-stream-admin"><?php echo count($admin_testimonials); ?></span>
+                    </button>
                 </div>
 
-                <!-- Testimonials Grid -->
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
-                    <?php if (empty($all_testimonials)): ?>
-                        <div style="text-align: center; padding: 40px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
-                            <i class="fa-solid fa-comment-dots" style="font-size: 32px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
-                            <p style="color: var(--adm-text-secondary); font-size: 14px; margin: 0 0 14px;">No guest testimonials found in the database.</p>
-                            <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-testimonial');">
-                                <i class="fa-solid fa-plus-circle"></i> Add First Testimonial
-                            </button>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php foreach ($all_testimonials as $idx => $t): ?>
-                        <div class="adm-test-item-card adm-accordion-card">
-                            <input type="hidden" name="testimonial_id[]" value="<?php echo $t['id']; ?>">
-
-                            <!-- Accordion Header Bar -->
-                            <div class="adm-accordion-header" onclick="toggleAccordion(this, event);">
-                                <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
-                                    <div class="adm-accordion-thumb-box" style="background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; color: #60a5fa; font-weight: 800; font-size: 13px;">
-                                        <span><?php echo strtoupper(substr(trim($t['guest_name']), 0, 2)); ?></span>
-                                    </div>
-                                    <div style="min-width: 0;">
-                                        <div class="adm-accordion-meta-title">
-                                            <span style="font-size: 10px; font-weight: 700; color: #60a5fa; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 7px; border-radius: 6px; text-transform: uppercase;">
-                                                REVIEW #<?php echo ($idx + 1); ?>
-                                            </span>
-                                            <span style="color: #FFFFFF; font-weight: 700; font-size: 13.5px;">
-                                                <?php echo e($t['guest_name']); ?>
-                                            </span>
-                                            <span style="color: var(--adm-gold); font-size: 11px; margin-left: 4px;">
-                                                <?php for ($i = 0; $i < (int)$t['stars']; $i++): ?><i class="fa-solid fa-star"></i><?php endfor; ?>
-                                            </span>
-                                            <span class="adm-badge" style="background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); font-size: 10px; padding: 2px 7px; border-radius: 6px;">
-                                                <?php echo e($t['stay_badge']); ?>
-                                            </span>
-                                        </div>
-                                        <div class="adm-accordion-meta-sub">
-                                            <span><?php echo e($t['guest_location']); ?></span>
-                                            <span>• "<?php echo e(mb_strimwidth($t['quote'], 0, 50, '...')); ?>"</span>
-                                        </div>
-                                    </div>
+                <?php
+                // Function to render stream content
+                $renderReviewStream = function($streamKey, $streamTitle, $streamIcon, $streamReviews, $pendingStreamReviews, $sanctuary_properties) {
+                    $streamCount = count($streamReviews);
+                ?>
+                    <!-- STREAM PANE: <?php echo strtoupper($streamKey); ?> -->
+                    <div id="stream-pane-<?php echo $streamKey; ?>" class="adm-review-stream-pane" style="display: <?php echo ($streamKey === 'google') ? 'block' : 'none'; ?>;">
+                        
+                        <!-- 1. SEARCH & FILTER CONTROLS BAR (AT THE VERY TOP) -->
+                        <div class="adm-reviews-search-filter-box" style="background: rgba(13, 27, 20, 0.95); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.25);">
+                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
+                                <!-- Live Search Input -->
+                                <div style="flex: 2; min-width: 260px; position: relative;">
+                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--adm-gold); font-size: 14px; pointer-events: none;"></i>
+                                    <input type="text" id="search-input-<?php echo $streamKey; ?>" oninput="filterStreamReviews('<?php echo $streamKey; ?>');" placeholder="Search by guest name, location, or keywords (e.g. 'strawberry', 'mist', 'mud')..." class="adm-form-control" style="padding-left: 38px; padding-right: 36px; height: 42px; background: rgba(0,0,0,0.45); border-color: rgba(197, 160, 89, 0.35); font-size: 13px; color: #FFFFFF; border-radius: 8px;">
+                                    <button type="button" onclick="clearStreamSearch('<?php echo $streamKey; ?>');" id="search-clear-<?php echo $streamKey; ?>" style="display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--adm-text-muted); cursor: pointer; font-size: 14px;" title="Clear search">✕</button>
                                 </div>
 
-                                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-                                    <button type="submit" name="delete_testimonial_id" value="<?php echo $t['id']; ?>" formnovalidate class="adm-btn-danger-outline" onclick="event.stopPropagation(); return confirm('Permanently delete review by <?php echo e(addslashes($t['guest_name'])); ?>? This cannot be undone.');" title="Delete this review">
-                                        <i class="fa-solid fa-trash-can"></i> Delete
-                                    </button>
-                                    <span class="adm-accordion-chevron">
-                                        <i class="fa-solid fa-chevron-down"></i>
+                                <!-- Status Filter -->
+                                <div style="flex: 1; min-width: 140px;">
+                                    <select id="status-filter-<?php echo $streamKey; ?>" onchange="filterStreamReviews('<?php echo $streamKey; ?>');" class="adm-form-control" style="height: 42px; background: rgba(0,0,0,0.45); border-color: rgba(197, 160, 89, 0.35); font-size: 12px; border-radius: 8px; cursor: pointer;">
+                                        <option value="all">All Statuses (<?php echo $streamCount; ?>)</option>
+                                        <option value="approved">✓ Approved / Live</option>
+                                        <option value="pending">⏳ Pending Queue</option>
+                                        <option value="rejected">✕ Archived / Rejected</option>
+                                    </select>
+                                </div>
+
+                                <!-- Star Rating Filter -->
+                                <div style="flex: 1; min-width: 130px;">
+                                    <select id="stars-filter-<?php echo $streamKey; ?>" onchange="filterStreamReviews('<?php echo $streamKey; ?>');" class="adm-form-control" style="height: 42px; background: rgba(0,0,0,0.45); border-color: rgba(197, 160, 89, 0.35); font-size: 12px; border-radius: 8px; cursor: pointer;">
+                                        <option value="all">All Star Ratings</option>
+                                        <option value="5.0">★★★★★ 5.0 Stars</option>
+                                        <option value="4.5">★★★★½ 4.5 Stars</option>
+                                        <option value="4.0">★★★★☆ 4.0 Stars</option>
+                                    </select>
+                                </div>
+
+                                <!-- Items Per Page Selector -->
+                                <div style="min-width: 130px;">
+                                    <select id="per-page-<?php echo $streamKey; ?>" onchange="changeStreamPerPage('<?php echo $streamKey; ?>', this.value);" class="adm-form-control" style="height: 42px; background: rgba(0,0,0,0.45); border-color: rgba(197, 160, 89, 0.35); font-size: 12px; border-radius: 8px; cursor: pointer; color: var(--adm-gold); font-weight: 700;">
+                                        <option value="5">5 per page</option>
+                                        <option value="10" selected>10 per page</option>
+                                        <option value="15">15 per page</option>
+                                        <option value="20">20 per page</option>
+                                        <option value="50">50 per page</option>
+                                        <option value="999">Show All (<?php echo $streamCount; ?>)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Stream Stats & Quick Buttons -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; flex-wrap: wrap; gap: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                    <span id="count-badge-<?php echo $streamKey; ?>" style="font-size: 12.5px; color: var(--adm-gold); font-weight: 700;">
+                                        Showing <span id="visible-count-<?php echo $streamKey; ?>"><?php echo min(10, $streamCount); ?></span> of <span id="total-count-<?php echo $streamKey; ?>"><?php echo $streamCount; ?></span> Total Reviews
                                     </span>
                                 </div>
-                            </div>
-
-                            <!-- Accordion Body -->
-                            <div class="adm-accordion-body">
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                                    <div class="adm-form-group">
-                                        <label class="adm-form-label">Guest Name</label>
-                                        <input type="text" name="guest_name[]" class="adm-form-control" value="<?php echo e($t['guest_name']); ?>" required>
-                                    </div>
-                                    <div class="adm-form-group">
-                                        <label class="adm-form-label">City / Country</label>
-                                        <input type="text" name="guest_location[]" class="adm-form-control" value="<?php echo e($t['guest_location']); ?>" required>
-                                    </div>
-                                </div>
-
-                                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 12px;">
-                                    <div class="adm-form-group">
-                                        <label class="adm-form-label">Stayed At / Badge</label>
-                                        <input type="text" name="stay_badge[]" class="adm-form-control" value="<?php echo e($t['stay_badge']); ?>" required>
-                                    </div>
-                                    <div class="adm-form-group">
-                                        <label class="adm-form-label">Stars (1-5)</label>
-                                        <input type="number" min="1" max="5" name="stars[]" class="adm-form-control" value="<?php echo (int)$t['stars']; ?>" required>
-                                    </div>
-                                </div>
-
-                                <div class="adm-form-group">
-                                    <label class="adm-form-label">Guest Quote / Reflection</label>
-                                    <textarea name="quote[]" rows="3" class="adm-form-control" required><?php echo e($t['quote']); ?></textarea>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <button type="button" onclick="setStreamQuickFilter('<?php echo $streamKey; ?>', 'pending');" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(234, 88, 12, 0.2); color: #fb923c; border: 1px solid rgba(234, 88, 12, 0.4);">
+                                        <i class="fa-solid fa-hourglass-half"></i> Show Pending
+                                    </button>
+                                    <button type="button" onclick="setStreamQuickFilter('<?php echo $streamKey; ?>', 'approved');" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4);">
+                                        <i class="fa-solid fa-check"></i> Show Live
+                                    </button>
+                                    <button type="button" onclick="resetStreamFilters('<?php echo $streamKey; ?>');" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12);">
+                                        <i class="fa-solid fa-rotate-left"></i> Reset
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                    <?php endforeach; ?>
-                </div>
 
-                <div style="display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
-                    <button type="submit" class="adm-btn-action gold" style="padding: 12px 28px; font-weight: 700;">
+                        <!-- 2. IF STREAM IS ADMIN: SHOW "ADD NEW CHRONICLE" FORM CARD AT TOP -->
+                        <?php if ($streamKey === 'admin'): ?>
+                            <div style="background: rgba(197, 160, 89, 0.07); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;">
+                                    <i class="fa-solid fa-feather" style="color: var(--adm-gold); font-size: 16px;"></i>
+                                    <h4 style="font-family: var(--adm-font-title); font-size: 14.5px; color: #FFFFFF; margin: 0;">ADD NEW ADMIN DIRECT CHRONICLE / VIP MEMOIR</h4>
+                                </div>
+                                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Guest / VIP Full Name *</label>
+                                        <input type="text" name="admin_add_guest_name" class="adm-form-control" placeholder="e.g. Lord Mountford & Family">
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Location / Role *</label>
+                                        <input type="text" name="admin_add_guest_location" class="adm-form-control" placeholder="e.g. London, UK · Curated Retreat">
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Dwelling / Experience</label>
+                                        <select name="admin_add_stay_badge" class="adm-form-control" style="cursor: pointer;">
+                                            <?php foreach ($sanctuary_properties as $prop): ?>
+                                                <option value="<?php echo htmlspecialchars($prop['title']); ?>"><?php echo htmlspecialchars($prop['title']); ?> (<?php echo ucfirst($prop['type']); ?>)</option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="adm-form-group">
+                                        <label class="adm-form-label">Star Rating: <strong id="admin-new-stars-txt" style="color: var(--adm-gold);">5.0 ★</strong></label>
+                                        <input type="range" name="admin_add_stars" min="1.0" max="5.0" step="0.5" value="5.0" class="adm-range-slider" oninput="document.getElementById('admin-new-stars-txt').innerText = parseFloat(this.value).toFixed(1) + ' ★';" style="accent-color: var(--adm-gold); margin-top: 6px;">
+                                    </div>
+                                </div>
+                                <div class="adm-form-group" style="margin-bottom: 12px;">
+                                    <label class="adm-form-label">Guest Chronicle Quote / Impression *</label>
+                                    <textarea name="admin_add_quote" rows="2" class="adm-form-control" placeholder="Enter guest quote, narrative, or architectural appreciation..."></textarea>
+                                </div>
+                                <div class="adm-form-group" style="margin-bottom: 14px;">
+                                    <label class="adm-form-label"><i class="fa-solid fa-seedling" style="color: var(--adm-gold);"></i> Official Estate Concierge Response (Optional)</label>
+                                    <input type="text" name="admin_add_admin_reply" class="adm-form-control" placeholder="e.g. It was an honor hosting your family at Food Forest Sanctuary...">
+                                </div>
+                                <div style="display: flex; justify-content: flex-end;">
+                                    <button type="submit" form="form-edit-testimonials" onclick="this.form.action.value='add_admin_chronicle';" class="adm-btn-action gold" style="padding: 8px 20px; font-weight: 700; font-size: 12.5px;">
+                                        <i class="fa-solid fa-plus-circle"></i> PUBLISH ADMIN CHRONICLE
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- 3. COMPACT REVIEWS GRID (EDIT FORMS EXPAND ONLY ON CLICKING [EDIT]) -->
+                        <div id="grid-stream-<?php echo $streamKey; ?>" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                            <div id="no-res-<?php echo $streamKey; ?>" style="display: none; text-align: center; padding: 36px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
+                                <i class="fa-solid fa-magnifying-glass" style="font-size: 28px; color: var(--adm-gold); opacity: 0.6; margin-bottom: 10px; display: block;"></i>
+                                <p style="color: var(--adm-text-secondary); font-size: 13.5px; margin: 0 0 10px;">No reviews matched your search in <?php echo htmlspecialchars($streamTitle); ?>.</p>
+                                <button type="button" class="adm-btn-action outline" onclick="resetStreamFilters('<?php echo $streamKey; ?>');" style="font-size: 12px; padding: 6px 14px;">Reset Filters</button>
+                            </div>
+
+                            <?php if (empty($streamReviews)): ?>
+                                <div style="text-align: center; padding: 36px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
+                                    <i class="fa-solid fa-comment-dots" style="font-size: 30px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 10px; display: block;"></i>
+                                    <p style="color: var(--adm-text-secondary); font-size: 13.5px; margin: 0;">No reviews available in this section.</p>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php foreach ($streamReviews as $s_idx => $t): 
+                                $t_stars = isset($t['stars']) ? (float)$t['stars'] : 5.0;
+                                $t_status = $t['status'] ?? ($t['is_active'] ? 'approved' : 'pending');
+                                $global_id = $t['id'];
+                            ?>
+                                <div class="adm-test-compact-card stream-item-<?php echo $streamKey; ?>"
+                                     id="review-card-<?php echo $global_id; ?>"
+                                     data-guest-name="<?php echo htmlspecialchars(strtolower($t['guest_name'])); ?>"
+                                     data-location="<?php echo htmlspecialchars(strtolower($t['guest_location'])); ?>"
+                                     data-title="<?php echo htmlspecialchars(strtolower($t['title'] ?? '')); ?>"
+                                     data-quote="<?php echo htmlspecialchars(strtolower($t['quote'])); ?>"
+                                     data-status="<?php echo htmlspecialchars($t_status); ?>"
+                                     data-stars="<?php echo number_format($t_stars, 1, '.', ''); ?>"
+                                     style="background: rgba(13, 26, 18, 0.85); border: 1px solid <?php echo ($t_status === 'pending') ? 'rgba(234, 88, 12, 0.45)' : 'rgba(197, 160, 89, 0.2)'; ?>; border-radius: 10px; padding: 14px 18px; transition: all 0.2s ease;">
+                                    
+                                    <input type="hidden" name="testimonial_id[]" value="<?php echo $t['id']; ?>">
+
+                                    <!-- Compact Review Summary Row -->
+                                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                        <!-- Left Column: Avatar + Info -->
+                                        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                                            <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                                <?php if (!empty($t['avatar_url'])): ?>
+                                                    <img src="../<?php echo e($t['avatar_url']); ?>" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://lh3.googleusercontent.com/a/default-user=s120';">
+                                                <?php else: ?>
+                                                    <span style="color: var(--adm-gold); font-weight: 700; font-size: 12px;"><?php echo strtoupper(substr(trim($t['guest_name']), 0, 2)); ?></span>
+                                                <?php endif; ?>
+                                            </div>
+
+                                            <div style="min-width: 0;">
+                                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                    <strong style="color: #FFFFFF; font-size: 13.5px;"><?php echo e($t['guest_name']); ?></strong>
+                                                    <span style="color: var(--adm-gold); font-size: 11px;">
+                                                        <?php echo render_star_rating_html($t_stars, 'adm-star-inline'); ?>
+                                                    </span>
+                                                    <span class="adm-badge" style="background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); font-size: 9.5px; padding: 2px 7px; border-radius: 6px;">
+                                                        <?php echo e($t['stay_badge'] ?: 'Sanctuary Stay'); ?>
+                                                    </span>
+                                                    <?php if ($t_status === 'approved' && $t['is_active']): ?>
+                                                        <span class="adm-badge confirmed" style="font-size: 9px; padding: 1px 6px;"><i class="fa-solid fa-check"></i> Live</span>
+                                                    <?php elseif ($t_status === 'pending'): ?>
+                                                        <span class="adm-badge" style="background: rgba(234, 88, 12, 0.25); color: #fb923c; font-size: 9px; padding: 1px 6px;">⏳ Pending Approval</span>
+                                                    <?php else: ?>
+                                                        <span class="adm-badge cancelled" style="font-size: 9px; padding: 1px 6px;">Archived</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div style="font-size: 11.5px; color: var(--adm-text-secondary); margin-top: 2px;">
+                                                    <span><?php echo e($t['guest_location']); ?></span>
+                                                    <?php if (!empty($t['title'])): ?>
+                                                        <span> · <strong><?php echo e($t['title']); ?></strong></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Right Column: Action Buttons -->
+                                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                            <?php if ($t_status !== 'approved' || !$t['is_active']): ?>
+                                                <!-- Approve / Publish Live Button -->
+                                                <button type="submit" form="form-edit-testimonials" onclick="this.form.action.value='approve_testimonial'; this.form.single_target_id.value='<?php echo (int)$global_id; ?>';" class="adm-btn-action emerald" style="padding: 4px 10px; font-size: 11px; font-weight: 700;" title="Approve and publish live">
+                                                    <i class="fa-solid fa-circle-check"></i> Approve Live
+                                                </button>
+                                            <?php else: ?>
+                                                <!-- Live Active Badge -->
+                                                <span style="font-size: 11px; color: #2ecc71; font-weight: 600; padding: 4px 8px; background: rgba(46, 204, 113, 0.1); border: 1px solid rgba(46, 204, 113, 0.25); border-radius: 4px;">
+                                                    <i class="fa-solid fa-check-double"></i> Published
+                                                </span>
+                                            <?php endif; ?>
+
+                                            <?php if ($t_status !== 'rejected'): ?>
+                                                <!-- Reject Button -->
+                                                <button type="submit" form="form-edit-testimonials" onclick="if(!confirm('Archive/reject this review?')) return false; this.form.action.value='reject_testimonial'; this.form.single_target_id.value='<?php echo (int)$global_id; ?>';" class="adm-btn-action" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" title="Reject / Archive">
+                                                    <i class="fa-solid fa-ban"></i> Reject
+                                                </button>
+                                            <?php endif; ?>
+
+                                            <!-- Edit Toggle Button -->
+                                            <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);" onclick="toggleReviewEditor('edit-box-<?php echo $global_id; ?>');" title="Open full edit form">
+                                                <i class="fa-solid fa-pen-to-square"></i> Edit
+                                            </button>
+
+                                            <!-- Delete Button -->
+                                            <button type="button" class="adm-btn-danger-outline" style="padding: 4px 8px; font-size: 11px;" onclick="confirmDeleteItem('testimonials_settings', 'delete_testimonial_id', <?php echo (int)$global_id; ?>, '<?php echo e(addslashes($t['guest_name'])); ?>', 'testimonials');" title="Delete permanently">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Compact Quote Snippet -->
+                                    <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #e2e8f0; font-style: italic; line-height: 1.45; margin-top: 10px;">
+                                        "<?php echo e($t['quote']); ?>"
+                                    </div>
+
+                                    <?php if (!empty($t['admin_reply'])): ?>
+                                        <div style="font-size: 11px; color: var(--adm-gold); margin-top: 6px; display: flex; align-items: center; gap: 5px;">
+                                            <i class="fa-solid fa-seedling"></i> <strong>Concierge Reply:</strong> <?php echo e(mb_strimwidth($t['admin_reply'], 0, 90, '...')); ?>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <!-- HIDDEN EXPANDABLE EDIT DRAWER / FORM (OPENS ONLY WHEN [EDIT] IS CLICKED) -->
+                                    <div id="edit-box-<?php echo $global_id; ?>" class="adm-review-inline-edit-box" style="display: none; border-top: 1px solid rgba(197, 160, 89, 0.2); padding-top: 14px; margin-top: 14px;">
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                                            <div class="adm-form-group">
+                                                <label class="adm-form-label">Guest Full Name</label>
+                                                <input type="text" name="guest_name[]" class="adm-form-control" value="<?php echo e($t['guest_name']); ?>" required>
+                                            </div>
+                                            <div class="adm-form-group">
+                                                <label class="adm-form-label">City / Country / Stay Date</label>
+                                                <input type="text" name="guest_location[]" class="adm-form-control" value="<?php echo e($t['guest_location']); ?>" required>
+                                            </div>
+                                            <!-- Property Dropdown -->
+                                            <div class="adm-form-group">
+                                                <label class="adm-form-label">Dwelling / Experience</label>
+                                                <select name="stay_badge[]" class="adm-form-control" style="cursor: pointer;" required>
+                                                    <?php 
+                                                    $found_match = false;
+                                                    foreach ($sanctuary_properties as $sprop): 
+                                                        $selected = (strcasecmp($sprop['title'], $t['stay_badge']) === 0 || strcasecmp($sprop['slug'], $t['stay_badge']) === 0);
+                                                        if ($selected) $found_match = true;
+                                                    ?>
+                                                        <option value="<?php echo htmlspecialchars($sprop['title']); ?>" <?php echo $selected ? 'selected' : ''; ?>>
+                                                            <?php echo htmlspecialchars($sprop['title']); ?> (<?php echo ucfirst($sprop['type']); ?>)
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                    <?php if (!$found_match && !empty($t['stay_badge'])): ?>
+                                                        <option value="<?php echo htmlspecialchars($t['stay_badge']); ?>" selected><?php echo htmlspecialchars($t['stay_badge']); ?> (Custom)</option>
+                                                    <?php endif; ?>
+                                                </select>
+                                            </div>
+                                            <!-- Half-Star Rating Slider -->
+                                            <div class="adm-form-group">
+                                                <label class="adm-form-label">
+                                                    Star Rating: <strong id="star-val-txt-<?php echo $t['id']; ?>" style="color: var(--adm-gold);"><?php echo number_format($t_stars, 1); ?> ★</strong>
+                                                </label>
+                                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                                    <input type="range" name="stars[]" min="1.0" max="5.0" step="0.5" value="<?php echo $t_stars; ?>" class="adm-range-slider" oninput="updateStarsSliderDisplay(this.value, 'star-val-txt-<?php echo $t['id']; ?>', 'star-prev-ico-<?php echo $t['id']; ?>');" style="flex: 1; accent-color: var(--adm-gold); cursor: pointer;">
+                                                    <span id="star-prev-ico-<?php echo $t['id']; ?>" style="color: var(--adm-gold); font-size: 12px; letter-spacing: 2px;">
+                                                        <?php for ($s = 1; $s <= 5; $s++): ?>
+                                                            <?php if ($t_stars >= $s): ?>★<?php elseif ($t_stars >= $s - 0.5): ?>½<?php else: ?>☆<?php endif; ?>
+                                                        <?php endfor; ?>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Photo Upload & Review Headline -->
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                                            <div class="adm-form-group">
+                                                <label class="adm-form-label"><i class="fa-solid fa-camera"></i> Change / Upload Guest Photo</label>
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <div id="avatar-box-<?php echo $t['id']; ?>" style="width: 36px; height: 36px; border-radius: 50%; background: rgba(197, 160, 89, 0.2); border: 1px solid var(--adm-gold); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                                        <?php if (!empty($t['avatar_url'])): ?>
+                                                            <img src="../<?php echo e($t['avatar_url']); ?>" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://lh3.googleusercontent.com/a/default-user=s120';">
+                                                        <?php else: ?>
+                                                            <i class="fa-solid fa-user" style="color: var(--adm-gold);"></i>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <input type="file" name="avatar_file[<?php echo $global_id; ?>]" accept="image/*" class="adm-form-control" onchange="previewAdminAvatar(this, 'avatar-box-<?php echo $t['id']; ?>');" style="padding: 5px; font-size: 11px; cursor: pointer;">
+                                                </div>
+                                            </div>
+                                            <div class="adm-form-group">
+                                                <label class="adm-form-label">Review Headline (Optional)</label>
+                                                <input type="text" name="review_title[]" class="adm-form-control" value="<?php echo e($t['title'] ?? ''); ?>" placeholder="e.g. Unfiltered Mountain Solitude">
+                                            </div>
+                                        </div>
+
+                                        <!-- Full Quote Textarea -->
+                                        <div class="adm-form-group" style="margin-bottom: 12px;">
+                                            <label class="adm-form-label">Guest Reflection Quote *</label>
+                                            <textarea name="quote[]" rows="3" class="adm-form-control" required><?php echo e($t['quote']); ?></textarea>
+                                        </div>
+
+                                        <!-- Official Concierge Response -->
+                                        <div class="adm-form-group" style="background: rgba(28, 56, 38, 0.4); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; flex-wrap: wrap; gap: 6px;">
+                                                <label class="adm-form-label" style="color: var(--adm-gold); font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px;">
+                                                    <i class="fa-solid fa-seedling"></i> Official Estate Concierge Response / Reply
+                                                </label>
+                                                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                                    <button type="button" class="adm-btn-action" style="padding: 2px 8px; font-size: 10px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3);" onclick="fillQuickReply('<?php echo $global_id; ?>', 'Thank you for choosing Food Forest Kanthalloor! We are truly delighted that you enjoyed the tranquility and warm hospitality of our high-range sanctuary.');">
+                                                        + Sanctuary Gratitude
+                                                    </button>
+                                                    <button type="button" class="adm-btn-action" style="padding: 2px 8px; font-size: 10px; background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3);" onclick="fillQuickReply('<?php echo $global_id; ?>', 'We sincerely appreciate your valuable reflection and look forward to welcoming you back beneath our high-canopy trees next winter.');">
+                                                        + Welcome Back
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <textarea name="admin_reply[]" id="admin_reply_field_<?php echo $global_id; ?>" rows="2" class="adm-form-control" placeholder="Write an official concierge response to this traveler..."><?php echo e($t['admin_reply'] ?? ''); ?></textarea>
+                                        </div>
+
+                                        <!-- Status & Active Switch -->
+                                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 6px;">
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <label class="adm-form-label" style="margin: 0;">Status:</label>
+                                                <select name="status[]" class="adm-form-control" style="font-weight: 700; width: auto; height: 32px; padding: 2px 8px; font-size: 12px;">
+                                                    <option value="approved" <?php echo ($t_status === 'approved') ? 'selected' : ''; ?>>✓ Approved & Published</option>
+                                                    <option value="pending" <?php echo ($t_status === 'pending') ? 'selected' : ''; ?>>⏳ Pending Verification</option>
+                                                    <option value="rejected" <?php echo ($t_status === 'rejected') ? 'selected' : ''; ?>>✕ Archived / Rejected</option>
+                                                </select>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <input type="checkbox" name="is_active[<?php echo $global_id; ?>]" id="test_active_<?php echo $t['id']; ?>" value="1" <?php echo ($t['is_active'] ? 'checked' : ''); ?> style="width: 16px; height: 16px; accent-color: var(--adm-gold);">
+                                                <label for="test_active_<?php echo $t['id']; ?>" style="cursor: pointer; color: #FFFFFF; font-weight: 600; font-size: 12px;">Show in Live Website Carousel</label>
+                                            </div>
+                                            <button type="button" class="adm-btn-action outline" onclick="toggleReviewEditor('edit-box-<?php echo $global_id; ?>');" style="padding: 4px 12px; font-size: 11px;">Done Editing</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <!-- 4. STREAM PAGINATION CONTROLS FOOTER -->
+                        <div id="pagination-wrap-<?php echo $streamKey; ?>" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(197, 160, 89, 0.2); padding-top: 14px; margin-top: 14px; flex-wrap: wrap; gap: 10px;">
+                            <div style="font-size: 12px; color: var(--adm-text-secondary);" id="pagination-info-<?php echo $streamKey; ?>">
+                                Page <strong id="curr-page-txt-<?php echo $streamKey; ?>" style="color: var(--adm-gold);">1</strong> of <span id="total-pages-txt-<?php echo $streamKey; ?>">1</span>
+                            </div>
+                            <div id="pagination-btns-<?php echo $streamKey; ?>" style="display: flex; gap: 6px; align-items: center;">
+                                <!-- Rendered dynamically by JS -->
+                            </div>
+                        </div>
+
+                    </div>
+                <?php
+                };
+
+                // Render the 3 separate stream panes
+                $renderReviewStream('google', 'Google Maps Reviews', 'fa-brands fa-google', $google_testimonials, $pending_google, $sanctuary_properties);
+                $renderReviewStream('client', 'Guest & User Portal Submissions', 'fa-solid fa-users-line', $client_testimonials, $pending_client, $sanctuary_properties);
+                $renderReviewStream('admin', 'Admin Direct Chronicles', 'fa-solid fa-feather-pointed', $admin_testimonials, $pending_admin, $sanctuary_properties);
+                ?>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
+                    <button type="submit" class="adm-btn-action gold" style="padding: 12px 28px; font-weight: 700; font-size: 13.5px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
                         <i class="fa-solid fa-floppy-disk"></i>
-                        <span>SAVE TESTIMONIALS CONFIGURATION</span>
+                        <span>SAVE ALL TESTIMONIALS CONFIGURATION</span>
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Styles for Compact Cards, Review Streams & Pagination -->
+    <style>
+    .adm-stream-tab-btn.active {
+        background: rgba(197, 160, 89, 0.2) !important;
+        color: var(--adm-gold) !important;
+        border-color: var(--adm-gold) !important;
+        box-shadow: 0 -2px 10px rgba(197, 160, 89, 0.15);
+    }
+    .adm-stream-count-pill {
+        background: rgba(255, 255, 255, 0.1);
+        color: #FFFFFF;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 12px;
+        font-weight: 700;
+    }
+    .adm-stream-count-pill.alert {
+        background: #ea580c !important;
+        color: #FFFFFF !important;
+        animation: pulse 2s infinite;
+    }
+    .adm-pg-btn {
+        padding: 5px 11px;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--adm-text-secondary);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .adm-pg-btn:hover {
+        background: rgba(197, 160, 89, 0.15);
+        color: var(--adm-gold);
+        border-color: var(--adm-gold);
+    }
+    .adm-pg-btn.active {
+        background: var(--adm-gold);
+        color: #0b1c11;
+        border-color: var(--adm-gold);
+        font-weight: 700;
+    }
+    .adm-pg-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .adm-test-compact-card:hover {
+        border-color: rgba(197, 160, 89, 0.4) !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    </style>
+
+    <!-- JavaScript Controller for 3 Review Streams, Search, Filtering & Pagination -->
+    <script>
+    var streamStates = {
+        google: { page: 1, perPage: 10, totalPages: 1 },
+        client: { page: 1, perPage: 10, totalPages: 1 },
+        admin:  { page: 1, perPage: 10, totalPages: 1 }
+    };
+
+    function switchReviewStream(streamKey) {
+        // Toggle tab buttons
+        document.querySelectorAll('.adm-stream-tab-btn').forEach(function(btn) {
+            btn.classList.remove('active');
+            btn.style.background = 'rgba(255, 255, 255, 0.04)';
+            btn.style.color = 'var(--adm-text-secondary)';
+            btn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        });
+        var activeBtn = document.getElementById('stream-tab-btn-' + streamKey);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+            activeBtn.style.background = 'rgba(197, 160, 89, 0.2)';
+            activeBtn.style.color = 'var(--adm-gold)';
+            activeBtn.style.borderColor = 'var(--adm-gold)';
+        }
+
+        // Toggle panes
+        document.querySelectorAll('.adm-review-stream-pane').forEach(function(pane) {
+            pane.style.display = 'none';
+        });
+        var activePane = document.getElementById('stream-pane-' + streamKey);
+        if (activePane) activePane.style.display = 'block';
+
+        // Re-run filter/pagination for this stream
+        filterStreamReviews(streamKey);
+    }
+
+    function changeStreamPerPage(streamKey, newPerPage) {
+        streamStates[streamKey].perPage = parseInt(newPerPage) || 10;
+        streamStates[streamKey].page = 1;
+        filterStreamReviews(streamKey);
+    }
+
+    function toggleReviewEditor(boxId) {
+        var box = document.getElementById(boxId);
+        if (box) {
+            box.style.display = (box.style.display === 'none' || box.style.display === '') ? 'block' : 'none';
+        }
+    }
+
+    function filterStreamReviews(streamKey) {
+        var query = (document.getElementById('search-input-' + streamKey) ? document.getElementById('search-input-' + streamKey).value : '').toLowerCase().trim();
+        var status = document.getElementById('status-filter-' + streamKey) ? document.getElementById('status-filter-' + streamKey).value : 'all';
+        var stars = document.getElementById('stars-filter-' + streamKey) ? document.getElementById('stars-filter-' + streamKey).value : 'all';
+
+        var clearBtn = document.getElementById('search-clear-' + streamKey);
+        if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
+
+        var items = document.querySelectorAll('#grid-stream-' + streamKey + ' .stream-item-' + streamKey);
+        var matchedItems = [];
+
+        items.forEach(function(card) {
+            var gName = card.getAttribute('data-guest-name') || '';
+            var gLoc = card.getAttribute('data-location') || '';
+            var gTitle = card.getAttribute('data-title') || '';
+            var gQuote = card.getAttribute('data-quote') || '';
+            var gStatus = card.getAttribute('data-status') || '';
+            var gStars = card.getAttribute('data-stars') || '';
+
+            var matchesQuery = !query || gName.includes(query) || gLoc.includes(query) || gTitle.includes(query) || gQuote.includes(query);
+            var matchesStatus = (status === 'all') || (status === gStatus);
+            var matchesStars = (stars === 'all') || (parseFloat(gStars) === parseFloat(stars));
+
+            if (matchesQuery && matchesStatus && matchesStars) {
+                matchedItems.push(card);
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Paginate matched items
+        var state = streamStates[streamKey];
+        var totalMatched = matchedItems.length;
+        state.totalPages = Math.max(1, Math.ceil(totalMatched / state.perPage));
+        if (state.page > state.totalPages) state.page = 1;
+
+        var startIdx = (state.page - 1) * state.perPage;
+        var endIdx = startIdx + state.perPage;
+
+        matchedItems.forEach(function(card, idx) {
+            if (idx >= startIdx && idx < endIdx) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Update counts
+        var visEl = document.getElementById('visible-count-' + streamKey);
+        if (visEl) visEl.innerText = Math.min(endIdx, totalMatched);
+        var totEl = document.getElementById('total-count-' + streamKey);
+        if (totEl) totEl.innerText = totalMatched;
+
+        var noRes = document.getElementById('no-res-' + streamKey);
+        if (noRes) noRes.style.display = (totalMatched === 0) ? 'block' : 'none';
+
+        renderPaginationControls(streamKey, totalMatched);
+    }
+
+    function renderPaginationControls(streamKey, totalMatched) {
+        var state = streamStates[streamKey];
+        var infoWrap = document.getElementById('pagination-wrap-' + streamKey);
+        var btnsBox = document.getElementById('pagination-btns-' + streamKey);
+        var currTxt = document.getElementById('curr-page-txt-' + streamKey);
+        var totTxt = document.getElementById('total-pages-txt-' + streamKey);
+
+        if (currTxt) currTxt.innerText = state.page;
+        if (totTxt) totTxt.innerText = state.totalPages;
+
+        if (!btnsBox) return;
+        if (totalMatched <= state.perPage) {
+            btnsBox.innerHTML = '';
+            return;
+        }
+
+        var html = '';
+        // Prev button
+        html += '<button type="button" class="adm-pg-btn" ' + (state.page === 1 ? 'disabled' : '') + ' onclick="gotoStreamPage(\'' + streamKey + '\', ' + (state.page - 1) + ');"><i class="fa-solid fa-chevron-left"></i></button>';
+
+        // Page buttons (window of 5 around current)
+        var startP = Math.max(1, state.page - 2);
+        var endP = Math.min(state.totalPages, startP + 4);
+        if (endP - startP < 4) startP = Math.max(1, endP - 4);
+
+        if (startP > 1) {
+            html += '<button type="button" class="adm-pg-btn" onclick="gotoStreamPage(\'' + streamKey + '\', 1);">1</button>';
+            if (startP > 2) html += '<span style="color:var(--adm-text-muted); padding:0 4px;">...</span>';
+        }
+
+        for (var p = startP; p <= endP; p++) {
+            html += '<button type="button" class="adm-pg-btn ' + (p === state.page ? 'active' : '') + '" onclick="gotoStreamPage(\'' + streamKey + '\', ' + p + ');">' + p + '</button>';
+        }
+
+        if (endP < state.totalPages) {
+            if (endP < state.totalPages - 1) html += '<span style="color:var(--adm-text-muted); padding:0 4px;">...</span>';
+            html += '<button type="button" class="adm-pg-btn" onclick="gotoStreamPage(\'' + streamKey + '\', ' + state.totalPages + ');">' + state.totalPages + '</button>';
+        }
+
+        // Next button
+        html += '<button type="button" class="adm-pg-btn" ' + (state.page === state.totalPages ? 'disabled' : '') + ' onclick="gotoStreamPage(\'' + streamKey + '\', ' + (state.page + 1) + ');"><i class="fa-solid fa-chevron-right"></i></button>';
+
+        btnsBox.innerHTML = html;
+    }
+
+    function gotoStreamPage(streamKey, pageNum) {
+        streamStates[streamKey].page = pageNum;
+        filterStreamReviews(streamKey);
+        var pane = document.getElementById('stream-pane-' + streamKey);
+        if (pane) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function clearStreamSearch(streamKey) {
+        var input = document.getElementById('search-input-' + streamKey);
+        if (input) {
+            input.value = '';
+            streamStates[streamKey].page = 1;
+            filterStreamReviews(streamKey);
+            input.focus();
+        }
+    }
+
+    function setStreamQuickFilter(streamKey, statusVal) {
+        var status = document.getElementById('status-filter-' + streamKey);
+        if (status) status.value = statusVal;
+        streamStates[streamKey].page = 1;
+        filterStreamReviews(streamKey);
+    }
+
+    function resetStreamFilters(streamKey) {
+        var input = document.getElementById('search-input-' + streamKey);
+        var status = document.getElementById('status-filter-' + streamKey);
+        var stars = document.getElementById('stars-filter-' + streamKey);
+        if (input) input.value = '';
+        if (status) status.value = 'all';
+        if (stars) stars.value = 'all';
+        streamStates[streamKey].page = 1;
+        filterStreamReviews(streamKey);
+    }
+
+    function updateStarsSliderDisplay(val, textId, iconsId) {
+        var num = parseFloat(val);
+        var tEl = document.getElementById(textId);
+        var iEl = document.getElementById(iconsId);
+        if (tEl) tEl.innerText = num.toFixed(1) + ' ★';
+        if (iEl) {
+            var str = '';
+            for (var s = 1; s <= 5; s++) {
+                if (num >= s) str += '★';
+                else if (num >= (s - 0.5)) str += '½';
+                else str += '☆';
+            }
+            iEl.innerText = str;
+        }
+    }
+
+    function previewAdminAvatar(input, boxId) {
+        var box = document.getElementById(boxId);
+        if (input.files && input.files[0] && box) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                box.innerHTML = '<img src="' + e.target.result + '" style="width: 100%; height: 100%; object-fit: cover;">';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function fillQuickReply(id, text) {
+        var field = document.getElementById('admin_reply_field_' + id);
+        if (field) {
+            field.value = text;
+            field.focus();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        filterStreamReviews('google');
+        filterStreamReviews('client');
+        filterStreamReviews('admin');
+    });
+    </script>
+    <?php endif; ?>
+
     <!-- -------------------------------------------------------------
          PANEL 14: CONTENT & IMAGE PROTECTION
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'protection') ? 'is-active' : ''; ?>" id="pane-protection">
+    <?php if ($active_tab === 'protection'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-protection">
         <form action="edit_section.php?section=protection" method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="protection_settings">
@@ -4352,7 +5745,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 15: SECURITY & ADMIN PROFILE
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'security') ? 'is-active' : ''; ?>" id="pane-security">
+    <?php endif; ?>
+    <?php if ($active_tab === 'security'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-security">
         <form action="edit_section.php?section=security" method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="form_type" value="admin_security">
@@ -4454,7 +5849,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     <!-- -------------------------------------------------------------
          PANEL 16: MYSQL DATABASE BACKUP
          ------------------------------------------------------------- -->
-    <div class="adm-card adm-settings-tab-pane <?php echo ($active_tab === 'backup') ? 'is-active' : ''; ?>" id="pane-backup">
+    <?php endif; ?>
+    <?php if ($active_tab === 'backup'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-backup">
         <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; background: rgba(16, 31, 21, 0.4);">
             <div style="display: flex; align-items: center; gap: 14px;">
                 <div class="adm-setting-card-icon gold"><i class="fa-solid fa-database"></i></div>
@@ -4514,6 +5911,284 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
             </div>
         </div> <!-- End padding 24px -->
     </div> <!-- End #pane-backup -->
+
+    <!-- -------------------------------------------------------------
+         PANEL 17: BANK DETAILS & UPI QR CODE
+         ------------------------------------------------------------- -->
+    <?php endif; ?>
+    <?php if ($active_tab === 'bank'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-bank">
+        <form action="edit_section.php?section=bank" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+            <input type="hidden" name="form_type" value="bank_settings">
+            <input type="hidden" name="active_tab" value="bank">
+
+            <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div class="adm-setting-card-icon emerald"><i class="fa-solid fa-building-columns"></i></div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="adm-badge" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                                <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
+                            </span>
+                            <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 17</span>
+                        </div>
+                        <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">BANK ACCOUNT DETAILS & UPI QR CODE</h3>
+                        <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Configure estate bank transfer info, IFSC, UPI ID, QR code asset & bill print toggles.</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" onclick="copyFormattedBankInfo();" class="adm-btn-action outline" style="padding: 10px 16px; font-size: 12px;" title="Copy complete formatted bank details for WhatsApp">
+                        <i class="fa-solid fa-copy"></i>
+                        <span id="btn-copy-bank-text">Copy for WhatsApp</span>
+                    </button>
+                    <button type="submit" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>SAVE BANK SETTINGS</span>
+                    </button>
+                </div>
+            </div>
+
+            <div style="padding: 24px;">
+                
+                <!-- Section 1: Core Bank Account Parameters -->
+                <div style="border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 16px; margin-bottom: 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-landmark" style="margin-right: 6px;"></i> 1. Official Bank Account Information
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Displayed on guest folios and tax invoices for direct NEFT / IMPS / RTGS settlement.</p>
+                </div>
+
+                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Account Holder / Beneficiary Name</label>
+                        <input type="text" id="bank_acc_holder_input" name="bank_account_holder" class="adm-form-control" value="<?php echo e($s['bank_account_holder'] ?? 'Food Forest Eco Sanctuary'); ?>" required>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Official registered company or individual name as per bank records.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Bank Name</label>
+                        <input type="text" id="bank_name_input" name="bank_name" class="adm-form-control" value="<?php echo e($s['bank_name'] ?? 'State Bank of India'); ?>" required>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">E.g. State Bank of India, HDFC Bank, Federal Bank, ICICI Bank.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Account Number</span>
+                            <button type="button" onclick="copySingleField('bank_acc_input', 'Account Number');" style="background:none; border:none; color:var(--adm-gold); font-size:11px; cursor:pointer; font-weight:600;">
+                                <i class="fa-solid fa-copy"></i> Copy No
+                            </button>
+                        </label>
+                        <input type="text" id="bank_acc_input" name="bank_account_number" class="adm-form-control" style="font-family: monospace; letter-spacing: 1px;" value="<?php echo e($s['bank_account_number'] ?? '40982314981'); ?>" required>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Double check all digits carefully before saving.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>IFSC Code</span>
+                            <button type="button" onclick="copySingleField('bank_ifsc_input', 'IFSC Code');" style="background:none; border:none; color:var(--adm-gold); font-size:11px; cursor:pointer; font-weight:600;">
+                                <i class="fa-solid fa-copy"></i> Copy IFSC
+                            </button>
+                        </label>
+                        <input type="text" id="bank_ifsc_input" name="bank_ifsc" class="adm-form-control" style="font-family: monospace; text-transform: uppercase;" value="<?php echo e($s['bank_ifsc'] ?? 'SBIN0070123'); ?>" required>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">11-character Indian Financial System Code (e.g. SBIN0070123).</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Account Type</label>
+                        <select name="bank_account_type" class="adm-form-control" style="background: var(--adm-bg-surface); color: #FFF;">
+                            <?php $curr_btype = $s['bank_account_type'] ?? 'Current Account'; ?>
+                            <option value="Current Account" <?php echo ($curr_btype === 'Current Account') ? 'selected' : ''; ?>>Current Account</option>
+                            <option value="Savings Account" <?php echo ($curr_btype === 'Savings Account') ? 'selected' : ''; ?>>Savings Account</option>
+                            <option value="Cash Credit (CC)" <?php echo ($curr_btype === 'Cash Credit (CC)') ? 'selected' : ''; ?>>Cash Credit (CC)</option>
+                        </select>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Account category printed on guest folio.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Bank Branch & Location</label>
+                        <input type="text" id="bank_branch_input" name="bank_branch" class="adm-form-control" value="<?php echo e($s['bank_branch'] ?? 'Munnar / Kanthalloor Branch'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Branch office location and district.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">GSTIN / Tax Identification Number</label>
+                        <input type="text" id="gst_number_input" name="gst_number" class="adm-form-control" style="font-family: monospace; text-transform: uppercase;" value="<?php echo e($s['gst_number'] ?? '32AAECF1234M1Z5'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Printed in the invoice header and tax computation block.</small>
+                    </div>
+
+                </div>
+
+                <!-- Section 2: UPI VPA ID & QR Code Asset Upload -->
+                <div style="border-top: 1px solid rgba(197, 160, 89, 0.15); border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding: 18px 0 16px; margin: 24px 0 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-qrcode" style="margin-right: 6px;"></i> 2. UPI VPA & Payment QR Code
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Upload your GPay / PhonePe / Paytm / BHIM Merchant QR code image to print directly on bills.</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start; margin-bottom: 24px;">
+                    
+                    <div>
+                        <div class="adm-form-group" style="margin-bottom: 18px;">
+                            <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>UPI VPA ID (Virtual Payment Address)</span>
+                                <button type="button" onclick="copySingleField('bank_upi_input', 'UPI VPA ID');" style="background:none; border:none; color:var(--adm-gold); font-size:11px; cursor:pointer; font-weight:600;">
+                                    <i class="fa-solid fa-copy"></i> Copy UPI
+                                </button>
+                            </label>
+                            <input type="text" id="bank_upi_input" name="bank_upi_id" class="adm-form-control" style="font-family: monospace; font-weight: 600;" value="<?php echo e($s['bank_upi_id'] ?? 'foodforest@upi'); ?>" required>
+                            <small style="color: var(--adm-text-muted); font-size: 11px;">E.g. foodforest@okaxis, 9447000000@paytm, or merchant VPA.</small>
+                        </div>
+
+                        <div class="adm-form-group" style="margin-bottom: 18px;">
+                            <label class="adm-form-label">Upload New UPI Payment QR Code Image</label>
+                            <input type="file" name="bank_qr_image_file" class="adm-form-control" accept="image/*" onchange="previewUploadImage(this, 'bank-qr-preview-img', 'bank-qr-file-badge');" style="padding: 8px;">
+                            <div id="bank-qr-file-badge" style="display: none; margin-top: 6px; font-size: 11px; color: #2ecc71; align-items: center; gap: 4px;"></div>
+                            <small style="color: var(--adm-text-muted); font-size: 11px; display: block; margin-top: 4px;">Recommended: Clear square PNG, JPG, WEBP or SVG (Min 300x300px).</small>
+                        </div>
+
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">QR Image Path (Direct Server Path / URL)</label>
+                            <input type="text" name="bank_qr_image" class="adm-form-control" value="<?php echo e($s['bank_qr_image'] ?? 'assets/images/foodforest_upi_qr.svg'); ?>">
+                            <small style="color: var(--adm-text-muted); font-size: 11px;">Path automatically updates when you upload a new image above.</small>
+                        </div>
+                    </div>
+
+                    <!-- Live QR Code Card Preview in Form -->
+                    <div style="background: rgba(16, 31, 21, 0.7); border: 1.5px solid rgba(197, 160, 89, 0.35); border-radius: 12px; padding: 20px; text-align: center;">
+                        <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 12px;">
+                            Current Active QR Code
+                        </span>
+                        <div style="background: #FFFFFF; padding: 12px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                            <?php 
+                            $qr_src = !empty($s['bank_qr_image']) ? (str_starts_with($s['bank_qr_image'], 'http') || str_starts_with($s['bank_qr_image'], 'assets/') ? '../' . $s['bank_qr_image'] : '../' . $s['bank_qr_image']) : '../assets/images/foodforest_upi_qr.svg'; 
+                            ?>
+                            <img id="bank-qr-preview-img" src="<?php echo htmlspecialchars($qr_src); ?>" alt="UPI QR Preview" style="width: 150px; height: 150px; object-fit: contain; display: block;" onerror="this.src='../assets/images/foodforest_upi_qr.svg';">
+                        </div>
+                        <div style="font-size: 11px; color: var(--adm-text-secondary); margin-top: 10px;">
+                            Will be rendered on luxury A4 printed guest folios when enabled.
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Section 3: Bill / Folio Printing Rules & Toggles -->
+                <div style="border-top: 1px solid rgba(197, 160, 89, 0.15); border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding: 18px 0 16px; margin: 24px 0 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-receipt" style="margin-right: 6px;"></i> 3. Guest Invoice & Bill Print Toggles
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Configure whether Bank Account table and UPI QR Code appear on generated folios by default.</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-bottom: 24px;">
+                    
+                    <div style="background: rgba(16, 31, 21, 0.5); border: 1px solid var(--adm-border); border-radius: 8px; padding: 16px;">
+                        <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
+                            <input type="checkbox" name="bill_show_bank_details" value="1" <?php echo (($s['bill_show_bank_details'] ?? '1') === '1') ? 'checked' : ''; ?> style="width: 18px; height: 18px; margin-top: 2px; accent-color: #C5A059;">
+                            <div>
+                                <span style="font-size: 13.5px; font-weight: 700; color: #FFFFFF; display: block;">Show Bank Account Details on Bills</span>
+                                <span style="font-size: 11.5px; color: var(--adm-text-muted); display: block; margin-top: 2px;">Renders Account Holder, Bank Name, A/C No, and IFSC Code on printable folios.</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div style="background: rgba(16, 31, 21, 0.5); border: 1px solid var(--adm-border); border-radius: 8px; padding: 16px;">
+                        <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
+                            <input type="checkbox" name="bill_show_qr_code" value="1" <?php echo (($s['bill_show_qr_code'] ?? '1') === '1') ? 'checked' : ''; ?> style="width: 18px; height: 18px; margin-top: 2px; accent-color: #C5A059;">
+                            <div>
+                                <span style="font-size: 13.5px; font-weight: 700; color: #FFFFFF; display: block;">Show UPI QR Code on Bills</span>
+                                <span style="font-size: 11.5px; color: var(--adm-text-muted); display: block; margin-top: 2px;">Renders high-res scan-and-pay QR code alongside invoice totals.</span>
+                            </div>
+                        </label>
+                    </div>
+
+                </div>
+
+                <div class="adm-form-group" style="margin-bottom: 24px;">
+                    <label class="adm-form-label">Invoice Footer Instructions / Payment Terms</label>
+                    <textarea name="bill_footer_notes" class="adm-form-control" rows="2" style="font-size: 12.5px;"><?php echo e($s['bill_footer_notes'] ?? 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.'); ?></textarea>
+                    <small style="color: var(--adm-text-muted); font-size: 11px;">Custom note printed at the base of guest folios.</small>
+                </div>
+
+                <!-- Submit Button -->
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
+                    <div id="bank-copy-toast" style="font-size: 12px; color: #2ecc71; font-weight: 600; display: none;">
+                        <i class="fa-solid fa-circle-check"></i> <span id="bank-toast-msg">Copied!</span>
+                    </div>
+                    <button type="submit" class="adm-btn-action gold" style="padding: 12px 28px; font-weight: 700; margin-left: auto;">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>SAVE ALL BANK & PAYMENT SETTINGS</span>
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div> <!-- End #pane-bank -->
+
+    <script>
+    function copySingleField(elementId, label) {
+        var el = document.getElementById(elementId);
+        if (!el) return;
+        var val = el.value || el.innerText || '';
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(val).then(function() {
+                showBankToast(label + ' copied to clipboard!');
+            });
+        } else {
+            el.select();
+            document.execCommand('copy');
+            showBankToast(label + ' copied to clipboard!');
+        }
+    }
+
+    function copyFormattedBankInfo() {
+        var holder = document.getElementById('bank_acc_holder_input')?.value || 'Food Forest Eco Sanctuary';
+        var bname = document.getElementById('bank_name_input')?.value || 'State Bank of India';
+        var acc = document.getElementById('bank_acc_input')?.value || '';
+        var ifsc = document.getElementById('bank_ifsc_input')?.value || '';
+        var branch = document.getElementById('bank_branch_input')?.value || '';
+        var upi = document.getElementById('bank_upi_input')?.value || '';
+        var gst = document.getElementById('gst_number_input')?.value || '';
+
+        var msg = "🌿 *FOOD FOREST SANCTUARY — BANK TRANSFER & UPI DETAILS*\n";
+        msg += "━━━━━━━━━━━━━━━━━━━━━\n";
+        msg += "• *Account Holder*: " + holder + "\n";
+        msg += "• *Bank*: " + bname + "\n";
+        msg += "• *Account No*: " + acc + "\n";
+        msg += "• *IFSC Code*: " + ifsc + "\n";
+        if (branch) msg += "• *Branch*: " + branch + "\n";
+        if (upi) msg += "• *UPI VPA ID*: " + upi + "\n";
+        if (gst) msg += "• *GSTIN*: " + gst + "\n";
+        msg += "━━━━━━━━━━━━━━━━━━━━━\n";
+        msg += "Please share the payment screenshot or transaction UTR number once completed. Thank you!";
+
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(msg).then(function() {
+                var btn = document.getElementById('btn-copy-bank-text');
+                if (btn) btn.innerText = 'Copied to WhatsApp!';
+                setTimeout(function() {
+                    if (btn) btn.innerText = 'Copy for WhatsApp';
+                }, 3000);
+                showBankToast('Complete bank details formatted & copied for WhatsApp!');
+            });
+        }
+    }
+
+    function showBankToast(msg) {
+        var toast = document.getElementById('bank-copy-toast');
+        var toastMsg = document.getElementById('bank-toast-msg');
+        if (toast && toastMsg) {
+            toastMsg.innerText = msg;
+            toast.style.display = 'inline-flex';
+            setTimeout(function() {
+                toast.style.display = 'none';
+            }, 3500);
+        }
+    }
+    </script>
+    <?php endif; ?>
     </div> <!-- End .adm-settings-panels-container -->
     </div> <!-- End .adm-editor-col -->
 

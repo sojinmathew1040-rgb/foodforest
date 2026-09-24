@@ -4,15 +4,21 @@
    ------------------------------------------------------------- */
 
 document.addEventListener("DOMContentLoaded", () => {
-    if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined") {
-        console.warn("GSAP or ScrollTrigger not loaded");
-        return;
-    }
-    gsap.registerPlugin(ScrollTrigger);
-
     const container = document.getElementById("rooms-experience");
     const canvas = document.getElementById("rooms-webgl-canvas");
     const fallback = document.getElementById("webgl-fallback-container");
+
+    if (!container || !canvas) {
+        return; // Skip on pages without 3D rooms section (e.g. gallery.php, booking.php)
+    }
+
+    if (typeof gsap === "undefined" || typeof ScrollTrigger === "undefined" || typeof THREE === "undefined") {
+        console.warn("GSAP, ScrollTrigger or THREE not loaded");
+        if (fallback) fallback.style.display = "block";
+        if (canvas) canvas.style.display = "none";
+        return;
+    }
+    gsap.registerPlugin(ScrollTrigger);
 
     // 1. WebGL & Device Support Check
     function hasWebGL() {
@@ -155,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    let activeStay = 'treehouse';
+    let activeStay = (window.ESTATE_DYNAMIC_STAY && window.ESTATE_DYNAMIC_STAY.defaultStay) ? window.ESTATE_DYNAMIC_STAY.defaultStay : 'treehouse';
     const textureLoader = new THREE.TextureLoader();
 
     // Pre-load textures for both stays so switching is instantaneous
@@ -190,8 +196,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3A. Front Exterior Canopy Layer (Placed in front of camera at Z = -6.5)
     const extGeo = new THREE.PlaneGeometry(16, 9);
+    const initialExtTex = (textures[activeStay] && textures[activeStay].exterior) ? textures[activeStay].exterior : textures.treehouse.exterior;
     const extMat = new THREE.MeshBasicMaterial({
-        map: textures.treehouse.exterior,
+        map: initialExtTex,
         transparent: true,
         opacity: 1.0,
         side: THREE.DoubleSide,
@@ -205,8 +212,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const sphereGeo = new THREE.SphereGeometry(100, 64, 40);
     sphereGeo.scale(-1, 1, 1); // Invert faces so viewer stands inside looking out
 
+    const initialIntTex = (textures[activeStay] && textures[activeStay].interior) ? textures[activeStay].interior : textures.treehouse.interior;
     const sphereMat = new THREE.MeshBasicMaterial({
-        map: textures.treehouse.interior,
+        map: initialIntTex,
         transparent: true,
         opacity: 0.0,
         depthWrite: false

@@ -155,47 +155,81 @@ $current_page = basename($_SERVER['PHP_SELF']);
         var auraPath = document.getElementById('admin-master-trail-aura');
         var linePath = document.getElementById('admin-master-trail-line');
 
+        var loopCenter = { cx: 400, cy: 258, rx: 240, ry: 162 };
+
+        function calcAdminLoopJunction(spotX, spotY) {
+            var angle = Math.atan2(spotY - loopCenter.cy, spotX - loopCenter.cx);
+            var jx = loopCenter.cx + loopCenter.rx * Math.cos(angle);
+            var jy = loopCenter.cy + loopCenter.ry * Math.sin(angle);
+            return { x: Math.round(jx * 10) / 10, y: Math.round(jy * 10) / 10, angle: angle };
+        }
+
         function updateAdminTrail() {
             var pins = Array.from(document.querySelectorAll('.admin-master-pin'));
-            if (pins.length < 2) {
-                if (auraPath) auraPath.setAttribute('d', '');
-                if (linePath) linePath.setAttribute('d', '');
-                return;
-            }
+            pins.forEach(function(pin) {
+                var idx = pin.getAttribute('data-idx');
+                var px = (parseFloat(pin.style.left) / 100.0) * 800;
+                var py = (parseFloat(pin.style.top) / 100.0) * 520;
+                var junc = calcAdminLoopJunction(px, py);
+                var midX = (junc.x + px) / 2;
+                var midY = (junc.y + py) / 2;
+                var offsetX = (py - junc.y) * 0.18;
+                var offsetY = -(px - junc.x) * 0.18;
+                var ctrlX = midX + offsetX;
+                var ctrlY = midY + offsetY;
+                var d = "M " + junc.x.toFixed(1) + "," + junc.y.toFixed(1) + " Q " + ctrlX.toFixed(1) + "," + ctrlY.toFixed(1) + " " + px.toFixed(1) + "," + py.toFixed(1);
 
-            // Sort pins by numerical spot number sequence (1 -> 2 -> 3...)
-            pins.sort(function(a, b) {
-                var na = parseInt(a.getAttribute('data-spot-num'), 10) || 0;
-                var nb = parseInt(b.getAttribute('data-spot-num'), 10) || 0;
-                return na - nb;
+                var aura = document.getElementById('admin-branch-aura-' + idx);
+                var line = document.getElementById('admin-branch-line-' + idx);
+                if (aura) aura.setAttribute('d', d);
+                if (line) line.setAttribute('d', d);
             });
-
-            var pts = pins.map(function(pin) {
-                var x = parseFloat(pin.style.left) || 0;
-                var y = parseFloat(pin.style.top) || 0;
-                return {
-                    x: (x / 100.0) * 800,
-                    y: (y / 100.0) * 520
-                };
-            });
-
-            var d = "M " + pts[0].x.toFixed(1) + "," + pts[0].y.toFixed(1);
-            for (var i = 0; i < pts.length - 1; i++) {
-                var p0 = pts[i];
-                var p1 = pts[i + 1];
-                var mx = (p0.x + p1.x) / 2;
-                var my = (p0.y + p1.y) / 2;
-                var dx = p1.x - p0.x;
-                var dy = p1.y - p0.y;
-                var cx = mx - (dy * 0.12);
-                var cy = my + (dx * 0.12);
-                d += " Q " + cx.toFixed(1) + "," + cy.toFixed(1) + " " + p1.x.toFixed(1) + "," + p1.y.toFixed(1);
-            }
-
-            if (auraPath) auraPath.setAttribute('d', d);
-            if (linePath) linePath.setAttribute('d', d);
         }
         window.updateAdminRouteTrail = updateAdminTrail;
+
+        window.applyLinkedRoom = function(slug, target) {
+            if (!slug) return;
+            var rooms = window.allRoomsData || [];
+            var room = rooms.find(function(r) { return r.slug === slug; });
+            if (!room) return;
+
+            if (target === 'new') {
+                var titleInput = document.getElementById('new_spot_title');
+                var descInput = document.getElementById('new_spot_desc');
+                var catSelect = document.getElementById('new_spot_category');
+                var structSelect = document.getElementById('new_spot_structure_type');
+                var priceInput = document.getElementById('new_spot_stay_price');
+                var fallbackImg = document.getElementById('new_spot_fallback_image');
+
+                if (titleInput) titleInput.value = room.title;
+                if (descInput) descInput.value = room.description;
+                if (catSelect) catSelect.value = 'stays';
+                if (structSelect && room.structure_type) structSelect.value = room.structure_type;
+                if (priceInput && room.rate_per_night) priceInput.value = parseFloat(room.rate_per_night);
+                if (fallbackImg && room.image_url) fallbackImg.value = room.image_url;
+
+                var prevBox = document.getElementById('new_spot_photos_preview');
+                if (prevBox && room.image_url) {
+                    prevBox.innerHTML = '<div style="display:inline-block; border-radius:6px; overflow:hidden; border:1px solid #56C2C9; width:64px; height:64px;"><img src="../' + room.image_url + '" style="width:100%; height:100%; object-fit:cover;"></div><span style="display:block; font-size:11px; color:#56C2C9; margin-top:4px;"><i class="fa-solid fa-check"></i> Linked ' + room.title + ' Cover Image</span>';
+                }
+            } else {
+                var idx = target;
+                var titleInput = document.getElementById('spot_title_' + idx);
+                var descInput = document.getElementById('spot_desc_' + idx);
+                var catSelect = document.getElementById('spot_category_' + idx);
+                var structSelect = document.getElementById('spot_structure_type_' + idx);
+                var priceInput = document.getElementById('spot_stay_price_' + idx);
+
+                if (titleInput) {
+                    titleInput.value = room.title;
+                    if (typeof syncSpotTitleToPin === 'function') syncSpotTitleToPin(idx, room.title);
+                }
+                if (descInput) descInput.value = room.description;
+                if (catSelect) catSelect.value = 'stays';
+                if (structSelect && room.structure_type) structSelect.value = room.structure_type;
+                if (priceInput && room.rate_per_night) priceInput.value = parseFloat(room.rate_per_night);
+            }
+        };
 
         function onPointerDown(e) {
             var pin = e.target.closest('.admin-master-pin');
@@ -414,14 +448,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
             if (badge) badge.style.display = 'block';
         }
 
-        // 2. Hide all panes and display target active pane directly below cards
-        document.querySelectorAll('.adm-settings-tab-pane').forEach(function(pane) {
-            pane.classList.remove('is-active');
-            pane.style.display = 'none';
-        });
-        
+        // 2. Hide other panes and display target active pane directly below cards
         var targetPane = document.getElementById('pane-' + tabKey);
         if (targetPane) {
+            document.querySelectorAll('.adm-settings-tab-pane').forEach(function(pane) {
+                if (pane !== targetPane) {
+                    pane.classList.remove('is-active');
+                    pane.style.display = 'none';
+                }
+            });
             targetPane.classList.add('is-active');
             targetPane.style.display = 'block';
 

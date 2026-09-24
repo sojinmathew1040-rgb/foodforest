@@ -27,8 +27,21 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
 $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
 $currency = get_setting('currency_symbol', '₹');
 $gst_number = get_setting('gst_number', '32AAECF1234M1Z5');
-$upi_id = get_setting('upi_id', 'foodforest@upi');
-$bank_details = get_setting('bank_details', 'State Bank of India • A/C: 40982314981 • IFSC: SBIN0070123');
+$bank_account_holder = get_setting('bank_account_holder', 'Food Forest Eco Sanctuary');
+$bank_name = get_setting('bank_name', 'State Bank of India');
+$bank_branch = get_setting('bank_branch', 'Munnar / Kanthalloor Branch');
+$bank_account_number = get_setting('bank_account_number', '40982314981');
+$bank_ifsc = get_setting('bank_ifsc', 'SBIN0070123');
+$bank_account_type = get_setting('bank_account_type', 'Current Account');
+$bank_upi_id = get_setting('bank_upi_id', 'foodforest@upi');
+$bank_qr_image = get_setting('bank_qr_image', 'assets/images/foodforest_upi_qr.svg');
+$bill_footer_notes = get_setting('bill_footer_notes', 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.');
+
+$default_show_bank = (get_setting('bill_show_bank_details', '1') === '1');
+$default_show_qr = (get_setting('bill_show_qr_code', '1') === '1');
+
+$show_bank = isset($_GET['show_bank']) ? ($_GET['show_bank'] == '1') : $default_show_bank;
+$show_qr = isset($_GET['show_qr']) ? ($_GET['show_qr'] == '1') : $default_show_qr;
 
 // Invoice Serial
 $invoice_no = 'FF-INV-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
@@ -486,9 +499,9 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
 
         .payment-instructions-card {
             background: #F8FAF9;
-            border: 1px solid #E2E8F0;
+            border: 1.5px solid #CBD5E1;
             border-radius: 8px;
-            padding: 16px 20px;
+            padding: 16px 18px;
             font-size: 12.5px;
         }
 
@@ -498,7 +511,15 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
             font-size: 13px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #E2E8F0;
+            padding-bottom: 6px;
+        }
+
+        .payment-card-title span {
             display: flex;
             align-items: center;
             gap: 6px;
@@ -506,6 +527,83 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
 
         .payment-card-title i {
             color: var(--accent);
+        }
+
+        .payment-card-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        .payment-card-grid.full-bank {
+            grid-template-columns: 1fr;
+        }
+
+        .payment-qr-col {
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            width: 130px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+
+        .payment-qr-col img {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .payment-qr-upi-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: monospace;
+            margin-top: 6px;
+            background: #F1F5F9;
+            padding: 2px 4px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+
+        .payment-qr-sub {
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.2;
+        }
+
+        .bank-info-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .bank-info-table td {
+            padding: 3.5px 0;
+            vertical-align: top;
+        }
+
+        .bank-info-table .b-lbl {
+            color: var(--text-muted);
+            width: 95px;
+            font-weight: 500;
+        }
+
+        .bank-info-table .b-val {
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+
+        .bank-info-table .b-val.mono {
+            font-family: monospace;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--primary);
         }
 
         .charges-summary-table {
@@ -697,10 +795,30 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
             <i class="fa-solid fa-file-invoice-dollar"></i>
             <span>Guest Folio & Tax Invoice Preview — #<?php echo htmlspecialchars($booking['reference_code']); ?></span>
         </div>
+
+        <!-- Live Toggle Controls & Copy Actions -->
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.08); padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(197,160,89,0.35);">
+                <label style="color:#FFF; font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer;" title="Toggle Bank Account details on printable bill">
+                    <input type="checkbox" id="toolbar_toggle_bank" <?php echo $show_bank ? 'checked' : ''; ?> onchange="toggleBillElement('bill-bank-card', this.checked);" style="accent-color: #C5A059; width: 15px; height: 15px;">
+                    <span>Bank Details</span>
+                </label>
+                <label style="color:#FFF; font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer;" title="Toggle UPI Payment QR Code on printable bill">
+                    <input type="checkbox" id="toolbar_toggle_qr" <?php echo $show_qr ? 'checked' : ''; ?> onchange="toggleBillElement('bill-qr-card', this.checked);" style="accent-color: #C5A059; width: 15px; height: 15px;">
+                    <span>UPI QR Code</span>
+                </label>
+            </div>
+
+            <button type="button" onclick="copyBillBankDetails();" class="bill-btn" style="background: rgba(197,160,89,0.18); color: #DFC289; border: 1px solid rgba(197,160,89,0.4);" title="Copy formatted bank details for guest WhatsApp">
+                <i class="fa-solid fa-copy"></i>
+                <span id="btn-copy-bank-label">Copy Bank Info</span>
+            </button>
+        </div>
+
         <div class="bill-btn-group">
             <a href="billing.php" class="bill-btn btn-back">
                 <i class="fa-solid fa-arrow-left"></i>
-                <span>Back to Billing Hub</span>
+                <span>Back to Hub</span>
             </a>
             <?php if (!empty($booking['guest_phone'])): ?>
                 <a href="<?php echo $wa_url; ?>" target="_blank" class="bill-btn btn-wa" title="Send itemized folio via WhatsApp">
@@ -1015,17 +1133,57 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
                 <div>
                     <div class="payment-instructions-card">
                         <div class="payment-card-title">
-                            <i class="fa-solid fa-building-columns"></i>
-                            <span>Settlement & Bank Details</span>
+                            <span><i class="fa-solid fa-building-columns"></i> Settlement & Bank Channels</span>
+                            <span style="font-size: 10.5px; color: var(--text-muted); font-weight: 500;">Direct Transfer / UPI</span>
                         </div>
-                        <div style="margin-bottom: 6px;">
-                            <strong>UPI VPA ID:</strong> <span style="font-family: monospace; font-weight: 700; color: var(--primary);"><?php echo htmlspecialchars($upi_id); ?></span>
+
+                        <div class="payment-card-grid <?php echo !$show_qr ? 'full-bank' : ''; ?>" id="bill-payment-grid">
+                            
+                            <!-- QR Code Card -->
+                            <div class="payment-qr-col" id="bill-qr-card" style="<?php echo $show_qr ? '' : 'display:none;'; ?>">
+                                <?php 
+                                $bill_qr_url = !empty($bank_qr_image) ? (str_starts_with($bank_qr_image, 'http') || str_starts_with($bank_qr_image, 'assets/') ? '../' . $bank_qr_image : '../' . $bank_qr_image) : '../assets/images/foodforest_upi_qr.svg';
+                                ?>
+                                <img src="<?php echo htmlspecialchars($bill_qr_url); ?>" alt="Scan to Pay UPI" onerror="this.src='../assets/images/foodforest_upi_qr.svg';">
+                                <div class="payment-qr-upi-label"><?php echo htmlspecialchars($bank_upi_id); ?></div>
+                                <div class="payment-qr-sub">Scan via GPay / PhonePe / Paytm / BHIM</div>
+                            </div>
+
+                            <!-- Structured Bank Details Table -->
+                            <div id="bill-bank-card" style="<?php echo $show_bank ? '' : 'display:none;'; ?>">
+                                <table class="bank-info-table">
+                                    <tr>
+                                        <td class="b-lbl">A/C Payee:</td>
+                                        <td class="b-val"><?php echo htmlspecialchars($bank_account_holder); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="b-lbl">Bank Name:</td>
+                                        <td class="b-val"><?php echo htmlspecialchars($bank_name); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="b-lbl">Account No:</td>
+                                        <td class="b-val mono"><?php echo htmlspecialchars($bank_account_number); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="b-lbl">IFSC Code:</td>
+                                        <td class="b-val mono"><?php echo htmlspecialchars($bank_ifsc); ?></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="b-lbl">Branch:</td>
+                                        <td class="b-val"><?php echo htmlspecialchars($bank_branch); ?> (<?php echo htmlspecialchars($bank_account_type); ?>)</td>
+                                    </tr>
+                                </table>
+                            </div>
+
                         </div>
-                        <div style="margin-bottom: 6px;">
-                            <strong>Bank Transfer:</strong> <?php echo htmlspecialchars($bank_details); ?>
+
+                        <!-- Fallback when both are hidden -->
+                        <div id="bill-fallback-card" style="<?php echo (!$show_bank && !$show_qr) ? '' : 'display:none;'; ?> color: var(--text-muted); font-size: 11.5px; padding: 6px 0;">
+                            <i class="fa-solid fa-circle-check" style="color: #059669; margin-right: 4px;"></i> Direct front-desk settlement upon departure (Cash / Card / POS).
                         </div>
-                        <div style="color: var(--text-muted); font-size: 11.5px; margin-top: 8px;">
-                            <i class="fa-solid fa-receipt"></i> Official receipts are generated digitally. For invoices with company GST number, please notify the concierge prior to checkout.
+
+                        <div style="color: var(--text-muted); font-size: 11px; margin-top: 10px; border-top: 1px dashed #CBD5E1; padding-top: 6px;">
+                            <i class="fa-solid fa-shield-halved" style="color: #059669;"></i> <?php echo htmlspecialchars($bill_footer_notes); ?>
                         </div>
                     </div>
                 </div>
@@ -1117,6 +1275,60 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
         </footer>
 
     </div>
+
+    <script>
+    function toggleBillElement(elementId, isChecked) {
+        var el = document.getElementById(elementId);
+        if (el) {
+            el.style.display = isChecked ? '' : 'none';
+        }
+        var bankVisible = document.getElementById('toolbar_toggle_bank')?.checked;
+        var qrVisible = document.getElementById('toolbar_toggle_qr')?.checked;
+        var fallback = document.getElementById('bill-fallback-card');
+        var grid = document.getElementById('bill-payment-grid');
+
+        if (fallback) {
+            fallback.style.display = (!bankVisible && !qrVisible) ? 'block' : 'none';
+        }
+        if (grid) {
+            if (!qrVisible && bankVisible) {
+                grid.classList.add('full-bank');
+            } else {
+                grid.classList.remove('full-bank');
+            }
+        }
+    }
+
+    function copyBillBankDetails() {
+        var holder = <?php echo json_encode($bank_account_holder); ?>;
+        var bname = <?php echo json_encode($bank_name); ?>;
+        var acc = <?php echo json_encode($bank_account_number); ?>;
+        var ifsc = <?php echo json_encode($bank_ifsc); ?>;
+        var branch = <?php echo json_encode($bank_branch); ?>;
+        var upi = <?php echo json_encode($bank_upi_id); ?>;
+
+        var text = "🌿 *FOOD FOREST SANCTUARY — BANK & UPI DETAILS*\n";
+        text += "━━━━━━━━━━━━━━━━━━━━━\n";
+        text += "• *Account Holder*: " + holder + "\n";
+        text += "• *Bank*: " + bname + "\n";
+        text += "• *A/C Number*: " + acc + "\n";
+        text += "• *IFSC Code*: " + ifsc + "\n";
+        text += "• *Branch*: " + branch + "\n";
+        text += "• *UPI ID*: " + upi + "\n";
+        text += "━━━━━━━━━━━━━━━━━━━━━\n";
+        text += "Please share the transaction UTR once transfer is completed.";
+
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(function() {
+                var lbl = document.getElementById('btn-copy-bank-label');
+                if (lbl) {
+                    lbl.innerText = 'Copied!';
+                    setTimeout(function() { lbl.innerText = 'Copy Bank Info'; }, 2500);
+                }
+            });
+        }
+    }
+    </script>
 
 </body>
 </html>

@@ -1,6 +1,6 @@
 <?php
-// Food Forest Sanctuary — Testimonials moved to Settings Card 11
-header('Location: settings.php?tab=testimonials');
+// Food Forest Sanctuary — Testimonials Manager
+header('Location: edit_section.php?section=testimonials');
 exit;
 require_once __DIR__ . '/includes/header.php';
 

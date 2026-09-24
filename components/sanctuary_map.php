@@ -6,30 +6,63 @@ $sanctuary_spots = get_all_sanctuary_spots(true);
 $sec_label = get_setting('sanctuary_section_label', 'The Living Landscape');
 $sec_title = get_setting('sanctuary_section_title', 'An Untamed Sanctuary');
 
-// Calculate dynamic SVG route trail connecting spots in numerical sequence (1 -> 2 -> 3 -> 4...)
-$route_d = '';
-if (!empty($sanctuary_spots)) {
-    $pts = [];
-    foreach ($sanctuary_spots as $sp) {
-        $pts[] = [
-            'x' => ($sp['x_coord'] / 100.0) * 800,
-            'y' => ($sp['y_coord'] / 100.0) * 520
-        ];
+// Circular/Elliptical Main Estate Loop Road & Dynamic Cottage Sub-Branches
+$loop_cx = 400;
+$loop_cy = 258;
+$loop_rx = 240;
+$loop_ry = 162;
+
+// Main Estate Loop Road SVG Path (Smooth closed circuit)
+$main_loop_d = "M 390,420 " .
+               "C 280,420 160,340 160,260 " .
+               "C 160,180 280,95 400,95 " .
+               "C 520,95 640,180 640,260 " .
+               "C 640,340 520,420 390,420 Z";
+
+// Main Entrance South Avenue Drive
+$entrance_drive_d = "M 390,496 L 390,420";
+
+// Loop Junction Nodes (Paved waypoints around the ring road)
+$loop_waypoint_nodes = [
+    ['x' => 390, 'y' => 420, 'label' => 'South Gate Junction'],
+    ['x' => 220, 'y' => 375, 'label' => 'Farmstead Turn'],
+    ['x' => 160, 'y' => 260, 'label' => 'West Ridge Way'],
+    ['x' => 220, 'y' => 145, 'label' => 'High Vista Junction'],
+    ['x' => 400, 'y' => 95,  'label' => 'North Alpine Peak'],
+    ['x' => 580, 'y' => 145, 'label' => 'East Brook Terraces'],
+    ['x' => 640, 'y' => 260, 'label' => 'Perennial Brook Bridge'],
+    ['x' => 580, 'y' => 375, 'label' => 'Southeast Orchard Loop']
+];
+
+if (!function_exists('calculate_loop_junction')) {
+    function calculate_loop_junction($spot_x, $spot_y, $cx = 400, $cy = 258, $rx = 240, $ry = 162) {
+        $angle = atan2($spot_y - $cy, $spot_x - $cx);
+        $jx = $cx + $rx * cos($angle);
+        $jy = $cy + $ry * sin($angle);
+        return ['x' => round($jx, 1), 'y' => round($jy, 1), 'angle' => $angle];
     }
-    if (count($pts) > 1) {
-        $route_d = "M " . round($pts[0]['x'], 1) . "," . round($pts[0]['y'], 1);
-        for ($i = 0; $i < count($pts) - 1; $i++) {
-            $p0 = $pts[$i];
-            $p1 = $pts[$i + 1];
-            $mx = ($p0['x'] + $p1['x']) / 2;
-            $my = ($p0['y'] + $p1['y']) / 2;
-            $dx = $p1['x'] - $p0['x'];
-            $dy = $p1['y'] - $p0['y'];
-            // Gentle organic mountain trail curvature
-            $cx = $mx - ($dy * 0.12);
-            $cy = $my + ($dx * 0.12);
-            $route_d .= " Q " . round($cx, 1) . "," . round($cy, 1) . " " . round($p1['x'], 1) . "," . round($p1['y'], 1);
-        }
+}
+
+$branch_paths = [];
+$junction_nodes = [];
+if (!empty($sanctuary_spots)) {
+    foreach ($sanctuary_spots as $sp) {
+        $sx = ($sp['x_coord'] / 100.0) * 800;
+        $sy = ($sp['y_coord'] / 100.0) * 520;
+        $junc = calculate_loop_junction($sx, $sy, $loop_cx, $loop_cy, $loop_rx, $loop_ry);
+        $mid_x = ($junc['x'] + $sx) / 2;
+        $mid_y = ($junc['y'] + $sy) / 2;
+        $offset_x = ($sy - $junc['y']) * 0.18;
+        $offset_y = -($sx - $junc['x']) * 0.18;
+        $ctrl_x = $mid_x + $offset_x;
+        $ctrl_y = $mid_y + $offset_y;
+
+        $branch_paths[] = [
+            'd' => "M " . $junc['x'] . "," . $junc['y'] . " Q " . round($ctrl_x, 1) . "," . round($ctrl_y, 1) . " " . round($sx, 1) . "," . round($sy, 1),
+            'spot_id' => $sp['id'],
+            'spot_title' => $sp['title']
+        ];
+        $junction_nodes[] = $junc;
     }
 }
 
@@ -149,12 +182,50 @@ $spots_count = count($sanctuary_spots);
                         <text x="685" y="125" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,620M MSL</text>
                         <text x="685" y="385" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,580M MSL</text>
 
-                        <!-- Connected Mountain Route Trail (1 -> 2 -> 3 -> 4...) -->
-                        <?php if (!empty($route_d)): ?>
-                            <path class="sanctuary-trail-aura" d="<?php echo $route_d; ?>" 
-                                  fill="none" stroke="rgba(197, 160, 89, 0.2)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#map-glow)" />
-                            <path class="sanctuary-route-trail" d="<?php echo $route_d; ?>" 
-                                  fill="none" stroke="#C5A059" stroke-width="2.2" stroke-dasharray="6,6" stroke-linecap="round" stroke-linejoin="round" />
+                        <!-- 1. Estate Perimeter Survey Boundary -->
+                        <rect x="36" y="24" width="728" height="472" rx="16" 
+                              fill="none" stroke="rgba(197, 160, 89, 0.35)" stroke-width="1.2" stroke-dasharray="10,6" />
+                        
+                        <!-- Survey Corner Coordinate Marks -->
+                        <g font-family="'Cinzel', Georgia, serif" font-size="8.5" fill="rgba(197, 160, 89, 0.55)" letter-spacing="1">
+                            <text x="50" y="44">+ 10°14'22"N · 77°11'45"E</text>
+                            <text x="640" y="44" text-anchor="end">+ 1,640M HIGH RANGE</text>
+                            <text x="50" y="484">ESTATE PERIMETER · 12 ACRES</text>
+                            <text x="640" y="484" text-anchor="end">PRIVATE SANCTUARY RESERVE</text>
+                        </g>
+
+                        <!-- 2. Main Circular / Elliptical Estate Loop Promenade Road (Permanently Visible) -->
+                        <!-- Entrance Driveway -->
+                        <path d="<?php echo $entrance_drive_d; ?>" fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="8" stroke-linecap="round" filter="url(#map-glow)" />
+                        <path d="<?php echo $entrance_drive_d; ?>" fill="none" stroke="#D4AF37" stroke-width="3" stroke-dasharray="6,4" stroke-linecap="round" />
+
+                        <!-- Circular Ring Road Aura & Paved Trail -->
+                        <path class="sanctuary-spine-aura" d="<?php echo $main_loop_d; ?>" 
+                              fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" filter="url(#map-glow)" />
+                        <path class="sanctuary-spine-trail" d="<?php echo $main_loop_d; ?>" 
+                              fill="none" stroke="#D4AF37" stroke-width="3.2" stroke-dasharray="10,6" stroke-linecap="round" stroke-linejoin="round" />
+
+                        <!-- Entrance Gate Landmark -->
+                        <g transform="translate(390, 492)">
+                            <circle cx="0" cy="0" r="6" fill="#14281c" stroke="#D4AF37" stroke-width="2" filter="url(#map-glow)" />
+                            <circle cx="0" cy="0" r="2.5" fill="#56C2C9" />
+                            <text x="14" y="3" fill="#D4AF37" font-size="9" font-family="'Cinzel', Georgia, serif" font-weight="bold" letter-spacing="1">MAIN ENTRANCE</text>
+                        </g>
+
+                        <!-- Loop Road Waypoints / Junction Nodes -->
+                        <?php foreach ($loop_waypoint_nodes as $lwn): ?>
+                            <circle cx="<?php echo $lwn['x']; ?>" cy="<?php echo $lwn['y']; ?>" r="4.5" fill="#14281c" stroke="#D4AF37" stroke-width="1.8" filter="url(#map-glow)" />
+                            <circle cx="<?php echo $lwn['x']; ?>" cy="<?php echo $lwn['y']; ?>" r="1.8" fill="#56C2C9" />
+                        <?php endforeach; ?>
+
+                        <!-- 3. Sub-Branch Pathways to Cottages & Spots -->
+                        <?php if (!empty($branch_paths)): ?>
+                            <?php foreach ($branch_paths as $bp): ?>
+                                <path class="sanctuary-branch-trail-aura" d="<?php echo $bp['d']; ?>" 
+                                      fill="none" stroke="rgba(86, 194, 201, 0.25)" stroke-width="5" stroke-linecap="round" filter="url(#map-glow)" />
+                                <path class="sanctuary-branch-trail" data-branch-spot="<?php echo $bp['spot_id']; ?>" d="<?php echo $bp['d']; ?>" 
+                                      fill="none" stroke="#C5A059" stroke-width="2" stroke-dasharray="4,4" stroke-linecap="round" opacity="0.9" />
+                            <?php endforeach; ?>
                         <?php endif; ?>
                     </svg>
 

@@ -180,11 +180,10 @@ function seed_mysql_initial_data(PDO $pdo) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM admins");
     $stmt->execute();
     if ($stmt->fetchColumn() == 0) {
-        $default_hash = password_hash('admin123', PASSWORD_BCRYPT);
         $ins = $pdo->prepare("INSERT INTO admins (username, password_hash, full_name, email, role) VALUES (?, ?, ?, ?, ?)");
         $ins->execute([
             'admin',
-            $default_hash,
+            'admin123',
             'Master Concierge',
             'concierge@foodforestkanthalloor.com',
             'Master Concierge'
@@ -306,12 +305,59 @@ function seed_mysql_initial_data(PDO $pdo) {
 
         'seasons_badge' => 'EVERY SEASON HAS A STORY',
         'seasons_title' => "Nature's Changing Canvas",
-        'seasons_desc' => 'Kanthalloor shifts beautifully throughout the year. Each season paints our organic forest retreat in a completely distinct set of colors.'
+        'seasons_desc' => 'Kanthalloor shifts beautifully throughout the year. Each season paints our organic forest retreat in a completely distinct set of colors.',
+
+        // Bank & Payment Gateway Settings
+        'bank_account_holder' => 'Food Forest Eco Sanctuary',
+        'bank_name' => 'State Bank of India',
+        'bank_branch' => 'Munnar / Kanthalloor Branch',
+        'bank_account_number' => '40982314981',
+        'bank_ifsc' => 'SBIN0070123',
+        'bank_account_type' => 'Current Account',
+        'bank_upi_id' => 'foodforest@upi',
+        'bank_qr_image' => 'assets/images/foodforest_upi_qr.svg',
+        'gst_number' => '32AAECF1234M1Z5',
+        'bill_show_bank_details' => '1',
+        'bill_show_qr_code' => '1',
+        'bill_footer_notes' => 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.'
     ];
 
     $ins = $pdo->prepare("INSERT IGNORE INTO settings (setting_key, setting_value) VALUES (?, ?)");
     foreach ($defaults as $k => $v) {
         $ins->execute([$k, $v]);
+    }
+}
+
+/**
+ * Ensure all necessary default settings keys exist in the database.
+ */
+function ensure_default_settings(PDO $pdo) {
+    static $ensured = false;
+    if ($ensured) return;
+    $ensured = true;
+
+    $defaults = [
+        'bank_account_holder' => 'Food Forest Eco Sanctuary',
+        'bank_name' => 'State Bank of India',
+        'bank_branch' => 'Munnar / Kanthalloor Branch',
+        'bank_account_number' => '40982314981',
+        'bank_ifsc' => 'SBIN0070123',
+        'bank_account_type' => 'Current Account',
+        'bank_upi_id' => 'foodforest@upi',
+        'bank_qr_image' => 'assets/images/foodforest_upi_qr.svg',
+        'gst_number' => '32AAECF1234M1Z5',
+        'bill_show_bank_details' => '1',
+        'bill_show_qr_code' => '1',
+        'bill_footer_notes' => 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.'
+    ];
+
+    try {
+        $ins = $pdo->prepare("INSERT IGNORE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+        foreach ($defaults as $k => $v) {
+            $ins->execute([$k, $v]);
+        }
+    } catch (Exception $e) {
+        // Table might not exist yet
     }
 }
 
@@ -333,6 +379,7 @@ function get_setting($key, $default = '') {
     if ($settings_cache === null) {
         try {
             $pdo = get_db();
+            ensure_default_settings($pdo);
             $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
             $settings_cache = [];
             while ($row = $stmt->fetch()) {
@@ -389,177 +436,255 @@ function get_gallery_items($limit = null, $category = null) {
 /**
  * Retrieve curated multi-photo gallery collections with full photo arrays
  */
-function get_gallery_collections($limit = null, $category = null) {
-    $collections = [
-        [
-            'id' => 1,
-            'slug' => 'treehouse-mist',
-            'title' => 'High Canopy Treehouse in Mist',
-            'category' => 'Villas & Stays',
-            'category_slug' => 'dwellings',
-            'tag' => 'CANOPY DWELLING · 1,640M',
-            'cover_image' => 'assets/images/treehouse_exterior.png',
-            'description' => 'Suspended 30 feet above the fertile forest floor, overlooking rolling valley clouds and silver oak groves.',
-            'photos' => [
-                ['src' => 'assets/images/treehouse_exterior.png', 'title' => 'Canopy Treehouse in Morning Mist', 'caption' => 'Rising 30 feet into the Kanthalloor sky with panoramic views of the eastern valley.'],
-                ['src' => 'assets/images/treehouse_exterior_front.jpg', 'title' => 'Cantilevered Teak Balcony', 'caption' => 'Private forest deck facing morning sunrise and drifting cloud waves.'],
-                ['src' => 'assets/images/treehouse_interior.png', 'title' => 'Loft Artisan Bedroom Suite', 'caption' => 'Warm reclaimed timber, panoramic glass walls, and handcrafted linens.'],
-                ['src' => 'assets/images/treehouse_360_pano.jpg', 'title' => '360° Shola Forest Panorama', 'caption' => 'Surrounded by dense forest foliage, birdsong, and crisp mountain breeze.'],
-                ['src' => 'assets/images/01 (10).jpeg', 'title' => 'Twilight Balcony Glow', 'caption' => 'Soft evening lighting filtering through the tree canopy as darkness falls.'],
-                ['src' => 'assets/images/01 (25).jpeg', 'title' => 'Morning Fog Horizon', 'caption' => 'Awakening above the cloud blanket across the Western Ghats range.']
-            ]
-        ],
-        [
-            'id' => 2,
-            'slug' => 'cob-mudhouse',
-            'title' => 'Hand-Sculpted Cob Mudhouse',
-            'category' => 'Handcrafted Living',
-            'category_slug' => 'dwellings',
-            'tag' => 'EARTHEN ARCHITECTURE',
-            'cover_image' => 'assets/images/mudhouse_exterior.png',
-            'description' => 'Naturally insulated clay, sand, and straw architecture with private herbal garden courtyards.',
-            'photos' => [
-                ['src' => 'assets/images/mudhouse_exterior.png', 'title' => 'Cob Mudhouse Cottage Frontage', 'caption' => 'Naturally breathable earthen walls that maintain cool temperatures by day and warmth by night.'],
-                ['src' => 'assets/images/mudhouse_interior.png', 'title' => 'Earthen Living Room & Hearth', 'caption' => 'Organic textures, slate stone floors, and hand-carved wooden fixtures.'],
-                ['src' => 'assets/images/01 (7).jpeg', 'title' => 'Terracotta Veranda & Cob Wall', 'caption' => 'Traditional clay roof tiles with sweeping views of the organic vegetable terraces.'],
-                ['src' => 'assets/images/01 (20).jpeg', 'title' => 'Mudhouse by Campfire Hearth', 'caption' => 'Gentle crackle of open fires warming the terracotta courtyard at twilight.'],
-                ['src' => 'assets/images/01 (17).jpeg', 'title' => 'Herbal Garden Courtyard Walk', 'caption' => 'Fragrant rosemary, lavender, and lemongrass bordering the mudhouse paths.'],
-                ['src' => 'assets/images/01 (2).jpeg', 'title' => 'Artisan Handcrafted Bedroom', 'caption' => 'Peaceful sanctuary designed for deep rest away from digital screens.']
-            ]
-        ],
-        [
-            'id' => 3,
-            'slug' => 'western-ghats-vista',
-            'title' => 'The Western Ghats Vista',
-            'category' => 'Landscape',
-            'category_slug' => 'landscape',
-            'tag' => 'ALPINE HORIZON · 1,600M',
-            'cover_image' => 'assets/images/01 (25).jpeg',
-            'description' => 'High-altitude horizon cloaked in shifting clouds and untouched shola wilderness.',
-            'photos' => [
-                ['src' => 'assets/images/01 (25).jpeg', 'title' => 'High-Altitude Valley Horizon', 'caption' => 'Sweeping vistas of the Anaimudi foothills and dense mountain slopes.'],
-                ['src' => 'assets/images/01 (26).jpeg', 'title' => 'Misty Ridges & Cloud Waves', 'caption' => 'Clouds sweeping through the valley canyons during early morning hours.'],
-                ['src' => 'assets/images/01 (27).jpeg', 'title' => 'Perennial Brook Stream', 'caption' => 'Pure mineral water cascading through mossy boulders across the sanctuary.'],
-                ['src' => 'assets/images/01 (28).jpeg', 'title' => 'Golden Hour Mountain Silhouette', 'caption' => 'Sunlight breaking across the eastern mountain ridge.'],
-                ['src' => 'assets/images/01 (29).jpeg', 'title' => 'Ancient Shola Forest Grove', 'caption' => 'Centuries-old biodiversity hotspot home to rare flora and fauna.'],
-                ['src' => 'assets/images/01 (30).jpeg', 'title' => 'Twilight Valley Panorama', 'caption' => 'Serene purple twilight settling over the high-range tea gardens.']
-            ]
-        ],
-        [
-            'id' => 4,
-            'slug' => 'woodfire-gastronomy',
-            'title' => 'Woodfire Claypot Gastronomy',
-            'category' => 'Gastronomy',
-            'category_slug' => 'gastronomy',
-            'tag' => 'EARTHEN GASTRONOMY',
-            'cover_image' => 'assets/images/01 (3).jpeg',
-            'description' => 'Pure farm-to-table cooking over slow embers using hand-ground spices and organic produce.',
-            'photos' => [
-                ['src' => 'assets/images/01 (3).jpeg', 'title' => 'Claypot Simmering on Open Fire', 'caption' => 'Slow-cooked heirloom grains and vegetables infused with natural wood smoke.'],
-                ['src' => 'assets/images/food_kerala_sadya.jpg', 'title' => 'Traditional Farm Feast (Sadya)', 'caption' => 'Served on fresh banana leaves with organic estate-grown vegetables and spices.'],
-                ['src' => 'assets/images/food_dosa_set.jpg', 'title' => 'Crisp Morning Dosa & Chutneys', 'caption' => 'Stone-ground fermented batter with fresh mountain coconut and mint chutneys.'],
-                ['src' => 'assets/images/food_evening_snacks.jpg', 'title' => 'Twilight Spiced Tea & Snacks', 'caption' => 'Steaming cardamom mountain tea paired with hot steamed herbal snacks.'],
-                ['src' => 'assets/images/01 (4).jpeg', 'title' => 'Open-Air Forest Dining Deck', 'caption' => 'Savoring wholesome organic meals surrounded by the rustle of leaves.'],
-                ['src' => 'assets/images/01 (5).jpeg', 'title' => 'The Earthen Kitchen Hearth', 'caption' => 'Where age-old culinary secrets and slow nourishment come to life.']
-            ]
-        ],
-        [
-            'id' => 5,
-            'slug' => 'winter-orchards',
-            'title' => 'Organic Winter Apple Orchards',
-            'category' => 'Orchards',
-            'category_slug' => 'orchards',
-            'tag' => 'ESTATE HARVEST',
-            'cover_image' => 'assets/images/01 (1).jpeg',
-            'description' => 'Ancient heirloom trees yielding sweet, pesticide-free mountain apples, plums, and passion fruits.',
-            'photos' => [
-                ['src' => 'assets/images/01 (1).jpeg', 'title' => 'Terraced Apple Orchard Rows', 'caption' => 'Heirloom apple trees flourishing in the sub-tropical temperate microclimate of Kanthalloor.'],
-                ['src' => 'assets/images/01 (11).jpeg', 'title' => 'Fresh Hand-Plucked Apples', 'caption' => 'Crisp, sweet, and bursting with natural flavor straight from the tree.'],
-                ['src' => 'assets/images/01 (12).jpeg', 'title' => 'Lush Passion Fruit Trellises', 'caption' => 'Organic passion fruit vines draping over natural bamboo pergolas.'],
-                ['src' => 'assets/images/01 (13).jpeg', 'title' => 'Wild Berry & Plum Trees', 'caption' => 'Sweet seasonal berries harvested for fresh jams and morning preserves.'],
-                ['src' => 'assets/images/01 (14).jpeg', 'title' => 'Orchard Walking Pathway', 'caption' => 'Stone-lined walking paths winding through the organic fruit groves.']
-            ]
-        ],
-        [
-            'id' => 6,
-            'slug' => 'night-sky-sanctuary',
-            'title' => 'Stargazing by the Cob Hearth',
-            'category' => 'Nightscape',
-            'category_slug' => 'landscape',
-            'tag' => 'NIGHT SKY SANCTUARY',
-            'cover_image' => 'assets/images/01 (20).jpeg',
-            'description' => 'Night skies at 1,600m altitude illuminated only by campfire crackle, moonlight, and brilliant constellations.',
-            'photos' => [
-                ['src' => 'assets/images/01 (20).jpeg', 'title' => 'Cob Hearth Campfire Circle', 'caption' => 'Gathering around the warm coals under an unpolluted Milky Way galaxy.'],
-                ['src' => 'assets/images/01 (21).jpeg', 'title' => 'Starlit Mountain Canopy', 'caption' => 'Zero light pollution allows clear visibility of shooting stars and constellations.'],
-                ['src' => 'assets/images/01 (22).jpeg', 'title' => 'Lantern-Lit Stone Paths', 'caption' => 'Subtle warm ambient lighting guiding your way through the night forest.'],
-                ['src' => 'assets/images/01 (23).jpeg', 'title' => 'Evening Fire Ritual', 'caption' => 'Sharing stories, folklore, and quiet acoustic music by the hearth.'],
-                ['src' => 'assets/images/01 (24).jpeg', 'title' => 'Moonlight Over the Valleys', 'caption' => 'Silvery moonlight casting a tranquil glow over the mountain contours.']
-            ]
-        ],
-        [
-            'id' => 7,
-            'slug' => 'botanical-harmony',
-            'title' => 'Botanical Harmony & Shola Flora',
-            'category' => 'Flora',
-            'category_slug' => 'orchards',
-            'tag' => 'BOTANICAL HARMONY',
-            'cover_image' => 'assets/images/01 (15).jpeg',
-            'description' => 'Wild pollinators, medicinal herbs, and lush endemic flora flourishing in our chemical-free sanctuary.',
-            'photos' => [
-                ['src' => 'assets/images/01 (15).jpeg', 'title' => 'Morning Dew on Passion Fruit Vines', 'caption' => 'Crystal dewdrops clinging to wild tendrils in the early dawn light.'],
-                ['src' => 'assets/images/01 (16).jpeg', 'title' => 'Wild Shola Orchids & Ferns', 'caption' => 'Endemic ferns and rare orchids thriving in the moist mountain air.'],
-                ['src' => 'assets/images/01 (18).jpeg', 'title' => 'Medicinal Herb Sanctuary', 'caption' => 'Cultivating tulsi, lemongrass, brahmi, and wild forest herbs.'],
-                ['src' => 'assets/images/01 (19).jpeg', 'title' => 'Canopy Epiphytes & Silver Oaks', 'caption' => 'Lush mosses and air plants thriving on towering mountain trees.'],
-                ['src' => 'assets/images/01 (31).jpeg', 'title' => 'Brook-Side Wildflowers', 'caption' => 'Vibrant blossoms lining the banks of the perennial forest brook.']
-            ]
-        ],
-        [
-            'id' => 8,
-            'slug' => 'living-courtyards',
-            'title' => 'Living Mud Courtyard Veranda',
-            'category' => 'Architecture',
-            'category_slug' => 'dwellings',
-            'tag' => 'BIOPHILIC SPACES',
-            'cover_image' => 'assets/images/01 (7).jpeg',
-            'description' => 'Unpaved, breathable courtyards connecting guest quarters directly with the soil and mountain stone.',
-            'photos' => [
-                ['src' => 'assets/images/01 (7).jpeg', 'title' => 'Living Mud Courtyard Veranda', 'caption' => 'Terracotta verandas designed for slow morning teas and peaceful contemplation.'],
-                ['src' => 'assets/images/01 (8).jpeg', 'title' => 'Natural Light & Breathable Clay', 'caption' => 'Deep overhangs that keep out harsh sun while welcoming cool valley breezes.'],
-                ['src' => 'assets/images/01 (9).jpeg', 'title' => 'Earthen Seating Nook', 'caption' => 'Cob benches sculpted directly out of native red clay and river sand.'],
-                ['src' => 'assets/images/01 (32).jpeg', 'title' => 'Hand-Cut Stone Pathways', 'caption' => 'Meandering flagstone walkways harmoniously embedded in clover and grass.'],
-                ['src' => 'assets/images/01 (33).jpeg', 'title' => 'Sunrise on the Veranda', 'caption' => 'Watch the morning mist dissipate from the comfort of a shaded patio.']
-            ]
-        ]
-    ];
+function ensure_gallery_photos_column(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
 
-    if ($category && $category !== 'all') {
-        $collections = array_values(array_filter($collections, function($c) use ($category) {
-            return $c['category_slug'] === $category || strtolower($c['category']) === strtolower($category);
-        }));
+    $cols = $pdo->query("SHOW COLUMNS FROM `gallery`")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('photos', $cols)) {
+        $pdo->exec("ALTER TABLE `gallery` ADD COLUMN `photos` TEXT NULL AFTER `image_url`");
     }
-
-    if ($limit) {
-        $collections = array_slice($collections, 0, (int)$limit);
+    if (!in_array('category_slug', $cols)) {
+        $pdo->exec("ALTER TABLE `gallery` ADD COLUMN `category_slug` VARCHAR(100) NULL AFTER `category`");
     }
-
-    return $collections;
+    $checked = true;
 }
 
-/**
- * Retrieve active testimonials.
- */
-function get_testimonials($limit = null) {
+function get_gallery_collections($limit = null, $category = null) {
     try {
         $pdo = get_db();
-        $sql = "SELECT * FROM testimonials WHERE is_active = 1 ORDER BY display_order ASC, id ASC";
-        if ($limit) {
-            $sql .= " LIMIT " . (int)$limit;
+        ensure_gallery_photos_column($pdo);
+        $sql = "SELECT * FROM `gallery` WHERE `is_active` = 1 ORDER BY `display_order` ASC, `id` ASC";
+        $rows = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+
+        $collections = [];
+        foreach ($rows as $row) {
+            $cat_slug = !empty($row['category_slug']) ? $row['category_slug'] : strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $row['category'] ?? 'landscape'), '-'));
+
+            $photos = [];
+            if (!empty($row['photos'])) {
+                $dec = json_decode($row['photos'], true);
+                if (is_array($dec)) {
+                    foreach ($dec as $p_item) {
+                        if (is_array($p_item)) {
+                            $photos[] = [
+                                'src' => $p_item['src'] ?? ($p_item['image_url'] ?? $row['image_url']),
+                                'title' => $p_item['title'] ?? $row['title'],
+                                'caption' => $p_item['caption'] ?? ($row['caption'] ?? '')
+                            ];
+                        } elseif (is_string($p_item) && !empty($p_item)) {
+                            $photos[] = [
+                                'src' => $p_item,
+                                'title' => $row['title'],
+                                'caption' => $row['caption'] ?? ''
+                            ];
+                        }
+                    }
+                }
+            }
+
+            if (empty($photos) && !empty($row['image_url'])) {
+                $photos = [[
+                    'src' => $row['image_url'],
+                    'title' => $row['title'],
+                    'caption' => $row['caption'] ?? ''
+                ]];
+            }
+
+            $collections[] = [
+                'id' => (int)$row['id'],
+                'slug' => strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $row['title']), '-')),
+                'title' => $row['title'],
+                'category' => $row['category'] ?? 'Landscape',
+                'category_slug' => $cat_slug,
+                'tag' => $row['tag'] ?? 'SANCTUARY ARCHIVE',
+                'cover_image' => $row['image_url'],
+                'description' => $row['caption'] ?? '',
+                'photos' => $photos
+            ];
         }
-        return $pdo->query($sql)->fetchAll();
+
+        if ($category && $category !== 'all') {
+            $collections = array_values(array_filter($collections, function($c) use ($category) {
+                return $c['category_slug'] === $category || strtolower($c['category']) === strtolower($category);
+            }));
+        }
+
+        if ($limit) {
+            $collections = array_slice($collections, 0, (int)$limit);
+        }
+
+        return $collections;
     } catch (Exception $e) {
         return [];
     }
+}
+
+/**
+ * Ensure the testimonials table has all rich media and status columns
+ */
+function ensure_testimonials_columns(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
+
+    $cols = $pdo->query("SHOW COLUMNS FROM `testimonials`")->fetchAll(PDO::FETCH_COLUMN);
+    if (!in_array('stars', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `stars` DECIMAL(2,1) DEFAULT 5.0");
+    }
+    if (!in_array('title', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `title` VARCHAR(200) NULL AFTER `stay_badge`");
+    }
+    if (!in_array('property_slug', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `property_slug` VARCHAR(100) NULL AFTER `stay_badge`");
+    }
+    if (!in_array('avatar_url', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `avatar_url` VARCHAR(255) NULL AFTER `initials`");
+    }
+    if (!in_array('media_type', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `media_type` VARCHAR(20) DEFAULT 'image' AFTER `avatar_url`");
+    }
+    if (!in_array('media_url', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `media_url` VARCHAR(255) NULL AFTER `media_type`");
+    }
+    if (!in_array('media_gallery', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `media_gallery` TEXT NULL AFTER `media_url`");
+    }
+    if (!in_array('status', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `status` VARCHAR(20) DEFAULT 'approved' AFTER `is_active`");
+    }
+    if (!in_array('user_id', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `user_id` INT NULL AFTER `status`");
+    }
+    if (!in_array('user_email', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `user_email` VARCHAR(150) NULL AFTER `user_id`");
+    }
+    if (!in_array('user_phone', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `user_phone` VARCHAR(50) NULL AFTER `user_email`");
+    }
+    if (!in_array('admin_reply', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `admin_reply` TEXT NULL AFTER `user_phone`");
+    }
+    if (!in_array('admin_reply_at', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `admin_reply_at` DATETIME NULL AFTER `admin_reply`");
+    }
+    if (!in_array('source', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `source` VARCHAR(50) DEFAULT 'website' AFTER `admin_reply_at`");
+    }
+    if (!in_array('created_at', $cols)) {
+        $pdo->exec("ALTER TABLE `testimonials` ADD COLUMN `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+    }
+    $checked = true;
+}
+
+/**
+ * Helper to get all sanctuary properties and experiences for dropdowns
+ */
+function get_sanctuary_properties_list() {
+    $list = [];
+    try {
+        $pdo = get_db();
+        $rooms = $pdo->query("SELECT slug, title, stay_type FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rooms as $r) {
+            $list[] = [
+                'type' => 'dwelling',
+                'title' => $r['title'],
+                'slug' => $r['slug'],
+                'target' => '#rooms-experience',
+                'stay_type' => $r['stay_type'] ?? 'treehouse'
+            ];
+        }
+    } catch (Exception $e) {}
+
+    $default_experiences = [
+        ['type' => 'dwelling', 'title' => 'The Canopy Treehouse Villa', 'slug' => 'treehouse-villa', 'target' => '#rooms-experience', 'stay_type' => 'treehouse'],
+        ['type' => 'dwelling', 'title' => 'The Earthen Cob Mudhouse', 'slug' => 'mudhouse-villa', 'target' => '#rooms-experience', 'stay_type' => 'mudhouse'],
+        ['type' => 'experience', 'title' => 'Woodfire Farm Gastronomy', 'slug' => 'woodfire-gastronomy', 'target' => '#dining', 'stay_type' => 'dining'],
+        ['type' => 'experience', 'title' => 'Winter Apple Orchards', 'slug' => 'apple-orchards', 'target' => '#experiences', 'stay_type' => 'orchard'],
+        ['type' => 'experience', 'title' => 'Stargazing & Campfire Hearth', 'slug' => 'stargazing-hearth', 'target' => '#experiences', 'stay_type' => 'stargazing'],
+        ['type' => 'experience', 'title' => 'Highland Tea Plantation Trail', 'slug' => 'tea-trail', 'target' => '#experiences', 'stay_type' => 'trail'],
+        ['type' => 'retreat', 'title' => 'Sanctuary Day Retreat', 'slug' => 'day-retreat', 'target' => '#philosophy', 'stay_type' => 'retreat'],
+    ];
+
+    foreach ($default_experiences as $exp) {
+        $found = false;
+        foreach ($list as $it) {
+            if (strcasecmp($it['title'], $exp['title']) === 0 || strcasecmp($it['slug'], $exp['slug']) === 0) {
+                $found = true;
+                break;
+            }
+        }
+        if (!$found) {
+            $list[] = $exp;
+        }
+    }
+
+    return $list;
+}
+
+/**
+ * Retrieve active and approved testimonials for public display.
+ */
+function get_testimonials($limit = null, $status = 'approved') {
+    try {
+        $pdo = get_db();
+        ensure_testimonials_columns($pdo);
+        $sql = "SELECT * FROM testimonials WHERE is_active = 1 AND (status = :status OR status = 'approved' OR status IS NULL) ORDER BY display_order ASC, id ASC";
+        if ($limit) {
+            $sql .= " LIMIT " . (int)$limit;
+        }
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':status' => $status]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$r) {
+            $r['stars'] = isset($r['stars']) ? (float)$r['stars'] : 5.0;
+            $gallery = [];
+            if (!empty($r['media_gallery'])) {
+                $dec = json_decode($r['media_gallery'], true);
+                if (is_array($dec)) {
+                    $gallery = array_values(array_filter($dec));
+                }
+            }
+            if (empty($gallery) && !empty($r['media_url'])) {
+                $gallery = [$r['media_url']];
+            }
+            $r['media_list'] = $gallery;
+        }
+        return $rows;
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+/**
+ * Get count of pending guest testimonials.
+ */
+function get_pending_testimonials_count() {
+    try {
+        $pdo = get_db();
+        ensure_testimonials_columns($pdo);
+        return (int)$pdo->query("SELECT COUNT(*) FROM `testimonials` WHERE `status` = 'pending'")->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Render luxury gold star rating HTML with full, half, and empty star support.
+ */
+function render_star_rating_html($stars, $wrapper_class = 'testimonial-stars') {
+    $rating = max(0.5, min(5.0, (float)$stars));
+    $html = '<div class="' . htmlspecialchars($wrapper_class) . '" title="' . number_format($rating, 1) . ' out of 5 stars">';
+    for ($i = 1; $i <= 5; $i++) {
+        if ($rating >= $i) {
+            $html .= '<i class="fa-solid fa-star" style="color: #C5A059;"></i>';
+        } elseif ($rating >= ($i - 0.5)) {
+            $html .= '<i class="fa-solid fa-star-half-stroke" style="color: #C5A059;"></i>';
+        } else {
+            $html .= '<i class="fa-regular fa-star" style="color: rgba(197, 160, 89, 0.35);"></i>';
+        }
+    }
+    $html .= '</div>';
+    return $html;
 }
 
 /**
@@ -754,9 +879,8 @@ function ensure_rooms_pricing_columns(PDO $pdo) {
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `extra_kids` INT DEFAULT 0 AFTER `extra_adults`");
         }
 
-        // Update Treehouse Single Cottage defaults (Min 2, Base 2, Max 4, Rate ₹14,500, extra adult ₹1,500, extra child ₹800)
+        // Migration updates for existing rooms (if present)
         $pdo->exec("UPDATE `rooms` SET 
-            `title` = COALESCE(NULLIF(`title`, ''), 'High-Altitude Canopy Treehouse'),
             `stay_type` = 'treehouse',
             `structure_type` = 'single_hut',
             `min_guests` = COALESCE(NULLIF(`min_guests`, 0), 2),
@@ -768,9 +892,7 @@ function ensure_rooms_pricing_columns(PDO $pdo) {
             `single_room_rate` = COALESCE(`single_room_rate`, `rate_per_night`)
             WHERE `slug` = 'treehouse'");
 
-        // Update Mudhouse Single Cottage defaults (Min 2, Base 2, Max 4, Rate ₹11,500, extra adult ₹1,500, extra child ₹800)
         $pdo->exec("UPDATE `rooms` SET 
-            `title` = COALESCE(NULLIF(`title`, ''), 'Traditional Earthen Mudhouse'),
             `stay_type` = 'mudhouse', 
             `structure_type` = 'single_hut',
             `min_guests` = COALESCE(NULLIF(`min_guests`, 0), 2),
@@ -781,92 +903,6 @@ function ensure_rooms_pricing_columns(PDO $pdo) {
             `extra_child_rate` = COALESCE(NULLIF(`extra_child_rate`, 0), 800.00),
             `single_room_rate` = COALESCE(`single_room_rate`, `rate_per_night`)
             WHERE `slug` = 'mudhouse'");
-
-        // Ensure exactly one signature Duplex Room exists (Woodhouse / Treehouse Duplex with 2 Adjoining Suites)
-        $duplex_count = (int)$pdo->query("SELECT COUNT(*) FROM `rooms` WHERE `structure_type` = 'duplex_hut'")->fetchColumn();
-        if ($duplex_count === 0) {
-            $ins = $pdo->prepare("INSERT INTO `rooms` 
-                (slug, stay_type, structure_type, title, rate_per_night, single_room_rate, extra_guest_rate, extra_child_rate, elevation, min_guests, base_guests, max_guests, description, amenities, image_url, interior_360_url, is_available) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
-            $ins->execute([
-                'woodhouse-duplex',
-                'treehouse',
-                'duplex_hut',
-                'Forest Heritage Duplex Chalet (2 Adjoining Suites)',
-                24000.00,
-                14500.00,
-                2000.00,
-                1000.00,
-                '1,620M ELEVATION • DUPLEX RESIDENCE',
-                2,
-                4,
-                8,
-                'An expansive authentic two-wing duplex residence built under one roof, partitioned by a sound-insulated acoustic wall. Features two separate private master suites (each with king bed, ensuite bath, and private valley balcony). Can be reserved as Single Room (Base 2 Guests) or Entire 2-Wing Duplex (Base 4 Guests).',
-                '2 King Bedrooms, 2 Ensuite Rain Showers, Dual Panoramic Decks, Acoustic Dividing Wall, Stone Fireplace, All Organic Farm Meals Included',
-                'assets/images/01 (25).jpeg',
-                'assets/images/treehouse_360_pano.jpg'
-            ]);
-            $pdo->exec("UPDATE `rooms` SET 
-                `structure_type` = 'duplex_hut',
-                `min_guests` = COALESCE(NULLIF(`min_guests`, 0), 2),
-                `base_guests` = COALESCE(NULLIF(`base_guests`, 0), 4),
-                `max_guests` = GREATEST(`max_guests`, 8),
-                `single_room_rate` = COALESCE(NULLIF(`single_room_rate`, 0), 14500.00),
-                `rate_per_night` = COALESCE(NULLIF(`rate_per_night`, 0), 24000.00),
-                `extra_guest_rate` = COALESCE(NULLIF(`extra_guest_rate`, 0), 2000.00),
-                `extra_child_rate` = COALESCE(NULLIF(`extra_child_rate`, 0), 1000.00)
-                WHERE `structure_type` = 'duplex_hut'");
-        }
-
-        // Check if Woodhouse Single Hut exists; seed or update it!
-        $wood_count = (int)$pdo->query("SELECT COUNT(*) FROM `rooms` WHERE `slug` = 'woodhouse'")->fetchColumn();
-        if ($wood_count === 0) {
-            $ins = $pdo->prepare("INSERT INTO `rooms` 
-                (slug, stay_type, structure_type, title, rate_per_night, single_room_rate, extra_guest_rate, extra_child_rate, elevation, base_guests, max_guests, description, amenities, image_url, interior_360_url, is_available) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
-            $ins->execute([
-                'woodhouse',
-                'woodhouse',
-                'single_hut',
-                'The Alpine Woodhouse & Timber Chalet',
-                13500.00,
-                13500.00,
-                1800.00,
-                900.00,
-                'PINEWOOD TIMBER • 1,620M MSL',
-                2,
-                4,
-                'Warm pine and cedarwood timber lodge constructed using traditional joinery methods. Features panoramic glass valley gables, aromatic pine interiors, personal timber deck, and private star-gazing attic.',
-                'Hand-Hewn Cedar King Bed, Mountain Balcony, Attic Skylight, Natural Pinewood Insulation, Organic Farm Dining Included',
-                'assets/images/01 (25).jpeg',
-                'assets/images/treehouse_360_pano.jpg'
-            ]);
-        }
-
-        // Check if Woodhouse Duplex Chalet exists; seed or update it!
-        $wood_duplex_count = (int)$pdo->query("SELECT COUNT(*) FROM `rooms` WHERE `slug` = 'woodhouse-duplex'")->fetchColumn();
-        if ($wood_duplex_count === 0) {
-            $ins = $pdo->prepare("INSERT INTO `rooms` 
-                (slug, stay_type, structure_type, title, rate_per_night, single_room_rate, extra_guest_rate, extra_child_rate, elevation, base_guests, max_guests, description, amenities, image_url, interior_360_url, is_available) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
-            $ins->execute([
-                'woodhouse-duplex',
-                'woodhouse',
-                'duplex_hut',
-                'The Alpine Woodhouse — Duplex Chalet',
-                23000.00,
-                13500.00,
-                1800.00,
-                900.00,
-                'DOUBLE PINE CHALET • DUPLEX',
-                4,
-                7,
-                'A two-level luxury pine residence overlooking the mist of Marayoor valley. Boasts two independent timber suites, dual cedar verandas, and a central stone hearth lounge for shared mountain evenings.',
-                '2 Cedar King Suites, Dual Balconies, Central Stone Hearth, Attic Sun Lounge, All Organic Meals Included',
-                'assets/images/01 (26).jpeg',
-                'assets/images/treehouse_360_pano.jpg'
-            ]);
-        }
     } catch (Exception $e) {
         // Silently skip if DB not ready
     }
@@ -1104,39 +1140,9 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
             ]);
         }
     } else {
-        // Update existing spots to ensure stay metadata is synced
-        $pdo->exec("UPDATE `sanctuary_spots` SET `is_stay` = 1, `linked_room_slug` = 'mudhouse', `stay_price` = 11500.00 WHERE `title` LIKE '%Mudhouse%'");
-        $pdo->exec("UPDATE `sanctuary_spots` SET `is_stay` = 1, `linked_room_slug` = 'treehouse', `stay_price` = 14500.00 WHERE `title` LIKE '%Treehouse%'");
-        
-        // Ensure Woodhouse spot exists
-        $wood_spot = (int)$pdo->query("SELECT COUNT(*) FROM `sanctuary_spots` WHERE `linked_room_slug` = 'woodhouse' OR `title` LIKE '%Woodhouse%'")->fetchColumn();
-        if ($wood_spot === 0) {
-            $next_num = (int)$pdo->query("SELECT MAX(spot_number) FROM `sanctuary_spots`")->fetchColumn() + 1;
-            $ins = $pdo->prepare("INSERT INTO `sanctuary_spots` 
-                (spot_number, title, subtitle_tag, category, is_stay, linked_room_slug, stay_price, elevation, temperature, description, aroma, sound, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
-            $ins->execute([
-                $next_num,
-                'The Alpine Woodhouse Chalet',
-                'PINE TIMBER CHALET',
-                'stays',
-                1,
-                'woodhouse',
-                13500.00,
-                '1,620M MSL',
-                '18°C Pine Forest Air',
-                'Handcrafted solid cedar and pinewood mountain chalet featuring aromatic wooden walls, high vaulted cathedral ceiling, valley-facing balcony deck, and private fire hearth.',
-                'Pine needles, cedar resin & crisp mist',
-                'Rustling pine branches, mountain breeze',
-                'assets/images/01 (25).jpeg',
-                json_encode(['assets/images/01 (25).jpeg', 'assets/images/01 (26).jpeg', 'assets/images/treehouse_stone_fireplace.png']),
-                'Book Woodhouse',
-                'booking.php?villa=woodhouse',
-                74.00,
-                34.00,
-                $next_num
-            ]);
-        }
+        // Sync existing default spots if they exist
+        $pdo->exec("UPDATE `sanctuary_spots` SET `is_stay` = 1, `linked_room_slug` = 'mudhouse', `stay_price` = 11500.00 WHERE `title` LIKE '%Mudhouse%' AND `linked_room_slug` IS NULL");
+        $pdo->exec("UPDATE `sanctuary_spots` SET `is_stay` = 1, `linked_room_slug` = 'treehouse', `stay_price` = 14500.00 WHERE `title` LIKE '%Treehouse%' AND `linked_room_slug` IS NULL");
     }
 
     $checked = true;
@@ -1588,8 +1594,11 @@ function ensure_food_menu_table_exists(?PDO $pdo = null) {
 
     // Ensure latest image paths for signature items
     $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_dosa_set.jpg' WHERE `heading` LIKE '%Dosa%' AND (`image_url` IS NULL OR `image_url` NOT LIKE '%food_dosa_set%')");
+    $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_appam_stew.jpg' WHERE `heading` LIKE '%Appam%' AND (`image_url` IS NULL OR `image_url` LIKE '%01%')");
+    $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_puttu_kadala.jpg' WHERE `heading` LIKE '%Puttu%' AND (`image_url` IS NULL OR `image_url` LIKE '%01%')");
     $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_kerala_sadya.jpg' WHERE `heading` LIKE '%Sadya%' AND (`image_url` IS NULL OR `image_url` NOT LIKE '%food_kerala_sadya%')");
-    $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_evening_snacks.jpg' WHERE `heading` LIKE '%Chai%' AND (`image_url` IS NULL OR `image_url` NOT LIKE '%food_evening_snacks%')");
+    $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_jackfruit_curry.jpg' WHERE `heading` LIKE '%Jackfruit%' AND (`image_url` IS NULL OR `image_url` LIKE '%01%')");
+    $pdo->exec("UPDATE `food_menu` SET `image_url` = 'assets/images/food_evening_snacks.jpg' WHERE (`heading` LIKE '%Chai%' OR `heading` LIKE '%Ela Ada%') AND (`image_url` IS NULL OR `image_url` NOT LIKE '%food_evening_snacks%')");
 
     $checked = true;
 }
@@ -1727,9 +1736,8 @@ function register_client_user($full_name, $email, $phone, $password) {
             return ['success' => false, 'message' => 'An account with this email already exists. Please sign in instead.'];
         }
 
-        $hash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $pdo->prepare("INSERT INTO users (full_name, email, phone, password_hash, last_login) VALUES (?, ?, ?, ?, NOW())");
-        $stmt->execute([$full_name, $email, $phone, $hash]);
+        $stmt->execute([$full_name, $email, $phone, $password]);
         $user_id = (int)$pdo->lastInsertId();
 
         return [
@@ -1763,7 +1771,8 @@ function authenticate_client_user($email, $password) {
             return ['success' => false, 'message' => 'No account found with this email address.'];
         }
 
-        if (!password_verify($password, $user['password_hash'])) {
+        $stored = $user['password_hash'] ?? '';
+        if ($password !== $stored && !password_verify($password, $stored)) {
             return ['success' => false, 'message' => 'Incorrect password. Please verify and try again.'];
         }
 

@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">
+  <rect width="300" height="300" fill="#FFFFFF" rx="16" />
+  <!-- Border outline -->
+  <rect x="10" y="10" width="280" height="280" fill="none" stroke="#C5A059" stroke-width="2" rx="12" />
+  
+  <!-- Top Left Finder Pattern -->
+  <rect x="35" y="35" width="60" height="60" fill="#101F15" rx="6" />
+  <rect x="43" y="43" width="44" height="44" fill="#FFFFFF" rx="4" />
+  <rect x="51" y="51" width="28" height="28" fill="#101F15" rx="2" />
+
+  <!-- Top Right Finder Pattern -->
+  <rect x="205" y="35" width="60" height="60" fill="#101F15" rx="6" />
+  <rect x="213" y="43" width="44" height="44" fill="#FFFFFF" rx="4" />
+  <rect x="221" y="51" width="28" height="28" fill="#101F15" rx="2" />
+
+  <!-- Bottom Left Finder Pattern -->
+  <rect x="35" y="205" width="60" height="60" fill="#101F15" rx="6" />
+  <rect x="43" y="213" width="44" height="44" fill="#FFFFFF" rx="4" />
+  <rect x="51" y="221" width="28" height="28" fill="#101F15" rx="2" />
+
+  <!-- QR Matrix Blocks / Grid Elements -->
+  <!-- Row 1-4 elements -->
+  <rect x="105" y="35" width="10" height="10" fill="#101F15" />
+  <rect x="125" y="35" width="20" height="10" fill="#101F15" />
+  <rect x="155" y="35" width="10" height="10" fill="#101F15" />
+  <rect x="175" y="35" width="20" height="10" fill="#101F15" />
+
+  <rect x="105" y="55" width="20" height="10" fill="#101F15" />
+  <rect x="135" y="55" width="10" height="10" fill="#101F15" />
+  <rect x="165" y="55" width="20" height="10" fill="#101F15" />
+
+  <rect x="105" y="75" width="10" height="20" fill="#101F15" />
+  <rect x="125" y="75" width="20" height="10" fill="#101F15" />
+  <rect x="155" y="85" width="20" height="10" fill="#101F15" />
+  <rect x="185" y="75" width="10" height="20" fill="#101F15" />
+
+  <!-- Timing Patterns -->
+  <rect x="35" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="55" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="75" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="95" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="115" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="135" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="155" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="175" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="195" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="215" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="235" y="105" width="10" height="10" fill="#101F15" />
+  <rect x="255" y="105" width="10" height="10" fill="#101F15" />
+
+  <!-- Middle Rows -->
+  <rect x="35" y="125" width="20" height="10" fill="#101F15" />
+  <rect x="65" y="125" width="10" height="20" fill="#101F15" />
+  <rect x="85" y="125" width="20" height="10" fill="#101F15" />
+  <rect x="205" y="125" width="20" height="10" fill="#101F15" />
+  <rect x="235" y="125" width="10" height="20" fill="#101F15" />
+  <rect x="255" y="125" width="10" height="10" fill="#101F15" />
+
+  <rect x="35" y="155" width="10" height="20" fill="#101F15" />
+  <rect x="55" y="165" width="20" height="10" fill="#101F15" />
+  <rect x="85" y="155" width="10" height="20" fill="#101F15" />
+  <rect x="205" y="155" width="10" height="20" fill="#101F15" />
+  <rect x="225" y="165" width="20" height="10" fill="#101F15" />
+  <rect x="255" y="155" width="10" height="20" fill="#101F15" />
+
+  <rect x="35" y="185" width="20" height="10" fill="#101F15" />
+  <rect x="65" y="185" width="10" height="10" fill="#101F15" />
+  <rect x="85" y="185" width="20" height="10" fill="#101F15" />
+  <rect x="205" y="185" width="20" height="10" fill="#101F15" />
+  <rect x="235" y="185" width="20" height="10" fill="#101F15" />
+
+  <!-- Bottom Rows -->
+  <rect x="105" y="205" width="10" height="20" fill="#101F15" />
+  <rect x="125" y="205" width="20" height="10" fill="#101F15" />
+  <rect x="155" y="215" width="20" height="10" fill="#101F15" />
+  <rect x="185" y="205" width="10" height="20" fill="#101F15" />
+  <rect x="205" y="205" width="20" height="10" fill="#101F15" />
+  <rect x="235" y="215" width="10" height="10" fill="#101F15" />
+  <rect x="255" y="205" width="10" height="20" fill="#101F15" />
+
+  <rect x="105" y="235" width="20" height="10" fill="#101F15" />
+  <rect x="135" y="225" width="10" height="20" fill="#101F15" />
+  <rect x="155" y="235" width="10" height="10" fill="#101F15" />
+  <rect x="175" y="235" width="20" height="10" fill="#101F15" />
+  <rect x="215" y="235" width="20" height="10" fill="#101F15" />
+  <rect x="245" y="235" width="20" height="10" fill="#101F15" />
+
+  <rect x="105" y="255" width="10" height="10" fill="#101F15" />
+  <rect x="125" y="255" width="20" height="10" fill="#101F15" />
+  <rect x="155" y="255" width="20" height="10" fill="#101F15" />
+  <rect x="185" y="255" width="10" height="10" fill="#101F15" />
+  <rect x="205" y="255" width="30" height="10" fill="#101F15" />
+  <rect x="245" y="255" width="20" height="10" fill="#101F15" />
+
+  <!-- Center Luxury Emblem Badge -->
+  <rect x="115" y="115" width="70" height="70" fill="#101F15" rx="10" stroke="#C5A059" stroke-width="2" />
+  <circle cx="150" cy="142" r="14" fill="#C5A059" />
+  <path d="M150 133 C145 137, 142 143, 150 150 C158 143, 155 137, 150 133 Z" fill="#101F15" />
+  <text x="150" y="172" font-family="'Cinzel', Georgia, serif" font-size="9" font-weight="bold" fill="#DFC289" text-anchor="middle" letter-spacing="1">UPI PAY</text>
+</svg>

@@ -107,7 +107,7 @@ require_once __DIR__ . '/includes/header.php';
     <div style="display: flex; align-items: center; gap: 10px;">
         <div style="position: relative;">
             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--adm-text-muted); font-size: 12px;"></i>
-            <input type="text" id="adm-card-filter-input" placeholder="Search 16 sections..." onkeyup="filterSettingsCards(this.value);" style="background: var(--adm-bg-surface); border: 1px solid var(--adm-gold-border); border-radius: 20px; padding: 7px 14px 7px 32px; font-size: 12px; color: #FFF; outline: none; width: 200px;">
+            <input type="text" id="adm-card-filter-input" placeholder="Search 17 sections..." onkeyup="filterSettingsCards(this.value);" style="background: var(--adm-bg-surface); border: 1px solid var(--adm-gold-border); border-radius: 20px; padding: 7px 14px 7px 32px; font-size: 12px; color: #FFF; outline: none; width: 200px;">
         </div>
 
         <a href="../index.php" target="_blank" class="adm-btn-action outline" style="padding: 7px 14px; font-size: 12px;" title="Open Public Website">
@@ -328,6 +328,19 @@ require_once __DIR__ . '/includes/header.php';
             <span class="adm-setting-card-num">CARD 16 • SQL BACKUP</span>
             <h4>MySQL Database Backup</h4>
             <p>1-click phpMyAdmin SQL dump</p>
+            <span style="font-size: 11px; color: var(--adm-gold); font-weight: 600; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                Open Section Editor <i class="fa-solid fa-arrow-right"></i>
+            </span>
+        </div>
+    </a>
+
+    <!-- Card 17: Bank Details & UPI Payment QR -->
+    <a href="edit_section.php?section=bank" class="adm-setting-card-btn" data-title="bank payment upi qr code account ifsc branch billing transfer folio invoice" style="text-decoration:none; color:inherit; display:flex;">
+        <div class="adm-setting-card-icon emerald"><i class="fa-solid fa-building-columns"></i></div>
+        <div class="adm-setting-card-content">
+            <span class="adm-setting-card-num">CARD 17 • BANK & UPI QR</span>
+            <h4>Bank Details & UPI QR</h4>
+            <p>A/C number, IFSC, QR upload & bill print</p>
             <span style="font-size: 11px; color: var(--adm-gold); font-weight: 600; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px;">
                 Open Section Editor <i class="fa-solid fa-arrow-right"></i>
             </span>

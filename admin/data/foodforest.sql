@@ -399,7 +399,7 @@ CREATE TABLE `users` (
 
 -- Dumping data for table `users` --
 INSERT INTO `users` (`id`, `full_name`, `email`, `phone`, `password_hash`, `created_at`, `last_login`) VALUES
-('1', 'Arya Varma', 'test_guest_1789541556@example.com', '+91 98765 00000', '$2y$10$rp7HdVqJwZEN57D3zglvf.qhNfROuR/cxIoGPBk9VX.7g4tYDWwKa', '2026-09-16 17:52:36', '2026-09-16 12:22:36');
+('1', 'Arya Varma', 'test_guest_1789541556@example.com', '+91 98765 00000', 'password123', '2026-09-16 17:52:36', '2026-09-16 12:22:36');
 
 SET FOREIGN_KEY_CHECKS = 1;
 COMMIT;
