@@ -341,7 +341,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 7. Curated Experiences Card (Dynamic CMS: Add, Edit, Delete Experiences)
         elseif ($form_type === 'experiences_settings') {
-            ensure_experiences_details_columns($pdo);
+            ensure_rooms_360_column();
+$all_rooms = $pdo->query("SELECT * FROM rooms ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+foreach ($all_rooms as &$rm) {
+    $rm_gallery = [];
+    if (!empty($rm['gallery_images'])) {
+        $dec = json_decode($rm['gallery_images'], true);
+        if (is_array($dec)) {
+            $rm_gallery = array_values(array_filter($dec));
+        }
+    }
+    if (empty($rm_gallery) && !empty($rm['image_url'])) {
+        $rm_gallery = [$rm['image_url']];
+    }
+    $rm['gallery_list'] = $rm_gallery;
+}
+unset($rm);
+
+ensure_experiences_details_columns($pdo);
 
             if (!empty($_POST['delete_exp_id'])) {
                 $del_id = (int)$_POST['delete_exp_id'];
@@ -1332,6 +1349,23 @@ while ($row = $settings_stmt->fetch()) {
 }
 
 // Fetch database records for dynamic card editing
+ensure_rooms_360_column($pdo);
+$all_rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+foreach ($all_rooms as &$rm) {
+    $rm_gallery = [];
+    if (!empty($rm['gallery_images'])) {
+        $dec = json_decode($rm['gallery_images'], true);
+        if (is_array($dec)) {
+            $rm_gallery = array_values(array_filter($dec));
+        }
+    }
+    if (empty($rm_gallery) && !empty($rm['image_url'])) {
+        $rm_gallery = [$rm['image_url']];
+    }
+    $rm['gallery_list'] = $rm_gallery;
+}
+unset($rm);
+
 ensure_experiences_details_columns($pdo);
 $all_experiences = $pdo->query("SELECT * FROM experiences ORDER BY display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
 foreach ($all_experiences as &$exp) {
@@ -2084,6 +2118,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                             </div>
                         </div>
                     </div>
+                </div>
                 <!-- 4 Pillars of Philosophy / Ecological Highlights -->
                 <div style="margin-top: 24px; padding: 20px; background: rgba(16, 31, 21, 0.5); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 12px; margin-bottom: 24px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">

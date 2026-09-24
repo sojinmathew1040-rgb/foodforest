@@ -1364,7 +1364,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Price Calculation
+    // Price Calculation & Dynamic Rules
     function recalculateBookingSummary() {
         if (!modalCheckin || !modalCheckout || !modalVillaSelect) return;
 
@@ -1372,6 +1372,30 @@ document.addEventListener("DOMContentLoaded", () => {
         const checkoutDate = new Date(modalCheckout.value);
         let nights = Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24));
         if (isNaN(nights) || nights < 1) nights = 1;
+
+        // Dynamic Breakfast Selection Rule:
+        // Breakfast is complimentary. Custom dish pre-selection is available for stays of 2+ nights.
+        // For 1-night stays, chef's signature farm breakfast is served automatically on departure morning.
+        const breakfastGrid = document.getElementById('dishes-grid-breakfast');
+        const breakfastNoticeMsg = document.getElementById('breakfast-nights-dynamic-msg');
+        const breakfast1NightPlaceholder = document.getElementById('breakfast-1night-placeholder');
+        if (breakfastGrid && breakfast1NightPlaceholder) {
+            if (nights >= 2) {
+                breakfastGrid.style.display = 'grid';
+                breakfast1NightPlaceholder.style.display = 'none';
+                if (breakfastNoticeMsg) {
+                    breakfastNoticeMsg.innerHTML = `For your <strong>${nights}-night stay</strong>, select your tailored breakfast morning sets below (Complimentary).`;
+                }
+            } else {
+                breakfastGrid.style.display = 'none';
+                breakfast1NightPlaceholder.style.display = 'block';
+                // Reset any selected breakfast quantities for single night stay
+                breakfastGrid.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
+                if (breakfastNoticeMsg) {
+                    breakfastNoticeMsg.innerHTML = `Chef's Daily Organic Orchard Breakfast is included complimentary on departure morning for single-night stays. (Custom dish selection is unlocked for stays of 2+ nights).`;
+                }
+            }
+        }
 
         const selectedOption = modalVillaSelect.options[modalVillaSelect.selectedIndex];
         if (!selectedOption) return;
@@ -1407,7 +1431,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (modalGuestsSelect) modalGuestsSelect.value = guestsCount;
 
         // Dual Adult & Child Occupancy Math:
-        // Adults fill base slots first
         const adultsInBase = Math.min(adultsCount, baseGuests);
         const extraAdults = Math.max(0, adultsCount - adultsInBase);
         const remBaseSlots = Math.max(0, baseGuests - adultsInBase);
@@ -1418,15 +1441,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const extraKidsTotal = extraKids * extraChildRate * nights;
         const baseVillaTotal = villaPrice * nights;
 
-        // Addons total
-        let addonsTotal = 0;
-        document.querySelectorAll('.addon-checkbox:checked').forEach(addon => {
-            addonsTotal += parseInt(addon.getAttribute('data-price') || "0", 10);
+        // Addons total (Direct on-site payment to local guides; NOT billed in advance total)
+        let selectedAddonsCount = 0;
+        document.querySelectorAll('.addon-checkbox:checked').forEach(() => {
+            selectedAddonsCount++;
         });
 
-        // ---------------------------------------------------------
         // Curated Food Menu Selection Calculation
-        // ---------------------------------------------------------
         let foodTotal = 0;
         let foodSetsCount = 0;
         const isAllFoodSkipped = document.getElementById('toggle-skip-all-food')?.checked || false;
@@ -1435,7 +1456,9 @@ document.addEventListener("DOMContentLoaded", () => {
             document.querySelectorAll('.modal-dish-card').forEach(card => {
                 const qtyInput = card.querySelector('.dish-qty-input');
                 const qty = parseInt(qtyInput?.value || "0", 10);
-                const price = parseFloat(card.getAttribute('data-dish-price') || "0");
+                const category = card.getAttribute('data-dish-category');
+                // Breakfast is complimentary (price = 0)
+                const price = (category === 'breakfast') ? 0 : parseFloat(card.getAttribute('data-dish-price') || "0");
                 if (qty > 0) {
                     foodTotal += (qty * price);
                     foodSetsCount += qty;
@@ -1443,7 +1466,8 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        const stayTotal = baseVillaTotal + extraAdultsTotal + extraKidsTotal + addonsTotal + foodTotal;
+        // Addons are payable on-site directly to local artisans/guides, so addonsTotal is 0 in advance bill
+        const stayTotal = baseVillaTotal + extraAdultsTotal + extraKidsTotal + foodTotal;
 
         // Update summary elements
         const summaryNights = document.getElementById('summary-nights');
@@ -1493,24 +1517,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Food Menu itemized line
         if (summaryFoodLine && summaryFoodRate) {
-            if (foodTotal > 0) {
+            if (foodTotal > 0 || foodSetsCount > 0) {
                 summaryFoodLine.style.display = 'flex';
                 if (summaryFoodLabel) {
                     summaryFoodLabel.innerText = `Curated Gastronomy (${foodSetsCount} Sets):`;
                 }
-                summaryFoodRate.innerText = `+₹${foodTotal.toLocaleString('en-IN')}`;
+                summaryFoodRate.innerText = foodTotal > 0 ? `+₹${foodTotal.toLocaleString('en-IN')}` : 'Included';
             } else {
                 summaryFoodLine.style.display = 'none';
             }
         }
 
-        // Hide legacy line
         if (summaryExtraGuestsLine) summaryExtraGuestsLine.style.display = 'none';
 
+        // Addons Experiences line (Payable on-site notice)
         if (summaryAddonsLine && summaryAddonsRate) {
-            if (addonsTotal > 0) {
+            if (selectedAddonsCount > 0) {
                 summaryAddonsLine.style.display = 'flex';
-                summaryAddonsRate.innerText = `+₹${addonsTotal.toLocaleString('en-IN')}`;
+                summaryAddonsRate.innerText = 'Payable On-Site (₹0 in Bill)';
             } else {
                 summaryAddonsLine.style.display = 'none';
             }
@@ -1521,6 +1545,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (modalVillaSelect) modalVillaSelect.addEventListener('change', onModalVillaChange);
     if (modalGuestsSelect) modalGuestsSelect.addEventListener('change', recalculateBookingSummary);
+    if (modalCheckin) modalCheckin.addEventListener('change', recalculateBookingSummary);
+    if (modalCheckout) modalCheckout.addEventListener('change', recalculateBookingSummary);
     document.querySelectorAll('.addon-checkbox').forEach(cb => {
         cb.addEventListener('change', recalculateBookingSummary);
     });
@@ -1589,26 +1615,110 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('input[name="modal_account_type"]').forEach(radio => {
         radio.addEventListener('change', function() {
             const pwdBox = document.getElementById('modal-password-container');
-            if (!pwdBox) return;
+            const labelGuest = document.getElementById('label-acc-guest');
+            const labelPermanent = document.getElementById('label-acc-permanent');
+            
             if (this.value === 'create_account') {
-                pwdBox.style.display = 'block';
+                if (pwdBox) pwdBox.style.display = 'block';
                 document.getElementById('modal-password')?.setAttribute('required', 'required');
+                if (labelPermanent) {
+                    labelPermanent.style.background = '#FEF9C3';
+                    labelPermanent.style.border = '2px solid #CA8A04';
+                    const strong = labelPermanent.querySelector('strong');
+                    if (strong) strong.style.color = '#854D0E';
+                    const span = labelPermanent.querySelector('span');
+                    if (span) span.style.color = '#334155';
+                }
+                if (labelGuest) {
+                    labelGuest.style.background = '#F8FAFC';
+                    labelGuest.style.border = '1.5px solid #CBD5E1';
+                    const strong = labelGuest.querySelector('strong');
+                    if (strong) strong.style.color = '#1C3826';
+                    const span = labelGuest.querySelector('span');
+                    if (span) span.style.color = '#334155';
+                }
             } else {
-                pwdBox.style.display = 'none';
+                if (pwdBox) pwdBox.style.display = 'none';
                 document.getElementById('modal-password')?.removeAttribute('required');
+                if (labelGuest) {
+                    labelGuest.style.background = '#FEF9C3';
+                    labelGuest.style.border = '2px solid #CA8A04';
+                    const strong = labelGuest.querySelector('strong');
+                    if (strong) strong.style.color = '#854D0E';
+                    const span = labelGuest.querySelector('span');
+                    if (span) span.style.color = '#334155';
+                }
+                if (labelPermanent) {
+                    labelPermanent.style.background = '#F8FAFC';
+                    labelPermanent.style.border = '1.5px solid #CBD5E1';
+                    const strong = labelPermanent.querySelector('strong');
+                    if (strong) strong.style.color = '#1C3826';
+                    const span = labelPermanent.querySelector('span');
+                    if (span) span.style.color = '#334155';
+                }
             }
         });
     });
+
+    // -------------------------------------------------------------
+    // 6.2 Government ID Proof File Upload Interactions
+    // -------------------------------------------------------------
+    const idFileInput = document.getElementById('modal-id-file');
+    const idFilePrompt = document.getElementById('id-file-prompt');
+    const idFileSelected = document.getElementById('id-file-selected');
+    const idFileNameEl = document.getElementById('id-file-name');
+    const idFileSizeEl = document.getElementById('id-file-size');
+    const btnRemoveIdFile = document.getElementById('btn-remove-id-file');
+
+    if (idFileInput) {
+        idFileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                if (file.size > 8 * 1024 * 1024) {
+                    alert('The chosen file is larger than 8MB. Please select a smaller file (JPG, PNG, WEBP, PDF).');
+                    this.value = '';
+                    if (idFilePrompt) idFilePrompt.style.display = 'flex';
+                    if (idFileSelected) idFileSelected.style.display = 'none';
+                    return;
+                }
+                const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                if (idFileNameEl) idFileNameEl.innerText = file.name;
+                if (idFileSizeEl) idFileSizeEl.innerText = `(${sizeMb} MB)`;
+                if (idFilePrompt) idFilePrompt.style.display = 'none';
+                if (idFileSelected) idFileSelected.style.display = 'flex';
+            }
+        });
+    }
+
+    if (btnRemoveIdFile) {
+        btnRemoveIdFile.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (idFileInput) idFileInput.value = '';
+            if (idFilePrompt) idFilePrompt.style.display = 'flex';
+            if (idFileSelected) idFileSelected.style.display = 'none';
+        });
+    }
 
     // -------------------------------------------------------------
     // 7. Instant WhatsApp & Direct Reservation Submission
     // -------------------------------------------------------------
     async function saveBookingToDatabase(payload) {
         try {
+            const formData = new FormData();
+            for (const key in payload) {
+                if (key === 'food_items') {
+                    formData.append(key, JSON.stringify(payload[key]));
+                } else if (payload[key] !== null && payload[key] !== undefined) {
+                    formData.append(key, payload[key]);
+                }
+            }
+            if (idFileInput && idFileInput.files && idFileInput.files[0]) {
+                formData.append('id_proof_file', idFileInput.files[0]);
+            }
             const res = await fetch('api/book.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: formData
             });
             return await res.json();
         } catch (err) {
@@ -1621,6 +1731,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const guestName = document.getElementById('modal-name')?.value.trim() || '';
         const guestPhone = document.getElementById('modal-phone')?.value.trim() || '';
         const guestEmail = document.getElementById('modal-email')?.value.trim() || '';
+        const guestCity = document.getElementById('modal-city')?.value.trim() || '';
+        const idProofType = document.getElementById('modal-id-type')?.value || 'Aadhaar Card';
+        const idProofNumber = document.getElementById('modal-id-number')?.value.trim() || '';
         const guestNotes = document.getElementById('modal-notes')?.value.trim() || '';
         const villaSlug = modalVillaSelect?.value || 'treehouse';
 
@@ -1651,15 +1764,17 @@ document.addEventListener("DOMContentLoaded", () => {
             document.querySelectorAll('.modal-dish-card').forEach(card => {
                 const qtyInput = card.querySelector('.dish-qty-input');
                 const qty = parseInt(qtyInput?.value || "0", 10);
+                const cat = card.getAttribute('data-dish-category');
+                const price = (cat === 'breakfast') ? 0 : parseFloat(card.getAttribute('data-dish-price') || "0");
                 if (qty > 0) {
                     foodItems.push({
                         id: card.getAttribute('data-dish-id'),
-                        category: card.getAttribute('data-dish-category'),
+                        category: cat,
                         heading: card.getAttribute('data-dish-name'),
                         subtitle: card.getAttribute('data-dish-subtitle'),
-                        price: parseFloat(card.getAttribute('data-dish-price') || "0"),
+                        price: price,
                         quantity: qty,
-                        subtotal: qty * parseFloat(card.getAttribute('data-dish-price') || "0")
+                        subtotal: qty * price
                     });
                 }
             });
@@ -1674,6 +1789,10 @@ document.addEventListener("DOMContentLoaded", () => {
             name: guestName,
             phone: guestPhone,
             email: guestEmail,
+            city_state: guestCity,
+            id_proof_type: idProofType,
+            id_proof_number: idProofNumber,
+            has_id_file: (idFileInput?.files && idFileInput.files.length > 0),
             villa: villaSlug,
             tier: modalTier,
             adults: adultsCount,
@@ -1805,6 +1924,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 foodSummary = payload.food_items.map(f => `${f.heading} (${f.quantity} sets)`).join(', ');
             }
 
+            let expNote = payload.addons ? `\n• *Experiences (On-Site Direct Pay)*: ${payload.addons}` : '';
+            let cityNote = payload.city_state ? `\n• *City/Origin*: ${payload.city_state}` : '';
+            let idNote = payload.id_proof_type ? (`\n• *ID Proof*: ${payload.id_proof_type}` + (payload.has_id_file ? ' (📎 Document Attached)' : '')) : '';
+
             const message = `🌿 *RESERVATION REQUEST — FOOD FOREST KANTHALLOOR* 🌿\n\n` +
                 `• *Booking Reference*: #${refCode}\n` +
                 `• *Guest Name*: ${payload.name}\n` +
@@ -1812,8 +1935,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 `• *Suite*: ${villaName}\n` +
                 `• *Check-in*: ${payload.checkin}\n` +
                 `• *Check-out*: ${payload.checkout}\n` +
-                `• *Occupancy*: ${payload.adults} Adults, ${payload.kids} Children\n` +
-                `• *Curated Gastronomy*: ${foodSummary}\n` +
+                `• *Occupancy*: ${payload.adults} Adults, ${payload.kids} Children` +
+                `${cityNote}${idNote}\n` +
+                `• *Curated Gastronomy*: ${foodSummary}` +
+                `${expNote}\n` +
                 `• *Estimated Total*: ${total}\n\n` +
                 `Kindly confirm availability. Luxury receipt is available at Ref #${refCode}.`;
 

@@ -23,6 +23,10 @@ if (!$input) {
 $guest_name = trim($input['name'] ?? ($input['guest_name'] ?? ''));
 $guest_phone = trim($input['phone'] ?? ($input['guest_phone'] ?? ''));
 $guest_email = trim($input['email'] ?? ($input['guest_email'] ?? ''));
+$city_state = trim($input['city_state'] ?? ($input['city'] ?? ''));
+$id_proof_type = trim($input['id_proof_type'] ?? 'Aadhaar Card');
+$id_proof_number = trim($input['id_proof_number'] ?? '');
+$country = trim($input['country'] ?? 'India');
 $villa_type = trim($input['villa'] ?? ($input['villa_type'] ?? 'treehouse'));
 
 $adults_count = isset($input['adults']) ? max(1, (int)$input['adults']) : (isset($input['adults_count']) ? max(1, (int)$input['adults_count']) : 0);
@@ -111,11 +115,8 @@ try {
     $base_total = $rate_per_night * $nights;
     $room_total = $base_total + $extra_guests_fee;
 
-    // Experiences Addons total
+    // Experiences Addons are payable on-site directly to local guides (0 in advance bill)
     $addons_total = 0;
-    if (stripos($addons, 'dinner') !== false) $addons_total += 3000;
-    if (stripos($addons, 'pottery') !== false) $addons_total += 1500;
-    if (stripos($addons, 'trek') !== false) $addons_total += 2000;
 
     // Process Food Menu Selections
     $food_items_raw = $input['food_items'] ?? [];
@@ -132,14 +133,16 @@ try {
     if ($food_status === 'selected') {
         foreach ($food_items_array as $fi) {
             $qty = max(0, (int)($fi['quantity'] ?? ($fi['sets'] ?? 0)));
-            $price = max(0, (float)($fi['price'] ?? 0));
+            $cat = trim($fi['category'] ?? 'general');
+            // Breakfast is complimentary (price = 0)
+            $price = ($cat === 'breakfast') ? 0.00 : max(0, (float)($fi['price'] ?? 0));
             if ($qty > 0 && !empty($fi['heading'])) {
                 $subtotal = $qty * $price;
                 $food_total += $subtotal;
                 $verified_food_items[] = [
                     'id' => (int)($fi['id'] ?? 0),
-                    'category' => trim($fi['category'] ?? 'general'),
-                    'category_title' => trim($fi['category_title'] ?? ucfirst($fi['category'] ?? 'Meal')),
+                    'category' => $cat,
+                    'category_title' => trim($fi['category_title'] ?? ucfirst($cat)),
                     'heading' => trim($fi['heading']),
                     'subtitle' => trim($fi['subtitle'] ?? ''),
                     'price' => $price,
@@ -154,7 +157,7 @@ try {
         }
     }
 
-    $calculated_total = $room_total + $addons_total + $food_total;
+    $calculated_total = $room_total + $food_total;
     $total_amount = $calculated_total;
     if (!empty($input['total_amount']) && floatval($input['total_amount']) > 0) {
         $total_amount = (float)$input['total_amount'];
@@ -191,15 +194,39 @@ try {
     // Generate unique reference code
     $ref_code = 'FF-' . rand(2000, 9999);
 
+    // Handle Government ID Proof File Upload
+    $id_proof_file = null;
+    if (!empty($_FILES['id_proof_file']) && $_FILES['id_proof_file']['error'] === UPLOAD_ERR_OK) {
+        $uploaded_file = $_FILES['id_proof_file'];
+        $upload_dir = __DIR__ . '/../uploads/id_proofs/';
+        if (!is_dir($upload_dir)) {
+            @mkdir($upload_dir, 0777, true);
+        }
+
+        $file_name = basename($uploaded_file['name']);
+        $ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+        $allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+
+        if (in_array($ext, $allowed_exts) && $uploaded_file['size'] <= 8 * 1024 * 1024) {
+            $safe_ref = preg_replace('/[^a-zA-Z0-9_-]/', '', $ref_code);
+            $new_filename = 'id_' . strtolower($safe_ref) . '_' . time() . '.' . $ext;
+            $destination = $upload_dir . $new_filename;
+            if (move_uploaded_file($uploaded_file['tmp_name'], $destination)) {
+                $id_proof_file = $new_filename;
+            }
+        }
+    }
+
     $stmt = $pdo->prepare("
         INSERT INTO bookings (
             reference_code, user_id, is_guest, guest_access_token, expires_at,
             villa_type, booking_source, guest_name, guest_phone, guest_email,
+            id_proof_type, id_proof_number, id_proof_file, city_state, country,
             guests_count, adults_count, kids_count, extra_adults, extra_kids,
             checkin_date, checkout_date, nights, addons,
             food_items, food_amount, room_amount, food_status,
             special_notes, total_amount, status
-        ) VALUES (?, ?, ?, ?, ?, ?, 'direct_website', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        ) VALUES (?, ?, ?, ?, ?, ?, 'direct_website', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     ");
 
     $stmt->execute([
@@ -212,6 +239,11 @@ try {
         $guest_name,
         $guest_phone,
         $guest_email,
+        $id_proof_type,
+        $id_proof_number,
+        $id_proof_file,
+        $city_state,
+        $country,
         $guests_count,
         $adults_count,
         $kids_count,

@@ -1706,6 +1706,21 @@ function ensure_users_and_guest_columns(?PDO $pdo = null) {
         if (!in_array('food_status', $cols)) {
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `food_status` VARCHAR(50) DEFAULT 'none' AFTER `food_amount`");
         }
+        if (!in_array('id_proof_type', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `id_proof_type` VARCHAR(100) NULL AFTER `guest_email`");
+        }
+        if (!in_array('id_proof_number', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `id_proof_number` VARCHAR(100) NULL AFTER `id_proof_type`");
+        }
+        if (!in_array('id_proof_file', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `id_proof_file` VARCHAR(255) NULL AFTER `id_proof_number`");
+        }
+        if (!in_array('city_state', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `city_state` VARCHAR(255) NULL AFTER `id_proof_file`");
+        }
+        if (!in_array('country', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `country` VARCHAR(100) DEFAULT 'India' AFTER `city_state`");
+        }
 
         $checked = true;
     } catch (Exception $e) {

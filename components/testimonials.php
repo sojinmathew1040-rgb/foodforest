@@ -13,11 +13,11 @@
             </div>
             
             <div class="testimonials-header-actions" style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-                <!-- Share Story Button -->
-                <button type="button" class="btn-share-reflection magnetic" data-strength="10" onclick="openGuestReviewModal();">
+                <!-- Share Story Button (Navigates to Guest Portal / Login) -->
+                <a href="guest_portal.php" class="btn-share-reflection magnetic" data-strength="10">
                     <i class="fa-solid fa-feather-pointed"></i>
                     <span>Share Your Story</span>
-                </button>
+                </a>
 
                 <!-- Slider Control Buttons -->
                 <div class="testimonials-slider-controls">
@@ -31,13 +31,59 @@
             </div>
         </div>
 
+        <?php
+        require_once __DIR__ . '/../admin/includes/db.php';
+        $testimonials_list = get_testimonials();
+        $all_properties = get_sanctuary_properties_list();
+        $count_google = 0;
+        $count_guest = 0;
+        foreach ($testimonials_list as $t_item) {
+            if (!empty($t_item['source']) && $t_item['source'] === 'google_maps') {
+                $count_google++;
+            } else {
+                $count_guest++;
+            }
+        }
+        ?>
+
+        <!-- Filter Tabs / Segmented Buttons (Google Reviews vs Guest Stories vs All) -->
+        <div class="testimonials-filter-bar scroll-reveal">
+            <div class="testimonials-filter-pills" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <!-- All Stories Button -->
+                <button type="button" class="testimonial-filter-pill active" onclick="filterFrontendTestimonials('all', this);" id="tab-front-all">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span>All Stories</span>
+                    <span class="filter-count"><?php echo count($testimonials_list); ?></span>
+                </button>
+                
+                <!-- Google Reviews Button -->
+                <button type="button" class="testimonial-filter-pill google-pill" onclick="filterFrontendTestimonials('google', this);" id="tab-front-google">
+                    <i class="fa-brands fa-google" style="color: #4285F4;"></i>
+                    <span>Google Reviews</span>
+                    <span class="filter-count"><?php echo $count_google; ?></span>
+                </button>
+
+                <!-- Website / Client Guest Stories Button -->
+                <button type="button" class="testimonial-filter-pill client-pill" onclick="filterFrontendTestimonials('guest', this);" id="tab-front-guest">
+                    <i class="fa-solid fa-feather-pointed" style="color: var(--accent-gold);"></i>
+                    <span>Guest Memoirs</span>
+                    <span class="filter-count"><?php echo $count_guest; ?></span>
+                </button>
+            </div>
+
+            <!-- Google Maps Rating Live Badge -->
+            <a href="https://maps.app.goo.gl/WrLRy4j8aSU7xtM4A" target="_blank" rel="noopener noreferrer" class="google-rating-live-pill font-sans" title="View 4.9 Star Rating on Google Maps">
+                <i class="fa-brands fa-google" style="color: #4285F4; font-size: 13px;"></i>
+                <span style="font-weight: 600;">4.9 / 5.0 on Google Maps</span>
+                <span style="color: #f1c40f; letter-spacing: 1px; font-size: 11px;">★★★★★</span>
+                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 9px; opacity: 0.75; margin-left: 2px;"></i>
+            </a>
+        </div>
+
         <!-- Scrollable Testimonials Carousel (Mouse drag, Touch swipe, Auto-scroll) -->
         <div class="testimonials-carousel-container" id="testimonials-carousel-container">
             <div class="testimonials-track" id="testimonials-track">
                 <?php
-                require_once __DIR__ . '/../admin/includes/db.php';
-                $testimonials_list = get_testimonials();
-                $all_properties = get_sanctuary_properties_list();
                 if (!empty($testimonials_list)):
                     foreach ($testimonials_list as $t):
                         $stars_val = isset($t['stars']) ? (float)$t['stars'] : 5.0;
@@ -56,8 +102,8 @@
                         }
                         $is_google = (!empty($t['source']) && $t['source'] === 'google_maps');
                 ?>
-                    <!-- Dynamic Testimonial Card -->
-                    <div class="testimonial-card">
+                    <!-- Dynamic Testimonial Card with data-source filter attribute -->
+                    <div class="testimonial-card" data-source="<?php echo ($is_google ? 'google' : 'guest'); ?>">
                         <div class="testimonial-card-top">
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <?php echo render_star_rating_html($stars_val, 'testimonial-stars'); ?>
@@ -105,21 +151,7 @@
                             </div>
                         <?php endif; ?>
 
-                        <!-- Official Estate Concierge Response / Reply -->
-                        <?php if (!empty($t['admin_reply'])): ?>
-                            <div class="testimonial-concierge-reply">
-                                <div class="reply-header">
-                                    <i class="fa-solid fa-seedling" style="color: var(--accent-gold, #C5A059);"></i>
-                                    <span class="reply-title font-sans">Estate Concierge Reply</span>
-                                    <?php if (!empty($t['admin_reply_at'])): ?>
-                                        <span class="reply-date font-sans"><?php echo date('M d, Y', strtotime($t['admin_reply_at'])); ?></span>
-                                    <?php endif; ?>
-                                </div>
-                                <p class="reply-content font-sans">
-                                    <?php echo htmlspecialchars($t['admin_reply']); ?>
-                                </p>
-                            </div>
-                        <?php endif; ?>
+
 
                         <div class="testimonial-author-row">
                             <?php if (!empty($t['avatar_url'])): ?>
@@ -467,6 +499,31 @@
         }
     };
 
+    // Frontend Testimonials Segment Filter (Google vs Guest Memoirs vs All)
+    window.filterFrontendTestimonials = function(sourceType, btn) {
+        document.querySelectorAll('.testimonial-filter-pill').forEach(function(p) {
+            p.classList.remove('active');
+        });
+        if (btn) btn.classList.add('active');
+
+        var track = document.getElementById('testimonials-track');
+        if (!track) return;
+        var cards = track.querySelectorAll('.testimonial-card');
+        
+        cards.forEach(function(card) {
+            var cardSource = card.getAttribute('data-source') || 'guest';
+            if (sourceType === 'all' || cardSource === sourceType) {
+                card.style.display = '';
+                card.style.opacity = '1';
+                card.style.transform = 'scale(1)';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        track.scrollTo({ left: 0, behavior: 'smooth' });
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
         initStarPicker();
     });
@@ -474,6 +531,128 @@
 </script>
 
 <style>
+/* Testimonials Segment Filter Bar */
+.testimonials-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(27, 56, 35, 0.12);
+}
+
+.testimonials-filter-pills {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.testimonial-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    background: #FFFFFF;
+    color: #1b382b !important;
+    border: 1px solid rgba(27, 56, 35, 0.18);
+    border-radius: 30px;
+    font-size: 0.82rem;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.testimonial-filter-pill:hover {
+    background: #FAF8F5;
+    color: var(--accent-gold, #C5A059) !important;
+    border-color: var(--accent-gold, #C5A059);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(197, 160, 89, 0.2);
+}
+
+.testimonial-filter-pill.active {
+    background: var(--accent-gold, #C5A059) !important;
+    color: #101F15 !important;
+    border-color: var(--accent-gold, #C5A059) !important;
+    font-weight: 700;
+    box-shadow: 0 4px 16px rgba(197, 160, 89, 0.35);
+    transform: translateY(-1px);
+}
+
+.testimonial-filter-pill.google-pill:hover {
+    border-color: #4285F4;
+    color: #1a73e8 !important;
+}
+
+.testimonial-filter-pill.google-pill.active {
+    background: #4285F4 !important;
+    color: #FFFFFF !important;
+    border-color: #4285F4 !important;
+    box-shadow: 0 4px 16px rgba(66, 133, 244, 0.35);
+}
+
+.testimonial-filter-pill.google-pill.active i {
+    color: #FFFFFF !important;
+}
+
+.testimonial-filter-pill .filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    background: rgba(27, 56, 35, 0.08);
+    color: #1b382b;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.testimonial-filter-pill.active .filter-count {
+    background: rgba(0, 0, 0, 0.18);
+    color: inherit;
+}
+
+.google-rating-live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none !important;
+    padding: 8px 18px;
+    background: #FFFFFF;
+    border: 1px solid rgba(66, 133, 244, 0.35);
+    border-radius: 30px;
+    color: #1b382b !important;
+    font-size: 0.82rem;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(66, 133, 244, 0.08);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.google-rating-live-pill span {
+    color: #1b382b !important;
+    text-decoration: none !important;
+}
+
+.google-rating-live-pill:hover {
+    background: #4285F4 !important;
+    border-color: #4285F4 !important;
+    color: #FFFFFF !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(66, 133, 244, 0.3);
+}
+
+.google-rating-live-pill:hover span,
+.google-rating-live-pill:hover i {
+    color: #FFFFFF !important;
+}
+
 .stay-badge-interactive {
     display: inline-flex;
     align-items: center;
@@ -507,48 +686,5 @@
     border-color: #4285F4 !important;
     color: #FFFFFF !important;
     box-shadow: 0 4px 14px rgba(66, 133, 244, 0.25) !important;
-}
-.google-review-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 7px;
-    background: rgba(66, 133, 244, 0.1);
-    color: #8ab4f8;
-    border: 1px solid rgba(66, 133, 244, 0.25);
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-.testimonial-concierge-reply {
-    margin-top: 14px;
-    padding: 12px 14px;
-    background: rgba(197, 160, 89, 0.06);
-    border-left: 2px solid var(--accent-gold, #C5A059);
-    border-radius: 0 8px 8px 0;
-}
-.testimonial-concierge-reply .reply-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 5px;
-}
-.testimonial-concierge-reply .reply-title {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--accent-gold, #C5A059);
-}
-.testimonial-concierge-reply .reply-date {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.45);
-    margin-left: auto;
-}
-.testimonial-concierge-reply .reply-content {
-    font-size: 0.85rem;
-    line-height: 1.5;
-    color: rgba(255, 255, 255, 0.88);
-    margin: 0;
 }
 </style>

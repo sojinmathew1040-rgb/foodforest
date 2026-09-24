@@ -4861,16 +4861,17 @@ body.in-walkthrough .sticky-booking-pill {
     align-items: center;
     justify-content: space-between;
     padding: 14px 20px;
-    border: 1px solid rgba(28, 56, 38, 0.15);
-    border-radius: 4px;
-    background: #FAFAFA;
+    border: 1.5px solid rgba(28, 56, 38, 0.18) !important;
+    border-radius: 8px;
+    background: #FFFFFF !important;
     transition: all 0.3s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
 }
 
 .addon-check-icon {
     width: 22px;
     height: 22px;
-    border: 1px solid rgba(28, 56, 38, 0.3);
+    border: 1.5px solid #94A3B8;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -4883,14 +4884,14 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .addon-checkbox:checked + .addon-card-inner {
-    border-color: var(--accent-gold);
-    background: rgba(197, 160, 89, 0.08);
+    border-color: #CA8A04 !important;
+    background: #FEFCE8 !important;
 }
 
 .addon-checkbox:checked + .addon-card-inner .addon-check-icon {
-    background: var(--accent-green);
-    border-color: var(--accent-green);
-    color: #FFFFFF;
+    background: #1C3826 !important;
+    border-color: #1C3826 !important;
+    color: #FFFFFF !important;
 }
 
 .addon-details {
@@ -4900,19 +4901,22 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .addon-name {
-    font-size: 1.15rem;
-    color: var(--accent-green);
+    font-size: 1.05rem !important;
+    color: #1C3826 !important;
+    font-weight: 700 !important;
 }
 
 .addon-desc {
-    font-size: 0.8rem;
-    color: var(--text-muted);
+    font-size: 0.82rem !important;
+    color: #334155 !important;
+    font-weight: 500 !important;
+    line-height: 1.4 !important;
 }
 
 .addon-price {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--accent-terracotta);
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    color: #0E7490 !important;
 }
 
 /* Price Summary Box */

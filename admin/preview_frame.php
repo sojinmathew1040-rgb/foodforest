@@ -76,8 +76,8 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
             padding: 30px 0 !important;
         }
 
-        .preview-highlight-pulse {
-            animation: previewGlow 1.2s ease-out;
+        . {
+            /* animation disabled */
         }
 
         @keyframes previewGlow {
@@ -302,14 +302,14 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         $hero_eyebrow = $s['hero_eyebrow'] ?? 'KANTHALLOOR, KERALA • PRIVATE ECO-SANCTUARY';
         $hero_title = $s['hero_title'] ?? 'Where Earth Breathes & Time Stands Still.';
         $hero_desc = $s['hero_desc'] ?? 'Tucked deep in the misty hills and organic orchards of Kanthalloor. Experience private earthen mudhouses, soaring canopy treehouses, and nourishing farm gastronomy cooked slowly over wood fires.';
-        $hero_bg_image = $s['hero_bg_image'] ?? '../assets/images/01 (25).jpeg';
-        if (!empty($hero_bg_image) && strpos($hero_bg_image, 'http') !== 0 && strpos($hero_bg_image, '../') !== 0 && strpos($hero_bg_image, '/') !== 0) {
-            $hero_bg_image = '../' . $hero_bg_image;
+        $hero_bg_image = $s['hero_bg_image'] ?? 'assets/images/01 (25).jpeg';
+        if (!empty($hero_bg_image) && strpos($hero_bg_image, 'http') !== 0 && false && strpos($hero_bg_image, '/') !== 0) {
+            
         }
         ?>
         <section id="hero" class="hero-section" style="min-height: 85vh; display: flex; align-items: center; justify-content: center; position: relative; padding: 60px 20px;">
             <div class="hero-bg-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1;">
-                <img id="pv-hero-bg" src="<?php echo htmlspecialchars($hero_bg_image); ?>" alt="Hero Backdrop" class="hero-bg-img loaded" style="width: 100%; height: 100%; object-fit: cover; filter: brightness(0.65);" onerror="this.src='../assets/images/treehouse_exterior.png'">
+                <img id="pv-hero-bg" src="<?php echo htmlspecialchars($hero_bg_image); ?>" alt="Hero Backdrop" class="hero-bg-img loaded" style="width: 100%; height: 100%; object-fit: cover; filter: brightness(0.65);" onerror="this.src='assets/images/treehouse_exterior.png'">
                 <div class="hero-overlay" style="position: absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(180deg, rgba(11,24,16,0.3) 0%, rgba(11,24,16,0.85) 100%);"></div>
             </div>
 
@@ -374,9 +374,9 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         $welcome_badge = $s['welcome_badge'] ?? 'THE SANCTUARY PHILOSOPHY';
         $welcome_title = $s['welcome_title'] ?? 'Rooted in Earth, Reverence & Time';
         $welcome_paragraph = $s['welcome_paragraph'] ?? 'Food Forest is not merely a getaway; it is a conscious return to living in harmony with nature. Tucked into the mist-veiled terraced hills of Kanthalloor, Kerala, our estate was conceived as a living ecosystem where luxury means silence, pure mountain spring water, and unhurried peace.';
-        $welcome_image = $s['welcome_image'] ?? '../assets/images/01 (7).jpeg';
-        if (!empty($welcome_image) && strpos($welcome_image, 'http') !== 0 && strpos($welcome_image, '../') !== 0 && strpos($welcome_image, '/') !== 0) {
-            $welcome_image = '../' . $welcome_image;
+        $welcome_image = $s['welcome_image'] ?? 'assets/images/01 (7).jpeg';
+        if (!empty($welcome_image) && strpos($welcome_image, 'http') !== 0 && false && strpos($welcome_image, '/') !== 0) {
+            
         }
 
         $feat1_t = $s['welcome_feat1_title'] ?? 'Ecological Vernacular';
@@ -396,7 +396,7 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
                     <p id="pv-wel-desc" style="font-size: 14px; line-height: 1.8; color: #CBD5E1; margin: 0;"><?php echo nl2br(htmlspecialchars($welcome_paragraph)); ?></p>
                 </div>
                 <div style="position: relative;">
-                    <img id="pv-wel-img" src="<?php echo htmlspecialchars($welcome_image); ?>" alt="Sanctuary Portrait" style="width: 100%; height: 320px; object-fit: cover; border-radius: 12px; border: 1px solid rgba(197, 160, 89, 0.3); box-shadow: 0 16px 40px rgba(0,0,0,0.5);" onerror="this.src='../assets/images/mudhouse_exterior.png'">
+                    <img id="pv-wel-img" src="<?php echo htmlspecialchars($welcome_image); ?>" alt="Sanctuary Portrait" style="width: 100%; height: 320px; object-fit: cover; border-radius: 12px; border: 1px solid rgba(197, 160, 89, 0.3); box-shadow: 0 16px 40px rgba(0,0,0,0.5);" onerror="this.src='assets/images/mudhouse_exterior.png'">
                 </div>
             </div>
 
@@ -532,7 +532,7 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         $b_ifsc = $s['bank_ifsc'] ?? 'SBIN0070123';
         $b_type = $s['bank_account_type'] ?? 'Current Account';
         $b_upi = $s['bank_upi_id'] ?? 'foodforest@upi';
-        $b_qr = !empty($s['bank_qr_image']) ? (str_starts_with($s['bank_qr_image'], 'http') || str_starts_with($s['bank_qr_image'], 'assets/') ? '../' . $s['bank_qr_image'] : '../' . $s['bank_qr_image']) : '../assets/images/foodforest_upi_qr.svg';
+        $b_qr = !empty($s['bank_qr_image']) ? (str_starts_with($s['bank_qr_image'], 'http') || str_starts_with($s['bank_qr_image'], 'assets/') ? '../' . $s['bank_qr_image'] : '../' . $s['bank_qr_image']) : 'assets/images/foodforest_upi_qr.svg';
         $b_gst = $s['gst_number'] ?? '32AAECF1234M1Z5';
         $b_show_bank = ($s['bill_show_bank_details'] ?? '1') === '1';
         $b_show_qr = ($s['bill_show_qr_code'] ?? '1') === '1';
@@ -554,7 +554,7 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
                     <div style="background: #F8FAF9; border: 1px solid #E2E8F0; border-radius: 10px; padding: 18px; text-align: center;">
                         <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748B; margin-bottom: 8px;">Scan & Pay via UPI</div>
                         <div style="background: #FFF; padding: 10px; border-radius: 8px; display: inline-block; border: 1px solid #CBD5E1; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-                            <img src="<?php echo htmlspecialchars($b_qr); ?>" alt="UPI QR" style="width: 140px; height: 140px; object-fit: contain; display: block;" onerror="this.src='../assets/images/foodforest_upi_qr.svg';">
+                            <img src="<?php echo htmlspecialchars($b_qr); ?>" alt="UPI QR" style="width: 140px; height: 140px; object-fit: contain; display: block;" onerror="this.src='assets/images/foodforest_upi_qr.svg';">
                         </div>
                         <div style="font-size: 12px; font-weight: 700; color: #101F15; margin-top: 10px; font-family: monospace; background: #FFF; padding: 4px 8px; border-radius: 4px; border: 1px dashed #CBD5E1;">
                             <?php echo htmlspecialchars($b_upi); ?>
@@ -611,7 +611,7 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
 <!-- Real-Time Two-Way Synchronization Script -->
 <script>
 function resolvePreviewImgSrc(path) {
-    if (!path || !path.trim()) return '../assets/images/treehouse_exterior.png';
+    if (!path || !path.trim()) return 'assets/images/treehouse_exterior.png';
     path = path.trim();
     if (/^https?:\/\//i.test(path) || /^data:/i.test(path) || /^blob:/i.test(path)) return path;
     if (path.indexOf('../') === 0) return path;
@@ -627,8 +627,8 @@ window.addEventListener('message', function(event) {
         var el = document.querySelector(data.selector);
         if (el) {
             el.textContent = data.value;
-            el.classList.add('preview-highlight-pulse');
-            setTimeout(function() { el.classList.remove('preview-highlight-pulse'); }, 1200);
+            el.classList.add('');
+            setTimeout(function() { el.classList.remove(''); }, 1200);
         }
     }
 
@@ -637,8 +637,8 @@ window.addEventListener('message', function(event) {
         var img = document.querySelector(data.selector);
         if (img) {
             img.src = resolvePreviewImgSrc(data.src);
-            img.classList.add('preview-highlight-pulse');
-            setTimeout(function() { img.classList.remove('preview-highlight-pulse'); }, 1200);
+            img.classList.add('');
+            setTimeout(function() { img.classList.remove(''); }, 1200);
         }
     }
 

@@ -126,13 +126,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $extra_amount = ($extra_adults * $extra_adult_rate * $nights) + ($extra_kids * $extra_child_rate * $nights);
                 $calculated_total = ($rate * $nights) + $extra_amount;
 
-                $custom_amount = !empty($_POST['custom_amount']) ? (float)$_POST['custom_amount'] : $calculated_total;
+                $id_proof_type = trim($_POST['id_proof_type'] ?? 'Aadhaar Card');
+                $id_proof_number = trim($_POST['id_proof_number'] ?? '');
+                $city_state = trim($_POST['city_state'] ?? '');
+
+                // Handle ID proof upload if provided
+                $id_proof_file = null;
+                if (!empty($_FILES['id_proof_file']) && $_FILES['id_proof_file']['error'] === UPLOAD_ERR_OK) {
+                    $upload_dir = __DIR__ . '/../uploads/id_proofs/';
+                    if (!is_dir($upload_dir)) {
+                        @mkdir($upload_dir, 0777, true);
+                    }
+                    $ext = strtolower(pathinfo($_FILES['id_proof_file']['name'], PATHINFO_EXTENSION));
+                    if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'pdf'])) {
+                        $id_proof_file = 'id_adm_' . time() . '_' . rand(100, 999) . '.' . $ext;
+                        move_uploaded_file($_FILES['id_proof_file']['tmp_name'], $upload_dir . $id_proof_file);
+                    }
+                }
 
                 // Generate Reference Code
                 $ref = 'FF-' . rand(1000, 9999);
 
-                $ins = $pdo->prepare("INSERT INTO bookings (reference_code, villa_type, guest_name, guest_phone, guest_email, guests_count, adults_count, kids_count, extra_adults, extra_kids, checkin_date, checkout_date, nights, addons, special_notes, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $ins->execute([$ref, $villa_type, $guest_name, $guest_phone, $guest_email, $guests_count, $adults_count, $kids_count, $extra_adults, $extra_kids, $checkin, $checkout, $nights, $addons, $special_notes, $custom_amount, $status]);
+                $ins = $pdo->prepare("INSERT INTO bookings (reference_code, villa_type, guest_name, guest_phone, guest_email, id_proof_type, id_proof_number, id_proof_file, city_state, guests_count, adults_count, kids_count, extra_adults, extra_kids, checkin_date, checkout_date, nights, addons, special_notes, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $ins->execute([$ref, $villa_type, $guest_name, $guest_phone, $guest_email, $id_proof_type, $id_proof_number, $id_proof_file, $city_state, $guests_count, $adults_count, $kids_count, $extra_adults, $extra_kids, $checkin, $checkout, $nights, $addons, $special_notes, $custom_amount, $status]);
 
                 $alert_message = "New reservation #$ref recorded successfully.";
             } else {
@@ -476,6 +492,18 @@ function build_tab_url($tab_name, $current_params = []) {
                                         <a href="mailto:<?php echo e($b['guest_email']); ?>" style="color: inherit;" title="Email Guest"><?php echo e($b['guest_email']); ?></a>
                                     </div>
                                 <?php endif; ?>
+                                <?php if (!empty($b['id_proof_file'])): ?>
+                                    <div style="margin-top: 5px;">
+                                        <a href="../uploads/id_proofs/<?php echo urlencode($b['id_proof_file']); ?>" 
+                                           target="_blank" 
+                                           download 
+                                           class="adm-badge" 
+                                           style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.35); font-size: 10px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;" 
+                                           title="Download ID Document (<?php echo htmlspecialchars($b['id_proof_type'] ?? 'ID'); ?>)">
+                                            <i class="fa-solid fa-file-arrow-down"></i> ID Proof
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <div style="font-size: 13px; font-weight: 600; color: #FFFFFF;">
@@ -700,7 +728,7 @@ function build_tab_url($tab_name, $current_params = []) {
             </button>
         </div>
 
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="add_manual_booking">
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
 
@@ -735,6 +763,35 @@ function build_tab_url($tab_name, $current_params = []) {
 
                 <div class="adm-grid-2">
                     <div class="adm-form-group">
+                        <label class="adm-label">City / State of Origin</label>
+                        <input type="text" name="city_state" class="adm-input" placeholder="e.g. Kochi, Kerala" style="padding-left: 14px;">
+                    </div>
+                    <div class="adm-form-group">
+                        <label class="adm-label">Government ID Proof Type</label>
+                        <select name="id_proof_type" class="adm-input" style="padding-left: 14px;">
+                            <option value="Aadhaar Card">Aadhaar Card (Indian Residents)</option>
+                            <option value="Driving License">Driving License</option>
+                            <option value="Passport">Passport (International / NRI)</option>
+                            <option value="Voter ID">Voter ID Card</option>
+                            <option value="PAN Card">PAN Card</option>
+                            <option value="Government ID">Other Government Photo ID</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="adm-grid-2">
+                    <div class="adm-form-group">
+                        <label class="adm-label">ID Number / Reference</label>
+                        <input type="text" name="id_proof_number" class="adm-input" placeholder="e.g. XXXX-XXXX-1234" style="padding-left: 14px;">
+                    </div>
+                    <div class="adm-form-group">
+                        <label class="adm-label">Attach ID Document (JPG, PNG, PDF)</label>
+                        <input type="file" name="id_proof_file" accept=".jpg,.jpeg,.png,.webp,.pdf" class="adm-input" style="padding: 7px 10px; font-size: 12px;">
+                    </div>
+                </div>
+
+                <div class="adm-grid-2">
+                    <div class="adm-form-group">
                         <label class="adm-label">Check-In Date *</label>
                         <input type="date" name="checkin_date" class="adm-input" required style="padding-left: 14px;" value="<?php echo date('Y-m-d', strtotime('+1 day')); ?>">
                     </div>
@@ -758,11 +815,10 @@ function build_tab_url($tab_name, $current_params = []) {
 
                 <div class="adm-form-group">
                     <label class="adm-label">Initial Status</label>
-                        <select name="status" class="adm-input" style="padding-left: 14px;">
-                            <option value="confirmed">Confirmed</option>
-                            <option value="pending">Pending Review</option>
-                        </select>
-                    </div>
+                    <select name="status" class="adm-input" style="padding-left: 14px;">
+                        <option value="confirmed">Confirmed</option>
+                        <option value="pending">Pending Review</option>
+                    </select>
                 </div>
 
                 <div class="adm-form-group">
@@ -826,6 +882,22 @@ function build_tab_url($tab_name, $current_params = []) {
                         </div>
                     </div>
 
+                    <div class="adm-grid-2" style="margin-bottom: 10px;">
+                        <div>
+                            <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">City / Origin</span>
+                            <div style="color: var(--adm-text-primary);" id="view-guest-city">-</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Government ID Proof</span>
+                            <div style="color: #2ecc71; font-weight: 600;" id="view-guest-id-proof">-</div>
+                            <div id="view-guest-id-file-wrap" style="margin-top: 6px; display: none;">
+                                <a id="view-id-proof-download-btn" href="#" target="_blank" download class="adm-btn-action" style="background: rgba(34, 197, 94, 0.18); border: 1px solid #22c55e; color: #22c55e; padding: 5px 12px; font-size: 11.5px; text-decoration: none; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i> Download ID (<span id="view-id-file-ext">DOC</span>)
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="adm-grid-2">
                         <div>
                             <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Sanctuary Stay</span>
@@ -838,7 +910,7 @@ function build_tab_url($tab_name, $current_params = []) {
                     </div>
 
                     <div style="margin-top: 12px; padding-top: 10px; border-top: var(--adm-border-subtle);" id="view-addons-box">
-                        <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Selected Add-on Experiences</span>
+                        <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Selected Add-on Experiences (Payable On-Site)</span>
                         <div style="color: var(--adm-text-secondary); font-size: 13px;" id="view-addons-text">-</div>
                     </div>
 
@@ -968,6 +1040,29 @@ function viewBookingDetails(b) {
     document.getElementById('view-guest-name').innerText = b.guest_name;
     document.getElementById('view-guest-phone').innerText = b.guest_phone;
     document.getElementById('view-guest-email').innerText = b.guest_email || 'Not provided';
+    document.getElementById('view-guest-city').innerText = b.city_state || 'Not provided';
+    
+    let idProofText = b.id_proof_type || 'Aadhaar Card';
+    if (b.id_proof_number) {
+        idProofText += ' (' + b.id_proof_number + ')';
+    }
+    document.getElementById('view-guest-id-proof').innerText = idProofText;
+
+    const idFileWrap = document.getElementById('view-guest-id-file-wrap');
+    const idDownloadBtn = document.getElementById('view-id-proof-download-btn');
+    const idExtSpan = document.getElementById('view-id-file-ext');
+    if (b.id_proof_file) {
+        if (idFileWrap) idFileWrap.style.display = 'block';
+        if (idDownloadBtn) {
+            idDownloadBtn.href = '../uploads/id_proofs/' + encodeURIComponent(b.id_proof_file);
+        }
+        if (idExtSpan) {
+            const ext = (b.id_proof_file.split('.').pop() || 'FILE').toUpperCase();
+            idExtSpan.innerText = ext;
+        }
+    } else {
+        if (idFileWrap) idFileWrap.style.display = 'none';
+    }
     
     const villaTitle = (b.villa_type === 'treehouse') ? 'Luxury Canopy Treehouse' : 'Traditional Earthen Mudhouse';
     document.getElementById('view-villa-stay').innerText = villaTitle + ' (' + b.guests_count + ' Guests)';
