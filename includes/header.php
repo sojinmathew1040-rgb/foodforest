@@ -132,8 +132,8 @@ if (!empty($all_header_rooms)) {
                     <a href="booking.php" class="nav-item magnetic" data-strength="10" style="color: var(--accent-gold); font-weight: 700;"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
                     <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
                     <a href="<?php echo $nav_prefix; ?>#dining" class="nav-item magnetic" data-strength="10">Food Menu</a>
-                    <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
                     <a href="<?php echo $nav_prefix; ?>#sanctuary" class="nav-item magnetic" data-strength="10">Landscape</a>
+                    <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
                     <a href="<?php echo $nav_prefix; ?>#testimonials" class="nav-item magnetic" data-strength="10">Guest Stories</a>
                 </nav>
 
@@ -161,8 +161,8 @@ if (!empty($all_header_rooms)) {
             <a href="booking.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-map-location-dot"></i> Interactive Map Booking</a>
             <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Activities</a>
             <a href="<?php echo $nav_prefix; ?>#dining" class="mobile-link">Food Menu</a>
-            <a href="<?php echo $nav_prefix; ?>#gallery" class="mobile-link">Gallery</a>
             <a href="<?php echo $nav_prefix; ?>#sanctuary" class="mobile-link">Landscape</a>
+            <a href="<?php echo $nav_prefix; ?>#gallery" class="mobile-link">Gallery</a>
             <a href="<?php echo $nav_prefix; ?>#testimonials" class="mobile-link">Guest Stories</a>
             <a href="guest_portal.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-key"></i> Guest Portal / My Bookings</a>
             <a href="<?php echo $nav_prefix; ?>#contact" class="mobile-link">Contact</a>

@@ -201,6 +201,144 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
             margin: 40px auto;
             max-width: 500px;
         }
+
+        /* Rooms & 3D Walkthrough Preview Styles */
+        .preview-rooms-wrap {
+            padding: 24px 20px;
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        .preview-tour-box {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #0A150F;
+            border: 1px solid rgba(197, 160, 89, 0.35);
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+            margin-bottom: 30px;
+            min-height: 420px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .preview-tour-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            filter: brightness(0.68);
+            transition: opacity 0.4s ease, transform 0.6s ease;
+        }
+        .preview-tour-vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, transparent 30%, rgba(10, 21, 15, 0.6) 75%, rgba(10, 21, 15, 0.92) 100%),
+                        linear-gradient(to bottom, rgba(10, 21, 15, 0.85) 0%, transparent 28%, transparent 70%, rgba(10, 21, 15, 0.92) 100%);
+            z-index: 2;
+            pointer-events: none;
+        }
+        .preview-tour-top {
+            position: relative;
+            z-index: 3;
+            padding: 20px 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .preview-tour-tabs {
+            display: inline-flex;
+            gap: 6px;
+            background: rgba(10, 21, 15, 0.88);
+            border: 1px solid rgba(197, 160, 89, 0.35);
+            border-radius: 30px;
+            padding: 4px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .preview-tour-tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: rgba(248, 246, 240, 0.75);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11.5px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            transition: all 0.25s ease;
+            font-family: var(--font-sans);
+        }
+        .preview-tour-tab-btn:hover {
+            color: #FFFFFF;
+            background: rgba(197, 160, 89, 0.15);
+        }
+        .preview-tour-tab-btn.active {
+            background: linear-gradient(135deg, rgba(197, 160, 89, 0.35), rgba(139, 107, 44, 0.5));
+            border-color: #C5A059;
+            color: #FFFFFF;
+            box-shadow: 0 4px 14px rgba(197, 160, 89, 0.3);
+        }
+        .preview-tour-bottom {
+            position: relative;
+            z-index: 3;
+            padding: 20px 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .preview-stage-box {
+            background: rgba(12, 24, 17, 0.92);
+            border: 1px solid rgba(197, 160, 89, 0.4);
+            border-radius: 10px;
+            padding: 16px 20px;
+            max-width: 480px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+        }
+        .preview-rooms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 18px;
+            margin-top: 14px;
+        }
+        .preview-chalet-card {
+            background: rgba(16, 31, 21, 0.85);
+            border: 1px solid rgba(197, 160, 89, 0.25);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.25s, border-color 0.25s;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-chalet-card:hover {
+            border-color: #C5A059;
+            transform: translateY(-2px);
+        }
+        .preview-chalet-thumb {
+            width: 100%;
+            height: 175px;
+            object-fit: cover;
+            display: block;
+        }
+        .preview-chalet-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body class="preview-mode">
@@ -309,7 +447,7 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         ?>
         <section id="hero" class="hero-section" style="min-height: 85vh; display: flex; align-items: center; justify-content: center; position: relative; padding: 60px 20px;">
             <div class="hero-bg-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1;">
-                <img id="pv-hero-bg" src="<?php echo htmlspecialchars($hero_bg_image); ?>" alt="Hero Backdrop" class="hero-bg-img loaded" style="width: 100%; height: 100%; object-fit: cover; filter: brightness(0.65);" onerror="this.src='assets/images/treehouse_exterior.png'">
+                <img id="pv-hero-bg" src="<?php echo htmlspecialchars($hero_bg_image); ?>" alt="Hero Backdrop" class="hero-bg-img loaded" style="width: 100%; height: 100%; object-fit: cover; filter: brightness(0.65);" onerror="this.src='assets/images/01 (25).jpeg'">
                 <div class="hero-overlay" style="position: absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(180deg, rgba(11,24,16,0.3) 0%, rgba(11,24,16,0.85) 100%);"></div>
             </div>
 
@@ -467,10 +605,190 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         </div>
 
     <?php elseif ($section === 'rooms'): ?>
-        <!-- CARD 04: VILLAS & ACCOMMODATIONS (EXACT PUBLIC FRONTEND COMPONENT) -->
-        <div style="padding: 10px 0;">
-            <?php include __DIR__ . '/../components/rooms.php'; ?>
+        <!-- CARD 04: VILLAS, 3D WALKTHROUGH & ACCOMMODATIONS LIVE PREVIEW -->
+        <?php
+        $rooms_badge = $s['rooms_badge'] ?? 'Sanctuary Accommodations';
+        $rooms_title = $s['rooms_title'] ?? 'The Canopy Treehouse & The Earthen Mudhouse';
+        $rooms_desc = $s['rooms_desc'] ?? 'Experience our full-screen 3D architectural walkthrough. Hover and rotate through 360-degree panoramas of our timber treehouse and handcrafted mudhouse.';
+        $all_rooms = get_all_rooms();
+        
+        $th = null;
+        $mh = null;
+        foreach ($all_rooms as $r) {
+            $st = $r['stay_type'] ?? '';
+            $sl = $r['slug'] ?? '';
+            $ti = $r['title'] ?? '';
+            if (!$th && ($st === 'treehouse' || stripos($sl, 'tree') !== false || stripos($ti, 'tree') !== false)) $th = $r;
+            if (!$mh && ($st === 'mudhouse' || stripos($sl, 'mud') !== false || stripos($ti, 'mud') !== false)) $mh = $r;
+        }
+        if (!$th && !empty($all_rooms)) $th = $all_rooms[0];
+        if (!$mh && !empty($all_rooms)) $mh = $all_rooms[count($all_rooms)-1];
+        
+        $def_img_th = (!empty($th['image_url'])) ? (str_starts_with($th['image_url'], 'http') ? $th['image_url'] : $th['image_url']) : 'assets/images/treehouse_exterior.png';
+        $def_img_mh = (!empty($mh['image_url'])) ? (str_starts_with($mh['image_url'], 'http') ? $mh['image_url'] : $mh['image_url']) : 'assets/images/mudhouse_exterior.png';
+        $active_initial = $mh ?: $th;
+        $active_is_mh = ($active_initial === $mh);
+        ?>
+        <div class="preview-rooms-wrap">
+            <!-- Section Header -->
+            <div style="text-align: center; margin-bottom: 24px;">
+                <span id="pv-rooms-badge" style="font-size: 11px; font-weight: 700; color: #C5A059; letter-spacing: 2px; text-transform: uppercase; display: block; margin-bottom: 8px;"><?php echo htmlspecialchars($rooms_badge); ?></span>
+                <h2 id="pv-rooms-title" style="font-family: var(--font-serif); font-size: 26px; color: #FFFFFF; font-weight: 400; margin: 0 0 10px;"><?php echo htmlspecialchars($rooms_title); ?></h2>
+                <p id="pv-rooms-desc" style="font-size: 13px; line-height: 1.6; color: #CBD5E1; max-width: 650px; margin: 0 auto;"><?php echo htmlspecialchars($rooms_desc); ?></p>
+            </div>
+
+            <!-- 3D Walkthrough Interactive Box -->
+            <div class="preview-tour-box" id="pv-tour-box">
+                <img id="pv-tour-backdrop" src="<?php echo htmlspecialchars($active_is_mh ? $def_img_mh : $def_img_th); ?>" alt="Walkthrough Backdrop" class="preview-tour-bg" onerror="this.src='assets/images/mudhouse_exterior.png'">
+                <div class="preview-tour-vignette"></div>
+
+                <!-- Top Controls -->
+                <div class="preview-tour-top">
+                    <div>
+                        <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(197, 160, 89, 0.2); border: 1px solid rgba(197, 160, 89, 0.4); padding: 4px 10px; border-radius: 20px; margin-bottom: 6px;">
+                            <span style="width: 5px; height: 5px; border-radius: 50%; background: #2ecc71;"></span>
+                            <span style="font-size: 9.5px; font-weight: 700; color: #FFFFFF; letter-spacing: 1px;">360° CINEMATIC WALKTHROUGH</span>
+                        </div>
+                        <h3 id="pv-active-tour-title" style="font-family: var(--font-serif); font-size: 20px; color: #FFFFFF; margin: 0; font-weight: 400;">
+                            <?php echo htmlspecialchars($active_initial['title'] ?? 'The Earthen Mudhouse'); ?>
+                        </h3>
+                    </div>
+
+                    <!-- Stay Concept Tabs -->
+                    <div class="preview-tour-tabs">
+                        <button type="button" class="preview-tour-tab-btn <?php echo !$active_is_mh ? 'active' : ''; ?>" id="pv-tab-th" onclick="switchPreviewStay('treehouse');">
+                            <span style="font-size: 8.5px; letter-spacing: 1px; color: #C5A059; text-transform: uppercase;"><i class="fa-solid fa-tree"></i> <?php echo htmlspecialchars($th['elevation'] ?? '30FT ELEVATION'); ?></span>
+                            <span style="font-size: 11px; font-weight: 600;"><?php echo htmlspecialchars($th['title'] ?? 'The Canopy Treehouse'); ?></span>
+                        </button>
+                        <button type="button" class="preview-tour-tab-btn <?php echo $active_is_mh ? 'active' : ''; ?>" id="pv-tab-mh" onclick="switchPreviewStay('mudhouse');">
+                            <span style="font-size: 8.5px; letter-spacing: 1px; color: #C5A059; text-transform: uppercase;"><i class="fa-solid fa-house-chimney"></i> <?php echo htmlspecialchars($mh['elevation'] ?? '1,600M HIGH RIDGE'); ?></span>
+                            <span style="font-size: 11px; font-weight: 600;"><?php echo htmlspecialchars($mh['title'] ?? 'The Earthen Mudhouse'); ?></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bottom Floating Stage Card -->
+                <div class="preview-tour-bottom">
+                    <div class="preview-stage-box">
+                        <span id="pv-active-tour-elev" style="display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: #C5A059; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); padding: 3px 10px; border-radius: 20px; text-transform: uppercase; margin-bottom: 8px;">
+                            <i class="fa-solid fa-mountain"></i> <?php echo htmlspecialchars($active_initial['elevation'] ?? '1,600M HIGH RIDGE'); ?>
+                        </span>
+                        <h4 id="pv-active-stage-title" style="font-family: var(--font-serif); font-size: 16px; color: #FFFFFF; margin: 0 0 6px; font-weight: 600;">Front Exterior & Sanctuary Architecture</h4>
+                        <p id="pv-active-tour-desc" style="font-size: 12px; color: #CBD5E1; line-height: 1.6; margin: 0 0 12px;">
+                            <?php echo htmlspecialchars($active_initial['description'] ?? $rooms_desc); ?>
+                        </p>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #C5A059; background: rgba(11,24,16,0.8); border: 1px solid rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px;">
+                                <i class="fa-solid fa-arrows-up-down-left-right"></i> Drag to rotate 360°
+                            </span>
+                            <span style="font-size: 11px; color: #2ecc71; font-weight: 600;">
+                                <i class="fa-solid fa-circle-check"></i> High-Resolution PANO Active
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn-luxury" style="padding: 8px 18px; font-size: 12px; background: #C5A059; color: #0B1810; font-weight: 700; border-radius: 6px; border: none; cursor: pointer;">
+                            <i class="fa-solid fa-calendar-check"></i> RESERVE SUITE
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Architectural Suites & Nightly Rates Cards -->
+            <div style="margin-top: 36px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-bed" style="color: #C5A059; font-size: 16px;"></i>
+                        <h3 style="font-family: var(--font-serif); font-size: 18px; color: #FFFFFF; margin: 0;">Architectural Suites & Nightly Rates (<?php echo count($all_rooms); ?>)</h3>
+                    </div>
+                    <span style="font-size: 11px; color: #839788;">Live Tariff & Room Inventory</span>
+                </div>
+
+                <div class="preview-rooms-grid">
+                    <?php foreach ($all_rooms as $r): 
+                        $r_img = (!empty($r['image_url'])) ? (str_starts_with($r['image_url'], 'http') ? $r['image_url'] : $r['image_url']) : 'assets/images/mudhouse_exterior.png';
+                        $r_st = $r['stay_type'] ?? 'treehouse';
+                        $r_struct = $r['structure_type'] ?? 'single_hut';
+                    ?>
+                        <div class="preview-chalet-card" id="pv-room-card-<?php echo $r['id']; ?>">
+                            <div style="position: relative;">
+                                <img src="<?php echo htmlspecialchars($r_img); ?>" alt="<?php echo htmlspecialchars($r['title']); ?>" class="preview-chalet-thumb" onerror="this.src='assets/images/mudhouse_exterior.png'">
+                                <div style="position: absolute; top: 10px; left: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                                    <span style="font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; <?php echo $r_st === 'mudhouse' ? 'background: rgba(234, 88, 12, 0.85); color: #FFF;' : 'background: rgba(46, 204, 113, 0.85); color: #FFF;'; ?>">
+                                        <?php echo $r_st === 'mudhouse' ? '🌿 MUDHOUSE' : '🌲 TREEHOUSE'; ?>
+                                    </span>
+                                    <span style="font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; <?php echo $r_struct === 'duplex_hut' ? 'background: rgba(168, 85, 247, 0.85); color: #FFF;' : 'background: rgba(59, 130, 246, 0.85); color: #FFF;'; ?>">
+                                        <?php echo $r_struct === 'duplex_hut' ? '🏘️ DUPLEX' : '🏡 SINGLE'; ?>
+                                    </span>
+                                </div>
+                                <div style="position: absolute; bottom: 10px; right: 10px; background: rgba(11,24,16,0.9); border: 1px solid rgba(197,160,89,0.5); padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #DFC694;">
+                                    ₹<?php echo number_format((float)$r['rate_per_night'], 0); ?>/nt
+                                </div>
+                            </div>
+                            <div class="preview-chalet-body">
+                                <div>
+                                    <span style="font-size: 10.5px; color: #C5A059; text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 2px;">
+                                        <?php echo htmlspecialchars($r['elevation'] ?? '1,600m High Ridge'); ?>
+                                    </span>
+                                    <h4 style="font-family: var(--font-serif); font-size: 16px; color: #FFFFFF; margin: 0 0 6px; font-weight: 600;">
+                                        <?php echo htmlspecialchars($r['title'] ?? 'Villa Suite'); ?>
+                                    </h4>
+                                    <p style="font-size: 11.5px; color: #A0B2A6; line-height: 1.5; margin: 0 0 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                        <?php echo htmlspecialchars($r['description'] ?? ''); ?>
+                                    </p>
+                                </div>
+                                <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #839788;">
+                                    <span><i class="fa-solid fa-users" style="color: #C5A059;"></i> Up to <?php echo (int)($r['max_guests'] ?? 4); ?> Guests</span>
+                                    <span style="color: #2ecc71; font-weight: 600;"><i class="fa-solid fa-check"></i> Available</span>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         </div>
+
+        <script>
+        window.previewStayData = {
+            treehouse: {
+                title: <?php echo json_encode($th['title'] ?? 'The Canopy Treehouse'); ?>,
+                elevation: <?php echo json_encode($th['elevation'] ?? '30FT ELEVATION'); ?>,
+                image: <?php echo json_encode($def_img_th); ?>,
+                desc: <?php echo json_encode($th['description'] ?? 'Suspended 30 feet above the forest floor within ancient trees.'); ?>
+            },
+            mudhouse: {
+                title: <?php echo json_encode($mh['title'] ?? 'The Earthen Mudhouse'); ?>,
+                elevation: <?php echo json_encode($mh['elevation'] ?? '1,600M HIGH RIDGE'); ?>,
+                image: <?php echo json_encode($def_img_mh); ?>,
+                desc: <?php echo json_encode($mh['description'] ?? 'Handcrafted from organic mountain clay, river stone, and local terracotta.'); ?>
+            }
+        };
+
+        function switchPreviewStay(stayKey) {
+            var data = window.previewStayData[stayKey];
+            if (!data) return;
+            var bg = document.getElementById('pv-tour-backdrop');
+            if (bg) {
+                bg.style.opacity = '0';
+                setTimeout(function() {
+                    bg.src = resolvePreviewImgSrc(data.image);
+                    bg.style.opacity = '1';
+                }, 200);
+            }
+            var t = document.getElementById('pv-active-tour-title');
+            if (t) t.textContent = data.title;
+            var e = document.getElementById('pv-active-tour-elev');
+            if (e) e.innerHTML = '<i class="fa-solid fa-mountain"></i> ' + data.elevation;
+            var d = document.getElementById('pv-active-tour-desc');
+            if (d) d.textContent = data.desc;
+
+            var tabTh = document.getElementById('pv-tab-th');
+            var tabMh = document.getElementById('pv-tab-mh');
+            if (tabTh) tabTh.classList.toggle('active', stayKey === 'treehouse');
+            if (tabMh) tabMh.classList.toggle('active', stayKey === 'mudhouse');
+        }
+        </script>
 
     <?php elseif ($section === 'gallery'): ?>
         <!-- CARD 10: VISUAL DIARY (EXACT PUBLIC FRONTEND COMPONENT) -->
@@ -604,6 +922,12 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
                 </div>
             </div>
         </div>
+
+    <?php elseif ($section === 'footer'): ?>
+        <!-- CARD 18: FOOTER & ECO TRUST PILLARS LIVE PREVIEW -->
+        <div style="width: 100%; background: #07120B; min-height: 100vh;">
+            <?php require_once __DIR__ . '/../includes/footer.php'; ?>
+        </div>
     <?php endif; ?>
 
 </div>
@@ -611,11 +935,14 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
 <!-- Real-Time Two-Way Synchronization Script -->
 <script>
 function resolvePreviewImgSrc(path) {
-    if (!path || !path.trim()) return 'assets/images/treehouse_exterior.png';
+    if (!path || !path.trim()) return 'assets/images/01 (25).jpeg';
     path = path.trim();
     if (/^https?:\/\//i.test(path) || /^data:/i.test(path) || /^blob:/i.test(path)) return path;
-    if (path.indexOf('../') === 0) return path;
-    return '../' + path.replace(/^\/+/, '');
+    // Strip leading ../ or / because <base href="../"> is active in the preview frame
+    while (path.indexOf('../') === 0) {
+        path = path.substring(3);
+    }
+    return path.replace(/^\/+/, '');
 }
 
 window.addEventListener('message', function(event) {
@@ -786,6 +1113,22 @@ window.addEventListener('message', function(event) {
         if (f.why_image) {
             var el = document.getElementById('pv-why-img');
             if (el) el.src = resolvePreviewImgSrc(f.why_image);
+        }
+
+        // Rooms & 3D Walkthrough
+        if (f.rooms_badge) {
+            var el = document.getElementById('pv-rooms-badge');
+            if (el) el.textContent = f.rooms_badge;
+        }
+        if (f.rooms_title) {
+            var el = document.getElementById('pv-rooms-title');
+            if (el) el.textContent = f.rooms_title;
+        }
+        if (f.rooms_desc) {
+            var el = document.getElementById('pv-rooms-desc');
+            if (el) el.textContent = f.rooms_desc;
+            var elTourDesc = document.getElementById('pv-active-tour-desc');
+            if (elTourDesc) elTourDesc.textContent = f.rooms_desc;
         }
     }
 });

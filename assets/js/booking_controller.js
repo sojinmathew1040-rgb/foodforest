@@ -1,5 +1,6 @@
 // =========================================================================
 // Food Forest Sanctuary — Interactive Estate Booking Controller (BookMyShow Style)
+// Real-Time Dynamic Map Availability & Property Status Synchronization
 // =========================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -28,6 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridLayout = document.getElementById('booking-grid-layout');
     const filterBtns = document.querySelectorAll('.chip-btn[data-stay-filter]');
 
+    // Live Date Bar Elements
+    const liveDatesTxt = document.getElementById('bms-live-dates-txt');
+    const countAvailEl = document.getElementById('bms-count-avail');
+    const countBookedEl = document.getElementById('bms-count-booked');
+
     // Sidebar Inspector Elements
     const sacTypePill = document.getElementById('sac-type-pill');
     const sacAvailPill = document.getElementById('sac-avail-pill');
@@ -37,6 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sacGalIndicator = document.getElementById('sac-gal-indicator');
     const sacTitle = document.getElementById('sac-title');
     const sacDesc = document.getElementById('sac-desc');
+    const sacBookedWarning = document.getElementById('sac-booked-warning');
+    const sacBookedWarningMsg = document.getElementById('sac-booked-warning-msg');
     const sacTierBox = document.getElementById('sac-tier-box');
     const tocRateFull = document.getElementById('toc-rate-full');
     const tocRateSingle = document.getElementById('toc-rate-single');
@@ -62,10 +70,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPhotoIdx = 0;
     let currentPhotos = [];
     let currentTier = 'full'; // 'full' or 'single_room'
+    let currentAvailabilityData = null;
+    let availAbortController = null;
 
-    // 1. Helper to find room by slug
+    // 1. Helper to find room by slug (with fuzzy fallback)
     function findRoomBySlug(slug) {
-        return roomsData.find(r => r.slug === slug) || null;
+        if (!slug) return null;
+        let r = roomsData.find(rm => rm.slug === slug);
+        if (!r) {
+            r = roomsData.find(rm => {
+                const s = rm.slug.toLowerCase();
+                const q = slug.toLowerCase();
+                return s.includes(q) || q.includes(s) ||
+                    (s.includes('treehouse') && q.includes('treehouse')) ||
+                    (s.includes('mudhouse') && q.includes('mudhouse')) ||
+                    (s.includes('woodhouse') && q.includes('woodhouse'));
+            });
+        }
+        return r || null;
     }
 
     // 2. Helper to calculate nights
@@ -153,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 5. Select Chalet by Spot ID or Element
-    function selectChalet(spotId) {
+    function selectChalet(spotId, triggerPopupIfBooked = false) {
         const spot = spotsData.find(s => parseInt(s.id, 10) === parseInt(spotId, 10));
         if (!spot) return;
 
@@ -191,8 +213,53 @@ document.addEventListener('DOMContentLoaded', () => {
             sacTypePill.innerHTML = isStay ? '<i class="fa-solid fa-house-chimney"></i> BOOKABLE CHALET' : '<i class="fa-solid fa-water"></i> ESTATE FACILITY';
         }
 
+        // Check availability status from latest fetched data
+        let spotAvail = true;
+        let spotMessage = '';
+        if (isStay && currentAvailabilityData && currentAvailabilityData.spots_status) {
+            const spStatus = currentAvailabilityData.spots_status[spot.id];
+            if (spStatus) {
+                spotAvail = spStatus.available;
+                spotMessage = spStatus.message;
+            }
+        }
+
         if (sacAvailPill) {
-            sacAvailPill.innerHTML = isStay ? '<i class="fa-solid fa-circle" style="color: #27ae60;"></i> Available' : '<i class="fa-solid fa-sparkles" style="color: #56c2c9;"></i> Open for Guests';
+            if (!isStay) {
+                sacAvailPill.innerHTML = '<i class="fa-solid fa-sparkles" style="color: #56c2c9;"></i> Open for Guests';
+                sacAvailPill.className = 'sac-avail-pill font-sans';
+            } else if (spotAvail) {
+                sacAvailPill.innerHTML = '<i class="fa-solid fa-circle-check"></i> Available for Selected Dates';
+                sacAvailPill.className = 'sac-avail-pill sac-available font-sans';
+            } else {
+                sacAvailPill.innerHTML = '<i class="fa-solid fa-ban"></i> Reserved for Selected Dates';
+                sacAvailPill.className = 'sac-avail-pill sac-booked font-sans';
+            }
+        }
+
+        // Booked Warning in Sidebar
+        if (sacBookedWarning) {
+            if (isStay && !spotAvail) {
+                sacBookedWarning.style.display = 'flex';
+                if (sacBookedWarningMsg) {
+                    sacBookedWarningMsg.innerText = spotMessage || `We apologize, but ${spot.title} has already been reserved for your selected stay dates. Please choose alternative dates or pick another available chalet on the map.`;
+                }
+            } else {
+                sacBookedWarning.style.display = 'none';
+            }
+        }
+
+        // Proceed to reserve button state
+        if (btnSacOpenCheckout) {
+            if (isStay && !spotAvail) {
+                btnSacOpenCheckout.disabled = true;
+                btnSacOpenCheckout.classList.add('btn-disabled-booked');
+                btnSacOpenCheckout.innerHTML = '<i class="fa-solid fa-calendar-xmark"></i> <span>Chalet Reserved for Selected Dates</span>';
+            } else {
+                btnSacOpenCheckout.disabled = false;
+                btnSacOpenCheckout.classList.remove('btn-disabled-booked');
+                btnSacOpenCheckout.innerHTML = '<span>Proceed to Reserve</span> <i class="fa-solid fa-arrow-right"></i>';
+            }
         }
 
         // Duplex Tier Controls
@@ -211,6 +278,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         recalculateSidebarPricing();
+
+        // Trigger real-time conflict popup modal if user specifically clicked an unavailable chalet
+        if (isStay && !spotAvail && triggerPopupIfBooked) {
+            const availableAlts = [];
+            if (currentAvailabilityData && currentAvailabilityData.rooms_status) {
+                for (const k in currentAvailabilityData.rooms_status) {
+                    const rData = currentAvailabilityData.rooms_status[k];
+                    if (rData.available) {
+                        availableAlts.push(rData);
+                    }
+                }
+            }
+
+            if (typeof showRealtimeConflictAlert === 'function') {
+                showRealtimeConflictAlert(
+                    `${spot.title} Already Reserved`,
+                    spotMessage || `We apologize, but ${spot.title} has already been reserved for your selected stay dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates.`,
+                    availableAlts
+                );
+            }
+        }
     }
 
     function emptyOrZero(val) {
@@ -221,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
     nodes.forEach(node => {
         node.addEventListener('click', () => {
             const spotId = node.getAttribute('data-spot-id');
-            selectChalet(spotId);
+            selectChalet(spotId, true);
 
             // On mobile / tablet screens, smoothly scroll to inspector card
             if (window.innerWidth <= 1024) {
@@ -260,17 +348,165 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 9. Date & Guest Inputs change
-    if (checkinInput) checkinInput.addEventListener('change', () => {
-        if (checkoutInput && checkinInput.value >= checkoutInput.value) {
-            const nextDay = new Date(checkinInput.value);
-            nextDay.setDate(nextDay.getDate() + 1);
-            checkoutInput.value = nextDay.toISOString().split('T')[0];
-        }
-        recalculateSidebarPricing();
-    });
+    // -------------------------------------------------------------
+    // 9. Real-Time Dynamic Date Availability Fetcher (BookMyShow Style)
+    // -------------------------------------------------------------
+    async function fetchLiveAvailabilityForDates(triggerNotification = false) {
+        if (!checkinInput || !checkoutInput) return;
 
-    if (checkoutInput) checkoutInput.addEventListener('change', recalculateSidebarPricing);
+        const cin = checkinInput.value;
+        const cout = checkoutInput.value;
+        if (!cin || !cout) return;
+
+        if (availAbortController) {
+            availAbortController.abort();
+        }
+        availAbortController = new AbortController();
+
+        try {
+            const url = `api/check_availability.php?checkin=${encodeURIComponent(cin)}&checkout=${encodeURIComponent(cout)}`;
+            const res = await fetch(url, { signal: availAbortController.signal });
+            const data = await res.json();
+
+            if (!data || !data.success) return;
+
+            currentAvailabilityData = data;
+
+            // 1. Update Live Summary Bar
+            if (liveDatesTxt) {
+                liveDatesTxt.innerText = `${data.checkin_formatted} – ${data.checkout_formatted} (${data.nights} ${data.nights === 1 ? 'Night' : 'Nights'})`;
+            }
+            if (countAvailEl && data.summary) {
+                countAvailEl.innerText = `${data.summary.available_count} Available`;
+            }
+            if (countBookedEl && data.summary) {
+                countBookedEl.innerText = `${data.summary.booked_count} Booked / Reserved`;
+            }
+
+            // 2. Update Map Chalet Nodes
+            nodes.forEach(node => {
+                const spotId = node.getAttribute('data-spot-id');
+                const isStay = node.getAttribute('data-is-stay') === '1';
+                if (!isStay) return;
+
+                const spotStatus = data.spots_status ? data.spots_status[spotId] : null;
+                const nodeBox = node.querySelector('.node-box');
+                const statusDot = node.querySelector('.node-status-dot');
+                const hoverStatus = node.querySelector('.nhc-status');
+                const hoverCta = node.querySelector('.nhc-cta');
+                let bookedPill = node.querySelector('.node-booked-pill');
+
+                if (spotStatus && !spotStatus.available) {
+                    // Marked as Booked
+                    node.classList.remove('status-available', 'status-fast_filling');
+                    node.classList.add('status-booked');
+                    node.setAttribute('data-status', 'booked');
+
+                    if (statusDot) {
+                        statusDot.className = 'node-status-dot status-dot-booked';
+                    }
+
+                    if (!bookedPill && nodeBox) {
+                        bookedPill = document.createElement('span');
+                        bookedPill.className = 'node-booked-pill';
+                        bookedPill.innerHTML = '<i class="fa-solid fa-lock"></i> BOOKED';
+                        nodeBox.appendChild(bookedPill);
+                    }
+
+                    if (hoverStatus) {
+                        hoverStatus.className = 'nhc-status status-label-booked';
+                        hoverStatus.innerHTML = '<i class="fa-solid fa-ban"></i> Reserved for Dates';
+                    }
+                    if (hoverCta) {
+                        hoverCta.innerHTML = 'Click to View Alternate Dates &rarr;';
+                    }
+                } else {
+                    // Marked as Available
+                    node.classList.remove('status-booked');
+                    node.classList.add('status-available');
+                    node.setAttribute('data-status', 'available');
+
+                    if (statusDot) {
+                        statusDot.className = 'node-status-dot status-dot-available';
+                    }
+
+                    if (bookedPill) {
+                        bookedPill.remove();
+                    }
+
+                    if (hoverStatus) {
+                        hoverStatus.className = 'nhc-status status-label-available';
+                        hoverStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> Available for Dates';
+                    }
+                    if (hoverCta) {
+                        hoverCta.innerHTML = 'Click to View Details & Rates &rarr;';
+                    }
+                }
+            });
+
+            // 3. Update Grid View Chalet Cards
+            document.querySelectorAll('.chalet-card').forEach(card => {
+                const slug = card.getAttribute('data-villa-slug')?.toLowerCase();
+                let roomMatch = data.rooms_status ? data.rooms_status[slug] : null;
+                if (!roomMatch && data.rooms_status) {
+                    for (const k in data.rooms_status) {
+                        if (slug.includes(k) || k.includes(slug) ||
+                            (slug.includes('treehouse') && k.includes('treehouse')) ||
+                            (slug.includes('mudhouse') && k.includes('mudhouse')) ||
+                            (slug.includes('woodhouse') && k.includes('woodhouse'))) {
+                            roomMatch = data.rooms_status[k];
+                            break;
+                        }
+                    }
+                }
+
+                const btn = card.querySelector('.select-from-grid-btn');
+                if (roomMatch && !roomMatch.available) {
+                    card.classList.add('is-booked-card');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="fa-solid fa-ban"></i> Reserved for Dates';
+                    }
+                } else {
+                    card.classList.remove('is-booked-card');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Book Chalet';
+                    }
+                }
+            });
+
+            // 4. Re-sync currently inspected spot in sidebar
+            if (currentSpot) {
+                selectChalet(currentSpot.id, false);
+            }
+
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Booking live availability error:', err);
+            }
+        }
+    }
+
+    // 10. Date & Guest Inputs change
+    if (checkinInput) {
+        checkinInput.addEventListener('change', () => {
+            if (checkoutInput && checkinInput.value >= checkoutInput.value) {
+                const nextDay = new Date(checkinInput.value);
+                nextDay.setDate(nextDay.getDate() + 1);
+                checkoutInput.value = nextDay.toISOString().split('T')[0];
+            }
+            recalculateSidebarPricing();
+            fetchLiveAvailabilityForDates(true);
+        });
+    }
+
+    if (checkoutInput) {
+        checkoutInput.addEventListener('change', () => {
+            recalculateSidebarPricing();
+            fetchLiveAvailabilityForDates(true);
+        });
+    }
 
     document.querySelectorAll('.ctrl-step-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -292,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 10. Filter Chips Handling
+    // 11. Filter Chips Handling
     filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             filterBtns.forEach(b => b.classList.remove('active'));
@@ -342,12 +578,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (firstVisibleSpotId) {
-                selectChalet(firstVisibleSpotId);
+                selectChalet(firstVisibleSpotId, false);
             }
         });
     });
 
-    // 11. View Switcher (Map View vs Grid View)
+    // 12. View Switcher (Map View vs Grid View)
     if (viewBtnMap && viewBtnGrid && mapLayout && gridLayout) {
         viewBtnMap.addEventListener('click', () => {
             viewBtnMap.classList.add('active');
@@ -364,21 +600,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 12. Grid Card "Book Chalet" Buttons
+    // 13. Grid Card "Book Chalet" Buttons
     document.querySelectorAll('.select-from-grid-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            const card = btn.closest('.chalet-card');
+            if (card && card.classList.contains('is-booked-card')) {
+                return;
+            }
             const slug = btn.getAttribute('data-slug');
             const targetSpot = spotsData.find(s => s.linked_room_slug === slug);
             if (targetSpot) {
-                selectChalet(targetSpot.id);
+                selectChalet(targetSpot.id, false);
                 triggerBookingModalWithSelectedStay();
             }
         });
     });
 
-    // 13. "Proceed to Reserve" Button -> Triggers Modal with pre-filled state
+    // 14. "Proceed to Reserve" Button -> Triggers Modal with pre-filled state
     function triggerBookingModalWithSelectedStay() {
         if (!currentSpot) return;
+
+        // Check availability before triggering
+        if (currentAvailabilityData && currentAvailabilityData.spots_status) {
+            const spStatus = currentAvailabilityData.spots_status[currentSpot.id];
+            if (spStatus && !spStatus.available) {
+                if (typeof showRealtimeConflictAlert === 'function') {
+                    showRealtimeConflictAlert(
+                        `${currentSpot.title} Already Reserved`,
+                        spStatus.message || `We apologize, but this property has already been reserved for your selected stay dates. Please select alternative dates.`
+                    );
+                }
+                return;
+            }
+        }
 
         const roomSlug = currentSpot.linked_room_slug || 'treehouse';
         const modal = document.getElementById('booking-modal');
@@ -436,7 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSacOpenCheckout.addEventListener('click', triggerBookingModalWithSelectedStay);
     }
 
-    // 14. Initial Selection on Page Load
+    // 15. Initial Selection and Live Availability Fetch on Page Load
     let initialSpotId = null;
     if (preselectSlug) {
         const found = spotsData.find(s => s.linked_room_slug === preselectSlug);
@@ -450,6 +704,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (initialSpotId) {
-        selectChalet(initialSpotId);
+        selectChalet(initialSpotId, false);
     }
+
+    // Initial Live Availability Fetch
+    fetchLiveAvailabilityForDates(false);
 });

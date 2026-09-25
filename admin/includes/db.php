@@ -44,6 +44,7 @@ function get_db() {
         ensure_food_menu_table_exists($pdo);
         ensure_users_and_guest_columns($pdo);
         ensure_billing_columns($pdo);
+        ensure_booking_gst_columns($pdo);
 
         return $pdo;
     } catch (PDOException $e) {
@@ -317,6 +318,7 @@ function seed_mysql_initial_data(PDO $pdo) {
         'bank_upi_id' => 'foodforest@upi',
         'bank_qr_image' => 'assets/images/foodforest_upi_qr.svg',
         'gst_number' => '32AAECF1234M1Z5',
+        'gst_rate_percentage' => '12',
         'bill_show_bank_details' => '1',
         'bill_show_qr_code' => '1',
         'bill_footer_notes' => 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.'
@@ -346,9 +348,46 @@ function ensure_default_settings(PDO $pdo) {
         'bank_upi_id' => 'foodforest@upi',
         'bank_qr_image' => 'assets/images/foodforest_upi_qr.svg',
         'gst_number' => '32AAECF1234M1Z5',
+        'gst_rate_percentage' => '12',
         'bill_show_bank_details' => '1',
         'bill_show_qr_code' => '1',
-        'bill_footer_notes' => 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.'
+        'bill_footer_notes' => 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.',
+        
+        // Card 18: Footer & Eco Pillars Settings
+        'footer_badge1_icon' => 'fa-solid fa-seedling',
+        'footer_badge1_title' => '100% Organic Soil',
+        'footer_badge1_desc' => 'Zero synthetic pesticides or fertilizers',
+        'footer_badge2_icon' => 'fa-solid fa-house-chimney',
+        'footer_badge2_title' => 'Vernacular Cob Clay',
+        'footer_badge2_desc' => 'Traditional low-carbon architecture',
+        'footer_badge3_icon' => 'fa-solid fa-droplet',
+        'footer_badge3_title' => 'Mountain Spring Water',
+        'footer_badge3_desc' => 'Filtered natural water, zero single-use plastic',
+        'footer_badge4_icon' => 'fa-solid fa-people-roof',
+        'footer_badge4_title' => 'Local Community First',
+        'footer_badge4_desc' => 'Crafted & staffed by native artisans',
+        
+        'footer_tagline' => 'An intimate sanctuary where ancestral architecture meets untamed nature. Rediscover silence, wholesome farm-to-table flavors, and deep mountain tranquility.',
+        'footer_concierge_badge_text' => 'Estate Concierge Available',
+        'concierge_hours' => '08:00 AM – 09:00 PM',
+        'footer_nav_title' => 'The Sanctuary',
+        'footer_nav_links' => "Our Story & Ethos|#welcome\nCanopy Treehouse|#rooms-experience\nEarthen Mudhouse|#rooms-experience\nActivities|#experiences\nFood Menu & Hearth|#dining\nGuest Portal & Receipts|guest_portal.php|fa-solid fa-key|1\nVisual Gallery|#gallery\nEstate Landscape|#sanctuary\nGuest Stories|#testimonials",
+        'footer_contact_title' => 'Direct Concierge',
+        'footer_whatsapp_label' => '(Instant Concierge)',
+        'footer_reserve_btn_text' => 'Reserve Your Sanctuary',
+        'footer_gazette_title' => 'Sanctuary Gazette',
+        'footer_gazette_desc' => 'Receive private seasonal bulletins on apple harvests, wild honey collection, and intimate villa releases.',
+        'footer_gazette_placeholder' => 'Enter your email address',
+        'footer_gazette_msg' => 'Thank you for subscribing to our Gazette.',
+        'footer_copyright_text' => '© {year} Food Forest Sanctuary Kanthalloor. Crafted for conscious travelers.',
+        'footer_legal1_title' => 'Privacy Charter',
+        'footer_legal1_url' => '#',
+        'footer_legal2_title' => 'Sustainability Policy',
+        'footer_legal2_url' => '#',
+        'footer_legal3_title' => 'Guest Etiquette',
+        'footer_legal3_url' => '#',
+        'footer_staff_label' => 'Staff Portal',
+        'footer_staff_url' => 'admin/'
     ];
 
     try {
@@ -1881,6 +1920,7 @@ function get_booking_by_ref($ref_code) {
     try {
         $pdo = get_db();
         ensure_users_and_guest_columns($pdo);
+        ensure_booking_gst_columns($pdo);
 
         $ref_code = strtoupper(trim($ref_code));
         $stmt = $pdo->prepare("SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type, r.description AS room_description
@@ -2008,6 +2048,169 @@ function check_room_availability($pdo, $room_slug, $checkin_date, $checkout_date
 }
 
 /**
+ * Get all rooms & sanctuary spots availability for specific date range
+ */
+function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_date) {
+    try {
+        ensure_ical_and_channel_schema($pdo);
+        ensure_rooms_pricing_columns($pdo);
+        ensure_sanctuary_spots_table_exists($pdo);
+
+        $rooms = get_all_rooms(false);
+        $spots = get_all_sanctuary_spots(true);
+        
+        // Find overlapping bookings for the given date range
+        $sql = "SELECT id, reference_code, villa_type, guest_name, checkin_date, checkout_date, booking_source, status 
+                FROM bookings 
+                WHERE status NOT IN ('cancelled', 'rejected') 
+                  AND (checkin_date < ? AND checkout_date > ?)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$checkout_date, $checkin_date]);
+        $overlaps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $overlaps_by_room = [];
+        foreach ($overlaps as $ov) {
+            $vt = strtolower(trim($ov['villa_type']));
+            if (!isset($overlaps_by_room[$vt])) {
+                $overlaps_by_room[$vt] = [];
+            }
+            $overlaps_by_room[$vt][] = $ov;
+        }
+        
+        $rooms_status = [];
+        $booked_count = 0;
+        $avail_count = 0;
+        
+        foreach ($rooms as $r) {
+            $slug = strtolower(trim($r['slug']));
+            // Match overlapping bookings for this room slug or fuzzy alias
+            $room_overlaps = [];
+            foreach ($overlaps as $ov) {
+                $vt = strtolower(trim($ov['villa_type']));
+                if ($vt === $slug || 
+                    strpos($vt, $slug) !== false || 
+                    strpos($slug, $vt) !== false ||
+                    (strpos($vt, 'treehouse') !== false && strpos($slug, 'treehouse') !== false) ||
+                    (strpos($vt, 'mudhouse') !== false && strpos($slug, 'mudhouse') !== false) ||
+                    (strpos($vt, 'woodhouse') !== false && strpos($slug, 'woodhouse') !== false)) {
+                    $room_overlaps[] = $ov;
+                }
+            }
+            
+            $is_booked = count($room_overlaps) > 0;
+            if ($is_booked) {
+                $booked_count++;
+                $first_overlap = $room_overlaps[0];
+                $raw_src = strtolower($first_overlap['booking_source'] ?? 'direct');
+                $src = 'Direct Website';
+                if (stripos($raw_src, 'airbnb') !== false) {
+                    $src = 'Airbnb';
+                } elseif (stripos($raw_src, 'makemytrip') !== false || stripos($raw_src, 'mmt') !== false) {
+                    $src = 'MakeMyTrip';
+                } elseif (stripos($raw_src, 'booking') !== false) {
+                    $src = 'Booking.com';
+                }
+                
+                $rooms_status[$slug] = [
+                    'slug' => $slug,
+                    'title' => $r['title'],
+                    'available' => false,
+                    'status' => 'booked',
+                    'overlap_source' => $src,
+                    'overlap_count' => count($room_overlaps),
+                    'message' => "We apologize, but {$r['title']} has already been reserved for the selected dates (via {$src}). Please select alternative dates."
+                ];
+            } else {
+                $avail_count++;
+                $rooms_status[$slug] = [
+                    'slug' => $slug,
+                    'title' => $r['title'],
+                    'available' => true,
+                    'status' => 'available',
+                    'overlap_source' => null,
+                    'overlap_count' => 0,
+                    'message' => "{$r['title']} is available for your stay."
+                ];
+            }
+        }
+        
+        $spots_status = [];
+        foreach ($spots as $sp) {
+            $is_stay = !empty($sp['is_stay']) || ($sp['category'] ?? '') === 'stays';
+            $r_slug = strtolower(trim($sp['linked_room_slug'] ?? ''));
+            if (empty($r_slug)) {
+                if (stripos($sp['title'], 'treehouse') !== false) $r_slug = 'treehouse';
+                elseif (stripos($sp['title'], 'woodhouse') !== false) $r_slug = 'woodhouse';
+                elseif (stripos($sp['title'], 'mudhouse') !== false) $r_slug = 'mudhouse';
+            }
+            
+            $matched_room = null;
+            if (!empty($r_slug)) {
+                if (isset($rooms_status[$r_slug])) {
+                    $matched_room = $rooms_status[$r_slug];
+                } else {
+                    foreach ($rooms_status as $rs_slug => $rs_data) {
+                        if (strpos($r_slug, $rs_slug) !== false || strpos($rs_slug, $r_slug) !== false ||
+                            (strpos($r_slug, 'treehouse') !== false && strpos($rs_slug, 'treehouse') !== false) ||
+                            (strpos($r_slug, 'mudhouse') !== false && strpos($rs_slug, 'mudhouse') !== false) ||
+                            (strpos($r_slug, 'woodhouse') !== false && strpos($rs_slug, 'woodhouse') !== false)) {
+                            $matched_room = $rs_data;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if ($is_stay && $matched_room) {
+                $st = $matched_room['status'];
+                $spots_status[$sp['id']] = [
+                    'id' => (int)$sp['id'],
+                    'spot_number' => (int)$sp['spot_number'],
+                    'title' => $sp['title'],
+                    'slug' => $matched_room['slug'],
+                    'is_stay' => true,
+                    'available' => $matched_room['available'],
+                    'status' => $st,
+                    'overlap_source' => $matched_room['overlap_source'],
+                    'message' => $matched_room['message']
+                ];
+            } else {
+                $spots_status[$sp['id']] = [
+                    'id' => (int)$sp['id'],
+                    'spot_number' => (int)$sp['spot_number'],
+                    'title' => $sp['title'],
+                    'slug' => $r_slug,
+                    'is_stay' => $is_stay,
+                    'available' => true,
+                    'status' => $is_stay ? 'available' : 'facility',
+                    'overlap_source' => null,
+                    'message' => $is_stay ? 'Chalet is available for your stay.' : 'Estate facility open for guests.'
+                ];
+            }
+        }
+        
+        return [
+            'success' => true,
+            'checkin' => $checkin_date,
+            'checkout' => $checkout_date,
+            'rooms_status' => $rooms_status,
+            'spots_status' => $spots_status,
+            'summary' => [
+                'total_rooms' => count($rooms),
+                'available_count' => $avail_count,
+                'booked_count' => $booked_count
+            ],
+            'overlapping_bookings' => $overlaps
+        ];
+    } catch (Exception $e) {
+        return [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
+    }
+}
+
+/**
  * Get all booked date ranges for a room (to disable in datepicker)
  */
 function get_room_booked_ranges($pdo, $room_slug = null) {
@@ -2086,11 +2289,47 @@ function ensure_billing_columns($pdo) {
 }
 
 /**
+ * Ensure GST & Tax Invoice columns exist in bookings table
+ */
+function ensure_booking_gst_columns(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
+
+    try {
+        $cols = $pdo->query("SHOW COLUMNS FROM `bookings`")->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!in_array('billing_type', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `billing_type` VARCHAR(20) DEFAULT 'estimate' AFTER `booking_source`");
+        }
+        if (!in_array('gst_number', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `gst_number` VARCHAR(50) NULL AFTER `billing_type`");
+        }
+        if (!in_array('billing_name', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `billing_name` VARCHAR(150) NULL AFTER `gst_number`");
+        }
+        if (!in_array('billing_address', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `billing_address` TEXT NULL AFTER `billing_name`");
+        }
+        if (!in_array('gst_percentage', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `gst_percentage` DECIMAL(5,2) DEFAULT 0.00 AFTER `billing_address`");
+        }
+        if (!in_array('gst_amount', $cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `gst_amount` DECIMAL(10,2) DEFAULT 0.00 AFTER `gst_percentage`");
+        }
+
+        $checked = true;
+    } catch (Exception $e) {
+        error_log('GST columns migration notice: ' . $e->getMessage());
+    }
+}
+
+/**
  * Retrieve parsed and calculated billing structure for a booking
  */
 function get_booking_billing_details($pdo, $identifier) {
     try {
         ensure_billing_columns($pdo);
+        ensure_booking_gst_columns($pdo);
         ensure_users_and_guest_columns($pdo);
 
         if (is_numeric($identifier)) {
@@ -2207,11 +2446,36 @@ function get_booking_billing_details($pdo, $identifier) {
         $extra_charges = (float)($b['extra_charges'] ?? 0);
         $discount_amount = (float)($b['discount_amount'] ?? 0);
         $advance_paid = (float)($b['advance_paid'] ?? 0);
-        $tax_amount = (float)($b['tax_amount'] ?? 0);
 
-        // Subtotal
+        // Subtotal (Taxable value)
         $gross_total = $room_amount + $food_total + $activities_total + $custom_total + $extra_charges;
-        $net_total = max(0, $gross_total + $tax_amount - $discount_amount);
+        $taxable_subtotal = max(0, $gross_total - $discount_amount);
+
+        // GST & Billing Configuration
+        $billing_type = !empty($b['billing_type']) ? strtolower(trim($b['billing_type'])) : 'estimate';
+        $is_gst_bill = ($billing_type === 'gst');
+        
+        $system_gst_rate = (float)get_setting('gst_rate_percentage', '12');
+        $gst_percentage = 0.00;
+        $gst_amount = 0.00;
+
+        if ($is_gst_bill) {
+            $gst_percentage = (float)($b['gst_percentage'] > 0 ? $b['gst_percentage'] : $system_gst_rate);
+            if (!empty($b['gst_amount']) && (float)$b['gst_amount'] > 0) {
+                $gst_amount = (float)$b['gst_amount'];
+            } elseif (!empty($b['tax_amount']) && (float)$b['tax_amount'] > 0) {
+                $gst_amount = (float)$b['tax_amount'];
+            } else {
+                $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
+            }
+            $tax_amount = $gst_amount;
+        } else {
+            $tax_amount = (float)($b['tax_amount'] ?? 0);
+            $gst_amount = 0.00;
+            $gst_percentage = 0.00;
+        }
+
+        $net_total = max(0, $taxable_subtotal + $tax_amount);
         
         // Balance Due
         $balance_due = max(0, $net_total - $advance_paid);
@@ -2241,6 +2505,18 @@ function get_booking_billing_details($pdo, $identifier) {
             'custom_total' => $custom_total,
             'extra_charges' => $extra_charges,
             'discount_amount' => $discount_amount,
+            'taxable_subtotal' => $taxable_subtotal,
+            'billing_type' => $billing_type,
+            'is_gst_bill' => $is_gst_bill,
+            'guest_gst_number' => $b['gst_number'] ?? '',
+            'billing_name' => $b['billing_name'] ?? '',
+            'billing_address' => $b['billing_address'] ?? '',
+            'gst_percentage' => $gst_percentage,
+            'gst_amount' => $gst_amount,
+            'cgst_percentage' => round($gst_percentage / 2, 2),
+            'cgst_amount' => round($gst_amount / 2, 2),
+            'sgst_percentage' => round($gst_percentage / 2, 2),
+            'sgst_amount' => round($gst_amount / 2, 2),
             'tax_amount' => $tax_amount,
             'gross_total' => $gross_total,
             'net_total' => $net_total,

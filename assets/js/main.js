@@ -85,6 +85,143 @@ document.addEventListener("DOMContentLoaded", () => {
     initSplitText();
 
     // -------------------------------------------------------------
+    // 2.2 Navigation Scrollspy & Active Section Highlighting
+    // -------------------------------------------------------------
+    function initScrollSpy() {
+        const navItems = document.querySelectorAll('.nav-links .nav-item, .mobile-menu-links .mobile-link');
+        if (!navItems.length) return;
+
+        // Extract sections from navigation links
+        const sectionMap = [];
+        navItems.forEach(item => {
+            const href = item.getAttribute('href') || '';
+            const hashIndex = href.indexOf('#');
+            if (hashIndex !== -1) {
+                const id = href.substring(hashIndex + 1);
+                const target = document.getElementById(id);
+                if (target && !sectionMap.some(s => s.id === id)) {
+                    sectionMap.push({ id, el: target });
+                }
+            }
+        });
+
+        if (!sectionMap.length) return;
+
+        let ticking = false;
+
+        function updateActiveSection() {
+            const scrollPos = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+            const triggerOffset = scrollPos + 160; // Offset for header height and comfortable viewport threshold
+            const docHeight = document.documentElement.scrollHeight;
+            const winHeight = window.innerHeight;
+            const isAtBottom = (scrollPos + winHeight) >= (docHeight - 60);
+
+            let activeId = null;
+
+            if (isAtBottom) {
+                // If user reached bottom of page, highlight the last section
+                activeId = sectionMap[sectionMap.length - 1].id;
+            } else if (scrollPos < 100) {
+                // Near very top (Hero section)
+                activeId = null;
+            } else {
+                for (let i = sectionMap.length - 1; i >= 0; i--) {
+                    const sec = sectionMap[i];
+                    const top = sec.el.offsetTop;
+                    if (triggerOffset >= top) {
+                        activeId = sec.id;
+                        break;
+                    }
+                }
+            }
+
+            navItems.forEach(item => {
+                const href = item.getAttribute('href') || '';
+                const hashIndex = href.indexOf('#');
+                if (hashIndex !== -1) {
+                    const id = href.substring(hashIndex + 1);
+                    if (activeId && id === activeId) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.remove('active');
+                    }
+                }
+            });
+
+            ticking = false;
+        }
+
+        function requestTick() {
+            if (!ticking) {
+                requestAnimationFrame(updateActiveSection);
+                ticking = true;
+            }
+        }
+
+        if (lenis) {
+            lenis.on('scroll', requestTick);
+        }
+        window.addEventListener('scroll', requestTick, { passive: true });
+        window.addEventListener('resize', requestTick, { passive: true });
+        
+        // Initial invocation
+        updateActiveSection();
+
+        // Smooth Scrolling on Link Click
+        navItems.forEach(link => {
+            const href = link.getAttribute('href') || '';
+            const hashIndex = href.indexOf('#');
+            if (hashIndex !== -1) {
+                const targetId = href.substring(hashIndex + 1);
+                const targetEl = document.getElementById(targetId);
+                if (targetEl) {
+                    link.addEventListener('click', (e) => {
+                        const isHashOnly = href.startsWith('#');
+                        const isIndexHash = href.startsWith('index.php#') && (window.location.pathname.endsWith('index.php') || window.location.pathname.endsWith('/') || window.location.pathname.indexOf('.php') === -1);
+                        
+                        if (isHashOnly || isIndexHash) {
+                            e.preventDefault();
+                            
+                            // Close mobile menu if active
+                            const mobileMenu = document.querySelector('.mobile-menu');
+                            const navToggle = document.querySelector('.mobile-nav-toggle');
+                            if (mobileMenu && mobileMenu.classList.contains('active')) {
+                                mobileMenu.classList.remove('active');
+                                if (navToggle) navToggle.classList.remove('active');
+                                document.body.style.overflow = '';
+                            }
+
+                            // Update active class immediately on click
+                            navItems.forEach(item => {
+                                const iHref = item.getAttribute('href') || '';
+                                if (iHref.endsWith('#' + targetId)) {
+                                    item.classList.add('active');
+                                } else {
+                                    item.classList.remove('active');
+                                }
+                            });
+
+                            // Smooth scroll
+                            if (lenis) {
+                                lenis.scrollTo(targetEl, { offset: -70, duration: 1.2 });
+                            } else {
+                                const targetY = targetEl.getBoundingClientRect().top + window.pageYOffset - 70;
+                                window.scrollTo({ top: targetY, behavior: 'smooth' });
+                            }
+
+                            // Update history URL hash cleanly without jumping
+                            if (history.pushState) {
+                                history.pushState(null, null, '#' + targetId);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    }
+    initScrollSpy();
+
+    // -------------------------------------------------------------
     // 3. Ultra-Luxury GSAP ScrollTrigger Animation System
     // -------------------------------------------------------------
     function initGsapScrollTriggers() {
@@ -1262,6 +1399,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         updateStepperButtons();
         recalculateBookingSummary();
+        checkLiveModalAvailability(false);
         bookingModal.classList.add('active');
         document.body.style.overflow = 'hidden';
         if (lenis) lenis.stop();
@@ -1275,6 +1413,243 @@ document.addEventListener("DOMContentLoaded", () => {
         if (lenis) lenis.start();
     }
     window.closeBookingModal = closeBookingModal;
+
+    // -------------------------------------------------------------
+    // 6.1 Real-Time Live Availability Engine & Conflict Alerts
+    // -------------------------------------------------------------
+    let liveAvailAbortController = null;
+    let isCurrentVillaAvailable = true;
+
+    async function checkLiveModalAvailability(triggerPopupOnConflict = false) {
+        if (!modalCheckin || !modalCheckout || !modalVillaSelect) return;
+
+        const cin = modalCheckin.value;
+        const cout = modalCheckout.value;
+        const villa = modalVillaSelect.value;
+
+        if (!cin || !cout) return;
+
+        const availBox = document.getElementById('modal-availability-box');
+        const loadingEl = document.getElementById('modal-avail-loading');
+        const successEl = document.getElementById('modal-avail-success');
+        const conflictEl = document.getElementById('modal-avail-conflict');
+        const availTitle = document.getElementById('modal-avail-title');
+        const availDesc = document.getElementById('modal-avail-desc');
+        const conflictTitle = document.getElementById('modal-conflict-title');
+        const conflictDesc = document.getElementById('modal-conflict-desc');
+        const altBox = document.getElementById('modal-alternate-chalets');
+        const altPillsWrap = document.getElementById('modal-alternate-pills');
+        const submitDirectBtn = document.getElementById('btn-submit-booking-direct');
+        const submitWaBtn = document.getElementById('btn-submit-whatsapp');
+
+        if (availBox) {
+            availBox.style.display = 'block';
+            availBox.style.background = '#F8FAF8';
+            availBox.style.borderColor = 'rgba(197, 160, 89, 0.35)';
+        }
+        if (loadingEl) loadingEl.style.display = 'flex';
+        if (successEl) successEl.style.display = 'none';
+        if (conflictEl) conflictEl.style.display = 'none';
+
+        if (liveAvailAbortController) {
+            liveAvailAbortController.abort();
+        }
+        liveAvailAbortController = new AbortController();
+
+        try {
+            const url = `api/check_availability.php?checkin=${encodeURIComponent(cin)}&checkout=${encodeURIComponent(cout)}&villa=${encodeURIComponent(villa)}`;
+            const res = await fetch(url, { signal: liveAvailAbortController.signal });
+            const data = await res.json();
+
+            if (!data || !data.success) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                return;
+            }
+
+            if (loadingEl) loadingEl.style.display = 'none';
+
+            // 1. Update dropdown options visual status
+            if (modalVillaSelect && data.rooms_status) {
+                Array.from(modalVillaSelect.options).forEach(opt => {
+                    const optVal = opt.value.toLowerCase();
+                    let optMatch = data.rooms_status[optVal];
+                    if (!optMatch) {
+                        for (const k in data.rooms_status) {
+                            if (optVal.includes(k) || k.includes(optVal) ||
+                                (optVal.includes('treehouse') && k.includes('treehouse')) ||
+                                (optVal.includes('mudhouse') && k.includes('mudhouse')) ||
+                                (optVal.includes('woodhouse') && k.includes('woodhouse'))) {
+                                optMatch = data.rooms_status[k];
+                                break;
+                            }
+                        }
+                    }
+
+                    // Strip existing [⛔ RESERVED] prefix
+                    let baseText = opt.text.replace(/\[⛔ RESERVED FOR DATES\]\s*/g, '');
+                    if (optMatch && !optMatch.available) {
+                        opt.text = `[⛔ RESERVED FOR DATES] ` + baseText;
+                        opt.style.color = '#DC2626';
+                    } else {
+                        opt.text = baseText;
+                        opt.style.color = '';
+                    }
+                });
+            }
+
+            // 2. Determine if currently chosen villa is available
+            isCurrentVillaAvailable = data.is_available;
+
+            const selectedOption = modalVillaSelect.options[modalVillaSelect.selectedIndex];
+            const currentTitle = data.requested_room_title || selectedOption?.getAttribute('data-name') || 'This Chalet';
+
+            // Find available alternatives
+            const availableAlts = [];
+            if (data.rooms_status) {
+                for (const k in data.rooms_status) {
+                    const rData = data.rooms_status[k];
+                    if (rData.available && rData.slug !== data.requested_villa) {
+                        availableAlts.push(rData);
+                    }
+                }
+            }
+
+            if (data.is_available) {
+                // Available state
+                if (availBox) {
+                    availBox.style.background = 'rgba(16, 185, 129, 0.08)';
+                    availBox.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                }
+                if (successEl) successEl.style.display = 'flex';
+                if (conflictEl) conflictEl.style.display = 'none';
+
+                if (availTitle) availTitle.innerText = `${currentTitle} is Available!`;
+                if (availDesc) availDesc.innerText = `Great news! This sanctuary suite is fully available for your selected stay (${data.nights} ${data.nights === 1 ? 'Night' : 'Nights'}: ${data.checkin_formatted} – ${data.checkout_formatted}).`;
+
+                // Re-enable buttons
+                if (submitDirectBtn) {
+                    submitDirectBtn.disabled = false;
+                    submitDirectBtn.style.opacity = '1';
+                    submitDirectBtn.style.cursor = 'pointer';
+                    submitDirectBtn.innerHTML = '<i class="fa-solid fa-receipt"></i> <span>Confirm Reservation & Generate PDF Receipt</span>';
+                }
+                if (submitWaBtn) {
+                    submitWaBtn.disabled = false;
+                    submitWaBtn.style.opacity = '1';
+                    submitWaBtn.style.cursor = 'pointer';
+                }
+            } else {
+                // Booked conflict state
+                if (availBox) {
+                    availBox.style.background = '#FEF2F2';
+                    availBox.style.borderColor = '#F87171';
+                }
+                if (successEl) successEl.style.display = 'none';
+                if (conflictEl) conflictEl.style.display = 'flex';
+
+                if (conflictTitle) conflictTitle.innerText = `${currentTitle} is Already Reserved`;
+                if (conflictDesc) conflictDesc.innerText = data.message || `We apologize, but ${currentTitle} has already been reserved for your selected stay dates. Please choose alternative dates or switch to another available chalet.`;
+
+                // Render alternative chalet switch buttons
+                if (altPillsWrap) altPillsWrap.innerHTML = '';
+                if (availableAlts.length > 0) {
+                    if (altBox) altBox.style.display = 'block';
+                    availableAlts.forEach(alt => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn-switch-alt-chalet font-sans';
+                        btn.innerHTML = `<i class="fa-solid fa-arrow-right-arrow-left"></i> Switch to ${alt.title}`;
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            modalVillaSelect.value = alt.slug;
+                            onModalVillaChange(false);
+                            closeRealtimeConflictAlert();
+                        });
+                        altPillsWrap.appendChild(btn);
+                    });
+                } else {
+                    if (altBox) altBox.style.display = 'none';
+                }
+
+                // Update submit buttons state
+                if (submitDirectBtn) {
+                    submitDirectBtn.disabled = true;
+                    submitDirectBtn.style.opacity = '0.75';
+                    submitDirectBtn.style.cursor = 'not-allowed';
+                    submitDirectBtn.innerHTML = '<i class="fa-solid fa-calendar-xmark"></i> <span>Chalet Reserved for Selected Dates (Change Dates)</span>';
+                }
+
+                // Show dynamic modal alert popup if requested
+                if (triggerPopupOnConflict) {
+                    showRealtimeConflictAlert(
+                        `${currentTitle} Already Reserved`,
+                        data.message || `We apologize, but ${currentTitle} has already been reserved for the selected dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates.`,
+                        availableAlts
+                    );
+                }
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Availability check error:', err);
+            }
+        }
+    }
+
+    // Interactive Real-Time Conflict Alert Modal Controls
+    function showRealtimeConflictAlert(title, message, alternatives = []) {
+        const modal = document.getElementById('realtime-conflict-modal');
+        if (!modal) return;
+
+        const titleEl = document.getElementById('rt-alert-title');
+        const msgEl = document.getElementById('rt-alert-msg');
+        const altContainer = document.getElementById('rt-alert-alternatives');
+        const altList = document.getElementById('rt-alert-alt-list');
+
+        if (titleEl) titleEl.innerText = title;
+        if (msgEl) msgEl.innerText = message;
+
+        if (altList && altContainer) {
+            altList.innerHTML = '';
+            if (alternatives && alternatives.length > 0) {
+                altContainer.style.display = 'block';
+                alternatives.forEach(alt => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn-switch-alt-chalet font-sans';
+                    btn.style.width = '100%';
+                    btn.style.justifyContent = 'space-between';
+                    btn.style.padding = '8px 12px';
+                    btn.innerHTML = `<span><strong>${alt.title}</strong> is available</span> <span><i class="fa-solid fa-arrow-right"></i> Select</span>`;
+                    btn.addEventListener('click', () => {
+                        if (modalVillaSelect) {
+                            modalVillaSelect.value = alt.slug;
+                            onModalVillaChange(false);
+                        }
+                        closeRealtimeConflictAlert();
+                    });
+                    altList.appendChild(btn);
+                });
+            } else {
+                altContainer.style.display = 'none';
+            }
+        }
+
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeRealtimeConflictAlert() {
+        const modal = document.getElementById('realtime-conflict-modal');
+        if (modal) {
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    const rtAlertCloseBtn = document.getElementById('rt-alert-close-btn');
+    if (rtAlertCloseBtn) {
+        rtAlertCloseBtn.addEventListener('click', closeRealtimeConflictAlert);
+    }
 
     // Allow native scrolling and wheel propagation within modal container
     const modalScrollContainer = document.querySelector('.booking-modal-container');
@@ -1320,7 +1695,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    function onModalVillaChange() {
+    function onModalVillaChange(triggerPopup = true) {
         if (!modalVillaSelect) return;
         const selectedOption = modalVillaSelect.options[modalVillaSelect.selectedIndex];
         const structureType = selectedOption?.getAttribute('data-structure-type') || 'single_hut';
@@ -1345,6 +1720,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         updateStepperButtons();
         recalculateBookingSummary();
+        checkLiveModalAvailability(triggerPopup);
     }
 
     // Modal Duplex Tier Radio Buttons Listener
@@ -1469,6 +1845,21 @@ document.addEventListener("DOMContentLoaded", () => {
         // Addons are payable on-site directly to local artisans/guides, so addonsTotal is 0 in advance bill
         const stayTotal = baseVillaTotal + extraAdultsTotal + extraKidsTotal + foodTotal;
 
+        // GST & Billing Preference Calculation
+        const bookingFormEl = document.getElementById('luxury-booking-form');
+        const gstRateAttr = parseFloat(bookingFormEl?.getAttribute('data-gst-rate') || '12');
+        const gstRate = isNaN(gstRateAttr) ? 12 : gstRateAttr;
+        const billingTypeRadio = document.querySelector('input[name="modal_billing_type"]:checked');
+        const isGstBill = billingTypeRadio ? (billingTypeRadio.value === 'gst') : false;
+
+        let gstAmount = 0;
+        let grandTotal = stayTotal;
+
+        if (isGstBill) {
+            gstAmount = Math.round(stayTotal * (gstRate / 100));
+            grandTotal = stayTotal + gstAmount;
+        }
+
         // Update summary elements
         const summaryNights = document.getElementById('summary-nights');
         const summaryVillaRate = document.getElementById('summary-villa-rate');
@@ -1484,6 +1875,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const summaryFoodRate = document.getElementById('summary-food-rate');
         const summaryAddonsLine = document.getElementById('summary-addons-line');
         const summaryAddonsRate = document.getElementById('summary-addons-rate');
+        const summarySubtotalLine = document.getElementById('summary-subtotal-line');
+        const summarySubtotalRate = document.getElementById('summary-subtotal-rate');
+        const summaryGstLine = document.getElementById('summary-gst-line');
+        const summaryGstLabel = document.getElementById('summary-gst-label');
+        const summaryGstRate = document.getElementById('summary-gst-rate');
+        const summaryTotalTitle = document.getElementById('summary-total-title');
         const summaryTotal = document.getElementById('summary-total');
 
         if (summaryNights) summaryNights.innerText = `${nights} ${nights === 1 ? 'Night' : 'Nights'}`;
@@ -1540,13 +1937,37 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        if (summaryTotal) summaryTotal.innerText = `₹${stayTotal.toLocaleString('en-IN')}`;
+        // Subtotal & GST Lines
+        if (isGstBill) {
+            if (summarySubtotalLine && summarySubtotalRate) {
+                summarySubtotalLine.style.display = 'flex';
+                summarySubtotalRate.innerText = `₹${stayTotal.toLocaleString('en-IN')}`;
+            }
+            if (summaryGstLine && summaryGstRate) {
+                summaryGstLine.style.display = 'flex';
+                if (summaryGstLabel) summaryGstLabel.innerText = `GST Tax (${gstRate}%):`;
+                summaryGstRate.innerText = `+₹${gstAmount.toLocaleString('en-IN')}`;
+            }
+            if (summaryTotalTitle) summaryTotalTitle.innerText = `Grand Total (${gstRate}% GST Incl.):`;
+        } else {
+            if (summarySubtotalLine) summarySubtotalLine.style.display = 'none';
+            if (summaryGstLine) summaryGstLine.style.display = 'none';
+            if (summaryTotalTitle) summaryTotalTitle.innerText = `Estimated Total (Standard Folio):`;
+        }
+
+        if (summaryTotal) summaryTotal.innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
     }
 
-    if (modalVillaSelect) modalVillaSelect.addEventListener('change', onModalVillaChange);
+    if (modalVillaSelect) modalVillaSelect.addEventListener('change', () => onModalVillaChange(true));
     if (modalGuestsSelect) modalGuestsSelect.addEventListener('change', recalculateBookingSummary);
-    if (modalCheckin) modalCheckin.addEventListener('change', recalculateBookingSummary);
-    if (modalCheckout) modalCheckout.addEventListener('change', recalculateBookingSummary);
+    if (modalCheckin) modalCheckin.addEventListener('change', () => {
+        recalculateBookingSummary();
+        checkLiveModalAvailability(true);
+    });
+    if (modalCheckout) modalCheckout.addEventListener('change', () => {
+        recalculateBookingSummary();
+        checkLiveModalAvailability(true);
+    });
     document.querySelectorAll('.addon-checkbox').forEach(cb => {
         cb.addEventListener('change', recalculateBookingSummary);
     });
@@ -1657,6 +2078,51 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (span) span.style.color = '#334155';
                 }
             }
+        });
+    });
+
+    // Modal Billing Type Radio Switcher (Estimate vs GST Tax Invoice)
+    document.querySelectorAll('input[name="modal_billing_type"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const gstWrapper = document.getElementById('modal-gst-fields-wrapper');
+            const labelEstimate = document.getElementById('label-bill-estimate');
+            const labelGst = document.getElementById('label-bill-gst');
+
+            if (this.value === 'gst') {
+                if (gstWrapper) {
+                    gstWrapper.style.display = 'block';
+                    gstWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                document.getElementById('modal-gst-number')?.setAttribute('required', 'required');
+                if (labelGst) {
+                    labelGst.style.background = '#E0F2FE';
+                    labelGst.style.border = '2px solid #0284C7';
+                    const strong = labelGst.querySelector('strong');
+                    if (strong) strong.style.color = '#0369A1';
+                }
+                if (labelEstimate) {
+                    labelEstimate.style.background = '#FFFFFF';
+                    labelEstimate.style.border = '1.5px solid #CBD5E1';
+                    const strong = labelEstimate.querySelector('strong');
+                    if (strong) strong.style.color = '#1C3826';
+                }
+            } else {
+                if (gstWrapper) gstWrapper.style.display = 'none';
+                document.getElementById('modal-gst-number')?.removeAttribute('required');
+                if (labelEstimate) {
+                    labelEstimate.style.background = '#FEF9C3';
+                    labelEstimate.style.border = '2px solid #CA8A04';
+                    const strong = labelEstimate.querySelector('strong');
+                    if (strong) strong.style.color = '#854D0E';
+                }
+                if (labelGst) {
+                    labelGst.style.background = '#FFFFFF';
+                    labelGst.style.border = '1.5px solid #CBD5E1';
+                    const strong = labelGst.querySelector('strong');
+                    if (strong) strong.style.color = '#0369A1';
+                }
+            }
+            recalculateBookingSummary();
         });
     });
 
@@ -1780,6 +2246,16 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
+        // Billing & GST Preference
+        const billingTypeRadio = document.querySelector('input[name="modal_billing_type"]:checked');
+        const billingType = billingTypeRadio ? billingTypeRadio.value : 'estimate';
+        const gstNumber = document.getElementById('modal-gst-number')?.value.trim().toUpperCase() || '';
+        const billingName = document.getElementById('modal-billing-name')?.value.trim() || '';
+        const billingAddress = document.getElementById('modal-billing-address')?.value.trim() || '';
+
+        const bookingFormEl = document.getElementById('luxury-booking-form');
+        const gstRate = parseFloat(bookingFormEl?.getAttribute('data-gst-rate') || '12');
+
         // Account Type & Password
         const accountTypeRadio = document.querySelector('input[name="modal_account_type"]:checked');
         const createAccount = accountTypeRadio ? (accountTypeRadio.value === 'create_account') : false;
@@ -1804,6 +2280,11 @@ document.addEventListener("DOMContentLoaded", () => {
             notes: guestNotes,
             food_items: foodItems,
             food_skipped: isAllFoodSkipped || (foodItems.length === 0),
+            billing_type: billingType,
+            gst_number: gstNumber,
+            billing_name: billingName,
+            billing_address: billingAddress,
+            gst_percentage: (billingType === 'gst') ? gstRate : 0,
             create_account: createAccount,
             password: password
         };
@@ -1871,6 +2352,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            if (!isCurrentVillaAvailable) {
+                showRealtimeConflictAlert(
+                    'Chalet Already Reserved',
+                    'We apologize, but this chalet has already been reserved for the selected dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates.'
+                );
+                return;
+            }
+
+            if (payload.billing_type === 'gst') {
+                if (!payload.gst_number || payload.gst_number.length < 8) {
+                    alert('Please enter your valid 15-character GSTIN (GST Number) for your GST Tax Invoice.');
+                    document.getElementById('modal-gst-number')?.focus();
+                    return;
+                }
+                if (!payload.billing_name) {
+                    alert('Please enter your Registered Billing Company / Name for the GST Invoice.');
+                    document.getElementById('modal-billing-name')?.focus();
+                    return;
+                }
+            }
+
             if (payload.create_account && (!payload.password || payload.password.length < 4)) {
                 alert('Please enter a password with at least 4 characters for your permanent account.');
                 document.getElementById('modal-password')?.focus();
@@ -1904,6 +2406,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            if (payload.billing_type === 'gst') {
+                if (!payload.gst_number || payload.gst_number.length < 8) {
+                    alert('Please enter your valid 15-character GSTIN (GST Number) for your GST Tax Invoice.');
+                    document.getElementById('modal-gst-number')?.focus();
+                    return;
+                }
+                if (!payload.billing_name) {
+                    alert('Please enter your Registered Billing Company / Name for the GST Invoice.');
+                    document.getElementById('modal-billing-name')?.focus();
+                    return;
+                }
+            }
+
             whatsappSubmitBtn.disabled = true;
             whatsappSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Connecting...</span>';
 
@@ -1928,6 +2443,11 @@ document.addEventListener("DOMContentLoaded", () => {
             let cityNote = payload.city_state ? `\n• *City/Origin*: ${payload.city_state}` : '';
             let idNote = payload.id_proof_type ? (`\n• *ID Proof*: ${payload.id_proof_type}` + (payload.has_id_file ? ' (📎 Document Attached)' : '')) : '';
 
+            let billingNote = `\n• *Invoice Type*: ${payload.billing_type === 'gst' ? `Official GST Tax Invoice (GSTIN: ${payload.gst_number})` : 'Estimate Bill (Standard Folio)'}`;
+            if (payload.billing_type === 'gst' && payload.billing_name) {
+                billingNote += `\n• *Billing Entity*: ${payload.billing_name}`;
+            }
+
             const message = `🌿 *RESERVATION REQUEST — FOOD FOREST KANTHALLOOR* 🌿\n\n` +
                 `• *Booking Reference*: #${refCode}\n` +
                 `• *Guest Name*: ${payload.name}\n` +
@@ -1936,10 +2456,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 `• *Check-in*: ${payload.checkin}\n` +
                 `• *Check-out*: ${payload.checkout}\n` +
                 `• *Occupancy*: ${payload.adults} Adults, ${payload.kids} Children` +
-                `${cityNote}${idNote}\n` +
+                `${cityNote}${idNote}${billingNote}\n` +
                 `• *Curated Gastronomy*: ${foodSummary}` +
                 `${expNote}\n` +
-                `• *Estimated Total*: ${total}\n\n` +
+                `• *Total Payable*: ${total}\n\n` +
                 `Kindly confirm availability. Luxury receipt is available at Ref #${refCode}.`;
 
             const encodedMessage = encodeURIComponent(message);

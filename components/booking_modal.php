@@ -2,12 +2,15 @@
 require_once __DIR__ . '/../admin/includes/db.php';
 require_once __DIR__ . '/../includes/client_auth.php';
 
-ensure_rooms_pricing_columns(get_db());
-ensure_users_and_guest_columns(get_db());
+$modal_db = get_db();
+ensure_rooms_pricing_columns($modal_db);
+ensure_users_and_guest_columns($modal_db);
+ensure_booking_gst_columns($modal_db);
 
 $modal_villas = get_all_rooms(true);
 $modal_all_food = get_food_menu_items(null, true);
 $currency = get_setting('currency_symbol', '₹');
+$gst_rate_percent = (float)get_setting('gst_rate_percentage', '12');
 
 $modal_food_cats = [
     'breakfast' => ['name' => 'Breakfast', 'title' => 'Morning in the Orchards', 'time' => '07:30 AM — 10:00 AM', 'icon' => 'fa-solid fa-mug-saucer', 'items' => []],
@@ -54,7 +57,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
             </div>
 
             <!-- Booking Form -->
-            <form id="luxury-booking-form" class="booking-form" onsubmit="event.preventDefault();">
+            <form id="luxury-booking-form" class="booking-form" data-gst-rate="<?php echo htmlspecialchars($gst_rate_percent); ?>" onsubmit="event.preventDefault();">
                 
                 <!-- Step 1: Stay Details -->
                 <div class="booking-section-group">
@@ -64,7 +67,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         <div class="form-field" style="margin-bottom: 16px;">
                             <label for="modal-villa" class="form-label font-sans">Sanctuary Villa or Cottage</label>
                             <div class="select-wrapper">
-                                <select id="modal-villa" class="form-input font-sans" required>
+                                <select id="modal-villa" class="form-input font-sans" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 38px; cursor: pointer;" required>
                                     <?php
                                     if (!empty($modal_villas)):
                                         foreach ($modal_villas as $mv):
@@ -186,6 +189,46 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                             <div class="input-icon-wrapper">
                                 <i class="fa-regular fa-calendar input-icon"></i>
                                 <input type="date" id="modal-checkout" class="form-input font-sans" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Real-Time Availability Feedback & Alternative Suggestions Box -->
+                    <div id="modal-availability-box" class="modal-availability-status-box font-sans" style="display: none; margin-top: 14px; border-radius: 8px; padding: 14px 16px; border: 1.5px solid transparent; transition: all 0.25s ease;">
+                        <div id="modal-avail-loading" style="display: none; align-items: center; gap: 8px; font-size: 13px; color: #64748B;">
+                            <i class="fa-solid fa-spinner fa-spin" style="color: var(--accent-gold); font-size: 16px;"></i>
+                            <span>Verifying live chalet availability with sanctuary reservation system...</span>
+                        </div>
+                        
+                        <!-- State: Available -->
+                        <div id="modal-avail-success" style="display: none; align-items: flex-start; gap: 12px;">
+                            <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #059669; font-size: 15px;">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <strong style="display: block; font-size: 13.5px; color: #065F46; font-weight: 700;" id="modal-avail-title">Chalet Available for Selected Dates</strong>
+                                <span style="font-size: 12px; color: #047857; line-height: 1.45; display: block;" id="modal-avail-desc">This sanctuary suite is fully available for your stay. You can proceed with reservation and farm meal curation.</span>
+                            </div>
+                        </div>
+                        
+                        <!-- State: Booked / Conflict -->
+                        <div id="modal-avail-conflict" style="display: none; align-items: flex-start; gap: 12px;">
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: #FEE2E2; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #DC2626; font-size: 16px;">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <strong style="display: block; font-size: 14px; color: #991B1B; font-weight: 700;" id="modal-conflict-title">Chalet Already Reserved for Selected Dates</strong>
+                                <span style="font-size: 12.5px; color: #B91C1C; line-height: 1.5; display: block; margin-top: 3px;" id="modal-conflict-desc">We apologize, but this property has already been reserved for your chosen dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates.</span>
+                                
+                                <!-- Quick Alternate Chalet Switch Pills -->
+                                <div id="modal-alternate-chalets" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(220, 38, 38, 0.35); display: none;">
+                                    <span style="font-size: 11.5px; font-weight: 700; color: #991B1B; display: block; margin-bottom: 6px;">
+                                        <i class="fa-solid fa-sparkles" style="color: var(--accent-gold);"></i> Available Chalets on these exact dates:
+                                    </span>
+                                    <div id="modal-alternate-pills" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        <!-- Injected via JavaScript -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -375,9 +418,81 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     </div>
                 </div>
 
-                <!-- Step 4: Guest Identification & Account Choice -->
+                <!-- Step 4: Invoice & Billing Preference (Estimate vs GST Bill) -->
+                <div class="booking-section-group" style="background: #F8FAF8; border: 1.5px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <h4 class="group-title font-serif" style="color: #1C3826 !important; font-size: 1.35rem; margin-bottom: 0;">
+                            <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-gold); margin-right: 6px;"></i> 4. Invoice & Billing Preference
+                        </h4>
+                        <span id="badge-gst-rate" style="font-size: 11.5px; background: rgba(14, 116, 144, 0.1); color: #0E7490; padding: 3px 10px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(14, 116, 144, 0.2);">
+                            GST Tax Rate: <?php echo htmlspecialchars($gst_rate_percent); ?>%
+                        </span>
+                    </div>
+                    
+                    <p class="font-sans" style="font-size: 12.5px; color: #475569; margin-bottom: 14px; line-height: 1.5;">
+                        Choose whether you require an official <strong>GST Tax Invoice</strong> (for corporate expense claim & input tax credit) or a standard <strong>Estimate Bill</strong>.
+                    </p>
+
+                    <!-- Billing Type Interactive Selection Cards -->
+                    <div class="booking-billing-type-selector font-sans" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 14px;">
+                        <!-- Estimate Bill Card -->
+                        <label class="modal-billing-card modal-billing-card-active" id="label-bill-estimate" style="background: #FEF9C3; border: 2px solid #CA8A04; border-radius: 8px; padding: 14px 16px; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: all 0.2s ease;">
+                            <input type="radio" name="modal_billing_type" value="estimate" checked style="margin-top: 3px; accent-color: #CA8A04;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                                    <strong style="font-size: 14px; color: #854D0E; font-weight: 700;">Estimate Bill</strong>
+                                    <span style="font-size: 10.5px; background: #FEF08A; color: #854D0E; padding: 2px 7px; border-radius: 3px; font-weight: 700;">Standard</span>
+                                </div>
+                                <span style="font-size: 11.5px; color: #475569; line-height: 1.4; display: block;">Standard reservation voucher & stay folio. No GSTIN required (0% GST added).</span>
+                            </div>
+                        </label>
+
+                        <!-- GST Tax Invoice Card -->
+                        <label class="modal-billing-card" id="label-bill-gst" style="background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 14px 16px; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: all 0.2s ease;">
+                            <input type="radio" name="modal_billing_type" value="gst" style="margin-top: 3px; accent-color: #0284C7;">
+                            <div style="flex: 1;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                                    <strong style="font-size: 14px; color: #0369A1; font-weight: 700;">GST Tax Invoice</strong>
+                                    <span style="font-size: 10.5px; background: #E0F2FE; color: #0284C7; padding: 2px 7px; border-radius: 3px; font-weight: 700;">+<?php echo htmlspecialchars($gst_rate_percent); ?>% GST</span>
+                                </div>
+                                <span style="font-size: 11.5px; color: #475569; line-height: 1.4; display: block;">Official B2B / B2C Tax Invoice with GSTIN breakdown & billing address.</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Collapsible GST Details Form (Shown when GST Bill is selected) -->
+                    <div id="modal-gst-fields-wrapper" style="display: none; background: #FFFFFF; border: 1.5px solid #0284C7; border-radius: 8px; padding: 16px 18px; margin-top: 14px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08); transition: all 0.3s ease;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #0284C7; font-size: 13px; font-weight: 700;">
+                            <i class="fa-solid fa-building-flag"></i> <span>Company & GST Identification Details</span>
+                        </div>
+
+                        <div class="booking-grid-2">
+                            <div class="form-field">
+                                <label for="modal-gst-number" class="form-label font-sans" style="color: #0F172A !important; font-weight: 600;">
+                                    GSTIN Number * <small style="font-size: 11px; color: #0284C7; font-weight: normal;">(15-Character GST ID)</small>
+                                </label>
+                                <input type="text" id="modal-gst-number" class="form-input font-sans" placeholder="e.g. 32AAAAA0000A1Z5" maxlength="15" style="text-transform: uppercase; font-family: monospace; font-weight: 700; color: #0F172A !important; letter-spacing: 1px;">
+                            </div>
+                            <div class="form-field">
+                                <label for="modal-billing-name" class="form-label font-sans" style="color: #0F172A !important; font-weight: 600;">
+                                    Billing Company / Registered Name *
+                                </label>
+                                <input type="text" id="modal-billing-name" class="form-input font-sans" placeholder="e.g. Acme Eco Enterprises Pvt Ltd" style="color: #0F172A !important;">
+                            </div>
+                        </div>
+
+                        <div class="form-field" style="margin-top: 12px; margin-bottom: 0;">
+                            <label for="modal-billing-address" class="form-label font-sans" style="color: #0F172A !important; font-weight: 600;">
+                                Registered Company / Billing Address *
+                            </label>
+                            <textarea id="modal-billing-address" class="form-input font-sans" rows="2" placeholder="e.g. Suite 402, Green Valley Towers, Kakkanad, Kochi, Kerala 682030" style="color: #0F172A !important; resize: vertical; min-height: 55px;"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 5: Guest Identification & Account Choice -->
                 <div class="booking-section-group">
-                    <h4 class="group-title font-serif" style="color: #1C3826 !important; font-size: 1.35rem; margin-bottom: 16px;">4. Guest Particulars & Account Access</h4>
+                    <h4 class="group-title font-serif" style="color: #1C3826 !important; font-size: 1.35rem; margin-bottom: 16px;">5. Guest Particulars & Account Access</h4>
                     
                     <?php if ($is_logged_user && $logged_user): ?>
                         <div style="background: rgba(16, 185, 129, 0.12); border: 1.5px solid #10B981; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
@@ -435,7 +550,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         <div class="form-field">
                             <label for="modal-id-type" class="form-label font-sans" style="color: #1E293B !important; font-weight: 600;">Government ID Proof Type</label>
                             <div class="select-wrapper">
-                                <select id="modal-id-type" class="form-input font-sans" style="color: #0F172A !important;">
+                                <select id="modal-id-type" class="form-input font-sans" style="color: #0F172A !important; -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 38px; cursor: pointer;">
                                     <option value="Aadhaar Card" selected>Aadhaar Card (Indian Residents)</option>
                                     <option value="Driving License">Driving License</option>
                                     <option value="Passport">Passport (International / NRI / Indian)</option>
@@ -533,8 +648,21 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         <span class="font-sans"><i class="fa-solid fa-person-hiking" style="font-size: 11px;"></i> <span id="summary-addons-label">Selected Experiences:</span></span>
                         <span id="summary-addons-rate" class="font-sans font-weight-600" style="color: #0E7490;">Payable On-Site (₹0 in Bill)</span>
                     </div>
+
+                    <!-- Taxable Subtotal Line (Shown when GST is Active) -->
+                    <div class="summary-line" id="summary-subtotal-line" style="display: none; border-top: 1px dashed rgba(28, 56, 38, 0.15); padding-top: 8px; margin-top: 4px;">
+                        <span class="font-sans font-weight-600" style="color: #475569;">Taxable Subtotal (Stay + Meals):</span>
+                        <span id="summary-subtotal-rate" class="font-sans font-weight-600" style="color: #1E293B;">₹14,500</span>
+                    </div>
+
+                    <!-- GST Tax Rate Line (Shown when GST Bill is Chosen) -->
+                    <div class="summary-line" id="summary-gst-line" style="display: none; color: #0284C7; font-weight: 600;">
+                        <span class="font-sans"><i class="fa-solid fa-file-invoice-dollar" style="font-size: 11.5px;"></i> <span id="summary-gst-label">GST Tax (<?php echo htmlspecialchars($gst_rate_percent); ?>%):</span></span>
+                        <span id="summary-gst-rate" class="font-sans font-weight-600">+₹0</span>
+                    </div>
+
                     <div class="summary-line total-line">
-                        <span class="font-serif">Estimated Total (Taxes & Farm Meals Incl.):</span>
+                        <span class="font-serif" id="summary-total-title">Estimated Total (Standard Folio):</span>
                         <span id="summary-total" class="font-serif price-highlight">₹14,500</span>
                     </div>
                 </div>
@@ -594,6 +722,37 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                 </div>
             </div>
 
+        </div>
+    </div>
+</div>
+
+<!-- Real-Time Reservation Conflict / Availability Notice Popup Modal -->
+<div id="realtime-conflict-modal" class="realtime-alert-modal-overlay" aria-hidden="true" role="dialog">
+    <div class="realtime-alert-card font-sans">
+        <div class="realtime-alert-icon-wrap">
+            <i class="fa-solid fa-calendar-xmark"></i>
+        </div>
+        <h3 class="realtime-alert-title font-serif" id="rt-alert-title">Dates Already Reserved</h3>
+        <p class="realtime-alert-msg" id="rt-alert-msg">
+            We apologize, but this chalet has already been reserved for the selected dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates.
+        </p>
+
+        <!-- Dynamic Available Chalets List in Popup -->
+        <div id="rt-alert-alternatives" style="display: none; background: #F8FAF8; border: 1px solid rgba(28, 56, 38, 0.12); border-radius: 8px; padding: 12px; margin-bottom: 18px; text-align: left;">
+            <strong style="font-size: 12px; color: var(--accent-green); display: block; margin-bottom: 6px;">
+                <i class="fa-solid fa-sparkles" style="color: var(--accent-gold);"></i> Available Chalets for your exact dates:
+            </strong>
+            <div id="rt-alert-alt-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
+
+        <div class="realtime-alert-actions">
+            <button type="button" class="btn-primary font-sans" id="rt-alert-close-btn" style="background: var(--accent-green); color: #FFFFFF; padding: 10px 22px; border-radius: 6px; border: none; font-weight: 700; cursor: pointer;">
+                <span>Select Alternative Dates</span>
+            </button>
+            <a href="booking.php" class="btn-secondary font-sans" id="rt-alert-map-btn" style="background: #FAF8F5; border: 1.5px solid rgba(197, 160, 89, 0.5); color: var(--accent-green); padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-map-location-dot" style="color: var(--accent-gold);"></i>
+                <span>View Map Availability</span>
+            </a>
         </div>
     </div>
 </div>

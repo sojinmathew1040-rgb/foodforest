@@ -111,7 +111,8 @@ $tab_titles = [
     'protection' => 'CARD 14 • CONTENT PROTECTION & DEVTOOLS SHIELD',
     'security' => 'CARD 15 • SECURITY & MASTER PASSWORD',
     'backup' => 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE',
-    'bank' => 'CARD 17 • BANK DETAILS & UPI QR CODE'
+    'bank' => 'CARD 17 • BANK DETAILS & UPI QR CODE',
+    'footer' => 'CARD 18 • FOOTER & ECO TRUST PILLARS'
 ];
 if (!array_key_exists($active_tab, $tab_titles)) {
     $active_tab = 'climate';
@@ -1319,6 +1320,7 @@ ensure_experiences_details_columns($pdo);
                 'bank_account_type',
                 'bank_upi_id',
                 'gst_number',
+                'gst_rate_percentage',
                 'bank_qr_image',
                 'bill_footer_notes'
             ];
@@ -1336,6 +1338,34 @@ ensure_experiences_details_columns($pdo);
 
             if (empty($alert_message)) {
                 $alert_message = 'Bank account details, UPI VPA ID & payment QR configuration successfully updated.';
+            }
+        }
+
+        // 18. Footer & Eco Trust Pillars Card
+        elseif ($form_type === 'footer_settings') {
+            $keys = [
+                'footer_badge1_icon', 'footer_badge1_title', 'footer_badge1_desc',
+                'footer_badge2_icon', 'footer_badge2_title', 'footer_badge2_desc',
+                'footer_badge3_icon', 'footer_badge3_title', 'footer_badge3_desc',
+                'footer_badge4_icon', 'footer_badge4_title', 'footer_badge4_desc',
+                'footer_tagline', 'footer_concierge_badge_text', 'concierge_hours',
+                'footer_nav_title', 'footer_nav_links',
+                'footer_contact_title', 'footer_whatsapp_label', 'footer_reserve_btn_text',
+                'footer_gazette_title', 'footer_gazette_desc', 'footer_gazette_placeholder', 'footer_gazette_msg',
+                'footer_copyright_text',
+                'footer_legal1_title', 'footer_legal1_url',
+                'footer_legal2_title', 'footer_legal2_url',
+                'footer_legal3_title', 'footer_legal3_url',
+                'footer_staff_label', 'footer_staff_url'
+            ];
+            $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+            foreach ($keys as $k) {
+                if (isset($_POST[$k])) {
+                    $stmt->execute([$k, trim($_POST[$k])]);
+                }
+            }
+            if (empty($alert_message)) {
+                $alert_message = 'Footer parameters, eco trust pillars, navigation links & legal copy successfully updated.';
             }
         }
     }
@@ -1667,7 +1697,9 @@ $anchor_map = [
     'testimonials' => '../index.php#reviews',
     'protection' => '../index.php',
     'security' => 'edit_section.php?section=security',
-    'backup' => 'edit_section.php?section=backup'
+    'backup' => 'edit_section.php?section=backup',
+    'bank' => 'edit_section.php?section=bank',
+    'footer' => '../index.php#contact'
 ];
 $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
 ?>
@@ -1712,6 +1744,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 <option value="security" <?php echo ($active_tab === 'security') ? 'selected' : ''; ?>>15 • Security & Password</option>
                 <option value="backup" <?php echo ($active_tab === 'backup') ? 'selected' : ''; ?>>16 • MySQL Database Backup</option>
                 <option value="bank" <?php echo ($active_tab === 'bank') ? 'selected' : ''; ?>>17 • Bank Details & UPI QR</option>
+                <option value="footer" <?php echo ($active_tab === 'footer') ? 'selected' : ''; ?>>18 • Footer & Eco Pillars</option>
             </select>
         </div>
 
@@ -6053,6 +6086,15 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <small style="color: var(--adm-text-muted); font-size: 11px;">Printed in the invoice header and tax computation block.</small>
                     </div>
 
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">GST Tax Rate Percentage (%)</label>
+                        <div style="position: relative;">
+                            <input type="number" step="0.01" min="0" max="100" id="gst_rate_percentage_input" name="gst_rate_percentage" class="adm-form-control" style="font-family: monospace; font-weight: 700; padding-right: 32px;" value="<?php echo e($s['gst_rate_percentage'] ?? '12'); ?>">
+                            <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--adm-gold); font-weight: bold; pointer-events: none;">%</span>
+                        </div>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Standard GST rate applied to reservation subtotal when guest requests an official GST Tax Invoice (e.g. 12% or 18% or 5%).</small>
+                    </div>
+
                 </div>
 
                 <!-- Section 2: UPI VPA ID & QR Code Asset Upload -->
@@ -6223,6 +6265,306 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
         }
     }
     </script>
+    <?php endif; ?>
+
+    <!-- -------------------------------------------------------------
+         PANEL 18: FOOTER & ECO TRUST PILLARS
+         ------------------------------------------------------------- -->
+    <?php if ($active_tab === 'footer'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-footer">
+        <form action="edit_section.php?section=footer" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+            <input type="hidden" name="form_type" value="footer_settings">
+            <input type="hidden" name="active_tab" value="footer">
+
+            <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div class="adm-setting-card-icon gold"><i class="fa-solid fa-seedling"></i></div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="adm-badge" style="background: rgba(197, 160, 89, 0.2); color: var(--adm-gold); border: 1px solid var(--adm-gold-border); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                                <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
+                            </span>
+                            <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 18</span>
+                        </div>
+                        <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">FOOTER & ECO TRUST PILLARS</h3>
+                        <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Control 100% dynamic sustainability badges, brand narrative, navigation links, contact info, newsletter copy & legal terms.</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <a href="../index.php#contact" target="_blank" class="adm-btn-action outline" style="padding: 10px 16px; font-size: 12px;" title="View footer on public website">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        <span>Live Footer</span>
+                    </a>
+                    <button type="submit" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>SAVE FOOTER SETTINGS</span>
+                    </button>
+                </div>
+            </div>
+
+            <div style="padding: 24px;">
+                
+                <!-- SECTION 1: Top 4 Sustainability & Eco Trust Badges -->
+                <div style="border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 16px; margin-bottom: 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-shield-heart" style="margin-right: 6px;"></i> 1. Top Sustainability & Accolades Badges (4 Banner Items)
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">These 4 gold-accented badges appear prominently across the top of the footer.</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-bottom: 28px;">
+                    <!-- Badge 1 -->
+                    <div style="background: rgba(11, 24, 16, 0.6); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 16px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--adm-gold); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <i class="<?php echo e($s['footer_badge1_icon'] ?? 'fa-solid fa-seedling'); ?>"></i> BADGE 1
+                        </div>
+                        <div class="adm-form-group" style="margin-bottom: 10px;">
+                            <label class="adm-form-label">FontAwesome Icon Class</label>
+                            <input type="text" name="footer_badge1_icon" class="adm-form-control" value="<?php echo e($s['footer_badge1_icon'] ?? 'fa-solid fa-seedling'); ?>" placeholder="fa-solid fa-seedling" required>
+                        </div>
+                        <div class="adm-form-group" style="margin-bottom: 10px;">
+                            <label class="adm-form-label">Badge Title</label>
+                            <input type="text" name="footer_badge1_title" class="adm-form-control" value="<?php echo e($s['footer_badge1_title'] ?? '100% Organic Soil'); ?>" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Badge Subtitle / Description</label>
+                            <input type="text" name="footer_badge1_desc" class="adm-form-control" value="<?php echo e($s['footer_badge1_desc'] ?? 'Zero synthetic pesticides or fertilizers'); ?>" required>
+                        </div>
+                    </div>
+
+                    <!-- Badge 2 -->
+                    <div style="background: rgba(11, 24, 16, 0.6); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 16px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--adm-gold); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <i class="<?php echo e($s['footer_badge2_icon'] ?? 'fa-solid fa-house-chimney'); ?>"></i> BADGE 2
+                        </div>
+                        <div class="adm-form-group" style="margin-bottom: 10px;">
+                            <label class="adm-form-label">FontAwesome Icon Class</label>
+                            <input type="text" name="footer_badge2_icon" class="adm-form-control" value="<?php echo e($s['footer_badge2_icon'] ?? 'fa-solid fa-house-chimney'); ?>" placeholder="fa-solid fa-house-chimney" required>
+                        </div>
+                        <div class="adm-form-group" style="margin-bottom: 10px;">
+                            <label class="adm-form-label">Badge Title</label>
+                            <input type="text" name="footer_badge2_title" class="adm-form-control" value="<?php echo e($s['footer_badge2_title'] ?? 'Vernacular Cob Clay'); ?>" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Badge Subtitle / Description</label>
+                            <input type="text" name="footer_badge2_desc" class="adm-form-control" value="<?php echo e($s['footer_badge2_desc'] ?? 'Traditional low-carbon architecture'); ?>" required>
+                        </div>
+                    </div>
+
+                    <!-- Badge 3 -->
+                    <div style="background: rgba(11, 24, 16, 0.6); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 16px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--adm-gold); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <i class="<?php echo e($s['footer_badge3_icon'] ?? 'fa-solid fa-droplet'); ?>"></i> BADGE 3
+                        </div>
+                        <div class="adm-form-group" style="margin-bottom: 10px;">
+                            <label class="adm-form-label">FontAwesome Icon Class</label>
+                            <input type="text" name="footer_badge3_icon" class="adm-form-control" value="<?php echo e($s['footer_badge3_icon'] ?? 'fa-solid fa-droplet'); ?>" placeholder="fa-solid fa-droplet" required>
+                        </div>
+                        <div class="adm-form-group" style="margin-bottom: 10px;">
+                            <label class="adm-form-label">Badge Title</label>
+                            <input type="text" name="footer_badge3_title" class="adm-form-control" value="<?php echo e($s['footer_badge3_title'] ?? 'Mountain Spring Water'); ?>" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Badge Subtitle / Description</label>
+                            <input type="text" name="footer_badge3_desc" class="adm-form-control" value="<?php echo e($s['footer_badge3_desc'] ?? 'Filtered natural water, zero single-use plastic'); ?>" required>
+                        </div>
+                    </div>
+
+                    <!-- Badge 4 -->
+                    <div style="background: rgba(11, 24, 16, 0.6); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 16px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--adm-gold); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <i class="<?php echo e($s['footer_badge4_icon'] ?? 'fa-solid fa-people-roof'); ?>"></i> BADGE 4
+                        </div>
+                        <div class="adm-form-group" style="margin-bottom: 10px;">
+                            <label class="adm-form-label">FontAwesome Icon Class</label>
+                            <input type="text" name="footer_badge4_icon" class="adm-form-control" value="<?php echo e($s['footer_badge4_icon'] ?? 'fa-solid fa-people-roof'); ?>" placeholder="fa-solid fa-people-roof" required>
+                        </div>
+                        <div class="adm-form-group" style="margin-bottom: 10px;">
+                            <label class="adm-form-label">Badge Title</label>
+                            <input type="text" name="footer_badge4_title" class="adm-form-control" value="<?php echo e($s['footer_badge4_title'] ?? 'Local Community First'); ?>" required>
+                        </div>
+                        <div class="adm-form-group">
+                            <label class="adm-form-label">Badge Subtitle / Description</label>
+                            <input type="text" name="footer_badge4_desc" class="adm-form-control" value="<?php echo e($s['footer_badge4_desc'] ?? 'Crafted & staffed by native artisans'); ?>" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: Column 1 - Brand Narrative & Concierge Availability -->
+                <div style="border-top: 1px solid rgba(197, 160, 89, 0.15); border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding: 18px 0 16px; margin: 24px 0 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-feather-pointed" style="margin-right: 6px;"></i> 2. Column 1: Brand Narrative & Concierge Live Badge
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Main estate description, availability status indicator & hours.</p>
+                </div>
+
+                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    <div class="adm-form-group" style="grid-column: 1 / -1;">
+                        <label class="adm-form-label">Footer Brand Tagline / Narrative</label>
+                        <textarea name="footer_tagline" class="adm-form-control" rows="3" required><?php echo e($s['footer_tagline'] ?? 'An intimate sanctuary where ancestral architecture meets untamed nature. Rediscover silence, wholesome farm-to-table flavors, and deep mountain tranquility.'); ?></textarea>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">The poetic bio text rendered directly under the brand logo.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Concierge Badge Prefix</label>
+                        <input type="text" name="footer_concierge_badge_text" class="adm-form-control" value="<?php echo e($s['footer_concierge_badge_text'] ?? 'Estate Concierge Available'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Text next to the glowing green pulse indicator.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Concierge Active Operating Hours</label>
+                        <input type="text" name="concierge_hours" class="adm-form-control" value="<?php echo e($s['concierge_hours'] ?? '08:00 AM – 09:00 PM'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Daily hours displayed on the live status pill.</small>
+                    </div>
+                </div>
+
+                <!-- SECTION 3: Column 2 - Navigation Links Manager -->
+                <div style="border-top: 1px solid rgba(197, 160, 89, 0.15); border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding: 18px 0 16px; margin: 24px 0 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-compass" style="margin-right: 6px;"></i> 3. Column 2: The Sanctuary Navigation Links
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Organize footer links with target anchors or internal URLs (one link per line).</p>
+                </div>
+
+                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Navigation Column Heading</label>
+                        <input type="text" name="footer_nav_title" class="adm-form-control" value="<?php echo e($s['footer_nav_title'] ?? 'The Sanctuary'); ?>" required>
+                    </div>
+
+                    <div class="adm-form-group" style="grid-column: 1 / -1;">
+                        <label class="adm-form-label">Navigation Items (Format: <code>Label | URL | FontAwesome Icon (optional) | Highlight (1 or 0)</code>)</label>
+                        <textarea name="footer_nav_links" class="adm-form-control" rows="10" style="font-family: monospace; font-size: 12.5px; line-height: 1.6;"><?php echo e($s['footer_nav_links'] ?? "Our Story & Ethos|#welcome\nCanopy Treehouse|#rooms-experience\nEarthen Mudhouse|#rooms-experience\nActivities|#experiences\nFood Menu & Hearth|#dining\nGuest Portal & Receipts|guest_portal.php|fa-solid fa-key|1\nVisual Gallery|#gallery\nEstate Landscape|#sanctuary\nGuest Stories|#testimonials"); ?></textarea>
+                        <div style="background: rgba(197, 160, 89, 0.08); border-left: 3px solid var(--adm-gold); padding: 8px 12px; border-radius: 4px; margin-top: 8px; font-size: 11.5px; color: var(--adm-text-secondary);">
+                            <strong>Format Guide:</strong> Each row should be <code>Link Title | Target URL | fa-icon (optional) | 1 (gold highlight)</code>.<br>
+                            E.g. <code>Guest Portal & Receipts | guest_portal.php | fa-solid fa-key | 1</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 4: Column 3 - Direct Concierge & Reservation -->
+                <div style="border-top: 1px solid rgba(197, 160, 89, 0.15); border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding: 18px 0 16px; margin: 24px 0 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-headset" style="margin-right: 6px;"></i> 4. Column 3: Direct Concierge & Reservation CTA
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Concierge column title, secondary WhatsApp label & booking button text.</p>
+                </div>
+
+                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Concierge Column Heading</label>
+                        <input type="text" name="footer_contact_title" class="adm-form-control" value="<?php echo e($s['footer_contact_title'] ?? 'Direct Concierge'); ?>" required>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">WhatsApp Secondary Label</label>
+                        <input type="text" name="footer_whatsapp_label" class="adm-form-control" value="<?php echo e($s['footer_whatsapp_label'] ?? '(Instant Concierge)'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">E.g. (Instant Concierge), (24/7 Desk)</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Reservation CTA Button Text</label>
+                        <input type="text" name="footer_reserve_btn_text" class="adm-form-control" value="<?php echo e($s['footer_reserve_btn_text'] ?? 'Reserve Your Sanctuary'); ?>" required>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Triggers the interactive instant booking calendar modal.</small>
+                    </div>
+                </div>
+
+                <!-- SECTION 5: Column 4 - Sanctuary Gazette (Newsletter) -->
+                <div style="border-top: 1px solid rgba(197, 160, 89, 0.15); border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding: 18px 0 16px; margin: 24px 0 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-newspaper" style="margin-right: 6px;"></i> 5. Column 4: Sanctuary Gazette (Newsletter Subscription)
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Headlines, description, input placeholder and subscriber confirmation message.</p>
+                </div>
+
+                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Gazette Heading</label>
+                        <input type="text" name="footer_gazette_title" class="adm-form-control" value="<?php echo e($s['footer_gazette_title'] ?? 'Sanctuary Gazette'); ?>" required>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Input Placeholder Text</label>
+                        <input type="text" name="footer_gazette_placeholder" class="adm-form-control" value="<?php echo e($s['footer_gazette_placeholder'] ?? 'Enter your email address'); ?>">
+                    </div>
+
+                    <div class="adm-form-group" style="grid-column: 1 / -1;">
+                        <label class="adm-form-label">Gazette Narrative Description</label>
+                        <textarea name="footer_gazette_desc" class="adm-form-control" rows="2" required><?php echo e($s['footer_gazette_desc'] ?? 'Receive private seasonal bulletins on apple harvests, wild honey collection, and intimate villa releases.'); ?></textarea>
+                    </div>
+
+                    <div class="adm-form-group" style="grid-column: 1 / -1;">
+                        <label class="adm-form-label">Subscription Confirmation Toast Message</label>
+                        <input type="text" name="footer_gazette_msg" class="adm-form-control" value="<?php echo e($s['footer_gazette_msg'] ?? 'Thank you for subscribing to our Gazette.'); ?>" required>
+                    </div>
+                </div>
+
+                <!-- SECTION 6: Bottom Bar, Legal & Staff Access -->
+                <div style="border-top: 1px solid rgba(197, 160, 89, 0.15); border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding: 18px 0 16px; margin: 24px 0 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-scale-balanced" style="margin-right: 6px;"></i> 6. Bottom Bar: Copyright, Legal Policies & Staff Link
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Legal policy links and the discrete concierge staff portal link.</p>
+                </div>
+
+                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 10px;">
+                    <div class="adm-form-group" style="grid-column: 1 / -1;">
+                        <label class="adm-form-label">Copyright Notice (Use <code>{year}</code> for dynamic current year)</label>
+                        <input type="text" name="footer_copyright_text" class="adm-form-control" value="<?php echo e($s['footer_copyright_text'] ?? '© {year} Food Forest Sanctuary Kanthalloor. Crafted for conscious travelers.'); ?>" required>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Legal Link 1 Title</label>
+                        <input type="text" name="footer_legal1_title" class="adm-form-control" value="<?php echo e($s['footer_legal1_title'] ?? 'Privacy Charter'); ?>">
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Legal Link 1 URL</label>
+                        <input type="text" name="footer_legal1_url" class="adm-form-control" value="<?php echo e($s['footer_legal1_url'] ?? '#'); ?>">
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Legal Link 2 Title</label>
+                        <input type="text" name="footer_legal2_title" class="adm-form-control" value="<?php echo e($s['footer_legal2_title'] ?? 'Sustainability Policy'); ?>">
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Legal Link 2 URL</label>
+                        <input type="text" name="footer_legal2_url" class="adm-form-control" value="<?php echo e($s['footer_legal2_url'] ?? '#'); ?>">
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Legal Link 3 Title</label>
+                        <input type="text" name="footer_legal3_title" class="adm-form-control" value="<?php echo e($s['footer_legal3_title'] ?? 'Guest Etiquette'); ?>">
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Legal Link 3 URL</label>
+                        <input type="text" name="footer_legal3_url" class="adm-form-control" value="<?php echo e($s['footer_legal3_url'] ?? '#'); ?>">
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Staff Portal Link Label</label>
+                        <input type="text" name="footer_staff_label" class="adm-form-control" value="<?php echo e($s['footer_staff_label'] ?? 'Staff Portal'); ?>">
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Staff Portal Link URL</label>
+                        <input type="text" name="footer_staff_url" class="adm-form-control" value="<?php echo e($s['footer_staff_url'] ?? 'admin/'); ?>">
+                    </div>
+                </div>
+
+                <div style="text-align: right; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--adm-border);">
+                    <button type="submit" class="adm-btn-action gold" style="padding: 11px 26px; font-weight: 700; font-size: 13.5px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>SAVE FOOTER SETTINGS</span>
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
     <?php endif; ?>
     </div> <!-- End .adm-settings-panels-container -->
     </div> <!-- End .adm-editor-col -->

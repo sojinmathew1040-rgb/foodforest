@@ -127,11 +127,26 @@ require_once __DIR__ . '/includes/header.php';
 
             <!-- BookMyShow-Style Interactive Map Legend -->
             <div class="bms-map-legend font-sans">
-                <div class="legend-item"><span class="legend-badge badge-single"><i class="fa-solid fa-house-chimney"></i></span> Single Cottage / Room</div>
+                <div class="legend-item"><span class="legend-badge badge-available"></span> <strong style="color: #16A34A;">Available</strong></div>
+                <div class="legend-item"><span class="legend-badge badge-booked"></span> <strong style="color: #DC2626;">Booked / Reserved</strong></div>
+                <div class="legend-item"><span class="legend-badge badge-single"><i class="fa-solid fa-house-chimney"></i></span> Single Cottage</div>
                 <div class="legend-item"><span class="legend-badge badge-duplex"><i class="fa-solid fa-layer-group"></i></span> Duplex Chalet (2 Suites)</div>
-                <div class="legend-item"><span class="legend-badge badge-fast-filling"></span> Fast Filling (1 Left)</div>
                 <div class="legend-item"><span class="legend-badge badge-facility"><i class="fa-solid fa-utensils"></i></span> Estate Facilities</div>
                 <div class="legend-item"><span class="legend-badge badge-selected"><i class="fa-solid fa-check"></i></span> Selected Chalet</div>
+            </div>
+
+            <!-- Live Stay Date & Availability Summary Bar -->
+            <div id="bms-live-date-status-bar" class="bms-live-date-bar font-sans" style="background: #10261A; border: 1.5px solid rgba(197, 160, 89, 0.45); border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.12);">
+                <div style="display: flex; align-items: center; gap: 12px; color: #EAEFED; font-size: 13.5px;">
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(197, 160, 89, 0.22); color: var(--accent-gold); font-size: 13px;">
+                        <i class="fa-solid fa-calendar-days"></i>
+                    </span>
+                    <span>Live Estate Availability for: <strong id="bms-live-dates-txt" style="color: var(--accent-gold); letter-spacing: 0.3px;">Loading stay dates...</strong></span>
+                </div>
+                <div id="bms-live-counts-wrap" style="display: flex; align-items: center; gap: 16px; font-size: 13px;">
+                    <span style="color: #4ADE80; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-circle-check"></i> <span id="bms-count-avail">Available</span></span>
+                    <span style="color: #F87171; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-ban"></i> <span id="bms-count-booked">Reserved</span></span>
+                </div>
             </div>
         </div>
     </section>
@@ -329,6 +344,18 @@ require_once __DIR__ . '/includes/header.php';
                             <p class="sac-desc font-sans" id="sac-desc">
                                 Elevated living among towering mountain trees with panoramic glass valley windows and private balcony.
                             </p>
+
+                            <!-- Live Reservation Conflict Warning in Sidebar -->
+                            <div id="sac-booked-warning" class="sac-booked-warning-box font-sans" style="display: none;">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                <div>
+                                    <strong style="color: #991B1B; font-size: 13.5px; display: block;">Chalet Already Reserved</strong>
+                                    <p id="sac-booked-warning-msg" style="margin: 3px 0 6px; font-size: 12px; color: #B91C1C; line-height: 1.45;">
+                                        We apologize, but this property has already been reserved for your selected stay dates (via Direct Website, MakeMyTrip, or Airbnb).
+                                    </p>
+                                    <span style="font-size: 11.5px; color: #7F1D1D; font-weight: 600;">Please select alternative dates above or pick another available chalet on the map.</span>
+                                </div>
+                            </div>
 
                             <!-- Dynamic Tier / Duplex Option Switcher (if duplex) -->
                             <div class="sac-tier-box" id="sac-tier-box" style="display: none;">

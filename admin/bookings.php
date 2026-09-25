@@ -582,9 +582,13 @@ function build_tab_url($tab_name, $current_params = []) {
                             </td>
                             <td class="adm-col-status">
                                 <?php 
-                                $st = strtolower($b['status']);
+                                $st = strtolower($b['status'] ?? 'pending');
                                 $today = date('Y-m-d');
-                                $is_recent_checkout = (!empty($b['checked_out_at']) && (strtotime($b['checked_out_at']) >= time() - 86400)) || (empty($b['checked_out_at']) && $b['checkout_date'] === $today);
+                                $cin = $b['checkin_date'] ?? '';
+                                $cout = $b['checkout_date'] ?? '';
+                                $is_inhouse_window = (!empty($cin) && !empty($cout) && $cin <= $today && $cout >= $today);
+                                $is_past = (!empty($cout) && $cout < $today);
+                                $is_recent_checkout = (!empty($b['checked_out_at']) && (strtotime($b['checked_out_at']) >= time() - 86400)) || (empty($b['checked_out_at']) && $cout === $today);
 
                                 if ($st === 'inhouse') {
                                     $icon = 'fa-hotel';

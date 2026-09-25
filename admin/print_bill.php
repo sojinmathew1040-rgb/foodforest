@@ -5,17 +5,27 @@
 
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
-require_admin_auth();
 
 $pdo = get_db();
 $ref_code = trim($_GET['ref'] ?? '');
 $booking_id = (int)($_GET['id'] ?? 0);
+$token = trim($_GET['token'] ?? '');
 
 if (empty($ref_code) && empty($booking_id)) {
     die("<div style='font-family:sans-serif;padding:50px;text-align:center;color:#101F15;'><h2>Reference or Booking ID Required</h2><p><a href='billing.php' style='color:#C5A059;'>Return to Billing Hub</a></p></div>");
 }
 
 $identifier = !empty($ref_code) ? $ref_code : $booking_id;
+
+// Verify secure guest token or admin session
+$is_admin = !empty($_SESSION['admin_id']) && !empty($_SESSION['admin_logged_in']);
+$expected_token = substr(hash('sha256', (string)$identifier . 'ff_sanctuary_folio_secret'), 0, 16);
+$is_valid_guest = (!empty($token) && hash_equals($expected_token, $token));
+
+if (!$is_admin && !$is_valid_guest) {
+    require_admin_auth();
+}
+
 $booking = get_booking_billing_details($pdo, $identifier);
 
 if (!$booking) {
@@ -47,13 +57,31 @@ $show_qr = isset($_GET['show_qr']) ? ($_GET['show_qr'] == '1') : $default_show_q
 $invoice_no = 'FF-INV-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
 $bill_date = date('d M Y, h:i A');
 
+// Generate Public Digital Folio URL
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$base_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+$guest_folio_token = substr(hash('sha256', (string)$booking['reference_code'] . 'ff_sanctuary_folio_secret'), 0, 16);
+$public_folio_url = $protocol . $host . $base_dir . '/print_bill.php?ref=' . urlencode($booking['reference_code']) . '&token=' . $guest_folio_token;
+
 // Generate WhatsApp message text
 $guest_clean_phone = preg_replace('/[^0-9]/', '', $booking['guest_phone']);
-$wa_msg = "🌿 *FOOD FOREST SANCTUARY — GUEST FOLIO & INVOICE*\n";
+$wa_phone_clean = str_starts_with($guest_clean_phone, '91') ? $guest_clean_phone : ('91' . $guest_clean_phone);
+
+$is_gst = !empty($p['is_gst_bill']);
+$bill_title_text = $is_gst ? "TAX INVOICE (GST)" : "ESTIMATE STAY FOLIO";
+
+$wa_msg = "🌿 *FOOD FOREST SANCTUARY — {$bill_title_text}*\n";
 $wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
 $wa_msg .= "• *Invoice No*: {$invoice_no}\n";
 $wa_msg .= "• *Booking Ref*: #{$booking['reference_code']}\n";
 $wa_msg .= "• *Guest*: {$booking['guest_name']}\n";
+if ($is_gst && !empty($p['billing_name'])) {
+    $wa_msg .= "• *Billed To*: {$p['billing_name']}\n";
+}
+if ($is_gst && !empty($p['guest_gst_number'])) {
+    $wa_msg .= "• *Buyer GSTIN*: {$p['guest_gst_number']}\n";
+}
 $wa_msg .= "• *Property*: {$booking['room_title']}\n";
 $wa_msg .= "• *Stay*: " . date('d M Y', strtotime($booking['checkin_date'])) . " to " . date('d M Y', strtotime($booking['checkout_date'])) . " ({$p['nights']} Night" . ($p['nights'] > 1 ? 's' : '') . ")\n";
 $wa_msg .= "• *Occupancy*: {$p['adults_count']} Adults" . ($p['kids_count'] > 0 ? ", {$p['kids_count']} Kids" : '') . "\n";
@@ -71,14 +99,21 @@ if ($p['custom_total'] > 0 || $p['extra_charges'] > 0) {
 if ($p['discount_amount'] > 0) {
     $wa_msg .= "• Concession / Discount: -{$currency}" . number_format($p['discount_amount'], 2) . "\n";
 }
+if ($is_gst) {
+    $wa_msg .= "• Taxable Subtotal: {$currency}" . number_format($p['taxable_subtotal'], 2) . "\n";
+    $wa_msg .= "• CGST ({$p['cgst_percentage']}%): {$currency}" . number_format($p['cgst_amount'], 2) . "\n";
+    $wa_msg .= "• SGST ({$p['sgst_percentage']}%): {$currency}" . number_format($p['sgst_amount'], 2) . "\n";
+}
 $wa_msg .= "─────────────────────\n";
 $wa_msg .= "*GRAND TOTAL*: {$currency}" . number_format($p['net_total'], 2) . "\n";
 $wa_msg .= "• Advance Paid: {$currency}" . number_format($p['advance_paid'], 2) . "\n";
 $wa_msg .= "*BALANCE DUE*: {$currency}" . number_format($p['balance_due'], 2) . "\n";
 $wa_msg .= "• Status: " . strtoupper($p['payment_status']) . "\n";
+$wa_msg .= "─────────────────────\n";
+$wa_msg .= "📄 *Official PDF & Digital Folio*:\n{$public_folio_url}\n";
 $wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
 $wa_msg .= "Thank you for staying at Food Forest Sanctuary, Kanthalloor!";
-$wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest_clean_phone : ('91' . $guest_clean_phone)) . "?text=" . urlencode($wa_msg);
+$wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -92,6 +127,9 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Client-Side HTML to PDF Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
         :root {
@@ -196,6 +234,17 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
             background-color: #1EBE5D;
         }
 
+        .btn-pdf {
+            background: linear-gradient(135deg, #EF4444 0%, #DC2626 50%, #991B1B 100%);
+            color: #FFFFFF;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.35);
+        }
+
+        .btn-pdf:hover {
+            background: linear-gradient(135deg, #F87171 0%, #EF4444 50%, #B91C1C 100%);
+            transform: translateY(-1px);
+        }
+
         .btn-back {
             background: rgba(255,255,255,0.12);
             color: #FFFFFF;
@@ -204,6 +253,106 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
 
         .btn-back:hover {
             background: rgba(255,255,255,0.2);
+        }
+
+        /* Desktop WhatsApp PDF Attachment Helper Modal */
+        .wa-modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(9, 19, 13, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .wa-modal-box {
+            background: #101F15;
+            border: 1px solid rgba(197, 160, 89, 0.45);
+            border-radius: 14px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.7);
+            overflow: hidden;
+            animation: modalSlide 0.25s ease-out;
+        }
+        @keyframes modalSlide {
+            from { opacity: 0; transform: translateY(-15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .wa-modal-header {
+            padding: 18px 22px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.25);
+        }
+        .wa-modal-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #25D366;
+            color: #FFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 14px rgba(37, 211, 102, 0.4);
+        }
+        .wa-modal-close {
+            background: transparent;
+            border: none;
+            color: #94A3B8;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .wa-modal-close:hover {
+            color: #FFF;
+            background: rgba(255,255,255,0.1);
+        }
+        .wa-modal-body {
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .wa-step-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .wa-step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #C5A059;
+            color: #101F15;
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .wa-modal-footer {
+            padding: 16px 22px;
+            background: rgba(0,0,0,0.25);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            align-items: center;
         }
 
         /* Printable A4 Paper Container */
@@ -816,17 +965,23 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
         </div>
 
         <div class="bill-btn-group">
-            <a href="billing.php" class="bill-btn btn-back">
-                <i class="fa-solid fa-arrow-left"></i>
-                <span>Back to Hub</span>
-            </a>
-            <?php if (!empty($booking['guest_phone'])): ?>
-                <a href="<?php echo $wa_url; ?>" target="_blank" class="bill-btn btn-wa" title="Send itemized folio via WhatsApp">
-                    <i class="fa-brands fa-whatsapp"></i>
-                    <span>Share on WhatsApp</span>
+            <?php if ($is_admin): ?>
+                <a href="billing.php" class="bill-btn btn-back">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Back to Hub</span>
                 </a>
             <?php endif; ?>
-            <button type="button" onclick="window.print()" class="bill-btn btn-gold" title="Print or save as PDF">
+            <?php if (!empty($booking['guest_phone'])): ?>
+                <button type="button" onclick="shareBillToWhatsApp();" class="bill-btn btn-wa" id="btn-share-wa" title="Share Folio PDF directly to guest via WhatsApp">
+                    <i class="fa-brands fa-whatsapp"></i>
+                    <span>Share PDF on WhatsApp</span>
+                </button>
+            <?php endif; ?>
+            <button type="button" onclick="downloadBillAsPdf();" class="bill-btn btn-pdf" id="btn-download-pdf" title="Download official PDF file to device">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span>Download PDF</span>
+            </button>
+            <button type="button" onclick="window.print()" class="bill-btn btn-gold" title="Print or save as A4 PDF">
                 <i class="fa-solid fa-print"></i>
                 <span>Print Folio (A4)</span>
             </button>
@@ -857,7 +1012,13 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
             </div>
 
             <div class="invoice-badge-box">
-                <div class="invoice-type-title">GUEST FOLIO & INVOICE</div>
+                <div class="invoice-type-title">
+                    <?php if ($p['is_gst_bill']): ?>
+                        <i class="fa-solid fa-file-invoice" style="margin-right: 4px; color: var(--gold-primary);"></i> TAX INVOICE (GST)
+                    <?php else: ?>
+                        <i class="fa-solid fa-file-lines" style="margin-right: 4px;"></i> ESTIMATE STAY FOLIO
+                    <?php endif; ?>
+                </div>
                 <div style="margin-bottom: 6px;">
                     <?php if ($p['balance_due'] <= 0): ?>
                         <span class="status-pill status-paid"><i class="fa-solid fa-circle-check"></i> FULLY SETTLED</span>
@@ -878,6 +1039,12 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
                         <td class="meta-val">#<?php echo htmlspecialchars($booking['reference_code']); ?></td>
                     </tr>
                     <tr>
+                        <td>Billing Type:</td>
+                        <td style="font-weight: 700; color: <?php echo $p['is_gst_bill'] ? '#059669' : 'var(--text-muted)'; ?>;">
+                            <?php echo $p['is_gst_bill'] ? 'GST Tax Invoice (' . $p['gst_percentage'] . '%)' : 'Estimate (0% GST)'; ?>
+                        </td>
+                    </tr>
+                    <tr>
                         <td>Issued Date:</td>
                         <td><?php echo $bill_date; ?></td>
                     </tr>
@@ -894,6 +1061,24 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
                     <span class="label">Guest Name:</span>
                     <span class="val"><?php echo htmlspecialchars($booking['guest_name']); ?></span>
                 </div>
+                <?php if ($p['is_gst_bill'] && !empty($p['billing_name'])): ?>
+                    <div class="detail-row">
+                        <span class="label">Billed Entity:</span>
+                        <span class="val" style="font-weight: 700; color: var(--forest-dark);"><?php echo htmlspecialchars($p['billing_name']); ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($p['is_gst_bill'] && !empty($p['guest_gst_number'])): ?>
+                    <div class="detail-row">
+                        <span class="label">Buyer GSTIN:</span>
+                        <span class="val mono" style="font-weight: 700; color: var(--forest-dark); letter-spacing: 0.5px;"><?php echo htmlspecialchars($p['guest_gst_number']); ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($p['is_gst_bill'] && !empty($p['billing_address'])): ?>
+                    <div class="detail-row">
+                        <span class="label">Billing Address:</span>
+                        <span class="val" style="font-size: 11.5px;"><?php echo nl2br(htmlspecialchars($p['billing_address'])); ?></span>
+                    </div>
+                <?php endif; ?>
                 <div class="detail-row">
                     <span class="label">Phone / WhatsApp:</span>
                     <span class="val"><?php echo htmlspecialchars($booking['guest_phone']); ?></span>
@@ -1219,12 +1404,33 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
                                 <td class="amount-cell" style="color: #DC2626;">-<?php echo $currency . number_format($p['discount_amount'], 2); ?></td>
                             </tr>
                         <?php endif; ?>
-                        <tr>
-                            <td style="color: var(--text-muted);">Taxes & Ecological Levies:</td>
-                            <td class="amount-cell" style="color: #059669;">
-                                <?php echo $p['tax_amount'] > 0 ? $currency . number_format($p['tax_amount'], 2) : 'Inclusive'; ?>
-                            </td>
-                        </tr>
+                        <?php if ($p['is_gst_bill']): ?>
+                            <tr style="border-top: 1px dashed #CBD5E1;">
+                                <td style="font-weight: 600; color: var(--text-dark); padding-top: 6px;">Taxable Subtotal:</td>
+                                <td class="amount-cell" style="font-weight: 700; color: var(--text-dark); padding-top: 6px;">
+                                    <?php echo $currency . number_format($p['taxable_subtotal'], 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo $p['cgst_percentage']; ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['cgst_amount'], 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">State GST (SGST <?php echo $p['sgst_percentage']; ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['sgst_amount'], 2); ?>
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">GST / Tax Assessment:</td>
+                                <td class="amount-cell" style="color: var(--text-muted); font-size: 12px;">
+                                    Estimate Folio (0% GST)
+                                </td>
+                            </tr>
+                        <?php endif; ?>
                         <tr class="grand-total-row">
                             <td class="grand-total-label">Grand Total:</td>
                             <td class="grand-total-val"><?php echo $currency . number_format($p['net_total'], 2); ?></td>
@@ -1274,6 +1480,54 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
             </p>
         </footer>
 
+    </div>
+
+    <!-- Modal for Desktop WhatsApp PDF Attachment Helper -->
+    <div id="wa-pdf-modal" class="wa-modal-backdrop" style="display: none;" onclick="if(event.target===this) closeWaPdfModal();">
+        <div class="wa-modal-box">
+            <div class="wa-modal-header">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="wa-modal-icon"><i class="fa-brands fa-whatsapp"></i></div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #FFFFFF;">Share Folio PDF via WhatsApp</h3>
+                        <p style="margin: 2px 0 0; font-size: 12px; color: #2ecc71;">Invoice PDF Generated Successfully</p>
+                    </div>
+                </div>
+                <button type="button" class="wa-modal-close" onclick="closeWaPdfModal();">✕</button>
+            </div>
+            <div class="wa-modal-body">
+                <div class="wa-step-card">
+                    <div class="wa-step-num">1</div>
+                    <div style="flex: 1;">
+                        <strong style="color: #FFFFFF; font-size: 13.5px; display: block;">PDF Downloaded to Device</strong>
+                        <span style="font-size: 12px; color: #CBD5E1;" id="wa-modal-filename">FoodForest_Folio_<?php echo htmlspecialchars($booking['reference_code']); ?>.pdf</span>
+                    </div>
+                    <i class="fa-solid fa-circle-check" style="color: #2ecc71; font-size: 20px; flex-shrink: 0;"></i>
+                </div>
+                <div class="wa-step-card">
+                    <div class="wa-step-num">2</div>
+                    <div>
+                        <strong style="color: #FFFFFF; font-size: 13.5px; display: block;">Open WhatsApp Chat</strong>
+                        <span style="font-size: 12px; color: #CBD5E1;">Ready to message <strong><?php echo htmlspecialchars($booking['guest_name']); ?></strong> (+<?php echo htmlspecialchars($wa_phone_clean); ?>)</span>
+                    </div>
+                </div>
+                <div class="wa-step-card">
+                    <div class="wa-step-num">3</div>
+                    <div>
+                        <strong style="color: #FFFFFF; font-size: 13.5px; display: block;">Attach / Drag the PDF</strong>
+                        <span style="font-size: 12px; color: #CBD5E1;">Simply drag the downloaded PDF into WhatsApp Web or click <strong>📎 &gt; Document</strong>.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="wa-modal-footer">
+                <button type="button" class="bill-btn btn-back" onclick="downloadBillAsPdf();">
+                    <i class="fa-solid fa-download"></i> Re-Download
+                </button>
+                <a id="wa-modal-open-link" href="<?php echo $wa_url; ?>" target="_blank" onclick="closeWaPdfModal();" class="bill-btn btn-wa" style="padding: 10px 20px; font-size: 14px;">
+                    <i class="fa-brands fa-whatsapp"></i> Open WhatsApp &amp; Send
+                </a>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1327,6 +1581,122 @@ $wa_url = "https://wa.me/" . (str_starts_with($guest_clean_phone, '91') ? $guest
                 }
             });
         }
+    }
+
+    // PDF Export Configuration
+    function getPdfOptions(fileName) {
+        return {
+            margin: [8, 8, 8, 8],
+            filename: fileName,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                letterRendering: true,
+                scrollY: 0,
+                windowWidth: 1024
+            },
+            jsPDF: {
+                unit: 'mm',
+                format: 'a4',
+                orientation: 'portrait'
+            },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+    }
+
+    // Download A4 Folio as PDF
+    async function downloadBillAsPdf() {
+        var btn = document.getElementById('btn-download-pdf');
+        var originalHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Generating...</span>';
+            btn.style.pointerEvents = 'none';
+        }
+
+        try {
+            var refCode = <?php echo json_encode($booking['reference_code']); ?>;
+            var fileName = 'FoodForest_Folio_' + refCode + '.pdf';
+            var element = document.querySelector('.bill-sheet');
+            var opt = getPdfOptions(fileName);
+
+            await html2pdf().set(opt).from(element).save();
+        } catch (err) {
+            console.error('PDF download error:', err);
+            window.print();
+        } finally {
+            if (btn) {
+                btn.innerHTML = originalHtml;
+                btn.style.pointerEvents = '';
+            }
+        }
+    }
+
+    // Share PDF directly via Web Share API or helper modal
+    async function shareBillToWhatsApp() {
+        var btn = document.getElementById('btn-share-wa');
+        var originalHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Preparing PDF...</span>';
+            btn.style.pointerEvents = 'none';
+        }
+
+        var refCode = <?php echo json_encode($booking['reference_code']); ?>;
+        var guestName = <?php echo json_encode($booking['guest_name']); ?>;
+        var waUrl = <?php echo json_encode($wa_url); ?>;
+        var fileName = 'FoodForest_Folio_' + refCode + '.pdf';
+        var element = document.querySelector('.bill-sheet');
+        var opt = getPdfOptions(fileName);
+
+        try {
+            // Generate PDF blob
+            var pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+            var pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+            // Check if Web Share API with files is supported (e.g. mobile Chrome, Safari, Android, iOS)
+            if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                await navigator.share({
+                    title: 'Food Forest Sanctuary Folio #' + refCode,
+                    text: 'Dear ' + guestName + ', please find attached your official guest folio and tax invoice from Food Forest Sanctuary Kanthalloor.',
+                    files: [pdfFile]
+                });
+            } else {
+                // Desktop fallback: Download the PDF and open helper modal with 1-click WhatsApp launch
+                var link = document.createElement('a');
+                link.href = URL.createObjectURL(pdfBlob);
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showWaPdfModal(fileName, waUrl);
+            }
+        } catch (err) {
+            console.warn('PDF Web Share not available or cancelled:', err);
+            if (err.name !== 'AbortError') {
+                showWaPdfModal(fileName, waUrl);
+            }
+        } finally {
+            if (btn) {
+                btn.innerHTML = originalHtml;
+                btn.style.pointerEvents = '';
+            }
+        }
+    }
+
+    function showWaPdfModal(fileName, waUrl) {
+        var modal = document.getElementById('wa-pdf-modal');
+        var fnEl = document.getElementById('wa-modal-filename');
+        var linkEl = document.getElementById('wa-modal-open-link');
+        if (fnEl) fnEl.textContent = fileName;
+        if (linkEl && waUrl) linkEl.href = waUrl;
+        if (modal) modal.style.display = 'flex';
+    }
+
+    function closeWaPdfModal() {
+        var modal = document.getElementById('wa-pdf-modal');
+        if (modal) modal.style.display = 'none';
     }
     </script>
 

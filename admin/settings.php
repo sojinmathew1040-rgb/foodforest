@@ -347,6 +347,19 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </a>
 
+    <!-- Card 18: Footer & Eco Trust Pillars -->
+    <a href="edit_section.php?section=footer" class="adm-setting-card-btn" data-title="footer badges sustainability brand pillars legal copyright sanctuary gazette contact concierge navigation links" style="text-decoration:none; color:inherit; display:flex;">
+        <div class="adm-setting-card-icon gold"><i class="fa-solid fa-seedling"></i></div>
+        <div class="adm-setting-card-content">
+            <span class="adm-setting-card-num">CARD 18 • FOOTER</span>
+            <h4>Footer & Eco Trust Pillars</h4>
+            <p>Trust badges, navigation, bio, gazette & legal</p>
+            <span style="font-size: 11px; color: var(--adm-gold); font-weight: 600; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                Open Section Editor <i class="fa-solid fa-arrow-right"></i>
+            </span>
+        </div>
+    </a>
+
 </div>
 
 <script>

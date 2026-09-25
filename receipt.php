@@ -68,6 +68,23 @@ $food_amount = (float)($booking['food_amount'] ?? 0.00);
 $room_amount = (float)($booking['room_amount'] ?? ($booking['total_amount'] - $food_amount));
 $total_amount = (float)$booking['total_amount'];
 
+// Billing Type & GST Breakdown
+$billing_type = !empty($booking['billing_type']) ? strtolower(trim($booking['billing_type'])) : 'estimate';
+$is_gst_bill = ($billing_type === 'gst');
+$guest_gstin = $booking['gst_number'] ?? '';
+$billing_name = $booking['billing_name'] ?? '';
+$billing_address = $booking['billing_address'] ?? '';
+$gst_percentage = (float)($booking['gst_percentage'] ?? 0.00);
+$gst_amount = (float)($booking['gst_amount'] ?? 0.00);
+$taxable_subtotal = $room_amount + $food_amount;
+
+if ($is_gst_bill && $gst_percentage <= 0) {
+    $gst_percentage = (float)get_setting('gst_rate_percentage', '12');
+}
+if ($is_gst_bill && $gst_amount <= 0) {
+    $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
+}
+
 // Group food items by category
 $grouped_food = [];
 foreach ($food_items as $fi) {
@@ -638,9 +655,15 @@ foreach ($food_items as $fi) {
                 </p>
             </div>
             <div class="receipt-meta-box">
-                <span class="receipt-status-badge font-sans">
-                    <i class="fa-solid fa-circle-check"></i> <?php echo htmlspecialchars(strtoupper($booking['status'] ?? 'CONFIRMED')); ?>
-                </span>
+                <?php if ($is_gst_bill): ?>
+                    <span class="receipt-status-badge font-sans" style="background: rgba(2, 132, 199, 0.12); color: #0284C7; border: 1px solid rgba(2, 132, 199, 0.3);">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> TAX INVOICE (GST)
+                    </span>
+                <?php else: ?>
+                    <span class="receipt-status-badge font-sans">
+                        <i class="fa-solid fa-circle-check"></i> ESTIMATE STAY FOLIO
+                    </span>
+                <?php endif; ?>
                 <div class="receipt-ref-code font-serif"><?php echo htmlspecialchars($booking['reference_code']); ?></div>
                 <div class="receipt-date-line font-sans">
                     Issued: <?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?>
@@ -693,6 +716,12 @@ foreach ($food_items as $fi) {
                         <span class="label">Total Guests:</span>
                         <span class="value"><?php echo (int)$booking['guests_count']; ?> Person(s) (<?php echo (int)$booking['adults_count']; ?> Adults, <?php echo (int)$booking['kids_count']; ?> Children)</span>
                     </div>
+                    <div class="detail-row">
+                        <span class="label">Folio Type:</span>
+                        <span class="value" style="font-weight: 700; color: <?php echo $is_gst_bill ? '#0284C7' : '#101F15'; ?>;">
+                            <?php echo $is_gst_bill ? "Official Tax Invoice (GST {$gst_percentage}%)" : 'Estimate Bill (Standard Folio)'; ?>
+                        </span>
+                    </div>
                 </div>
 
                 <!-- Guest Particulars -->
@@ -710,6 +739,26 @@ foreach ($food_items as $fi) {
                         <span class="label">Email Address:</span>
                         <span class="value"><?php echo htmlspecialchars($booking['guest_email'] ?: 'On File'); ?></span>
                     </div>
+                    <?php if ($is_gst_bill): ?>
+                        <?php if (!empty($guest_gstin)): ?>
+                            <div class="detail-row">
+                                <span class="label">Guest GSTIN:</span>
+                                <span class="value" style="font-family: monospace; font-weight: bold; color: #0284C7;"><?php echo htmlspecialchars($guest_gstin); ?></span>
+                            </div>
+                        <?php endif; ?>
+                        <?php if (!empty($billing_name)): ?>
+                            <div class="detail-row">
+                                <span class="label">Billing Name:</span>
+                                <span class="value"><?php echo htmlspecialchars($billing_name); ?></span>
+                            </div>
+                        <?php endif; ?>
+                        <?php if (!empty($billing_address)): ?>
+                            <div class="detail-row">
+                                <span class="label">Billing Address:</span>
+                                <span class="value"><?php echo htmlspecialchars($billing_address); ?></span>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
                     <?php if (!empty($booking['special_notes'])): ?>
                         <div class="detail-row">
                             <span class="label">Preferences / Notes:</span>
@@ -846,14 +895,41 @@ foreach ($food_items as $fi) {
                                 <td style="color: var(--text-muted);">Estate Gastronomy Total:</td>
                                 <td style="text-align: right; font-weight: 600;"><?php echo $currency . number_format($food_amount, 2); ?></td>
                             </tr>
-                            <tr>
-                                <td style="color: var(--text-muted);">Estate Taxes & Ecological Levies:</td>
-                                <td style="text-align: right; color: #10B981; font-weight: 600;">Inclusive</td>
-                            </tr>
-                            <tr class="total-row">
-                                <td class="font-serif" style="font-size: 18px; font-weight: 700; color: var(--primary);">Estimated Total:</td>
-                                <td class="font-serif grand-total-val"><?php echo $currency . number_format($total_amount, 2); ?></td>
-                            </tr>
+                            <?php if ($is_gst_bill): ?>
+                                <tr>
+                                    <td style="color: #475569; font-weight: 600; border-top: 1px dashed #E2E8F0; padding-top: 6px;">Taxable Subtotal:</td>
+                                    <td style="text-align: right; font-weight: 600; border-top: 1px dashed #E2E8F0; padding-top: 6px;"><?php echo $currency . number_format($taxable_subtotal, 2); ?></td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #0284C7; font-size: 13px;">
+                                        CGST (<?php echo number_format($gst_percentage / 2, 2); ?>%):
+                                    </td>
+                                    <td style="text-align: right; color: #0284C7; font-weight: 600;">
+                                        +<?php echo $currency . number_format($gst_amount / 2, 2); ?>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #0284C7; font-size: 13px;">
+                                        SGST (<?php echo number_format($gst_percentage / 2, 2); ?>%):
+                                    </td>
+                                    <td style="text-align: right; color: #0284C7; font-weight: 600;">
+                                        +<?php echo $currency . number_format($gst_amount / 2, 2); ?>
+                                    </td>
+                                </tr>
+                                <tr class="total-row">
+                                    <td class="font-serif" style="font-size: 18px; font-weight: 700; color: var(--primary);">Grand Total (GST Incl.):</td>
+                                    <td class="font-serif grand-total-val"><?php echo $currency . number_format($total_amount, 2); ?></td>
+                                </tr>
+                            <?php else: ?>
+                                <tr>
+                                    <td style="color: var(--text-muted);">Estate Taxes & Levies:</td>
+                                    <td style="text-align: right; color: #10B981; font-weight: 600;">Inclusive</td>
+                                </tr>
+                                <tr class="total-row">
+                                    <td class="font-serif" style="font-size: 18px; font-weight: 700; color: var(--primary);">Estimated Total:</td>
+                                    <td class="font-serif grand-total-val"><?php echo $currency . number_format($total_amount, 2); ?></td>
+                                </tr>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>

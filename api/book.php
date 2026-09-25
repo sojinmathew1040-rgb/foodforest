@@ -157,10 +157,30 @@ try {
         }
     }
 
-    $calculated_total = $room_total + $food_total;
-    $total_amount = $calculated_total;
-    if (!empty($input['total_amount']) && floatval($input['total_amount']) > 0) {
-        $total_amount = (float)$input['total_amount'];
+    // Billing & GST Calculation
+    ensure_booking_gst_columns($pdo);
+
+    $billing_type = strtolower(trim($input['billing_type'] ?? 'estimate'));
+    if ($billing_type !== 'gst') {
+        $billing_type = 'estimate';
+    }
+    $guest_gst_number = ($billing_type === 'gst') ? strtoupper(trim($input['gst_number'] ?? '')) : null;
+    $billing_name = ($billing_type === 'gst') ? trim($input['billing_name'] ?? '') : null;
+    $billing_address = ($billing_type === 'gst') ? trim($input['billing_address'] ?? '') : null;
+
+    $subtotal_amount = $room_total + $food_total;
+    $system_gst_rate = (float)get_setting('gst_rate_percentage', '12');
+
+    if ($billing_type === 'gst') {
+        $gst_percentage = (!empty($input['gst_percentage']) && (float)$input['gst_percentage'] > 0) ? (float)$input['gst_percentage'] : $system_gst_rate;
+        $gst_amount = round($subtotal_amount * ($gst_percentage / 100), 2);
+        $tax_amount = $gst_amount;
+        $total_amount = $subtotal_amount + $gst_amount;
+    } else {
+        $gst_percentage = 0.00;
+        $gst_amount = 0.00;
+        $tax_amount = 0.00;
+        $total_amount = $subtotal_amount;
     }
 
     // Client Authentication & User Association
@@ -220,13 +240,25 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO bookings (
             reference_code, user_id, is_guest, guest_access_token, expires_at,
-            villa_type, booking_source, guest_name, guest_phone, guest_email,
+            villa_type, booking_source, billing_type, gst_number, billing_name, billing_address,
+            gst_percentage, gst_amount, tax_amount,
+            guest_name, guest_phone, guest_email,
             id_proof_type, id_proof_number, id_proof_file, city_state, country,
             guests_count, adults_count, kids_count, extra_adults, extra_kids,
             checkin_date, checkout_date, nights, addons,
             food_items, food_amount, room_amount, food_status,
             special_notes, total_amount, status
-        ) VALUES (?, ?, ?, ?, ?, ?, 'direct_website', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        ) VALUES (
+            ?, ?, ?, ?, ?,
+            ?, 'direct_website', ?, ?, ?, ?,
+            ?, ?, ?,
+            ?, ?, ?,
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, ?, ?,
+            ?, ?, 'pending'
+        )
     ");
 
     $stmt->execute([
@@ -236,6 +268,13 @@ try {
         $guest_access_token,
         $expires_at,
         $villa_type,
+        $billing_type,
+        $guest_gst_number,
+        $billing_name,
+        $billing_address,
+        $gst_percentage,
+        $gst_amount,
+        $tax_amount,
         $guest_name,
         $guest_phone,
         $guest_email,
@@ -293,6 +332,12 @@ try {
         'nights' => $nights,
         'room_total' => $room_total,
         'food_total' => $food_total,
+        'subtotal_amount' => $subtotal_amount,
+        'billing_type' => $billing_type,
+        'is_gst_bill' => ($billing_type === 'gst'),
+        'gst_percentage' => $gst_percentage,
+        'gst_amount' => $gst_amount,
+        'tax_amount' => $tax_amount,
         'food_items_count' => count($verified_food_items),
         'food_status' => $food_status,
         'total_amount' => $total_amount,

@@ -443,26 +443,39 @@ body::before {
     padding: 6px 0;
     white-space: nowrap;
     flex-shrink: 0;
-    transition: color 0.3s ease;
+    transition: color 0.3s ease, font-weight 0.2s ease;
 }
 
 .nav-item::after {
     content: '';
     position: absolute;
-    bottom: 0;
+    bottom: -2px;
     left: 0;
     width: 0%;
-    height: 1px;
+    height: 2px;
     background-color: var(--accent-gold);
-    transition: width 0.35s var(--transition-smooth);
+    transition: width 0.35s var(--transition-smooth), opacity 0.3s ease;
+    border-radius: 1px;
 }
 
-.nav-item:hover {
-    color: var(--accent-gold-light);
+.nav-item:hover,
+.nav-item.active {
+    color: #E6CA85 !important;
 }
 
-.nav-item:hover::after {
-    width: 100%;
+.nav-item.active {
+    font-weight: 700 !important;
+    text-shadow: 0 0 12px rgba(197, 160, 89, 0.35);
+}
+
+.nav-item:hover::after,
+.nav-item.active::after {
+    width: 100% !important;
+}
+
+.mobile-link.active {
+    color: var(--accent-gold) !important;
+    font-weight: 700;
 }
 
 /* Reserve Stay Header Button */
@@ -4670,6 +4683,21 @@ body.in-walkthrough .sticky-booking-pill {
     background-color: #FAFAFA;
 }
 
+select.form-input,
+.select-wrapper select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 38px;
+    cursor: pointer;
+    background-image: none !important;
+}
+
+select.form-input::-ms-expand,
+.select-wrapper select::-ms-expand {
+    display: none;
+}
+
 .input-icon-wrapper .form-input {
     padding-left: 40px;
 }
@@ -7458,7 +7486,36 @@ body.page-booking #sticky-booking-pill {
 
 .status-dot-available { background: #27ae60; box-shadow: 0 0 5px #27ae60; }
 .status-dot-fast_filling { background: #e67e22; box-shadow: 0 0 5px #e67e22; }
-.status-dot-booked { background: #c0392b; box-shadow: 0 0 5px #c0392b; }
+.status-dot-booked { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+
+/* Booked Chalet Node Styles (BookMyShow Style Reserved Seat indicator) */
+.bms-chalet-node.status-booked .node-box {
+    border-color: #ef4444 !important;
+    background: linear-gradient(135deg, #2a1114 0%, #1c0a0c 100%) !important;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.35), 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.bms-chalet-node.status-booked .node-icon {
+    color: #f87171 !important;
+}
+
+.bms-chalet-node.status-booked .node-code {
+    color: #fca5a5 !important;
+}
+
+.node-booked-pill {
+    font-size: 0.52rem;
+    font-weight: 800;
+    background: rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.6);
+    border-radius: 4px;
+    padding: 1px 4px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-left: -2px;
+}
 
 .bms-chalet-node:hover .node-box,
 .bms-chalet-node.is-selected .node-box {
@@ -7466,6 +7523,20 @@ body.page-booking #sticky-booking-pill {
     border-color: #FFFFFF;
     transform: scale(1.15);
     box-shadow: 0 0 20px rgba(197, 160, 89, 0.85);
+}
+
+.bms-chalet-node.status-booked:hover .node-box,
+.bms-chalet-node.status-booked.is-selected .node-box {
+    background: #dc2626 !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 20px rgba(220, 38, 38, 0.85) !important;
+}
+
+.bms-chalet-node.status-booked:hover .node-code,
+.bms-chalet-node.status-booked:hover .node-icon,
+.bms-chalet-node.status-booked.is-selected .node-code,
+.bms-chalet-node.status-booked.is-selected .node-icon {
+    color: #ffffff !important;
 }
 
 .bms-chalet-node:hover .node-code,
@@ -9002,6 +9073,188 @@ html, body {
         justify-content: center;
     }
 }
+
+/* =========================================================================
+   REAL-TIME AVAILABILITY & BOOKMYSHOW SEAT STATUS STYLES
+   ========================================================================= */
+
+.sac-avail-pill.sac-booked {
+    color: #dc2626 !important;
+    background: rgba(220, 38, 38, 0.12) !important;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(220, 38, 38, 0.35);
+}
+
+.sac-avail-pill.sac-available {
+    color: #059669 !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.sac-booked-warning-box {
+    background: #FEF2F2;
+    border: 1.5px solid #F87171;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.sac-booked-warning-box i {
+    color: #DC2626;
+    font-size: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.sac-book-btn:disabled,
+.sac-book-btn.btn-disabled-booked {
+    background: #94A3B8 !important;
+    color: #FFFFFF !important;
+    cursor: not-allowed !important;
+    opacity: 0.85;
+    box-shadow: none !important;
+}
+
+.chalet-card.is-booked-card {
+    border-color: rgba(220, 38, 38, 0.45) !important;
+    background: #FFFDFD;
+    position: relative;
+}
+
+.chalet-card.is-booked-card .chalet-card-media {
+    position: relative;
+}
+
+.chalet-card.is-booked-card .chalet-card-media::after {
+    content: '⛔ RESERVED FOR DATES';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #DC2626;
+    color: #FFFFFF;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    z-index: 5;
+}
+
+.chalet-card.is-booked-card .select-from-grid-btn {
+    background: #94A3B8 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+}
+
+/* Modal Availability Dynamic Box */
+.modal-availability-status-box {
+    animation: fadeInAvail 0.25s ease;
+}
+
+@keyframes fadeInAvail {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.btn-switch-alt-chalet {
+    background: #FFFFFF;
+    border: 1.5px solid #059669;
+    color: #065F46;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-switch-alt-chalet:hover {
+    background: #059669;
+    color: #FFFFFF;
+}
+
+/* Real-Time Interactive Alert Popup (Modern Modal Alert) */
+.realtime-alert-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100050;
+    background: rgba(10, 22, 15, 0.78);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.25s ease;
+}
+
+.realtime-alert-modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.realtime-alert-card {
+    background: #FFFFFF;
+    border: 1.5px solid rgba(197, 160, 89, 0.4);
+    border-radius: 14px;
+    max-width: 480px;
+    width: 100%;
+    padding: 26px 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    transform: scale(0.92);
+    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-align: center;
+}
+
+.realtime-alert-modal-overlay.active .realtime-alert-card {
+    transform: scale(1);
+}
+
+.realtime-alert-icon-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #FEE2E2;
+    color: #DC2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin: 0 auto 16px;
+}
+
+.realtime-alert-title {
+    font-size: 1.25rem;
+    color: var(--accent-green);
+    margin-bottom: 8px;
+    font-weight: 700;
+}
+
+.realtime-alert-msg {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.55;
+    margin-bottom: 20px;
+}
+
+.realtime-alert-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 
 
 
