@@ -724,6 +724,16 @@ $currency = get_setting('currency_symbol', '₹');
                                             <span>Customize / Edit</span>
                                         </button>
 
+                                        <!-- Stay Audit & Check-Out Verification Wizard -->
+                                        <button type="button" 
+                                                onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>)"
+                                                class="adm-btn" 
+                                                style="padding: 5px 10px; font-size: 11.5px; background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); display: flex; align-items: center; justify-content: center; gap: 5px;"
+                                                title="Step-by-Step Guest Stay Audit (Room, Meals & Experiences Verification)">
+                                            <i class="fa-solid fa-list-check"></i>
+                                            <span>Stay Audit & Check-Out</span>
+                                        </button>
+
                                         <!-- Quick WhatsApp Share & Digital Receipt -->
                                         <div style="display: flex; gap: 4px;">
                                             <?php if (!empty($b['guest_phone'])): ?>
@@ -787,9 +797,14 @@ $currency = get_setting('currency_symbol', '₹');
                     <div style="font-size: 12px; color: var(--adm-text-muted);" id="modalGuestSubtitle"></div>
                 </div>
             </div>
-            <button type="button" onclick="closeBillEditModal()" style="background: transparent; border: none; color: var(--adm-text-muted); font-size: 20px; cursor: pointer; padding: 4px;" title="Close Modal">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" onclick="openCheckoutAuditModal(document.getElementById('modalBookingId').value); closeBillEditModal();" class="adm-btn" style="padding: 6px 12px; font-size: 12px; background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc; display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+                    <i class="fa-solid fa-list-check"></i> Stay Audit Wizard
+                </button>
+                <button type="button" onclick="closeBillEditModal()" style="background: transparent; border: none; color: var(--adm-text-muted); font-size: 20px; cursor: pointer; padding: 4px;" title="Close Modal">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
         </div>
 
         <!-- Modal Form -->
@@ -1298,6 +1313,17 @@ window.onclick = function(event) {
         closeBillEditModal();
     }
 };
+
+// Check if URL specifies auto-open audit or edit
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bId = urlParams.get('booking_id');
+    const autoAudit = urlParams.get('audit');
+    if (bId && autoAudit === '1') {
+        openCheckoutAuditModal(bId);
+    }
+});
 </script>
 
+<?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

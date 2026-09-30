@@ -11,6 +11,9 @@ require_once 'components/welcome.php';
 // Load 3D WebGL Rooms & Luxury Stays Showcase Section
 require_once 'components/rooms.php';
 
+// Load Categorized Amenities & Sanctuary Facilities Section
+require_once 'components/amenities.php';
+
 // Load Curated Experiences Section
 require_once 'components/experiences.php';
 

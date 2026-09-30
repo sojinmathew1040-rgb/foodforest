@@ -94,6 +94,66 @@ foreach ($food_items as $fi) {
     }
     $grouped_food[$cat][] = $fi;
 }
+
+$meal_rituals = [
+    'breakfast' => [
+        'name' => 'Breakfast Ritual',
+        'icon' => 'fa-solid fa-mug-saucer',
+        'time' => '07:30 AM — 10:00 AM',
+        'items' => $grouped_food['breakfast'] ?? [],
+        'default_title' => 'Chef\'s Organic Orchard Breakfast',
+        'is_complimentary' => true,
+    ],
+    'lunch' => [
+        'name' => 'Lunch Ritual',
+        'icon' => 'fa-solid fa-bowl-rice',
+        'time' => '12:30 PM — 02:30 PM',
+        'items' => $grouped_food['lunch'] ?? [],
+        'default_title' => 'Woodfire Claypot Harvest Lunch',
+        'is_complimentary' => false,
+    ],
+    'snacks' => [
+        'name' => 'Evening Snacks',
+        'icon' => 'fa-solid fa-cookie-bite',
+        'time' => '04:30 PM — 06:30 PM',
+        'items' => $grouped_food['snacks'] ?? [],
+        'default_title' => 'Plantation Tea & Hearth Delicacies',
+        'is_complimentary' => false,
+    ],
+    'dinner' => [
+        'name' => 'Dinner Ritual',
+        'icon' => 'fa-solid fa-fire-burner',
+        'time' => '07:30 PM — 10:00 PM',
+        'items' => $grouped_food['dinner'] ?? [],
+        'default_title' => 'Twilight Campfire & Hearth Feast',
+        'is_complimentary' => false,
+    ],
+];
+
+// Parse Add-ons / Experiences
+$addons_text = trim($booking['addons'] ?? '');
+$parsed_addons = [];
+if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
+    $addon_parts = preg_split('/,(?![^(]*\))/', $addons_text);
+    foreach ($addon_parts as $ap) {
+        $ap = trim($ap);
+        if (!empty($ap)) {
+            $icon = 'fa-solid fa-sparkles';
+            $ap_lower = strtolower($ap);
+            if (strpos($ap_lower, 'dinner') !== false || strpos($ap_lower, 'candle') !== false) {
+                $icon = 'fa-solid fa-wine-glass';
+            } elseif (strpos($ap_lower, 'pottery') !== false || strpos($ap_lower, 'clay') !== false) {
+                $icon = 'fa-solid fa-hands-holding-circle';
+            } elseif (strpos($ap_lower, 'trek') !== false || strpos($ap_lower, 'trail') !== false || strpos($ap_lower, 'peak') !== false) {
+                $icon = 'fa-solid fa-person-hiking';
+            }
+            $parsed_addons[] = [
+                'title' => $ap,
+                'icon' => $icon
+            ];
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -391,9 +451,9 @@ foreach ($food_items as $fi) {
             text-align: right;
         }
 
-        /* Gastronomy Section Table */
+        /* Gastronomy Section Table & Ritual Cards */
         .section-header-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--primary);
             text-transform: uppercase;
@@ -404,74 +464,209 @@ foreach ($food_items as $fi) {
             justify-content: space-between;
         }
 
-        .food-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 32px;
-        }
-
-        .food-table th {
-            background-color: #F8FAF9;
-            color: var(--primary);
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-align: left;
-            padding: 10px 14px;
-            border-bottom: 2px solid var(--border-color);
-        }
-
-        .food-table td {
-            padding: 12px 14px;
-            font-size: 13.5px;
-            border-bottom: 1px solid var(--border-color);
-            vertical-align: top;
-        }
-
-        .dish-title-cell strong {
-            display: block;
-            font-size: 14px;
-            color: var(--primary);
-        }
-
-        .dish-inclusions-snippet {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 6px;
-        }
-
-        .dish-inc-tag {
-            font-size: 11px;
-            background: #F3F4F6;
-            color: #4B5563;
-            padding: 2px 8px;
-            border-radius: 4px;
-        }
-
         .category-pill-tag {
             display: inline-block;
             font-size: 11px;
             font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
             text-transform: uppercase;
             background: rgba(16, 31, 21, 0.08);
             color: var(--primary);
         }
 
-        .food-skipped-box {
-            background: #FBFBFA;
-            border: 1px dashed #D1D5DB;
+        .gastronomy-rituals-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+
+        @media (max-width: 640px) {
+            .gastronomy-rituals-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .meal-ritual-card {
+            background: #FAFCFA;
+            border: 1.5px solid #E2ECE5;
             border-radius: 8px;
-            padding: 16px 20px;
-            font-size: 13.5px;
-            color: var(--text-muted);
-            margin-bottom: 32px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+
+        .meal-ritual-card:hover {
+            border-color: #CBDCD0;
+            box-shadow: 0 2px 8px rgba(16, 31, 21, 0.04);
+        }
+
+        .meal-ritual-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #D6E4DB;
+        }
+
+        .meal-ritual-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .meal-ritual-badge {
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-included {
+            background: #ECFDF5;
+            color: #047857;
+            border: 1px solid #A7F3D0;
+        }
+
+        .badge-onsite {
+            background: #F1F5F9;
+            color: #475569;
+            border: 1px solid #CBD5E1;
+        }
+
+        .badge-ordered {
+            background: #FEF3C7;
+            color: #92400E;
+            border: 1px solid #FDE68A;
+        }
+
+        .meal-dishes-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .meal-dish-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .meal-dish-name {
+            color: #1F2937;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .meal-dish-rate {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--primary);
+            text-align: right;
+            white-space: nowrap;
+            margin-left: 12px;
+        }
+
+        /* Experiences Section */
+        .experiences-section {
+            margin-bottom: 28px;
+        }
+
+        .experiences-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+        }
+
+        .experience-card {
+            background: #F8FAFC;
+            border: 1.5px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .experience-card-left {
             display: flex;
             align-items: center;
             gap: 12px;
+            min-width: 0;
+        }
+
+        .experience-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            background: rgba(197, 160, 89, 0.15);
+            color: #8C6615;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .experience-info strong {
+            font-size: 13.5px;
+            color: var(--primary);
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .experience-info span {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 1px;
+        }
+
+        .experience-rate-tag {
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .experience-rate-tag .rate-val {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0E7490;
+            display: block;
+        }
+
+        .experience-rate-tag .rate-sub {
+            font-size: 10.5px;
+            color: #64748B;
+            display: block;
+        }
+
+        .no-exp-card {
+            background: #F8FAF9;
+            border: 1px dashed #CBD5E1;
+            border-radius: 8px;
+            padding: 12px 18px;
+            font-size: 12.5px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         /* Financial Summary Box */
@@ -766,71 +961,126 @@ foreach ($food_items as $fi) {
                         </div>
                     <?php endif; ?>
                 </div>
-            </div>
-
-            <!-- Curated Gastronomy (Food Menu) Section -->
-            <div>
+              <!-- Curated Gastronomy (Food Menu) Section -->
+            <div style="margin-bottom: 24px;">
                 <div class="section-header-title font-serif">
                     <span><i class="fa-solid fa-utensils"></i> Curated Estate Gastronomy</span>
                     <?php if ($food_amount > 0): ?>
                         <span class="category-pill-tag" style="background: rgba(197, 160, 89, 0.2); color: #8C6615;">
-                            <?php echo count($food_items); ?> Dish Set<?php echo count($food_items) > 1 ? 's' : ''; ?> Selected
+                            <?php echo count($food_items); ?> Dish Set<?php echo count($food_items) > 1 ? 's' : ''; ?> (Advance Pre-Selected)
+                        </span>
+                    <?php else: ?>
+                        <span class="category-pill-tag" style="background: rgba(16, 185, 129, 0.12); color: #065F46;">
+                            Farm-To-Table Dining Plan
                         </span>
                     <?php endif; ?>
                 </div>
 
-                <?php if (!empty($food_items)): ?>
-                    <table class="food-table font-sans">
-                        <thead>
-                            <tr>
-                                <th>Meal Ritual</th>
-                                <th>Dish / Set Selection</th>
-                                <th style="text-align: center;">Sets</th>
-                                <th style="text-align: right;">Unit Price</th>
-                                <th style="text-align: right;">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($food_items as $fi): ?>
-                                <tr>
-                                    <td>
-                                        <span class="category-pill-tag">
-                                            <?php echo htmlspecialchars(strtoupper($fi['category'] ?? 'Meal')); ?>
+                <div class="gastronomy-rituals-grid font-sans">
+                    <?php foreach ($meal_rituals as $r_key => $ritual): 
+                        $has_items = !empty($ritual['items']);
+                    ?>
+                        <div class="meal-ritual-card">
+                            <div>
+                                <div class="meal-ritual-header">
+                                    <div class="meal-ritual-title">
+                                        <i class="<?php echo $ritual['icon']; ?>" style="color: var(--accent);"></i>
+                                        <span><?php echo htmlspecialchars($ritual['name']); ?></span>
+                                    </div>
+                                    <?php if ($ritual['is_complimentary']): ?>
+                                        <span class="meal-ritual-badge badge-included">
+                                            <i class="fa-solid fa-gift"></i> Complimentary
                                         </span>
-                                    </td>
-                                    <td class="dish-title-cell">
-                                        <strong><?php echo htmlspecialchars($fi['heading']); ?></strong>
-                                        <?php if (!empty($fi['subtitle'])): ?>
-                                            <span style="font-size: 12px; color: var(--text-muted);"><?php echo htmlspecialchars($fi['subtitle']); ?></span>
-                                        <?php endif; ?>
-                                        <?php if (!empty($fi['inclusions'])): ?>
-                                            <div class="dish-inclusions-snippet">
-                                                <?php foreach ($fi['inclusions'] as $inc): ?>
-                                                    <span class="dish-inc-tag">✓ <?php echo htmlspecialchars($inc); ?></span>
-                                                <?php endforeach; ?>
+                                    <?php elseif ($has_items): ?>
+                                        <span class="meal-ritual-badge badge-ordered">
+                                            Pre-Selected
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="meal-ritual-badge badge-onsite">
+                                            On-Site Choice
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <ul class="meal-dishes-list">
+                                    <?php if ($has_items): ?>
+                                        <?php foreach ($ritual['items'] as $item): 
+                                            $i_qty = (int)($item['quantity'] ?? 1);
+                                            $i_price = (float)($item['price'] ?? 0);
+                                            $i_subtotal = (float)($item['subtotal'] ?? ($i_price * $i_qty));
+                                        ?>
+                                            <li class="meal-dish-item">
+                                                <div class="meal-dish-name">
+                                                    <strong><?php echo htmlspecialchars($item['heading']); ?></strong>
+                                                    <?php if ($i_qty > 1): ?>
+                                                        <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">(<?php echo $i_qty; ?> Sets)</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div class="meal-dish-rate">
+                                                    <?php if ($ritual['is_complimentary'] || $i_price == 0): ?>
+                                                        <span style="color: #059669; font-weight: 700;">Included (₹0.00)</span>
+                                                    <?php else: ?>
+                                                        <span><?php echo $currency . number_format($i_subtotal, 2); ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <li class="meal-dish-item">
+                                            <div class="meal-dish-name" style="color: #4B5563;">
+                                                <span><?php echo htmlspecialchars($ritual['default_title']); ?></span>
                                             </div>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td style="text-align: center; font-weight: 600;">
-                                        <?php echo (int)($fi['quantity'] ?? 1); ?>
-                                    </td>
-                                    <td style="text-align: right; color: var(--text-muted);">
-                                        <?php echo $currency . number_format((float)$fi['price'], 2); ?>
-                                    </td>
-                                    <td style="text-align: right; font-weight: 600; color: var(--primary);">
-                                        <?php echo $currency . number_format((float)($fi['subtotal'] ?? ($fi['price'] * $fi['quantity'])), 2); ?>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php else: ?>
-                    <div class="food-skipped-box font-sans">
-                        <i class="fa-solid fa-seedling" style="color: var(--accent); font-size: 20px;"></i>
-                        <div>
-                            <strong>Gastronomy Pre-selection Skipped</strong>
-                            <p style="font-size: 12px; margin-top: 2px;">You opted to select meals on arrival. Wholesome organic farm meals will be harvested and cooked fresh over wood hearths according to your daily choice.</p>
+                                            <div class="meal-dish-rate">
+                                                <?php if ($ritual['is_complimentary']): ?>
+                                                    <span style="color: #059669; font-weight: 700;">Included (₹0.00)</span>
+                                                <?php else: ?>
+                                                    <span style="color: #64748B; font-weight: 600; font-size: 11.5px;">Payable On-Site (₹0.00)</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </li>
+                                    <?php endif; ?>
+                                </ul>
+                            </div>
                         </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <!-- Selected Signature Experiences & Curated Add-ons Section -->
+            <div class="experiences-section font-sans">
+                <div class="section-header-title font-serif">
+                    <span><i class="fa-solid fa-sparkles" style="color: var(--accent);"></i> Selected Signature Experiences</span>
+                    <?php if (!empty($parsed_addons)): ?>
+                        <span class="category-pill-tag" style="background: rgba(14, 116, 144, 0.12); color: #0E7490;">
+                            <?php echo count($parsed_addons); ?> Experience<?php echo count($parsed_addons) > 1 ? 's' : ''; ?> Chosen
+                        </span>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!empty($parsed_addons)): ?>
+                    <div class="experiences-grid">
+                        <?php foreach ($parsed_addons as $addon): ?>
+                            <div class="experience-card">
+                                <div class="experience-card-left">
+                                    <div class="experience-icon">
+                                        <i class="<?php echo $addon['icon']; ?>"></i>
+                                    </div>
+                                    <div class="experience-info">
+                                        <strong><?php echo htmlspecialchars($addon['title']); ?></strong>
+                                        <span>Direct on-site settlement to artisan/guide</span>
+                                    </div>
+                                </div>
+                                <div class="experience-rate-tag">
+                                    <span class="rate-val">₹0.00</span>
+                                    <span class="rate-sub">Payable On-Site</span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="no-exp-card">
+                        <i class="fa-solid fa-person-hiking" style="color: var(--accent); font-size: 16px;"></i>
+                        <span>No extra signature experiences pre-booked. Orchard candlelight dining, pottery workshops, and sunrise high-peak valley trails can be booked on arrival.</span>
                     </div>
                 <?php endif; ?>
             </div>
@@ -885,14 +1135,14 @@ foreach ($food_items as $fi) {
                                 <td style="color: var(--text-muted);">Villa Tariff (<?php echo (int)$booking['nights']; ?> Night<?php echo $booking['nights'] > 1 ? 's' : ''; ?>):</td>
                                 <td style="text-align: right; font-weight: 600;"><?php echo $currency . number_format($room_amount, 2); ?></td>
                             </tr>
-                            <?php if (!empty($booking['addons'])): ?>
+                            <?php if (!empty($parsed_addons)): ?>
                                 <tr>
-                                    <td style="color: var(--text-muted);">Signature Experiences:</td>
-                                    <td style="text-align: right; font-weight: 600;"><?php echo htmlspecialchars($booking['addons']); ?></td>
+                                    <td style="color: var(--text-muted);">Signature Experiences (<?php echo count($parsed_addons); ?>):</td>
+                                    <td style="text-align: right; font-weight: 600; color: #0E7490;">Payable On-Site (₹0.00)</td>
                                 </tr>
                             <?php endif; ?>
                             <tr>
-                                <td style="color: var(--text-muted);">Estate Gastronomy Total:</td>
+                                <td style="color: var(--text-muted);">Estate Gastronomy Total:</td>Gastronomy Total:</td>
                                 <td style="text-align: right; font-weight: 600;"><?php echo $currency . number_format($food_amount, 2); ?></td>
                             </tr>
                             <?php if ($is_gst_bill): ?>

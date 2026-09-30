@@ -46,22 +46,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $action = $_POST['action'] ?? '';
 
+        // Revert Booking Status (Revert Check-Out, Revert Check-In, Revert Cancel, Reset to Pending)
+        if ($action === 'revert_status') {
+            $b_id = (int)$_POST['booking_id'];
+            $target_status = $_POST['target_status'] ?? 'confirmed';
+
+            if ($target_status === 'inhouse') {
+                // Revert Check-Out: Restore to In-House and clear check-out timestamp
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'inhouse', checked_out_at = NULL WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = 'Check-Out successfully reverted. Reservation is now active as In-House.';
+            } elseif ($target_status === 'confirmed') {
+                // Revert Check-In / Revert Cancel: Restore to Confirmed
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'confirmed', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = 'Status successfully reverted to Confirmed (Upcoming Arrival).';
+            } elseif ($target_status === 'pending') {
+                // Reset to Pending Review
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'pending', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = 'Reservation reset to Pending Review status.';
+            } elseif ($target_status === 'waitlist') {
+                // Move to Waitlist
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'waitlist', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = 'Reservation moved to Waiting List.';
+            }
+        }
+
         // Update Status
         if ($action === 'update_status') {
             $b_id = (int)$_POST['booking_id'];
             $new_status = $_POST['status'];
-            $custom_cin = !empty($_POST['checked_in_at']) ? $_POST['checked_in_at'] : null;
-            $custom_cout = !empty($_POST['checked_out_at']) ? $_POST['checked_out_at'] : null;
+            $clear_cin = !empty($_POST['clear_cin_flag']);
+            $clear_cout = !empty($_POST['clear_cout_flag']);
+            $custom_cin = (!$clear_cin && !empty($_POST['checked_in_at'])) ? $_POST['checked_in_at'] : ($clear_cin ? null : null);
+            $custom_cout = (!$clear_cout && !empty($_POST['checked_out_at'])) ? $_POST['checked_out_at'] : ($clear_cout ? null : null);
 
             if (in_array($new_status, ['pending', 'confirmed', 'inhouse', 'waitlist', 'completed', 'cancelled', 'rejected'])) {
                 if ($new_status === 'inhouse') {
-                    $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_in_at = COALESCE(?, checked_in_at, NOW()), checked_out_at = COALESCE(?, checked_out_at) WHERE id = ?");
-                    $stmt->execute([$new_status, $custom_cin, $custom_cout, $b_id]);
+                    $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_in_at = COALESCE(?, checked_in_at, NOW()), checked_out_at = NULL WHERE id = ?");
+                    $stmt->execute([$new_status, $custom_cin, $b_id]);
                 } elseif ($new_status === 'completed') {
-                    $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_out_at = COALESCE(?, checked_out_at, NOW()), checked_in_at = COALESCE(?, checked_in_at) WHERE id = ?");
+                    $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_out_at = COALESCE(?, checked_out_at, NOW()), checked_in_at = COALESCE(?, checked_in_at, NOW()) WHERE id = ?");
                     $stmt->execute([$new_status, $custom_cout, $custom_cin, $b_id]);
+                } elseif ($new_status === 'confirmed') {
+                    if ($clear_cin) {
+                        $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
+                        $stmt->execute([$new_status, $b_id]);
+                    } else {
+                        $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_out_at = NULL WHERE id = ?");
+                        $stmt->execute([$new_status, $b_id]);
+                    }
+                } elseif ($new_status === 'pending') {
+                    $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
+                    $stmt->execute([$new_status, $b_id]);
                 } else {
-                    $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_in_at = COALESCE(?, checked_in_at), checked_out_at = COALESCE(?, checked_out_at) WHERE id = ?");
+                    $stmt = $pdo->prepare("UPDATE bookings SET status = ?, checked_in_at = ?, checked_out_at = ? WHERE id = ?");
                     $stmt->execute([$new_status, $custom_cin, $custom_cout, $b_id]);
                 }
                 $status_names = [
@@ -659,17 +700,11 @@ function build_tab_url($tab_name, $current_params = []) {
                                             </button>
                                         </form>
                                     <?php elseif ($st === 'inhouse'): ?>
-                                        <!-- Check-Out Guest to Recent Departures (24h) -->
-                                        <form method="POST" style="display:inline; margin:0;" title="Check-Out Guest (Mark Departed with current time)">
-                                            <input type="hidden" name="action" value="update_status">
-                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
-                                            <input type="hidden" name="status" value="completed">
-                                            <button type="submit" class="adm-btn-stage checkout" title="Check-Out Guest">
-                                                <i class="fa-solid fa-door-open"></i>
-                                                <span>Check-Out</span>
-                                            </button>
-                                        </form>
+                                        <!-- Check-Out Guest with Stay Audit & Verification Wizard -->
+                                        <button type="button" class="adm-btn-stage checkout" title="Audit Stay & Check-Out Guest" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
+                                            <i class="fa-solid fa-door-open"></i>
+                                            <span>Check-Out</span>
+                                        </button>
                                     <?php elseif ($st === 'confirmed' && !$is_past): ?>
                                         <form method="POST" style="display:inline; margin:0;" title="Early Check-In Guest">
                                             <input type="hidden" name="action" value="update_status">
@@ -983,6 +1018,9 @@ function build_tab_url($tab_name, $current_params = []) {
             </div>
 
             <div class="adm-modal-footer">
+                <button type="button" class="adm-btn-action purple" id="btn-modal-audit-checkout" onclick="openCheckoutAuditFromViewModal();" style="padding: 9px 12px; background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc;">
+                    <i class="fa-solid fa-list-check"></i> Stay Audit & Check-Out
+                </button>
                 <button type="button" class="adm-btn-action outline" id="btn-modal-whatsapp" style="margin-right: auto;">
                     <i class="fa-brands fa-whatsapp" style="color: #25D366;"></i> WhatsApp
                 </button>
@@ -1006,8 +1044,22 @@ function build_tab_url($tab_name, $current_params = []) {
     </div>
 </div>
 
+<?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
+
 <script>
+function openCheckoutAuditFromViewModal() {
+    const bId = document.getElementById('view-booking-id').value;
+    closeAdmModal('modal-view-booking');
+    openCheckoutAuditModal(bId);
+}
+
 function quickSetModalStatus(statusVal) {
+    if (statusVal === 'completed') {
+        const bId = document.getElementById('view-booking-id').value;
+        closeAdmModal('modal-view-booking');
+        openCheckoutAuditModal(bId);
+        return;
+    }
     if (statusVal === 'cancelled') {
         if (!confirm('Are you sure you want to reject/cancel this reservation?')) {
             return;

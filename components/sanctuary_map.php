@@ -2,69 +2,16 @@
 require_once __DIR__ . '/../admin/includes/db.php';
 $pdo = get_db();
 ensure_sanctuary_spots_table_exists($pdo);
-$sanctuary_spots = get_all_sanctuary_spots(true);
+
+$map_data = get_sanctuary_map_data($pdo, true);
+$sanctuary_spots = $map_data['spots'];
+$map_routes = $map_data['routes'];
+$map_entrance = $map_data['entrance'];
+$map_exit = $map_data['exit'];
+$map_waypoints = $map_data['waypoints'];
+
 $sec_label = get_setting('sanctuary_section_label', 'The Living Landscape');
 $sec_title = get_setting('sanctuary_section_title', 'An Untamed Sanctuary');
-
-// Circular/Elliptical Main Estate Loop Road & Dynamic Cottage Sub-Branches
-$loop_cx = 400;
-$loop_cy = 258;
-$loop_rx = 240;
-$loop_ry = 162;
-
-// Main Estate Loop Road SVG Path (Smooth closed circuit)
-$main_loop_d = "M 390,420 " .
-               "C 280,420 160,340 160,260 " .
-               "C 160,180 280,95 400,95 " .
-               "C 520,95 640,180 640,260 " .
-               "C 640,340 520,420 390,420 Z";
-
-// Main Entrance South Avenue Drive
-$entrance_drive_d = "M 390,496 L 390,420";
-
-// Loop Junction Nodes (Paved waypoints around the ring road)
-$loop_waypoint_nodes = [
-    ['x' => 390, 'y' => 420, 'label' => 'South Gate Junction'],
-    ['x' => 220, 'y' => 375, 'label' => 'Farmstead Turn'],
-    ['x' => 160, 'y' => 260, 'label' => 'West Ridge Way'],
-    ['x' => 220, 'y' => 145, 'label' => 'High Vista Junction'],
-    ['x' => 400, 'y' => 95,  'label' => 'North Alpine Peak'],
-    ['x' => 580, 'y' => 145, 'label' => 'East Brook Terraces'],
-    ['x' => 640, 'y' => 260, 'label' => 'Perennial Brook Bridge'],
-    ['x' => 580, 'y' => 375, 'label' => 'Southeast Orchard Loop']
-];
-
-if (!function_exists('calculate_loop_junction')) {
-    function calculate_loop_junction($spot_x, $spot_y, $cx = 400, $cy = 258, $rx = 240, $ry = 162) {
-        $angle = atan2($spot_y - $cy, $spot_x - $cx);
-        $jx = $cx + $rx * cos($angle);
-        $jy = $cy + $ry * sin($angle);
-        return ['x' => round($jx, 1), 'y' => round($jy, 1), 'angle' => $angle];
-    }
-}
-
-$branch_paths = [];
-$junction_nodes = [];
-if (!empty($sanctuary_spots)) {
-    foreach ($sanctuary_spots as $sp) {
-        $sx = ($sp['x_coord'] / 100.0) * 800;
-        $sy = ($sp['y_coord'] / 100.0) * 520;
-        $junc = calculate_loop_junction($sx, $sy, $loop_cx, $loop_cy, $loop_rx, $loop_ry);
-        $mid_x = ($junc['x'] + $sx) / 2;
-        $mid_y = ($junc['y'] + $sy) / 2;
-        $offset_x = ($sy - $junc['y']) * 0.18;
-        $offset_y = -($sx - $junc['x']) * 0.18;
-        $ctrl_x = $mid_x + $offset_x;
-        $ctrl_y = $mid_y + $offset_y;
-
-        $branch_paths[] = [
-            'd' => "M " . $junc['x'] . "," . $junc['y'] . " Q " . round($ctrl_x, 1) . "," . round($ctrl_y, 1) . " " . round($sx, 1) . "," . round($sy, 1),
-            'spot_id' => $sp['id'],
-            'spot_title' => $sp['title']
-        ];
-        $junction_nodes[] = $junc;
-    }
-}
 
 $first_spot = !empty($sanctuary_spots) ? $sanctuary_spots[0] : null;
 $spots_count = count($sanctuary_spots);
@@ -96,7 +43,7 @@ $spots_count = count($sanctuary_spots);
                     <i class="fa-solid fa-utensils"></i> 🍲 Farm Dining
                 </button>
                 <button type="button" class="sanctuary-filter-btn" data-map-filter="amenities">
-                    <i class="fa-solid fa-water"></i> 🌊 Brook & Glades
+                    <i class="fa-solid fa-water"></i> 🌊 Farm Streams & Glades
                 </button>
                 <a href="booking.php" class="sanctuary-filter-btn map-bookmyshow-link" title="Open Interactive Estate Booking Page">
                     <i class="fa-solid fa-calendar-check"></i> Book Chalets Online <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; margin-left: 3px;"></i>
@@ -114,7 +61,7 @@ $spots_count = count($sanctuary_spots);
                 <!-- Left: Topographic Map Canvas -->
                 <div class="sanctuary-map-board" id="sanctuary-map-board">
                     <!-- Topographic Background SVG -->
-                    <svg class="topo-svg-canvas" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="topo-svg-canvas" viewBox="0 0 800 520" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
                         <defs>
                             <radialGradient id="topo-forest-glow" cx="50%" cy="50%" r="65%">
                                 <stop offset="0%" stop-color="#1c3826" stop-opacity="0.95" />
@@ -153,12 +100,37 @@ $spots_count = count($sanctuary_spots);
                             <path d="M 330,-20 Q 430,45 520,-20" stroke="rgba(197, 160, 89, 0.45)" stroke-width="1.5" />
                         </g>
 
-                        <!-- Natural Mountain Brook / River Stream (meandering) -->
-                        <path class="topo-stream" d="M 120,-20 C 140,80 190,140 240,210 C 290,280 340,310 410,380 C 470,440 520,480 580,540" 
-                              stroke="url(#stream-gradient)" stroke-width="4.5" fill="none" stroke-linecap="round" filter="url(#map-glow)" />
-                        <!-- Tributary Stream -->
-                        <path class="topo-stream-sub" d="M 390,260 C 430,280 470,320 480,350" 
-                              stroke="url(#stream-gradient)" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.75" />
+                        <!-- Luxury Navigational Compass Rose -->
+                        <g class="sanctuary-topo-compass" transform="translate(710, 68)" pointer-events="none">
+                            <circle cx="0" cy="0" r="28" fill="rgba(8, 20, 14, 0.85)" stroke="rgba(197, 160, 89, 0.5)" stroke-width="1.2" filter="url(#map-glow)" />
+                            <circle cx="0" cy="0" r="23" fill="none" stroke="rgba(197, 160, 89, 0.35)" stroke-width="0.8" stroke-dasharray="2,2" />
+                            <!-- 8 Compass Star Points -->
+                            <!-- North Point (Gold Primary Needle) -->
+                            <polygon points="0,-23 5,-4 0,-1" fill="#D4AF37" />
+                            <polygon points="0,-23 -5,-4 0,-1" fill="#FFF2B2" />
+                            <!-- South Point -->
+                            <polygon points="0,23 5,4 0,1" fill="rgba(197, 160, 89, 0.45)" />
+                            <polygon points="0,23 -5,4 0,1" fill="rgba(197, 160, 89, 0.25)" />
+                            <!-- East Point -->
+                            <polygon points="23,0 4,5 1,0" fill="rgba(197, 160, 89, 0.45)" />
+                            <polygon points="23,0 4,-5 1,0" fill="rgba(197, 160, 89, 0.25)" />
+                            <!-- West Point -->
+                            <polygon points="-23,0 -4,5 -1,0" fill="rgba(197, 160, 89, 0.45)" />
+                            <polygon points="-23,0 -4,-5 -1,0" fill="rgba(197, 160, 89, 0.25)" />
+                            <!-- Diagonal Points -->
+                            <polygon points="12,-12 3,-3 0,0" fill="rgba(197, 160, 89, 0.3)" />
+                            <polygon points="-12,-12 -3,-3 0,0" fill="rgba(197, 160, 89, 0.3)" />
+                            <polygon points="12,12 3,3 0,0" fill="rgba(197, 160, 89, 0.2)" />
+                            <polygon points="-12,12 -3,3 0,0" fill="rgba(197, 160, 89, 0.2)" />
+                            <!-- Center Pivot Core -->
+                            <circle cx="0" cy="0" r="4" fill="#0c1d14" stroke="#D4AF37" stroke-width="1.5" />
+                            <circle cx="0" cy="0" r="1.8" fill="#FFF2B2" />
+                            <!-- Direction Letters -->
+                            <text x="0" y="-30" text-anchor="middle" fill="#D4AF37" font-family="'Cinzel', Georgia, serif" font-size="10" font-weight="bold" letter-spacing="1">N</text>
+                            <text x="0" y="38" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">S</text>
+                            <text x="35" y="3" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">E</text>
+                            <text x="-35" y="3" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">W</text>
+                        </g>
 
                         <!-- Decorative Shola Tree Clusters -->
                         <g class="topo-trees" fill="rgba(64, 115, 84, 0.35)">
@@ -194,39 +166,43 @@ $spots_count = count($sanctuary_spots);
                             <text x="640" y="484" text-anchor="end">PRIVATE SANCTUARY RESERVE</text>
                         </g>
 
-                        <!-- 2. Main Circular / Elliptical Estate Loop Promenade Road (Permanently Visible) -->
-                        <!-- Entrance Driveway -->
-                        <path d="<?php echo $entrance_drive_d; ?>" fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="8" stroke-linecap="round" filter="url(#map-glow)" />
-                        <path d="<?php echo $entrance_drive_d; ?>" fill="none" stroke="#D4AF37" stroke-width="3" stroke-dasharray="6,4" stroke-linecap="round" />
-
-                        <!-- Circular Ring Road Aura & Paved Trail -->
-                        <path class="sanctuary-spine-aura" d="<?php echo $main_loop_d; ?>" 
-                              fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" filter="url(#map-glow)" />
-                        <path class="sanctuary-spine-trail" d="<?php echo $main_loop_d; ?>" 
-                              fill="none" stroke="#D4AF37" stroke-width="3.2" stroke-dasharray="10,6" stroke-linecap="round" stroke-linejoin="round" />
-
-                        <!-- Entrance Gate Landmark -->
-                        <g transform="translate(390, 492)">
-                            <circle cx="0" cy="0" r="6" fill="#14281c" stroke="#D4AF37" stroke-width="2" filter="url(#map-glow)" />
-                            <circle cx="0" cy="0" r="2.5" fill="#56C2C9" />
-                            <text x="14" y="3" fill="#D4AF37" font-size="9" font-family="'Cinzel', Georgia, serif" font-weight="bold" letter-spacing="1">MAIN ENTRANCE</text>
-                        </g>
-
-                        <!-- Loop Road Waypoints / Junction Nodes -->
-                        <?php foreach ($loop_waypoint_nodes as $lwn): ?>
-                            <circle cx="<?php echo $lwn['x']; ?>" cy="<?php echo $lwn['y']; ?>" r="4.5" fill="#14281c" stroke="#D4AF37" stroke-width="1.8" filter="url(#map-glow)" />
-                            <circle cx="<?php echo $lwn['x']; ?>" cy="<?php echo $lwn['y']; ?>" r="1.8" fill="#56C2C9" />
-                        <?php endforeach; ?>
-
-                        <!-- 3. Sub-Branch Pathways to Cottages & Spots -->
-                        <?php if (!empty($branch_paths)): ?>
-                            <?php foreach ($branch_paths as $bp): ?>
-                                <path class="sanctuary-branch-trail-aura" d="<?php echo $bp['d']; ?>" 
-                                      fill="none" stroke="rgba(86, 194, 201, 0.25)" stroke-width="5" stroke-linecap="round" filter="url(#map-glow)" />
-                                <path class="sanctuary-branch-trail" data-branch-spot="<?php echo $bp['spot_id']; ?>" d="<?php echo $bp['d']; ?>" 
-                                      fill="none" stroke="#C5A059" stroke-width="2" stroke-dasharray="4,4" stroke-linecap="round" opacity="0.9" />
+                        <!-- 2. Dynamic Custom Routes / Walking Trails (Calculated from Admin Pathways) -->
+                        <?php if (!empty($map_routes)): ?>
+                            <?php foreach ($map_routes as $r): ?>
+                                <?php if (!empty($r['svg_d'])): 
+                                    $dash = ($r['stroke_type'] === 'solid') ? 'none' : (($r['stroke_type'] === 'dotted') ? '3,4' : '9,6');
+                                    $w = floatval($r['line_width'] ?? 3.2);
+                                    $col = $r['color'] ?? '#D4AF37';
+                                ?>
+                                    <!-- Trail Glowing Aura -->
+                                    <path class="sanctuary-spine-aura" d="<?php echo $r['svg_d']; ?>" 
+                                          fill="none" stroke="<?php echo $col; ?>" stroke-opacity="0.32" stroke-width="<?php echo $w * 2.8; ?>" stroke-linecap="round" stroke-linejoin="round" filter="url(#map-glow)" />
+                                    <!-- Paved Golden Trail Line -->
+                                    <path class="sanctuary-spine-trail" d="<?php echo $r['svg_d']; ?>" 
+                                          fill="none" stroke="<?php echo $col; ?>" stroke-width="<?php echo $w; ?>" stroke-dasharray="<?php echo $dash; ?>" stroke-linecap="round" stroke-linejoin="round" />
+                                <?php endif; ?>
                             <?php endforeach; ?>
                         <?php endif; ?>
+
+                        <!-- 3. Main Entrance Landmark Gate -->
+                        <?php if (!empty($map_entrance['enabled'])): ?>
+                            <g transform="translate(<?php echo $map_entrance['svg_x']; ?>, <?php echo $map_entrance['svg_y']; ?>)">
+                                <circle cx="0" cy="0" r="7" fill="#14281c" stroke="#D4AF37" stroke-width="2.2" filter="url(#map-glow)" />
+                                <circle cx="0" cy="0" r="2.8" fill="#56C2C9" />
+                                <text x="14" y="3.5" fill="#D4AF37" font-size="9" font-family="'Cinzel', Georgia, serif" font-weight="bold" letter-spacing="1"><?php echo e($map_entrance['label']); ?></text>
+                            </g>
+                        <?php endif; ?>
+
+                        <!-- 4. Estate Exit Landmark Gate (if enabled) -->
+                        <?php if (!empty($map_exit['enabled'])): ?>
+                            <g transform="translate(<?php echo $map_exit['svg_x']; ?>, <?php echo $map_exit['svg_y']; ?>)">
+                                <circle cx="0" cy="0" r="7" fill="#14281c" stroke="#E67E22" stroke-width="2.2" filter="url(#map-glow)" />
+                                <circle cx="0" cy="0" r="2.8" fill="#E67E22" />
+                                <text x="14" y="3.5" fill="#E67E22" font-size="9" font-family="'Cinzel', Georgia, serif" font-weight="bold" letter-spacing="1"><?php echo e($map_exit['label']); ?></text>
+                            </g>
+                        <?php endif; ?>
+
+                        <!-- 5. Custom Waypoints (Road geometry is rendered above, waypoint pins hidden on frontend) -->
                     </svg>
 
                     <!-- Luxury Compass Rose -->
@@ -236,37 +212,24 @@ $spots_count = count($sanctuary_spots);
                         <span class="compass-coords">KANTHALLOOR · 1,600M</span>
                     </div>
 
-                    <!-- Water Brook Tag -->
-                    <div class="map-stream-badge font-sans">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c3-3 6-3 9 0s6 3 9 0"/><path d="M2 18c3-3 6-3 9 0s6 3 9 0"/></svg>
-                        Perennial Brook
-                    </div>
-
                     <!-- Dynamic Hotspot Pins on the Map -->
                     <div class="sanctuary-pins-container">
                         <?php foreach ($sanctuary_spots as $idx => $sp): 
                             $is_stay = !empty($sp['is_stay']) || $sp['category'] === 'stays';
                             $struct = $sp['structure_type'] ?? 'single_hut';
                             $is_duplex = ($is_stay && ($struct === 'duplex_hut' || stripos($sp['title'], 'duplex') !== false));
+                            $pin_col = !empty($sp['pin_color']) ? $sp['pin_color'] : ($is_stay ? ($is_duplex ? '#06B6D4' : '#10B981') : '#F59E0B');
+                            $custom_icon = !empty($sp['icon_class']) ? $sp['icon_class'] : ($is_duplex ? 'fa-solid fa-layer-group' : ($is_stay ? 'fa-solid fa-house-chimney' : ($sp['category'] === 'dining' ? 'fa-solid fa-utensils' : 'fa-solid fa-tree')));
 
                             if ($is_duplex) {
                                 $stay_class = 'is-stay-pin is-duplex-pin';
-                                $stay_icon = '<i class="fa-solid fa-layer-group"></i>';
                                 $stay_tag = '🏰 DUPLEX CHALET (2 SUITES)';
                             } elseif ($is_stay) {
                                 $stay_class = 'is-stay-pin is-single-pin';
-                                $stay_icon = '<i class="fa-solid fa-house-chimney"></i>';
                                 $stay_tag = '🏡 SINGLE COTTAGE';
                             } else {
                                 $stay_class = 'is-facility-pin';
                                 $stay_tag = '🌿 ESTATE HUB';
-                                if ($sp['category'] === 'dining') {
-                                    $stay_icon = '<i class="fa-solid fa-utensils"></i>';
-                                } elseif ($sp['category'] === 'amenities') {
-                                    $stay_icon = '<i class="fa-solid fa-water"></i>';
-                                } else {
-                                    $stay_icon = '<i class="fa-solid fa-tree"></i>';
-                                }
                             }
                         ?>
                             <div class="sanctuary-pin <?php echo $idx === 0 ? 'active' : ''; ?> <?php echo $stay_class; ?>" 
@@ -276,17 +239,17 @@ $spots_count = count($sanctuary_spots);
                                  data-is-stay="<?php echo $is_stay ? '1' : '0'; ?>"
                                  data-is-duplex="<?php echo $is_duplex ? '1' : '0'; ?>"
                                  data-structure="<?php echo htmlspecialchars($struct); ?>"
-                                 style="top: <?php echo (float)$sp['y_coord']; ?>%; left: <?php echo (float)$sp['x_coord']; ?>%;">
-                                <div class="pin-beacon"></div>
-                                <div class="pin-marker">
-                                    <span class="pin-stay-icon"><?php echo $stay_icon; ?></span>
-                                    <span class="pin-index"><?php echo sprintf('%02d', $sp['spot_number']); ?></span>
+                                 style="top: <?php echo (float)$sp['y_coord']; ?>%; left: <?php echo (float)$sp['x_coord']; ?>%; --pin-accent: <?php echo $pin_col; ?>;">
+                                <div class="pin-beacon" style="background: <?php echo $pin_col; ?>; opacity: 0.35;"></div>
+                                <div class="pin-marker" style="border-color: <?php echo $pin_col; ?>; box-shadow: 0 0 14px <?php echo $pin_col; ?>66;">
+                                    <span class="pin-stay-icon" style="color: <?php echo $pin_col; ?>;"><i class="<?php echo htmlspecialchars($custom_icon); ?>"></i></span>
+                                    <span class="pin-index" style="color: #FFFFFF;"><?php echo sprintf('%02d', $sp['spot_number']); ?></span>
                                     <?php if ($is_duplex): ?>
                                         <span class="pin-duplex-indicator" title="2-Suite Duplex">2S</span>
                                     <?php endif; ?>
                                 </div>
-                                <div class="pin-tooltip">
-                                    <span class="pin-stay-tag"><?php echo $stay_tag; ?></span>
+                                <div class="pin-tooltip" style="border-left: 3px solid <?php echo $pin_col; ?>;">
+                                    <span class="pin-stay-tag" style="color: <?php echo $pin_col; ?>;"><?php echo $stay_tag; ?></span>
                                     <span class="pin-title"><?php echo htmlspecialchars($sp['title']); ?></span>
                                     <?php if ($is_stay && !empty($sp['room_rate'])): ?>
                                         <span class="pin-price font-sans">From ₹<?php echo number_format($sp['room_rate'], 0, '.', ','); ?>/nt</span>

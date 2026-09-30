@@ -212,30 +212,233 @@ try {
     }
 
     // Generate unique reference code
+    // Generate unique reference code
     $ref_code = 'FF-' . rand(2000, 9999);
 
-    // Handle Government ID Proof File Upload
+    // -------------------------------------------------------------
+    // Government ID Proof File Upload & Deep Anti-Virus Inspection
+    // -------------------------------------------------------------
     $id_proof_file = null;
-    if (!empty($_FILES['id_proof_file']) && $_FILES['id_proof_file']['error'] === UPLOAD_ERR_OK) {
-        $uploaded_file = $_FILES['id_proof_file'];
-        $upload_dir = __DIR__ . '/../uploads/id_proofs/';
-        if (!is_dir($upload_dir)) {
-            @mkdir($upload_dir, 0777, true);
-        }
+    
+    // Check if ID file was provided
+    if (empty($_FILES['id_proof_file']) || $_FILES['id_proof_file']['error'] !== UPLOAD_ERR_OK) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Government ID Proof document is mandatory. Please upload a clear photo or PDF (Aadhaar, Passport, Driving License, etc.) to complete your registration.'
+        ]);
+        exit;
+    }
 
-        $file_name = basename($uploaded_file['name']);
-        $ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
-        $allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+    $uploaded_file = $_FILES['id_proof_file'];
+    $tmp_path = $uploaded_file['tmp_name'];
+    $orig_name = strtolower(basename($uploaded_file['name']));
+    $file_size = (int)$uploaded_file['size'];
 
-        if (in_array($ext, $allowed_exts) && $uploaded_file['size'] <= 8 * 1024 * 1024) {
-            $safe_ref = preg_replace('/[^a-zA-Z0-9_-]/', '', $ref_code);
-            $new_filename = 'id_' . strtolower($safe_ref) . '_' . time() . '.' . $ext;
-            $destination = $upload_dir . $new_filename;
-            if (move_uploaded_file($uploaded_file['tmp_name'], $destination)) {
-                $id_proof_file = $new_filename;
-            }
+    // 1. File size validation (64 bytes to 8MB)
+    if ($file_size < 64 || $file_size > 8 * 1024 * 1024) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'The uploaded ID proof file must be between 64 bytes and 8MB.'
+        ]);
+        exit;
+    }
+
+    // 2. Extension Whitelist & Anti-Double Extension / Null-Byte Inspection
+    $ext = pathinfo($orig_name, PATHINFO_EXTENSION);
+    $allowed_exts = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+    if (!in_array($ext, $allowed_exts, true)) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid file format. Only JPG, PNG, WEBP, and PDF ID documents are accepted.'
+        ]);
+        exit;
+    }
+
+    $dangerous_patterns = [
+        '.exe', '.bat', '.cmd', '.sh', '.php', '.phtml', '.js', '.vbs', '.scr',
+        '.pif', '.jar', '.dll', '.bin', '.apk', '.msi', '.com', '.vbe', '.wsf', '.hta',
+        '.svg', '.html', '.htm', '.py', '.pl', "\0", '%00'
+    ];
+    foreach ($dangerous_patterns as $bad) {
+        if (strpos($orig_name, $bad) !== false) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Security Alert: Disallowed executable file naming pattern detected.'
+            ]);
+            exit;
         }
     }
+
+    // 3. MIME Type Inspection via PHP Fileinfo
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $tmp_path);
+        finfo_close($finfo);
+
+        $allowed_mimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'application/x-pdf'];
+        if (!in_array($mime, $allowed_mimes, true)) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Security Alert: File MIME signature does not match allowed ID formats (detected ' . htmlspecialchars($mime) . ').'
+            ]);
+            exit;
+        }
+    }
+
+    // 4. Binary Magic Bytes & Header Threat Signatures
+    $handle = @fopen($tmp_path, 'rb');
+    if (!$handle) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to read uploaded file buffer for security inspection.'
+        ]);
+        exit;
+    }
+
+    $header_bytes = fread($handle, 32);
+    $header_hex = strtoupper(bin2hex($header_bytes));
+
+    // DOS / Windows PE Executable Signature ('MZ' = 4D 5A)
+    if (substr($header_hex, 0, 4) === '4D5A') {
+        fclose($handle);
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Security Threat Blocked: Executable DOS/PE binary detected in place of ID document.'
+        ]);
+        exit;
+    }
+
+    // Linux ELF Executable Signature (\x7FELF = 7F 45 4C 46)
+    if (substr($header_hex, 0, 8) === '7F454C46') {
+        fclose($handle);
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Security Threat Blocked: Executable ELF binary detected.'
+        ]);
+        exit;
+    }
+
+    // ZIP/JAR archive signature (PK\x03\x04 = 50 4B 03 04)
+    if (substr($header_hex, 0, 8) === '504B0304') {
+        fclose($handle);
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Security Alert: Compressed archive (ZIP/JAR) detected instead of legitimate ID document.'
+        ]);
+        exit;
+    }
+
+    // Validate type-specific magic bytes
+    $is_valid_magic = false;
+    if (in_array($ext, ['jpg', 'jpeg'], true) && substr($header_hex, 0, 6) === 'FFD8FF') {
+        $is_valid_magic = true;
+    } elseif ($ext === 'png' && substr($header_hex, 0, 16) === '89504E470D0A1A0A') {
+        $is_valid_magic = true;
+    } elseif ($ext === 'webp' && substr($header_hex, 0, 8) === '52494646' && substr($header_hex, 16, 8) === '57454250') {
+        $is_valid_magic = true;
+    } elseif ($ext === 'pdf' && substr($header_hex, 0, 10) === '255044462D') { // %PDF-
+        $is_valid_magic = true;
+    }
+
+    if (!$is_valid_magic) {
+        fclose($handle);
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'MIME Header Validation Failed: The file binary does not match a valid ' . strtoupper($ext) . ' structure.'
+        ]);
+        exit;
+    }
+
+    // 5. Deep Heuristic & Virus Signature Scanning (Scanning up to 1MB stream)
+    rewind($handle);
+    $scan_buffer = fread($handle, 1048576);
+    fclose($handle);
+
+    // Check EICAR standard antivirus test signature
+    if (strpos($scan_buffer, 'EICAR-STANDARD-ANTIVIRUS-TEST-FILE') !== false) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Virus Scanner Alert: EICAR test virus signature detected in uploaded file.'
+        ]);
+        exit;
+    }
+
+    // Check malicious webshell & injection signatures
+    $malicious_keywords = [
+        '<?php', '<?=', '<script', 'eval(', 'base64_decode(', 'shell_exec(',
+        'passthru(', 'system(', 'powershell', 'cmd.exe', '/javascript', '/launch'
+    ];
+    $lower_buffer = strtolower($scan_buffer);
+    foreach ($malicious_keywords as $kw) {
+        if (strpos($lower_buffer, $kw) !== false) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Security Alert: Suspicious script or executable command detected (' . htmlspecialchars($kw) . '). Upload rejected.'
+            ]);
+            exit;
+        }
+    }
+
+    // 6. Image Structure Integrity Check
+    if (in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+        $img_info = @getimagesize($tmp_path);
+        if ($img_info === false) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Image Verification Failed: The uploaded image is corrupted or incomplete.'
+            ]);
+            exit;
+        }
+    }
+
+    // 7. Windows Defender Local Engine Scan (if available on Windows host)
+    $mpcmdrun = "C:\\Program Files\\Windows Defender\\MpCmdRun.exe";
+    if (file_exists($mpcmdrun)) {
+        $scan_cmd = escapeshellarg($mpcmdrun) . " -Scan -ScanType 3 -File " . escapeshellarg($tmp_path) . " -DisableRemediation";
+        @exec($scan_cmd, $scan_output, $scan_return_code);
+        if ($scan_return_code === 2) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Antivirus Engine Alert: Threat detected by server-side anti-malware scanner.'
+            ]);
+            exit;
+        }
+    }
+
+    // 8. Safe Storage with Randomized Filename
+    $upload_dir = __DIR__ . '/../uploads/id_proofs/';
+    if (!is_dir($upload_dir)) {
+        @mkdir($upload_dir, 0777, true);
+    }
+
+    $safe_token = bin2hex(random_bytes(10));
+    $safe_ref = preg_replace('/[^a-zA-Z0-9_-]/', '', $ref_code);
+    $new_filename = 'id_' . strtolower($safe_ref) . '_' . $safe_token . '.' . $ext;
+    $destination = $upload_dir . $new_filename;
+
+    if (!move_uploaded_file($tmp_path, $destination)) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Failed to securely store the verified ID document on server.'
+        ]);
+        exit;
+    }
+    $id_proof_file = $new_filename;
 
     $stmt = $pdo->prepare("
         INSERT INTO bookings (

@@ -281,10 +281,11 @@ $total_bookings_count = count($bookings);
     </div>
 
     <!-- Monthly Calendar Grid Layout -->
-    <div class="adm-card" style="padding: 0; overflow: hidden; border-radius: 12px;">
-        
-        <!-- Days Header (Sun - Sat) -->
-        <div style="display: grid; grid-template-columns: repeat(7, 1fr); background: #14281c; border-bottom: 1px solid rgba(197, 160, 89, 0.2); text-align: center; font-weight: 700; font-size: 12px; color: var(--adm-gold); padding: 12px 0;">
+    <div class="adm-table-responsive" style="border: none; background: transparent; padding: 0; margin-bottom: 24px;">
+        <div class="adm-card" style="padding: 0; overflow: hidden; border-radius: 12px; min-width: 680px; margin-bottom: 0;">
+            
+            <!-- Days Header (Sun - Sat) -->
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); background: #14281c; border-bottom: 1px solid rgba(197, 160, 89, 0.2); text-align: center; font-weight: 700; font-size: 12px; color: var(--adm-gold); padding: 12px 0;">
             <div>SUN</div>
             <div>MON</div>
             <div>TUE</div>
@@ -378,6 +379,7 @@ $total_bookings_count = count($bookings);
             ?>
         </div>
     </div>
+</div>
 
 </div>
 

@@ -26,6 +26,9 @@ $pending_reviews_count = (int) $pdo->query("SELECT COUNT(*) FROM testimonials WH
         <button type="button" class="adm-sidebar-toggle-btn" id="adm-sidebar-toggle-btn" title="Minimize / Expand Menu" aria-label="Toggle Sidebar Menu">
             <i class="fa-solid fa-angles-left"></i>
         </button>
+        <button type="button" class="adm-sidebar-close-mob" id="adm-sidebar-close-mob" title="Close Menu" aria-label="Close Mobile Menu">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
     </div>
 
     <!-- Navigation List -->

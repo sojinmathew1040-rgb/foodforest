@@ -4,6 +4,101 @@
 
 document.addEventListener("DOMContentLoaded", () => {
 
+    // 0. Dark / White Theme Engine
+    const THEME_STORAGE_KEY = "foodforest_adm_theme";
+    const themeToggleBtn = document.getElementById("adm-theme-toggle-btn");
+    const themeLabel = document.getElementById("adm-theme-toggle-label");
+
+    function getActiveTheme() {
+        return document.documentElement.getAttribute("data-theme") || localStorage.getItem(THEME_STORAGE_KEY) || "dark";
+    }
+
+    function applyAdminTheme(theme, saveToServer = true) {
+        if (theme === "auto") {
+            theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute("data-theme", theme);
+        document.documentElement.classList.remove("theme-dark", "theme-light");
+        document.documentElement.classList.add("theme-" + theme);
+        if (document.body) {
+            document.body.classList.remove("theme-dark", "theme-light");
+            document.body.classList.add("theme-" + theme);
+        }
+
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, theme);
+        } catch(e) {}
+
+        // Update topbar toggle label & state
+        if (themeLabel) {
+            themeLabel.textContent = theme === "light" ? "Light" : "Dark";
+        }
+        if (themeToggleBtn) {
+            themeToggleBtn.setAttribute("data-current-theme", theme);
+            themeToggleBtn.title = theme === "light" ? "Switch to Dark Mode (Obsidian)" : "Switch to White Mode (Ivory)";
+        }
+
+        // Update settings page radio buttons & preview cards
+        document.querySelectorAll("input[name='admin_theme'], input[name='theme_choice']").forEach(radio => {
+            radio.checked = (radio.value === theme);
+        });
+        document.querySelectorAll(".adm-theme-card-option").forEach(card => {
+            if (card.getAttribute("data-theme-val") === theme) {
+                card.classList.add("is-selected");
+            } else {
+                card.classList.remove("is-selected");
+            }
+        });
+
+        // Persist to server via background AJAX
+        if (saveToServer) {
+            try {
+                fetch("api_theme.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ theme: theme })
+                }).catch(() => {});
+            } catch(e) {}
+        }
+    }
+
+    window.setAdminTheme = function(theme, saveToServer) {
+        applyAdminTheme(theme, saveToServer !== false);
+    };
+
+    window.toggleAdminTheme = function() {
+        const current = getActiveTheme();
+        const nextTheme = (current === "light") ? "dark" : "light";
+        applyAdminTheme(nextTheme, true);
+        if (typeof window.showAdmToast === "function") {
+            window.showAdmToast(nextTheme === "light" ? "☀️ White (Light) Theme Activated" : "🌙 Dark Obsidian Theme Activated", "success");
+        }
+    };
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            window.toggleAdminTheme();
+        });
+    }
+
+    // Attach click handlers to any theme choice cards in settings
+    document.querySelectorAll(".adm-theme-card-option").forEach(card => {
+        card.addEventListener("click", function() {
+            const val = this.getAttribute("data-theme-val");
+            if (val) {
+                window.setAdminTheme(val, true);
+                if (typeof window.showAdmToast === "function") {
+                    window.showAdmToast(val === "light" ? "☀️ White Theme Selected" : "🌙 Dark Theme Selected", "success");
+                }
+            }
+        });
+    });
+
+    // Sync active theme state on init
+    const initialTheme = getActiveTheme();
+    applyAdminTheme(initialTheme, false);
+
     // 1. Sidebar Minimize / Expand & Mobile Drawer Toggle
     const mobileToggle = document.getElementById("adm-mobile-toggle");
     const sidebar = document.getElementById("adm-sidebar");
@@ -56,16 +151,64 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    if (mobileToggle && sidebar) {
-        mobileToggle.addEventListener("click", () => {
-            sidebar.classList.toggle("is-open");
-        });
+    const mobileBackdrop = document.getElementById("adm-mobile-sidebar-backdrop");
+    const mobileCloseBtn = document.getElementById("adm-sidebar-close-mob");
+    const mobMoreBtn = document.getElementById("btn-mob-more-menu");
 
-        // Close when clicking outside
-        document.addEventListener("click", (e) => {
-            if (!sidebar.contains(e.target) && !mobileToggle.contains(e.target) && sidebar.classList.contains("is-open")) {
-                sidebar.classList.remove("is-open");
+    function openMobileDrawer() {
+        if (!sidebar) return;
+        sidebar.classList.add("is-open");
+        if (mobileBackdrop) mobileBackdrop.classList.add("is-active");
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeMobileDrawer() {
+        if (!sidebar) return;
+        sidebar.classList.remove("is-open");
+        if (mobileBackdrop) mobileBackdrop.classList.remove("is-active");
+        document.body.style.overflow = "";
+    }
+
+    if (mobileToggle) {
+        mobileToggle.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (sidebar.classList.contains("is-open")) {
+                closeMobileDrawer();
+            } else {
+                openMobileDrawer();
             }
+        });
+    }
+
+    if (mobileCloseBtn) {
+        mobileCloseBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            closeMobileDrawer();
+        });
+    }
+
+    if (mobMoreBtn) {
+        mobMoreBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            openMobileDrawer();
+        });
+    }
+
+    if (mobileBackdrop) {
+        mobileBackdrop.addEventListener("click", () => {
+            closeMobileDrawer();
+        });
+    }
+
+    // Auto-close mobile drawer when tapping any sidebar link
+    if (sidebar) {
+        sidebar.querySelectorAll(".adm-nav-link").forEach(link => {
+            link.addEventListener("click", () => {
+                if (window.innerWidth <= 992) {
+                    closeMobileDrawer();
+                }
+            });
         });
     }
 

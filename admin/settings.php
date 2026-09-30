@@ -121,6 +121,37 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
+<!-- Admin Appearance & Theme Quick Switcher Banner -->
+<div class="adm-card" style="margin-bottom: 20px; padding: 18px 22px; background: linear-gradient(135deg, rgba(16, 31, 21, 0.85) 0%, rgba(9, 19, 13, 0.95) 100%); border: 1.5px solid var(--adm-gold-border); border-radius: 14px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="adm-setting-card-icon gold" style="width: 40px; height: 40px; font-size: 16px;">
+                <i class="fa-solid fa-circle-half-stroke"></i>
+            </div>
+            <div>
+                <h3 style="font-family: var(--adm-font-title); font-size: 15px; color: #FFFFFF; margin: 0 0 2px; letter-spacing: 0.5px;">
+                    ADMIN CONSOLE THEME APPEARANCE
+                </h3>
+                <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">
+                    Choose between <strong>Dark Obsidian Luxury</strong> and <strong>Pure White / Ivory</strong> modes.
+                </p>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" class="adm-btn-action outline adm-theme-card-option" data-theme-val="dark" onclick="setAdminTheme('dark', true);" style="padding: 8px 16px; font-size: 12.5px; border-radius: 8px;">
+                <i class="fa-solid fa-moon" style="color: #C5A059;"></i>
+                <span>Dark Theme</span>
+            </button>
+
+            <button type="button" class="adm-btn-action outline adm-theme-card-option" data-theme-val="light" onclick="setAdminTheme('light', true);" style="padding: 8px 16px; font-size: 12.5px; border-radius: 8px; background: rgba(255,255,255,0.08);">
+                <i class="fa-solid fa-sun" style="color: #F59E0B;"></i>
+                <span>White Theme</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ================================================================= -->
 <!-- 16 FRONTEND CONFIGURATION CARDS GRID                              -->
 <!-- ================================================================= -->

@@ -671,7 +671,14 @@ $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
                                         <?php else: ?>
                                             <div class="booking-food-pill font-sans" style="background: rgba(255, 255, 255, 0.05); color: #94A3B8; border-color: rgba(255, 255, 255, 0.1);">
                                                 <i class="fa-solid fa-seedling"></i>
-                                                <span>Gastronomy: Farm À La Carte on Arrival</span>
+                                                <span>Gastronomy: Farm Dining Plan on Arrival</span>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <?php if (!empty($bk['addons']) && strtolower(trim($bk['addons'])) !== 'none'): ?>
+                                            <div class="booking-food-pill font-sans" style="background: rgba(14, 116, 144, 0.15); color: #38BDF8; border-color: rgba(14, 116, 144, 0.3); margin-top: 6px;">
+                                                <i class="fa-solid fa-sparkles"></i>
+                                                <span>Experiences: <?php echo htmlspecialchars($bk['addons']); ?> (Payable On-Site)</span>
                                             </div>
                                         <?php endif; ?>
                                     </div>

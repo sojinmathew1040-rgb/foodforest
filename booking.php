@@ -12,38 +12,18 @@ ensure_sanctuary_spots_table_exists($pdo);
 ensure_users_and_guest_columns($pdo);
 
 $rooms = get_all_rooms(false);
-$sanctuary_spots = get_all_sanctuary_spots(true);
+$map_data = get_sanctuary_map_data($pdo, true);
+$sanctuary_spots = $map_data['spots'];
+$map_routes = $map_data['routes'];
+$map_entrance = $map_data['entrance'];
+$map_exit = $map_data['exit'];
+$map_waypoints = $map_data['waypoints'];
+
 $currency = get_setting('currency_symbol', '₹');
 $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
 
 // Pre-selected villa from URL query
 $preselect_slug = trim($_GET['villa'] ?? '');
-
-// Calculate dynamic SVG route trail
-$route_d = '';
-if (!empty($sanctuary_spots)) {
-    $pts = [];
-    foreach ($sanctuary_spots as $sp) {
-        $pts[] = [
-            'x' => ($sp['x_coord'] / 100.0) * 800,
-            'y' => ($sp['y_coord'] / 100.0) * 520
-        ];
-    }
-    if (count($pts) > 1) {
-        $route_d = "M " . round($pts[0]['x'], 1) . "," . round($pts[0]['y'], 1);
-        for ($i = 0; $i < count($pts) - 1; $i++) {
-            $p0 = $pts[$i];
-            $p1 = $pts[$i + 1];
-            $mx = ($p0['x'] + $p1['x']) / 2;
-            $my = ($p0['y'] + $p1['y']) / 2;
-            $dx = $p1['x'] - $p0['x'];
-            $dy = $p1['y'] - $p0['y'];
-            $cx = $mx - ($dy * 0.12);
-            $cy = $my + ($dx * 0.12);
-            $route_d .= " Q " . round($cx, 1) . "," . round($cy, 1) . " " . round($p1['x'], 1) . "," . round($p1['y'], 1);
-        }
-    }
-}
 
 // Load Header
 require_once __DIR__ . '/includes/header.php';
@@ -125,14 +105,32 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- BookMyShow-Style Interactive Map Legend -->
+            <!-- Interactive Map Legend & Category Quick-Filter Bar -->
             <div class="bms-map-legend font-sans">
-                <div class="legend-item"><span class="legend-badge badge-available"></span> <strong style="color: #16A34A;">Available</strong></div>
-                <div class="legend-item"><span class="legend-badge badge-booked"></span> <strong style="color: #DC2626;">Booked / Reserved</strong></div>
-                <div class="legend-item"><span class="legend-badge badge-single"><i class="fa-solid fa-house-chimney"></i></span> Single Cottage</div>
-                <div class="legend-item"><span class="legend-badge badge-duplex"><i class="fa-solid fa-layer-group"></i></span> Duplex Chalet (2 Suites)</div>
-                <div class="legend-item"><span class="legend-badge badge-facility"><i class="fa-solid fa-utensils"></i></span> Estate Facilities</div>
-                <div class="legend-item"><span class="legend-badge badge-selected"><i class="fa-solid fa-check"></i></span> Selected Chalet</div>
+                <button type="button" class="legend-filter-btn active font-sans" data-legend-filter="all" title="Show all estate spots">
+                    <span class="legend-badge badge-all"><i class="fa-solid fa-border-all"></i></span>
+                    <span>All Spots</span>
+                </button>
+                <button type="button" class="legend-filter-btn font-sans" data-legend-filter="available" title="Filter to available chalets for dates">
+                    <span class="legend-badge badge-available"></span>
+                    <strong style="color: #16A34A;">Available</strong>
+                </button>
+                <button type="button" class="legend-filter-btn font-sans" data-legend-filter="booked" title="Filter to booked chalets">
+                    <span class="legend-badge badge-booked"></span>
+                    <strong style="color: #DC2626;">Booked / Reserved</strong>
+                </button>
+                <button type="button" class="legend-filter-btn font-sans" data-legend-filter="single" title="Filter to single cottages">
+                    <span class="legend-badge badge-single"><i class="fa-solid fa-house-chimney"></i></span>
+                    <span>Single Cottage</span>
+                </button>
+                <button type="button" class="legend-filter-btn font-sans" data-legend-filter="duplex" title="Filter to 2-room duplex chalets">
+                    <span class="legend-badge badge-duplex"><i class="fa-solid fa-layer-group"></i></span>
+                    <span>Duplex Chalet (2 Suites)</span>
+                </button>
+                <button type="button" class="legend-filter-btn font-sans" data-legend-filter="facilities" title="Filter to dining, plunge pool & estate amenities">
+                    <span class="legend-badge badge-facility"><i class="fa-solid fa-utensils"></i></span>
+                    <span>Estate Facilities</span>
+                </button>
             </div>
 
             <!-- Live Stay Date & Availability Summary Bar -->
@@ -160,7 +158,7 @@ require_once __DIR__ . '/includes/header.php';
                 
                 <div class="bms-map-canvas-card">
                     <!-- Topographic SVG Background Canvas -->
-                    <svg class="bms-topo-svg" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="bms-topo-svg" viewBox="0 0 800 520" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
                         <defs>
                             <radialGradient id="bms-forest-glow" cx="50%" cy="50%" r="70%">
                                 <stop offset="0%" stop-color="#193322" stop-opacity="0.98" />
@@ -194,11 +192,37 @@ require_once __DIR__ . '/includes/header.php';
                             <path d="M 330,-20 Q 430,45 520,-20" stroke="rgba(197, 160, 89, 0.5)" stroke-width="1.5" />
                         </g>
 
-                        <!-- Meandering River Stream -->
-                        <path d="M 120,-20 C 140,80 190,140 240,210 C 290,280 340,310 410,380 C 470,440 520,480 580,540" 
-                              stroke="url(#bms-stream-grad)" stroke-width="5" fill="none" stroke-linecap="round" filter="url(#bms-glow)" />
-                        <path d="M 390,260 C 430,280 470,320 480,350" 
-                              stroke="url(#bms-stream-grad)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.8" />
+                        <!-- Luxury Navigational Compass Rose -->
+                        <g class="bms-topo-compass" transform="translate(710, 68)" pointer-events="none">
+                            <circle cx="0" cy="0" r="28" fill="rgba(8, 20, 14, 0.85)" stroke="rgba(197, 160, 89, 0.5)" stroke-width="1.2" filter="url(#bms-glow)" />
+                            <circle cx="0" cy="0" r="23" fill="none" stroke="rgba(197, 160, 89, 0.35)" stroke-width="0.8" stroke-dasharray="2,2" />
+                            <!-- 8 Compass Star Points -->
+                            <!-- North Point (Gold Primary Needle) -->
+                            <polygon points="0,-23 5,-4 0,-1" fill="#D4AF37" />
+                            <polygon points="0,-23 -5,-4 0,-1" fill="#FFF2B2" />
+                            <!-- South Point -->
+                            <polygon points="0,23 5,4 0,1" fill="rgba(197, 160, 89, 0.45)" />
+                            <polygon points="0,23 -5,4 0,1" fill="rgba(197, 160, 89, 0.25)" />
+                            <!-- East Point -->
+                            <polygon points="23,0 4,5 1,0" fill="rgba(197, 160, 89, 0.45)" />
+                            <polygon points="23,0 4,-5 1,0" fill="rgba(197, 160, 89, 0.25)" />
+                            <!-- West Point -->
+                            <polygon points="-23,0 -4,5 -1,0" fill="rgba(197, 160, 89, 0.45)" />
+                            <polygon points="-23,0 -4,-5 -1,0" fill="rgba(197, 160, 89, 0.25)" />
+                            <!-- Diagonal Points -->
+                            <polygon points="12,-12 3,-3 0,0" fill="rgba(197, 160, 89, 0.3)" />
+                            <polygon points="-12,-12 -3,-3 0,0" fill="rgba(197, 160, 89, 0.3)" />
+                            <polygon points="12,12 3,3 0,0" fill="rgba(197, 160, 89, 0.2)" />
+                            <polygon points="-12,12 -3,3 0,0" fill="rgba(197, 160, 89, 0.2)" />
+                            <!-- Center Pivot Core -->
+                            <circle cx="0" cy="0" r="4" fill="#0c1d14" stroke="#D4AF37" stroke-width="1.5" />
+                            <circle cx="0" cy="0" r="1.8" fill="#FFF2B2" />
+                            <!-- Direction Letters -->
+                            <text x="0" y="-30" text-anchor="middle" fill="#D4AF37" font-family="'Cinzel', Georgia, serif" font-size="10" font-weight="bold" letter-spacing="1">N</text>
+                            <text x="0" y="38" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">S</text>
+                            <text x="35" y="3" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">E</text>
+                            <text x="-35" y="3" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">W</text>
+                        </g>
 
                         <!-- Decorative Forest Clusters -->
                         <g fill="rgba(64, 115, 84, 0.4)">
@@ -213,22 +237,50 @@ require_once __DIR__ . '/includes/header.php';
                         <text x="685" y="125" fill="rgba(197, 160, 89, 0.45)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,620M MSL</text>
                         <text x="685" y="385" fill="rgba(197, 160, 89, 0.45)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,580M MSL</text>
 
-                        <!-- Route Trail Line -->
-                        <?php if (!empty($route_d)): ?>
-                            <path d="<?php echo $route_d; ?>" fill="none" stroke="rgba(197, 160, 89, 0.25)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#bms-glow)" />
-                            <path d="<?php echo $route_d; ?>" fill="none" stroke="#C5A059" stroke-width="2.2" stroke-dasharray="6,6" stroke-linecap="round" stroke-linejoin="round" />
+                        <!-- Dynamic Custom Routes / Walking Trails -->
+                        <?php if (!empty($map_routes)): ?>
+                            <?php foreach ($map_routes as $r): ?>
+                                <?php if (!empty($r['svg_d'])): 
+                                    $dash = ($r['stroke_type'] === 'solid') ? 'none' : (($r['stroke_type'] === 'dotted') ? '3,4' : '9,6');
+                                    $w = floatval($r['line_width'] ?? 3.2);
+                                    $col = $r['color'] ?? '#D4AF37';
+                                ?>
+                                    <!-- Trail Glowing Aura -->
+                                    <path d="<?php echo $r['svg_d']; ?>" 
+                                          fill="none" stroke="<?php echo $col; ?>" stroke-opacity="0.3" stroke-width="<?php echo $w * 2.8; ?>" stroke-linecap="round" stroke-linejoin="round" filter="url(#bms-glow)" />
+                                    <!-- Paved Golden Trail Line -->
+                                    <path d="<?php echo $r['svg_d']; ?>" 
+                                          fill="none" stroke="<?php echo $col; ?>" stroke-width="<?php echo $w; ?>" stroke-dasharray="<?php echo $dash; ?>" stroke-linecap="round" stroke-linejoin="round" />
+                                <?php endif; ?>
+                            <?php endforeach; ?>
                         <?php endif; ?>
+
+                        <!-- Main Entrance Landmark Gate -->
+                        <?php if (!empty($map_entrance['enabled'])): ?>
+                            <g transform="translate(<?php echo $map_entrance['svg_x']; ?>, <?php echo $map_entrance['svg_y']; ?>)">
+                                <circle cx="0" cy="0" r="7" fill="#112318" stroke="#D4AF37" stroke-width="2.2" filter="url(#bms-glow)" />
+                                <circle cx="0" cy="0" r="2.8" fill="#64dfdf" />
+                                <text x="14" y="3.5" fill="#D4AF37" font-size="9" font-family="'Cinzel', Georgia, serif" font-weight="bold" letter-spacing="1"><?php echo e($map_entrance['label']); ?></text>
+                            </g>
+                        <?php endif; ?>
+
+                        <!-- Estate Exit Landmark Gate -->
+                        <?php if (!empty($map_exit['enabled'])): ?>
+                            <g transform="translate(<?php echo $map_exit['svg_x']; ?>, <?php echo $map_exit['svg_y']; ?>)">
+                                <circle cx="0" cy="0" r="7" fill="#112318" stroke="#E67E22" stroke-width="2.2" filter="url(#bms-glow)" />
+                                <circle cx="0" cy="0" r="2.8" fill="#E67E22" />
+                                <text x="14" y="3.5" fill="#E67E22" font-size="9" font-family="'Cinzel', Georgia, serif" font-weight="bold" letter-spacing="1"><?php echo e($map_exit['label']); ?></text>
+                            </g>
+                        <?php endif; ?>
+
+                        <!-- Custom Waypoints (Road geometry is rendered above, waypoint pins hidden on frontend) -->
                     </svg>
 
-                    <!-- Compass & Brook Badges -->
+                    <!-- Luxury Compass Rose -->
                     <div class="map-compass font-serif">
                         <span class="compass-n">N</span>
                         <div class="compass-pointer"></div>
                         <span class="compass-coords">KANTHALLOOR · 1,600M</span>
-                    </div>
-                    <div class="map-stream-badge font-sans">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c3-3 6-3 9 0s6 3 9 0"/><path d="M2 18c3-3 6-3 9 0s6 3 9 0"/></svg>
-                        Perennial Brook
                     </div>
 
                     <!-- Interactive Chalet & Facility Spot Elements (BookMyShow Style) -->
@@ -242,6 +294,9 @@ require_once __DIR__ . '/includes/header.php';
                             $is_duplex = ($is_stay && ($struct === 'duplex_hut' || stripos($sp['title'], 'duplex') !== false));
                             $status = ($idx === 1 || $idx === 2) ? 'available' : ($idx === 3 ? 'fast_filling' : 'available');
                             
+                            $pin_col = !empty($sp['pin_color']) ? $sp['pin_color'] : ($is_stay ? ($is_duplex ? '#06B6D4' : '#10B981') : '#F59E0B');
+                            $custom_icon = !empty($sp['icon_class']) ? $sp['icon_class'] : ($is_duplex ? 'fa-solid fa-layer-group' : ($is_stay ? 'fa-solid fa-house-chimney' : ($sp['category'] === 'dining' ? 'fa-solid fa-utensils' : 'fa-solid fa-tree')));
+
                             // Map stay types
                             $stay_cat = 'treehouse';
                             if (stripos($sp['title'], 'mudhouse') !== false) $stay_cat = 'mudhouse';
@@ -272,30 +327,19 @@ require_once __DIR__ . '/includes/header.php';
                                  data-rate="<?php echo $rate; ?>"
                                  data-single-rate="<?php echo (float)($sp['single_room_rate'] ?? $rate); ?>"
                                  data-status="<?php echo $status; ?>"
-                                 style="top: <?php echo $y_pos; ?>%; left: <?php echo $x_pos; ?>%;">
+                                 style="top: <?php echo $y_pos; ?>%; left: <?php echo $x_pos; ?>%; --node-accent: <?php echo $pin_col; ?>;">
                                 
-                                <div class="node-halo"></div>
-                                <div class="node-box">
+                                <div class="node-halo" style="background: <?php echo $pin_col; ?>; opacity: 0.35;"></div>
+                                <div class="node-box" style="border-color: <?php echo $pin_col; ?>; box-shadow: 0 0 14px <?php echo $pin_col; ?>55;">
+                                    <div class="node-icon" style="color: <?php echo $pin_col; ?>;" title="<?php echo htmlspecialchars($sp['title']); ?>">
+                                        <i class="<?php echo htmlspecialchars($custom_icon); ?>"></i>
+                                    </div>
+                                    <div class="node-code font-serif"><?php echo sprintf('%02d', $sp['spot_number']); ?></div>
                                     <?php if ($is_duplex): ?>
-                                        <div class="node-icon icon-duplex" title="Duplex Chalet (2 Suites)"><i class="fa-solid fa-layer-group"></i></div>
-                                        <div class="node-code font-serif"><?php echo sprintf('%02d', $sp['spot_number']); ?></div>
-                                        <span class="node-duplex-pill">2-Suite</span>
+                                        <span class="node-duplex-pill" style="background: <?php echo $pin_col; ?>; color: #fff;">2S</span>
+                                    <?php endif; ?>
+                                    <?php if ($is_stay): ?>
                                         <span class="node-status-dot status-dot-<?php echo $status; ?>"></span>
-                                    <?php elseif ($is_stay): ?>
-                                        <div class="node-icon icon-single" title="Single Cottage"><i class="fa-solid fa-house-chimney"></i></div>
-                                        <div class="node-code font-serif"><?php echo sprintf('%02d', $sp['spot_number']); ?></div>
-                                        <span class="node-status-dot status-dot-<?php echo $status; ?>"></span>
-                                    <?php else: ?>
-                                        <div class="node-icon-facility">
-                                            <?php if ($sp['category'] === 'dining'): ?>
-                                                <i class="fa-solid fa-utensils"></i>
-                                            <?php elseif ($sp['category'] === 'amenities'): ?>
-                                                <i class="fa-solid fa-water"></i>
-                                            <?php else: ?>
-                                                <i class="fa-solid fa-tree"></i>
-                                            <?php endif; ?>
-                                        </div>
-                                        <div class="node-code font-serif"><?php echo sprintf('%02d', $sp['spot_number']); ?></div>
                                     <?php endif; ?>
                                 </div>
 
@@ -390,6 +434,22 @@ require_once __DIR__ . '/includes/header.php';
                                 <span><i class="fa-solid fa-utensils"></i> All Farm Meals Included</span>
                                 <span><i class="fa-solid fa-wifi"></i> Forest Wi-Fi</span>
                                 <span><i class="fa-solid fa-mug-hot"></i> Organic Tea Ritual</span>
+                                <span><i class="fa-solid fa-square-parking"></i> Free Parking</span>
+                            </div>
+
+                            <!-- Transparent Rate Policy Card -->
+                            <div class="sac-rates-policy font-sans" style="background: rgba(197, 160, 89, 0.08); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 10px 12px; margin: 12px 0; font-size: 11.5px; color: #BAC8C0; line-height: 1.45;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; color: var(--accent-gold); font-weight: 700;">
+                                    <span><i class="fa-solid fa-shield-halved"></i> All-Inclusive Sanctuary Tariff</span>
+                                    <button type="button" onclick="openAmenitiesGuide();" style="background: none; border: none; color: #56c2c9; font-size: 11px; cursor: pointer; text-decoration: underline; padding: 0;">
+                                        <i class="fa-solid fa-circle-info"></i> All 8 Amenities
+                                    </button>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">
+                                    <span style="color: #E2E8F0;"><i class="fa-solid fa-user-plus" style="color: var(--accent-gold);"></i> Extra Adult: <strong>+₹1,500/nt</strong> (All Meals Incl.)</span>
+                                    <span style="color: #E2E8F0;"><i class="fa-solid fa-child" style="color: var(--accent-gold);"></i> Extra Child (5–11y): <strong>+₹800/nt</strong></span>
+                                    <span style="color: #4ADE80;"><i class="fa-solid fa-baby"></i> Infant (0–4y): <strong>Free</strong></span>
+                                </div>
                             </div>
 
                             <!-- Pricing Calculation Box -->
@@ -458,9 +518,17 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="chalet-features-row font-sans">
                                     <span><i class="fa-solid fa-users"></i> Base <?php echo (int)($rm['base_guests'] ?? 2); ?> (Max <?php echo (int)($rm['max_guests'] ?? 4); ?>)</span>
                                     <span><i class="fa-solid fa-utensils"></i> All Meals Included</span>
+                                    <span><i class="fa-solid fa-wifi"></i> Forest Wi-Fi</span>
                                 </div>
 
-                                <div class="chalet-actions-row">
+                                <div class="chalet-pricing-policy font-sans" style="font-size: 11px; color: #94A3B8; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 6px;">
+                                    <span>Extra Adult: <strong style="color: var(--accent-gold);">+₹1,500/nt</strong> • Child: <strong style="color: var(--accent-gold);">+₹800/nt</strong></span>
+                                    <button type="button" onclick="openAmenitiesGuide();" style="background: none; border: none; color: #56c2c9; font-size: 11px; cursor: pointer; text-decoration: underline;">
+                                        8 Amenities
+                                    </button>
+                                </div>
+
+                                <div class="chalet-actions-row" style="margin-top: 10px;">
                                     <button type="button" class="btn-primary select-from-grid-btn font-sans" data-slug="<?php echo htmlspecialchars($rm['slug']); ?>">
                                         <i class="fa-solid fa-calendar-check"></i> Book Chalet
                                     </button>
@@ -483,6 +551,130 @@ window.bookingRooms = <?php echo json_encode($rooms); ?>;
 window.preselectVillaSlug = <?php echo json_encode($preselect_slug); ?>;
 </script>
 <script src="assets/js/booking_controller.js?v=<?php echo time(); ?>"></script>
+
+<!-- Sanctuary Amenities Quick Modal (Popup inside Booking Page) -->
+<div id="amenities-guide-modal" class="booking-modal-overlay" style="display: none; z-index: 99999;">
+    <div class="booking-modal-backdrop" onclick="closeAmenitiesGuide();"></div>
+    <div class="booking-modal-container" style="max-width: 850px; background: #0E2016; border: 1.5px solid rgba(197, 160, 89, 0.45); border-radius: 16px; padding: 28px; color: #FFFFFF;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(197, 160, 89, 0.25); padding-bottom: 14px; margin-bottom: 20px;">
+            <div>
+                <span class="font-sans" style="font-size: 11px; font-weight: 700; color: var(--accent-gold); letter-spacing: 1.5px; text-transform: uppercase;">
+                    <i class="fa-solid fa-sparkles"></i> MAKEMYTRIP VERIFIED AMENITIES &amp; TARIFFS
+                </span>
+                <h3 class="font-serif" style="font-size: 1.8rem; margin: 4px 0 0; color: #FFFFFF;">Food Forest Sanctuary Facilities</h3>
+            </div>
+            <button type="button" onclick="closeAmenitiesGuide();" style="background: rgba(255,255,255,0.1); border: none; color: #FFFFFF; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="amenities-modal-grid font-sans" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; max-height: 60vh; overflow-y: auto; padding-right: 6px;">
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
+                <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-hotel"></i> 1. Basic Facilities</h4>
+                <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
+                    <li>High-Speed Optical Forest Wi-Fi</li>
+                    <li>Free Private Self-Parking &amp; Valet Area</li>
+                    <li>24/7 Power Backup (Eco Solar &amp; Inverter)</li>
+                    <li>Daily Housekeeping &amp; Turn-down Service</li>
+                    <li>Luggage Storage &amp; Porter Assistance</li>
+                    <li>RO Purified Natural Spring Drinking Water</li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
+                <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-bell-concierge"></i> 2. Staff &amp; Key Services</h4>
+                <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
+                    <li>24/7 Dedicated Concierge &amp; Caretaker</li>
+                    <li>Doctor on Call &amp; Medical First-Aid Desk</li>
+                    <li>Multilingual Staff (Malayalam, English, Tamil, Hindi)</li>
+                    <li>Sightseeing, Jeep Safari &amp; Taxi Desk</li>
+                    <li>Express Contactless Check-In / Check-Out</li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
+                <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-spa"></i> 3. Health &amp; Wellness</h4>
+                <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
+                    <li>Sunrise Mountain Yoga &amp; Meditation Decks</li>
+                    <li>Organic Herbal Steam Inhalation Ritual</li>
+                    <li>Zero-Pollution Pure Mountain Air (1,600m MSL)</li>
+                    <li>Shinrin-Yoku Forest Bathing Guided Walk</li>
+                    <li>River Brook Hydro-Reflexology Pebbled Trail</li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
+                <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-bed"></i> 4. Room Amenities</h4>
+                <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
+                    <li>180° Panoramic Mountain &amp; Mist Valley Views</li>
+                    <li>Private Cantilevered Timber Sit-Out Balcony</li>
+                    <li>Handcrafted Teak &amp; Earthen Cob Architecture</li>
+                    <li>100% Breathable Organic Cotton Linen &amp; Quilts</li>
+                    <li>Electric Kettle with Heirloom Herbal Tea &amp; Coffee Kit</li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
+                <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-utensils"></i> 5. Food &amp; Drink (Gastronomy)</h4>
+                <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
+                    <li><strong>All 4 Farm Meals Included</strong> in Base Tariff</li>
+                    <li>Woodfire Hearth Dining Pavilion &amp; Orchard Gazebo</li>
+                    <li>100% Farm-to-Table Organic Kerala Feasts</li>
+                    <li>High-Range Evening Plantation Chai Ritual</li>
+                    <li>Campfire Barbecue on Request</li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
+                <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-shower"></i> 6. Bathroom &amp; Hygiene</h4>
+                <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
+                    <li>24h Eco Solar &amp; Wood-Fired Hot Water</li>
+                    <li>Private En-Suite Natural River Stone Bathroom</li>
+                    <li>Handcrafted Botanical Herbal Toiletries</li>
+                    <li>Western Ceramic WC &amp; Health Jet</li>
+                    <li>Plush Organic Cotton Towels &amp; Mats</li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
+                <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-shield-halved"></i> 7. Safety &amp; Security</h4>
+                <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
+                    <li>Gated 10-Acre Perimeter with Solar Fencing</li>
+                    <li>24/7 Resident Caretaker &amp; Night Security Patrol</li>
+                    <li>Fire Extinguishers &amp; Solar Emergency Lighting</li>
+                    <li>Illuminated Stone Pathways with Guiding Lanterns</li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
+                <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-tree"></i> 8. Common Area &amp; Grounds</h4>
+                <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
+                    <li>10-Acre Certified Organic Apple &amp; Orange Orchards</li>
+                    <li>Natural Mountain Brook &amp; Wooden Footbridge</li>
+                    <li>Twilight Campfire Glade &amp; Stargazing Firepit</li>
+                    <li>Living Forest Lounge &amp; Botanical Library</li>
+                </ul>
+            </div>
+        </div>
+
+        <div style="margin-top: 18px; display: flex; justify-content: flex-end;">
+            <button type="button" class="btn-primary font-sans" onclick="closeAmenitiesGuide();" style="padding: 10px 24px;">
+                <span>Understood &amp; Close</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openAmenitiesGuide() {
+    var m = document.getElementById('amenities-guide-modal');
+    if (m) m.style.display = 'flex';
+}
+function closeAmenitiesGuide() {
+    var m = document.getElementById('amenities-guide-modal');
+    if (m) m.style.display = 'none';
+}
+</script>
 
 <?php
 // Load Existing Booking Modal (serves as rich step-by-step confirmation checkout)

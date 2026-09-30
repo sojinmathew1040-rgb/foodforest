@@ -225,14 +225,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 1. Estate & Branding Card
         elseif ($form_type === 'estate_settings') {
-            $keys = ['estate_name', 'estate_tagline', 'checkin_time', 'checkout_time', 'currency_symbol'];
+            $keys = ['estate_name', 'estate_tagline', 'checkin_time', 'checkout_time', 'currency_symbol', 'admin_theme'];
             $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
             foreach ($keys as $k) {
                 if (isset($_POST[$k])) {
                     $stmt->execute([$k, trim($_POST[$k])]);
                 }
             }
-            $alert_message = 'Estate identity & stay parameters successfully updated.';
+            $alert_message = 'Estate identity, stay parameters & admin theme preference successfully updated.';
         }
 
         // 2. WhatsApp & Concierge Card
@@ -681,9 +681,26 @@ ensure_experiences_details_columns($pdo);
 
         // 9. Sanctuary Estate Map & Mountain Route Trails Card (Dynamic CMS: Add, Edit, Delete Spots)
         elseif ($form_type === 'sanctuary_map_settings') {
-            ensure_sanctuary_spots_table_exists($pdo);
-
-            if (!empty($_POST['delete_spot_id'])) {
+            if (!empty($_POST['delete_all_spots'])) {
+                $pdo->exec("DELETE FROM sanctuary_spots");
+                // Clean route pathways
+                $r_json = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'sanctuary_map_route_data'")->fetchColumn();
+                if (!empty($r_json)) {
+                    $c = json_decode($r_json, true);
+                    if (is_array($c) && !empty($c['routes'])) {
+                        foreach ($c['routes'] as &$cr) {
+                            if (!empty($cr['nodes']) && is_array($cr['nodes'])) {
+                                $cr['nodes'] = array_values(array_filter($cr['nodes'], function($n) {
+                                    return !in_array($n['type'] ?? '', ['spot', 'spot_id', 'spot_num']);
+                                }));
+                            }
+                        }
+                        $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('sanctuary_map_route_data', ?)")
+                            ->execute([json_encode($c)]);
+                    }
+                }
+                $alert_message = 'All registered sanctuary spots deleted successfully.';
+            } elseif (!empty($_POST['delete_spot_id'])) {
                 $del_id = (int)$_POST['delete_spot_id'];
                 $del = $pdo->prepare("DELETE FROM sanctuary_spots WHERE id = ?");
                 $del->execute([$del_id]);
@@ -717,20 +734,40 @@ ensure_experiences_details_columns($pdo);
                 $primary_img = $photos[0];
                 $photos_json = json_encode(array_values($photos));
 
+                $icon_class = trim($_POST['new_spot_icon_class'] ?? 'fa-solid fa-tree');
+                $pin_color = trim($_POST['new_spot_pin_color'] ?? '#10B981');
+
                 if (!empty($title) && !empty($desc)) {
                     $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM sanctuary_spots")->fetchColumn();
                     $ins = $pdo->prepare("INSERT INTO sanctuary_spots 
-                        (spot_number, title, subtitle_tag, category, is_stay, linked_room_slug, structure_type, stay_price, elevation, temperature, description, aroma, sound, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
-                        VALUES (?, ?, '', ?, ?, ?, ?, ?, '', '', ?, '', '', ?, ?, '', '', ?, ?, ?, 1)");
-                    $ins->execute([$spot_num, $title, $category, $is_stay, $linked_room_slug ?: null, $structure_type, $stay_price, $desc, $primary_img, $photos_json, $x_coord, $y_coord, $max_order + 1]);
-                    $alert_message = 'New estate spot with route waypoint & photos added successfully!';
+                        (spot_number, title, subtitle_tag, category, icon_class, pin_color, is_stay, linked_room_slug, structure_type, stay_price, elevation, temperature, description, aroma, sound, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
+                        VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?, '', '', ?, '', '', ?, ?, '', '', ?, ?, ?, 1)");
+                    $ins->execute([$spot_num, $title, $category, $icon_class, $pin_color, $is_stay, $linked_room_slug ?: null, $structure_type, $stay_price, $desc, $primary_img, $photos_json, $x_coord, $y_coord, $max_order + 1]);
+
+                    // Automatically connect to active route if requested
+                    if (!empty($_POST['add_to_current_route'])) {
+                        $cfg = get_sanctuary_map_config($pdo);
+                        if (!empty($cfg['routes']) && is_array($cfg['routes'])) {
+                            $r_idx = 0;
+                            $cfg['routes'][$r_idx]['nodes'][] = [
+                                'type' => 'spot_num',
+                                'spot_number' => $spot_num,
+                                'curve' => 'straight',
+                                'curve_offset' => 0
+                            ];
+                            $stmt_r = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('sanctuary_map_route_data', ?)");
+                            $stmt_r->execute([json_encode($cfg)]);
+                        }
+                    }
+
+                    $alert_message = 'New property / landmark successfully registered and connected to pathway!';
                 } else {
                     $alert_message = 'Spot title and description cannot be blank.';
                     $alert_type = 'error';
                 }
             } else {
-                // Header settings
-                $keys = ['sanctuary_section_label', 'sanctuary_section_title'];
+                // Header & Route Network settings
+                $keys = ['sanctuary_section_label', 'sanctuary_section_title', 'sanctuary_map_route_data'];
                 $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
                 foreach ($keys as $k) {
                     if (isset($_POST[$k])) {
@@ -741,7 +778,7 @@ ensure_experiences_details_columns($pdo);
                 // Update individual spots
                 if (isset($_POST['spot_id']) && is_array($_POST['spot_id'])) {
                     $upd_spot = $pdo->prepare("UPDATE sanctuary_spots SET 
-                        spot_number = ?, title = ?, category = ?, is_stay = ?, linked_room_slug = ?, structure_type = ?, stay_price = ?, description = ?, x_coord = ?, y_coord = ?, image_url = ?, photos = ? 
+                        spot_number = ?, title = ?, category = ?, icon_class = ?, pin_color = ?, is_stay = ?, linked_room_slug = ?, structure_type = ?, stay_price = ?, description = ?, x_coord = ?, y_coord = ?, image_url = ?, photos = ? 
                         WHERE id = ?");
 
                     foreach ($_POST['spot_id'] as $idx => $sp_id) {
@@ -749,6 +786,8 @@ ensure_experiences_details_columns($pdo);
                         $s_title = trim($_POST['spot_title'][$idx] ?? '');
                         $s_desc = trim($_POST['spot_desc'][$idx] ?? '');
                         $s_category = trim($_POST['spot_category'][$idx] ?? 'nature');
+                        $s_icon = trim($_POST['spot_icon_class'][$idx] ?? 'fa-solid fa-tree');
+                        $s_color = trim($_POST['spot_pin_color'][$idx] ?? '#10B981');
                         $s_linked_room = trim($_POST['spot_linked_room_slug'][$idx] ?? '');
                         $s_structure = trim($_POST['spot_structure_type'][$idx] ?? 'single_hut');
                         $s_price = (!empty($_POST['spot_stay_price'][$idx]) && is_numeric($_POST['spot_stay_price'][$idx])) ? floatval($_POST['spot_stay_price'][$idx]) : null;
@@ -779,7 +818,7 @@ ensure_experiences_details_columns($pdo);
                         $primary_img = $retained_photos[0];
                         $photos_json = json_encode(array_values($retained_photos));
 
-                        $upd_spot->execute([$s_num, $s_title, $s_category, $s_is_stay, $s_linked_room ?: null, $s_structure, $s_price, $s_desc, $s_x, $s_y, $primary_img, $photos_json, (int)$sp_id]);
+                        $upd_spot->execute([$s_num, $s_title, $s_category, $s_icon, $s_color, $s_is_stay, $s_linked_room ?: null, $s_structure, $s_price, $s_desc, $s_x, $s_y, $primary_img, $photos_json, (int)$sp_id]);
                     }
                 }
                 $alert_message = 'Sanctuary estate map spots, linked cottages, multiple photos & route trails successfully updated.';
@@ -859,9 +898,9 @@ ensure_experiences_details_columns($pdo);
                     }
                 }
 
-                // Update rooms & tariffs & 360 panoramas
+                // Update rooms & tariffs & 360 panoramas & tour stages
                 if (isset($_POST['room_id']) && is_array($_POST['room_id'])) {
-                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, single_room_rate = ?, extra_guest_rate = ?, extra_child_rate = ?, min_guests = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, interior_360_url = ?, is_available = ? WHERE id = ?");
+                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, single_room_rate = ?, extra_guest_rate = ?, extra_child_rate = ?, min_guests = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, interior_360_url = ?, tour_stages_json = ?, is_available = ? WHERE id = ?");
                     foreach ($_POST['room_id'] as $idx => $rid) {
                         $t = trim($_POST['room_title'][$idx] ?? '');
                         $st = trim($_POST['room_stay_type'][$idx] ?? 'treehouse');
@@ -878,6 +917,30 @@ ensure_experiences_details_columns($pdo);
                         $img = trim($_POST['room_image'][$idx] ?? '');
                         $pano_360 = trim($_POST['room_interior_360'][$idx] ?? '');
                         $is_avail = (isset($_POST['room_available_' . $rid]) || (isset($_POST['room_available'][$idx]) && $_POST['room_available'][$idx] == '1')) ? 1 : 0;
+
+                        // Construct 360 Tour Stages & Milestones JSON
+                        $progLabels = [
+                            trim($_POST['room_tour_prog_label_1'][$idx] ?? 'Exterior'),
+                            trim($_POST['room_tour_prog_label_2'][$idx] ?? 'Panoramic Bay'),
+                            trim($_POST['room_tour_prog_label_3'][$idx] ?? 'Forest Deck'),
+                            trim($_POST['room_tour_prog_label_4'][$idx] ?? 'Master Suite'),
+                            trim($_POST['room_tour_prog_label_5'][$idx] ?? 'Stone Hearth'),
+                        ];
+                        $stages = [];
+                        for ($s_i = 1; $s_i <= 5; $s_i++) {
+                            $stages[] = [
+                                'pill' => trim($_POST["room_tour_stage_pill_{$s_i}"][$idx] ?? ''),
+                                'heading' => trim($_POST["room_tour_stage_heading_{$s_i}"][$idx] ?? ''),
+                                'text' => trim($_POST["room_tour_stage_text_{$s_i}"][$idx] ?? '')
+                            ];
+                        }
+                        $tour_data = [
+                            'badge' => trim($_POST['room_tour_badge'][$idx] ?? 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR'),
+                            'subtitle' => trim($_POST['room_tour_subtitle'][$idx] ?? 'Scroll down to fly from the misty forest canopy directly inside the 360° suite.'),
+                            'progressLabels' => $progLabels,
+                            'stages' => $stages
+                        ];
+                        $tour_stages_json = json_encode($tour_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
                         // Check primary exterior photo upload
                         if (isset($_FILES['room_image_file'])) {
@@ -929,11 +992,11 @@ ensure_experiences_details_columns($pdo);
 
                         $upd_room->execute([
                             $t, $st, $structure_type, $el, $rate, $single_rate, $extra_rate, $extra_child_rate,
-                            $min_guests, $base_guests, $cap, $d, $img, $pano_360, $is_avail, (int)$rid
+                            $min_guests, $base_guests, $cap, $d, $img, $pano_360, $tour_stages_json, $is_avail, (int)$rid
                         ]);
                     }
                 }
-                $alert_message = 'Villas, single & duplex cottages, min/max guests, dynamic tariffs & 360° panoramas successfully updated.';
+                $alert_message = 'Villas, single & duplex cottages, dynamic tariffs, 360° panoramas & tour scroll stages successfully updated.';
             }
         }
 
@@ -1830,6 +1893,62 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <label class="adm-form-label">Standard Check-out Time</label>
                         <input type="text" name="checkout_time" class="adm-form-control" value="<?php echo e($s['checkout_time'] ?? '11:00 AM'); ?>" required>
                         <small style="color: var(--adm-text-muted); font-size: 11px;">Guest departure & housekeeping handover window.</small>
+                    </div>
+
+                    <!-- Admin Console Appearance & Theme Mode -->
+                    <div class="adm-form-group" style="grid-column: 1 / -1; margin-top: 6px; padding: 20px; background: rgba(0,0,0,0.25); border: 1px solid var(--adm-gold-border); border-radius: 12px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <label class="adm-form-label" style="margin-bottom: 2px; font-size: 13px;">
+                                    <i class="fa-solid fa-palette" style="color: var(--adm-gold); margin-right: 6px;"></i>
+                                    ADMIN CONSOLE THEME APPEARANCE (WHITE & DARK)
+                                </label>
+                                <span style="font-size: 12px; color: var(--adm-text-secondary);">Select the default visual theme for your administrative console. Switchable instantly anytime from the top bar.</span>
+                            </div>
+                        </div>
+
+                        <?php $curr_theme_opt = $s['admin_theme'] ?? 'dark'; ?>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                            <!-- Dark Obsidian Option -->
+                            <label class="adm-theme-card-option <?php echo ($curr_theme_opt === 'dark') ? 'is-selected' : ''; ?>" data-theme-val="dark" style="cursor: pointer; position: relative;">
+                                <input type="radio" name="admin_theme" value="dark" <?php echo ($curr_theme_opt === 'dark') ? 'checked' : ''; ?> style="position: absolute; opacity: 0;" onchange="window.setAdminTheme('dark', false);">
+                                <div class="adm-theme-preview-box" style="background: #09130D; border: 2px solid var(--adm-gold-border); border-radius: 10px; padding: 16px; transition: all 0.2s ease;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <span style="font-family: var(--adm-font-title); font-size: 14px; color: #FFFFFF; font-weight: 700;">
+                                            <i class="fa-solid fa-moon" style="color: #C5A059; margin-right: 6px;"></i> Dark Obsidian
+                                        </span>
+                                        <span class="adm-theme-check-icon"><i class="fa-solid fa-circle-check" style="color: #10B981; font-size: 16px;"></i></span>
+                                    </div>
+                                    <p style="font-size: 11px; color: #839788; line-height: 1.4; margin: 0;">Lush high-range emerald & obsidian slate with champagne gold accents. Easy on the eyes for evening concierge.</p>
+                                    <div style="display: flex; gap: 6px; margin-top: 12px;">
+                                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #09130D; border: 1px solid rgba(255,255,255,0.2);"></span>
+                                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #101F15; border: 1px solid rgba(255,255,255,0.2);"></span>
+                                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #C5A059;"></span>
+                                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #10B981;"></span>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <!-- White Porcelain Option -->
+                            <label class="adm-theme-card-option <?php echo ($curr_theme_opt === 'light') ? 'is-selected' : ''; ?>" data-theme-val="light" style="cursor: pointer; position: relative;">
+                                <input type="radio" name="admin_theme" value="light" <?php echo ($curr_theme_opt === 'light') ? 'checked' : ''; ?> style="position: absolute; opacity: 0;" onchange="window.setAdminTheme('light', false);">
+                                <div class="adm-theme-preview-box" style="background: #FFFFFF; border: 2px solid #CAD7CE; border-radius: 10px; padding: 16px; transition: all 0.2s ease;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <span style="font-family: var(--adm-font-title); font-size: 14px; color: #0F1D13; font-weight: 700;">
+                                            <i class="fa-solid fa-sun" style="color: #B38E3B; margin-right: 6px;"></i> Pure White / Ivory
+                                        </span>
+                                        <span class="adm-theme-check-icon"><i class="fa-solid fa-circle-check" style="color: #10B981; font-size: 16px;"></i></span>
+                                    </div>
+                                    <p style="font-size: 11px; color: #5C7463; line-height: 1.4; margin: 0;">Crisp, radiant porcelain background with deep forest charcoal typography and bronze gold highlights.</p>
+                                    <div style="display: flex; gap: 6px; margin-top: 12px;">
+                                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; border: 1px solid #CCC;"></span>
+                                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #F4F7F4; border: 1px solid #CCC;"></span>
+                                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #B38E3B;"></span>
+                                        <span style="width: 16px; height: 16px; border-radius: 50%; background: #0D8A5E;"></span>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -3576,8 +3695,38 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 <option value="stays">🏡 Stay / Cottage</option>
                                 <option value="dining">🍲 Farm Dining</option>
                                 <option value="nature">🌿 Nature / Vista</option>
-                                <option value="amenities">🌊 Brook / Glade</option>
+                                <option value="amenities">🌊 Farm Stream / Glade</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- Landmark Type & Color Preset Selector -->
+                    <div class="adm-form-grid" style="display: grid; grid-template-columns: 1.4fr 1fr 120px; gap: 14px; margin-bottom: 14px; background: rgba(0,0,0,0.3); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 12px;">
+                        <div class="adm-form-group" style="margin: 0;">
+                            <label class="adm-form-label" style="font-size: 10.5px; color: var(--adm-gold);"><i class="fa-solid fa-icons"></i> Preset Type</label>
+                            <select class="adm-form-control" onchange="applySpotPreset(this, 'new');" style="font-size: 12px;">
+                                <option value="custom">-- Choose Landmark Preset --</option>
+                                <option value="kitchen" data-icon="fa-solid fa-utensils" data-color="#F59E0B" data-cat="dining">🍽️ Kitchen & Farm Dining</option>
+                                <option value="pool" data-icon="fa-solid fa-person-swimming" data-color="#0EA5E9" data-cat="amenities">🏊‍♂️ Natural Pool / Stream Plunge</option>
+                                <option value="strawberry" data-icon="fa-solid fa-seedling" data-color="#E11D48" data-cat="nature">🍓 Strawberry Farm & Orchards</option>
+                                <option value="agro_farm" data-icon="fa-solid fa-wheat-awn" data-color="#16A34A" data-cat="nature">🚜 Organic Vegetable & Agro Fields</option>
+                                <option value="manager" data-icon="fa-solid fa-user-tie" data-color="#A88B57" data-cat="amenities">🏠 Manager House / Reception</option>
+                                <option value="recreation" data-icon="fa-solid fa-fire" data-color="#D97706" data-cat="amenities">🎯 Recreation Area / Campfire Glade</option>
+                                <option value="kids_park" data-icon="fa-solid fa-shapes" data-color="#8B5CF6" data-cat="amenities">🛝 Kids Park & Play Glade</option>
+                                <option value="badminton" data-icon="fa-solid fa-table-tennis-paddle-ball" data-color="#84CC16" data-cat="amenities">🏸 Badminton Court / Sports Arena</option>
+                                <option value="wooden_single" data-icon="fa-solid fa-house-chimney" data-color="#10B981" data-cat="stays" data-struct="single_hut">🪵 Wooden Hut (Single Room)</option>
+                                <option value="wooden_duplex" data-icon="fa-solid fa-layer-group" data-color="#06B6D4" data-cat="stays" data-struct="duplex_hut">🪵 Wooden Hut (Duplex Chalet - 2 Suites)</option>
+                                <option value="mud_single" data-icon="fa-solid fa-mountain-sun" data-color="#EA580C" data-cat="stays" data-struct="single_hut">🧱 Mud Hut (Single Room)</option>
+                                <option value="mud_duplex" data-icon="fa-solid fa-landmark" data-color="#D946EF" data-cat="stays" data-struct="duplex_hut">🧱 Mud Hut (Duplex Chalet - 2 Suites)</option>
+                            </select>
+                        </div>
+                        <div class="adm-form-group" style="margin: 0;">
+                            <label class="adm-form-label" style="font-size: 10.5px;">Icon Class</label>
+                            <input type="text" id="new_spot_icon_class" name="new_spot_icon_class" class="adm-form-control" value="fa-solid fa-tree" placeholder="e.g. fa-solid fa-utensils">
+                        </div>
+                        <div class="adm-form-group" style="margin: 0;">
+                            <label class="adm-form-label" style="font-size: 10.5px;">Pin Color</label>
+                            <input type="color" id="new_spot_pin_color" name="new_spot_pin_color" class="adm-form-control" value="#10B981" style="height: 38px; padding: 2px;">
                         </div>
                     </div>
 
@@ -3639,55 +3788,12 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
             </div>
 
             <?php
-            // Calculate Circular/Elliptical Main Estate Loop Road & Dynamic Branches for Studio
-            $admin_loop_cx = 400;
-            $admin_loop_cy = 258;
-            $admin_loop_rx = 240;
-            $admin_loop_ry = 162;
-
-            $admin_main_loop_d = "M 390,420 " .
-                                 "C 280,420 160,340 160,260 " .
-                                 "C 160,180 280,95 400,95 " .
-                                 "C 520,95 640,180 640,260 " .
-                                 "C 640,340 520,420 390,420 Z";
-
-            $admin_entrance_drive_d = "M 390,496 L 390,420";
-
-            $admin_loop_nodes = [
-                ['x' => 390, 'y' => 420],
-                ['x' => 220, 'y' => 375],
-                ['x' => 160, 'y' => 260],
-                ['x' => 220, 'y' => 145],
-                ['x' => 400, 'y' => 95],
-                ['x' => 580, 'y' => 145],
-                ['x' => 640, 'y' => 260],
-                ['x' => 580, 'y' => 375]
-            ];
-
-            if (!function_exists('calculate_loop_junction')) {
-                function calculate_loop_junction($spot_x, $spot_y, $cx = 400, $cy = 258, $rx = 240, $ry = 162) {
-                    $angle = atan2($spot_y - $cy, $spot_x - $cx);
-                    $jx = $cx + $rx * cos($angle);
-                    $jy = $cy + $ry * sin($angle);
-                    return ['x' => round($jx, 1), 'y' => round($jy, 1), 'angle' => $angle];
-                }
-            }
-
-            $admin_branches = [];
-            if (!empty($all_sanctuary_spots)) {
-                foreach ($all_sanctuary_spots as $idx => $sp) {
-                    $sx = ($sp['x_coord'] / 100.0) * 800;
-                    $sy = ($sp['y_coord'] / 100.0) * 520;
-                    $junc = calculate_loop_junction($sx, $sy, $admin_loop_cx, $admin_loop_cy, $admin_loop_rx, $admin_loop_ry);
-                    $mid_x = ($junc['x'] + $sx) / 2;
-                    $mid_y = ($junc['y'] + $sy) / 2;
-                    $offset_x = ($sy - $junc['y']) * 0.18;
-                    $offset_y = -($sx - $junc['x']) * 0.18;
-                    $ctrl_x = $mid_x + $offset_x;
-                    $ctrl_y = $mid_y + $offset_y;
-                    $admin_branches[$idx] = "M " . $junc['x'] . "," . $junc['y'] . " Q " . round($ctrl_x, 1) . "," . round($ctrl_y, 1) . " " . round($sx, 1) . "," . round($sy, 1);
-                }
-            }
+            $admin_map_data = get_sanctuary_map_data($pdo, false);
+            $admin_map_config = $admin_map_data['config'];
+            $admin_routes = $admin_map_data['routes'];
+            $admin_entrance = $admin_map_data['entrance'];
+            $admin_exit = $admin_map_data['exit'];
+            $admin_waypoints = $admin_map_data['waypoints'];
             ?>
 
             <!-- Main Edit Form for All Spots & Section Headers -->
@@ -3695,6 +3801,8 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                 <input type="hidden" name="form_type" value="sanctuary_map_settings">
                 <input type="hidden" name="active_tab" value="sanctuary_map">
+                <!-- Custom Route Network JSON Data -->
+                <input type="hidden" id="sanctuary_map_route_data" name="sanctuary_map_route_data" value="<?php echo htmlspecialchars(json_encode($admin_map_config), ENT_QUOTES, 'UTF-8'); ?>">
 
                 <!-- Section Header Settings -->
                 <div style="background: rgba(46, 204, 113, 0.08); border: 1px solid rgba(46, 204, 113, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
@@ -3711,31 +3819,111 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     </div>
                 </div>
 
-                <!-- COMMON MASTER MAP STUDIO (Interactive Drag & Drop Mountain Canvas) -->
+                <!-- COMMON MASTER MAP STUDIO (Interactive Custom Pathway & Waypoint Engine) -->
                 <div class="admin-map-studio-card">
                     <div class="admin-map-studio-header">
                         <h4 class="admin-map-studio-title">
-                            <i class="fa-solid fa-mountain-sun"></i>
-                            <span>Sanctuary Master Map Studio (Spine & Sub-Branches)</span>
+                            <i class="fa-solid fa-compass-drafting" style="color: var(--adm-gold);"></i>
+                            <span>Sanctuary Master Map Studio (Custom Pathways & Waypoints)</span>
                         </h4>
                         <div class="admin-map-studio-hud">
-                            <span class="admin-map-hud-pill">
-                                <i class="fa-solid fa-hand-pointer" style="color: var(--adm-gold);"></i>
-                                <span>Drag pins to position branches</span>
+                            <span class="admin-map-hud-pill" id="admin-map-mode-indicator">
+                                <i class="fa-solid fa-arrow-pointer" style="color: var(--adm-gold);"></i>
+                                <span id="admin-map-mode-text">Select & Move Mode</span>
                             </span>
                             <span class="admin-map-hud-pill" id="admin-map-drag-feedback" style="display: none; background: rgba(197, 160, 89, 0.22); border-color: var(--adm-gold); color: #FFFFFF; font-weight: 600;">
                                 <i class="fa-solid fa-arrows-up-down-left-right"></i>
                                 <span id="admin-map-drag-text">Positioning...</span>
                             </span>
                             <span class="admin-map-hud-pill">
-                                <i class="fa-solid fa-compass" style="color: #56c2c9;"></i>
+                                <i class="fa-solid fa-mountain" style="color: #56c2c9;"></i>
                                 <span>1,600m High Range MSL</span>
                             </span>
                         </div>
                     </div>
 
+                    <!-- Guided Step-by-Step Action Bar -->
+                    <div class="admin-map-steps-bar" style="background: rgba(8, 20, 14, 0.7); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.8px;"><i class="fa-solid fa-wand-magic-sparkles"></i> Guided Map Builder:</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="adm-btn-step-pill" onclick="toggleEntranceGate();" title="Step 1: Place or toggle the Main Entrance Gate on map">
+                                <span class="step-num">1</span> <i class="fa-solid fa-door-open" style="color:var(--adm-gold);"></i> Entrance
+                            </button>
+                            <button type="button" class="adm-btn-step-pill" onclick="startDrawingMainRoad();" title="Step 2: Draw the Main Outer Loop Road">
+                                <span class="step-num">2</span> <i class="fa-solid fa-road" style="color:#D4AF37;"></i> Draw Main Road
+                            </button>
+                            <button type="button" class="adm-btn-step-pill" onclick="addNewRouteBranch();" title="Step 3: Add a Sub-Branch / Secondary Road off the main path">
+                                <span class="step-num">3</span> <i class="fa-solid fa-code-branch" style="color:#06B6D4;"></i> + Sub-Branch Road
+                            </button>
+                            <button type="button" class="adm-btn-step-pill highlight" onclick="openQuickPropertyModal();" title="Step 4: Add Huts, Duplex Chalets, Pool, Kitchen, Badminton Court, Kids Park">
+                                <span class="step-num">4</span> <i class="fa-solid fa-house-chimney-medical" style="color:#2ECC71;"></i> + Add Property Pin
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Studio Toolbar -->
+                    <div class="admin-map-toolbar">
+                        <div style="display: flex; align-items: center; gap: 6px; margin-right: 8px;">
+                            <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.8px;">Tool:</span>
+                            <button type="button" class="admin-map-tool-btn active" id="btn-tool-select" onclick="setStudioTool('select');" title="Select & Drag Pins">
+                                <i class="fa-solid fa-arrow-pointer"></i> <span>Select / Drag</span>
+                            </button>
+                            <button type="button" class="admin-map-tool-btn" id="btn-tool-pencil" onclick="setStudioTool('pencil');" title="Pencil Tool: Click points to draw custom walking route">
+                                <i class="fa-solid fa-pen-nib" style="color: #56C2C9;"></i> <span>Draw Path (Pencil)</span>
+                            </button>
+                            <button type="button" class="admin-map-tool-btn" id="btn-tool-finish-pencil" onclick="finishPencilDrawing();" style="display: none; background: #2ECC71; color: #081d1a; font-weight: 700; border-color: #27ae60;" title="Finish and finalize current pathway drawing">
+                                <i class="fa-solid fa-check"></i> <span>Finish Path</span>
+                            </button>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto;">
+                            <button type="button" class="admin-map-tool-btn" onclick="openAddWaypointModal();" title="Add a new custom waypoint node on the map">
+                                <i class="fa-solid fa-location-dot" style="color: #56C2C9;"></i> <span>+ Add Waypoint</span>
+                            </button>
+                            <button type="button" class="admin-map-tool-btn" onclick="openManageWaypointsModal();" title="View and remove custom waypoints">
+                                <i class="fa-solid fa-list-check" style="color: #56C2C9;"></i> <span>Waypoints (<span id="admin-waypoint-count-text"><?php echo count($admin_waypoints); ?></span>)</span>
+                            </button>
+                            <button type="button" class="admin-map-tool-btn" onclick="toggleEntranceGate();" id="btn-toggle-entrance" title="Toggle Main Entrance Gate">
+                                <i class="fa-solid fa-door-open" style="color: var(--adm-gold);"></i> <span>Entrance Gate</span>
+                            </button>
+                            <button type="button" class="admin-map-tool-btn" onclick="toggleExitGate();" id="btn-toggle-exit" title="Toggle Estate Exit Gate">
+                                <i class="fa-solid fa-door-closed" style="color: #E67E22;"></i> <span>Exit Gate (<?php echo !empty($admin_exit['enabled']) ? 'ON' : 'OFF'; ?>)</span>
+                            </button>
+                            <button type="button" class="admin-map-tool-btn" onclick="addNewRouteBranch();" title="Add a new secondary route/branch">
+                                <i class="fa-solid fa-code-branch" style="color: #2ECC71;"></i> <span>+ New Branch</span>
+                            </button>
+                            <button type="button" class="admin-map-tool-btn" onclick="resetToScenicLoop();" title="Reset to natural scenic connected loop">
+                                <i class="fa-solid fa-rotate-left"></i> <span>Reset Route</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Visual Master Canvas (800x520 Topographic System) -->
                     <div id="admin-master-map-canvas" class="admin-map-canvas-container">
+                        <!-- Floating HUD for Pencil Drawing with Finish Button -->
+                        <div id="admin-pencil-hud" class="admin-pencil-floating-hud" style="display: none;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="adm-pulse-dot" style="background: #56C2C9;"></span>
+                                <span style="font-size: 12px; font-weight: 700; color: #FFFFFF;">Drawing Pathway: <span id="admin-pencil-route-name" style="color: #56C2C9;">Main Loop</span></span>
+                            </div>
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.7); display: flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-circle-info" style="color: var(--adm-gold);"></i> Click map to place path nodes
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <button type="button" class="adm-btn-pencil-finish" onclick="finishPencilDrawing();" title="Finish and complete this pathway (or press Escape / Enter)">
+                                    <i class="fa-solid fa-circle-check"></i> Finish Path
+                                </button>
+                                <button type="button" class="adm-btn-pencil-new-branch" onclick="addNewRouteBranch();" title="Finish current path and start a new sub-branch road">
+                                    <i class="fa-solid fa-plus"></i> + Sub-Branch
+                                </button>
+                                <button type="button" class="adm-btn-pencil-cancel" onclick="setStudioTool('select');" title="Cancel drawing mode">
+                                    ✕ Exit
+                                </button>
+                            </div>
+                        </div>
+
                         <svg class="admin-master-trail-svg" viewBox="0 0 800 520" preserveAspectRatio="none">
                             <defs>
                                 <radialGradient id="admin-topo-glow" cx="50%" cy="50%" r="65%">
@@ -3770,11 +3958,37 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 <path d="M 330,-20 Q 430,45 520,-20" stroke="rgba(197, 160, 89, 0.45)" stroke-width="1.5" />
                             </g>
 
-                            <!-- Meandering Mountain River / Brook -->
-                            <path d="M 120,-20 C 140,80 190,140 240,210 C 290,280 340,310 410,380 C 470,440 520,480 580,540" 
-                                  stroke="url(#admin-stream-gradient)" stroke-width="4.5" fill="none" stroke-linecap="round" filter="url(#admin-map-glow)" />
-                            <path d="M 390,260 C 430,280 470,320 480,350" 
-                                  stroke="url(#admin-stream-gradient)" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.75" />
+                            <!-- Luxury Navigational Compass Rose -->
+                            <g class="admin-topo-compass" transform="translate(710, 68)" pointer-events="none">
+                                <circle cx="0" cy="0" r="28" fill="rgba(8, 20, 14, 0.85)" stroke="rgba(197, 160, 89, 0.5)" stroke-width="1.2" filter="url(#admin-map-glow)" />
+                                <circle cx="0" cy="0" r="23" fill="none" stroke="rgba(197, 160, 89, 0.35)" stroke-width="0.8" stroke-dasharray="2,2" />
+                                <!-- 8 Compass Star Points -->
+                                <!-- North Point (Gold Primary Needle) -->
+                                <polygon points="0,-23 5,-4 0,-1" fill="#D4AF37" />
+                                <polygon points="0,-23 -5,-4 0,-1" fill="#FFF2B2" />
+                                <!-- South Point -->
+                                <polygon points="0,23 5,4 0,1" fill="rgba(197, 160, 89, 0.45)" />
+                                <polygon points="0,23 -5,4 0,1" fill="rgba(197, 160, 89, 0.25)" />
+                                <!-- East Point -->
+                                <polygon points="23,0 4,5 1,0" fill="rgba(197, 160, 89, 0.45)" />
+                                <polygon points="23,0 4,-5 1,0" fill="rgba(197, 160, 89, 0.25)" />
+                                <!-- West Point -->
+                                <polygon points="-23,0 -4,5 -1,0" fill="rgba(197, 160, 89, 0.45)" />
+                                <polygon points="-23,0 -4,-5 -1,0" fill="rgba(197, 160, 89, 0.25)" />
+                                <!-- Diagonal Points -->
+                                <polygon points="12,-12 3,-3 0,0" fill="rgba(197, 160, 89, 0.3)" />
+                                <polygon points="-12,-12 -3,-3 0,0" fill="rgba(197, 160, 89, 0.3)" />
+                                <polygon points="12,12 3,3 0,0" fill="rgba(197, 160, 89, 0.2)" />
+                                <polygon points="-12,12 -3,3 0,0" fill="rgba(197, 160, 89, 0.2)" />
+                                <!-- Center Pivot Core -->
+                                <circle cx="0" cy="0" r="4" fill="#0c1d14" stroke="#D4AF37" stroke-width="1.5" />
+                                <circle cx="0" cy="0" r="1.8" fill="#FFF2B2" />
+                                <!-- Direction Letters -->
+                                <text x="0" y="-30" text-anchor="middle" fill="#D4AF37" font-family="'Cinzel', Georgia, serif" font-size="10" font-weight="bold" letter-spacing="1">N</text>
+                                <text x="0" y="38" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">S</text>
+                                <text x="35" y="3" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">E</text>
+                                <text x="-35" y="3" text-anchor="middle" fill="rgba(197, 160, 89, 0.65)" font-family="'Cinzel', Georgia, serif" font-size="7" font-weight="bold">W</text>
+                            </g>
 
                             <!-- Shola Evergreen Tree Clusters -->
                             <g fill="rgba(64, 115, 84, 0.35)">
@@ -3801,65 +4015,88 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 <text x="640" y="484" text-anchor="end">PRIVATE SANCTUARY RESERVE</text>
                             </g>
 
-                            <!-- 2. Main Circular / Elliptical Estate Loop Road (Permanently Visible) -->
-                            <!-- Entrance Avenue -->
-                            <path d="<?php echo $admin_entrance_drive_d; ?>" fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="8" stroke-linecap="round" filter="url(#admin-map-glow)" />
-                            <path d="<?php echo $admin_entrance_drive_d; ?>" fill="none" stroke="#D4AF37" stroke-width="3" stroke-dasharray="6,4" stroke-linecap="round" />
-
-                            <!-- Main Loop Ring Road -->
-                            <path id="admin-master-spine-aura" d="<?php echo $admin_main_loop_d; ?>" 
-                                  fill="none" stroke="rgba(197, 160, 89, 0.28)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" filter="url(#admin-map-glow)" />
-                            <path id="admin-master-spine-line" d="<?php echo $admin_main_loop_d; ?>" 
-                                  fill="none" stroke="#D4AF37" stroke-width="3.2" stroke-dasharray="10,6" stroke-linecap="round" stroke-linejoin="round" />
-
-                            <!-- Entrance Landmark Gate -->
-                            <g transform="translate(390, 492)">
-                                <circle cx="0" cy="0" r="6" fill="#14281c" stroke="#D4AF37" stroke-width="2" filter="url(#admin-map-glow)" />
-                                <circle cx="0" cy="0" r="2.5" fill="#56C2C9" />
-                                <text x="14" y="3" fill="#D4AF37" font-size="9" font-family="'Cinzel', Georgia, serif" font-weight="bold" letter-spacing="1">MAIN ENTRANCE</text>
-                            </g>
-
-                            <!-- Loop Road Nodes -->
-                            <g id="admin-master-spine-nodes">
-                                <?php foreach ($admin_loop_nodes as $pt): ?>
-                                    <circle cx="<?php echo $pt['x']; ?>" cy="<?php echo $pt['y']; ?>" r="4.5" fill="#14281c" stroke="#D4AF37" stroke-width="1.8" filter="url(#admin-map-glow)" />
-                                    <circle cx="<?php echo $pt['x']; ?>" cy="<?php echo $pt['y']; ?>" r="1.8" fill="#56C2C9" />
+                            <!-- 2. Dynamic Compiled Custom Routes Layer -->
+                            <g id="admin-master-routes-group">
+                                <?php foreach ($admin_routes as $ridx => $r): 
+                                    $dash = ($r['stroke_type'] === 'solid') ? 'none' : (($r['stroke_type'] === 'dotted') ? '3,4' : '9,6');
+                                    $w = floatval($r['line_width'] ?? 3.2);
+                                    $col = $r['color'] ?? '#D4AF37';
+                                ?>
+                                    <path class="admin-route-aura" id="admin-route-aura-<?php echo $ridx; ?>" d="<?php echo $r['svg_d']; ?>" 
+                                          fill="none" stroke="<?php echo $col; ?>" stroke-opacity="0.32" stroke-width="<?php echo $w * 2.8; ?>" stroke-linecap="round" stroke-linejoin="round" filter="url(#admin-map-glow)" />
+                                    <path class="admin-route-line" id="admin-route-line-<?php echo $ridx; ?>" d="<?php echo $r['svg_d']; ?>" 
+                                          fill="none" stroke="<?php echo $col; ?>" stroke-width="<?php echo $w; ?>" stroke-dasharray="<?php echo $dash; ?>" stroke-linecap="round" stroke-linejoin="round" />
                                 <?php endforeach; ?>
                             </g>
 
-                            <!-- 3. Sub-Branch Trails to Each Draggable Pin -->
-                            <g id="admin-master-branches-group">
-                                <?php foreach ($admin_branches as $bidx => $bd): ?>
-                                    <path class="admin-branch-trail-aura" id="admin-branch-aura-<?php echo $bidx; ?>" d="<?php echo $bd; ?>" 
-                                          fill="none" stroke="rgba(86, 194, 201, 0.22)" stroke-width="5" stroke-linecap="round" filter="url(#admin-map-glow)" />
-                                    <path class="admin-branch-trail-line" id="admin-branch-line-<?php echo $bidx; ?>" d="<?php echo $bd; ?>" 
-                                          fill="none" stroke="#C5A059" stroke-width="2" stroke-dasharray="4,4" stroke-linecap="round" opacity="0.9" />
-                                <?php endforeach; ?>
-                            </g>
+                            <!-- Rubberband line preview for Pencil drawing tool -->
+                            <line id="admin-pencil-guide-line" x1="0" y1="0" x2="0" y2="0" stroke="#56C2C9" stroke-width="2" stroke-dasharray="4,4" opacity="0" pointer-events="none" />
                         </svg>
 
-                        <!-- Draggable Pins Layer -->
+                        <!-- Interactive Draggable Pins Layer -->
                         <div id="admin-master-pins-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                            
+                            <!-- Entrance Landmark Pin -->
+                            <div class="admin-entrance-pin" id="admin-entrance-pin" style="left: <?php echo (float)$admin_entrance['x']; ?>%; top: <?php echo (float)$admin_entrance['y']; ?>%; display: <?php echo !empty($admin_entrance['enabled']) ? 'flex' : 'none'; ?>; pointer-events: auto;" title="Drag to reposition Main Entrance">
+                                <div class="admin-pin-pulse" style="background: rgba(197, 160, 89, 0.35);"></div>
+                                <div class="admin-pin-core" style="background: #14281c; border-color: var(--adm-gold); color: var(--adm-gold);">
+                                    <i class="fa-solid fa-door-open" style="font-size: 13px;"></i>
+                                </div>
+                                <div class="admin-entrance-badge">
+                                    <span id="admin-entrance-label-text"><?php echo e($admin_entrance['label']); ?></span>
+                                </div>
+                            </div>
+
+                            <!-- Exit Landmark Pin -->
+                            <div class="admin-exit-pin" id="admin-exit-pin" style="left: <?php echo (float)$admin_exit['x']; ?>%; top: <?php echo (float)$admin_exit['y']; ?>%; display: <?php echo !empty($admin_exit['enabled']) ? 'flex' : 'none'; ?>; pointer-events: auto;" title="Drag to reposition Estate Exit">
+                                <div class="admin-pin-pulse" style="background: rgba(230, 126, 34, 0.35);"></div>
+                                <div class="admin-pin-core" style="background: #24140a; border-color: #E67E22; color: #E67E22;">
+                                    <i class="fa-solid fa-door-closed" style="font-size: 13px;"></i>
+                                </div>
+                                <div class="admin-exit-badge">
+                                    <span id="admin-exit-label-text"><?php echo e($admin_exit['label']); ?></span>
+                                </div>
+                            </div>
+
+                            <!-- Custom Waypoint Pins -->
+                            <div id="admin-waypoints-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                                <?php foreach ($admin_waypoints as $widx => $wp): ?>
+                                    <div class="admin-waypoint-pin" id="admin-waypoint-<?php echo e($wp['id']); ?>" data-wpid="<?php echo e($wp['id']); ?>" data-wpidx="<?php echo $widx; ?>" style="left: <?php echo (float)$wp['x']; ?>%; top: <?php echo (float)$wp['y']; ?>%; pointer-events: auto;" title="Drag Waypoint: <?php echo e($wp['label']); ?>">
+                                        <div class="admin-pin-pulse" style="background: rgba(86, 194, 201, 0.3);"></div>
+                                        <div class="admin-pin-core" style="background: #081d1a; border-color: #56C2C9; color: #56C2C9; width: 26px; height: 26px; font-size: 10px;">
+                                            <i class="fa-solid fa-location-dot"></i>
+                                        </div>
+                                        <div class="admin-waypoint-badge">
+                                            <span><?php echo e($wp['label']); ?></span>
+                                            <button type="button" class="admin-waypoint-del-btn" onclick="deleteCustomWaypoint('<?php echo e($wp['id']); ?>', '<?php echo e(addslashes($wp['label'])); ?>', event);" title="Delete Waypoint '<?php echo e($wp['label']); ?>'">✕</button>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <!-- Spot Pins -->
                             <?php if (!empty($all_sanctuary_spots)): ?>
                                 <?php foreach ($all_sanctuary_spots as $idx => $sp): 
                                     $is_c = (!empty($sp['is_stay']) || $sp['category'] === 'stays');
+                                    $pin_col = !empty($sp['pin_color']) ? $sp['pin_color'] : ($is_c ? '#10B981' : '#F59E0B');
+                                    $icon_cls = !empty($sp['icon_class']) ? $sp['icon_class'] : ($is_c ? 'fa-solid fa-house-chimney' : 'fa-solid fa-location-dot');
                                 ?>
                                     <div class="admin-master-pin <?php echo $is_c ? 'is-cottage-pin' : ''; ?>"
                                          id="master-pin-<?php echo $idx; ?>"
                                          data-idx="<?php echo $idx; ?>"
+                                         data-spot-id="<?php echo (int)$sp['id']; ?>"
                                          data-spot-num="<?php echo (int)$sp['spot_number']; ?>"
                                          data-title="<?php echo e($sp['title']); ?>"
+                                         data-color="<?php echo e($pin_col); ?>"
+                                         data-icon="<?php echo e($icon_cls); ?>"
                                          style="left: <?php echo (float)$sp['x_coord']; ?>%; top: <?php echo (float)$sp['y_coord']; ?>%; pointer-events: auto;"
-                                         title="Drag to reposition Spot #<?php echo sprintf('%02d', $sp['spot_number']); ?>">
-                                        <div class="admin-pin-pulse" style="<?php echo $is_c ? 'background: rgba(86, 194, 201, 0.4);' : ''; ?>"></div>
-                                        <div class="admin-pin-core" style="<?php echo $is_c ? 'background: #0d2822; border-color: #56C2C9; color: #56C2C9;' : ''; ?>">
-                                            <span><?php echo sprintf('%02d', $sp['spot_number']); ?></span>
+                                         title="Drag to reposition <?php echo e($sp['title']); ?>">
+                                        <div class="admin-pin-pulse" id="pin-pulse-<?php echo $idx; ?>" style="background: <?php echo $pin_col; ?>; opacity: 0.38;"></div>
+                                        <div class="admin-pin-core" id="pin-core-<?php echo $idx; ?>" style="background: #0d1b14; border-color: <?php echo $pin_col; ?>; color: <?php echo $pin_col; ?>; box-shadow: 0 0 12px <?php echo $pin_col; ?>55;">
+                                            <i id="pin-icon-<?php echo $idx; ?>" class="<?php echo e($icon_cls); ?>" style="font-size: 13px;"></i>
                                         </div>
-                                        <div class="admin-pin-label">
-                                            <strong>#<?php echo sprintf('%02d', $sp['spot_number']); ?> <?php echo e(mb_strimwidth($sp['title'], 0, 15, '..')); ?></strong>
-                                            <span class="admin-pin-coords" id="pin-coords-text-<?php echo $idx; ?>">
-                                                X:<?php echo round((float)$sp['x_coord'], 1); ?>% Y:<?php echo round((float)$sp['y_coord'], 1); ?>%
-                                            </span>
+                                        <div class="admin-pin-label" style="border-left: 2px solid <?php echo $pin_col; ?>;">
+                                            <strong style="color: #FFFFFF; font-size: 11px;"><?php echo e(mb_strimwidth($sp['title'], 0, 20, '..')); ?></strong>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -3877,12 +4114,116 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     <div class="admin-map-live-status-bar">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-code-branch" style="color: #2ecc71;"></i>
-                            <span style="color: #FFFFFF; font-weight: 600;">Trail Network:</span>
-                            <span style="color: var(--adm-text-secondary);"><?php echo count($all_sanctuary_spots); ?> Sub-Branches linked to Promenade Spine</span>
+                            <span style="color: #FFFFFF; font-weight: 600;">Active Routes:</span>
+                            <span style="color: var(--adm-text-secondary);" id="admin-map-route-count-text"><?php echo count($admin_routes); ?> Custom Pathway(s) Connected</span>
                         </div>
                         <div id="admin-map-live-tip" style="color: var(--adm-text-muted); font-size: 11.5px; display: flex; align-items: center; gap: 6px;">
                             <i class="fa-solid fa-lightbulb" style="color: var(--adm-gold);"></i>
-                            <span>Click and drag any pin with your mouse to reposition its branch. Save button commits changes.</span>
+                            <span>Use <strong>Select / Drag</strong> to reposition pins. Click <strong>+ Register Property to Pathway</strong> to drop pools, courts, or huts directly onto your route!</span>
+                        </div>
+                    </div>
+
+                    <!-- ROUTE SEQUENCE & CURVE STUDIO (Step-by-step Point Connector) -->
+                    <div class="admin-route-builder-card" id="admin-route-builder-panel">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.8px;">
+                                    <i class="fa-solid fa-route"></i> Route Pathway Sequence:
+                                </span>
+                                <select id="admin-route-selector" class="adm-form-control" onchange="onSelectActiveRoute(this.value);" style="min-width: 200px;">
+                                    <?php foreach ($admin_routes as $ridx => $r): ?>
+                                        <option value="<?php echo $ridx; ?>"><?php echo e($r['name'] ?? ('Route ' . ($ridx + 1))); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3);" onclick="addNewRouteBranch();" title="Add a new route branch">
+                                    <i class="fa-solid fa-plus"></i> New Branch
+                                </button>
+                                <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.06);" onclick="deleteActiveRoute();" title="Delete current route branch">
+                                    <i class="fa-solid fa-trash-can" style="color: #E74C3C;"></i> Delete Branch
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- EXPLICIT TOOLBAR: Quick Add Points & Properties to Active Pathway -->
+                        <div style="background: rgba(0,0,0,0.32); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 280px;">
+                                <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); white-space: nowrap;">
+                                    <i class="fa-solid fa-plus-circle"></i> Add Landmark:
+                                </span>
+                                <select id="quick_add_node_select" class="adm-form-control" style="flex: 1; min-width: 220px; font-size: 12px; height: 34px;">
+                                    <optgroup label="Gates & Boundary Points">
+                                        <option value="entrance">🚪 Main Entrance Gate</option>
+                                        <option value="exit">🚪 Estate Exit Gate</option>
+                                    </optgroup>
+                                    <?php if (!empty($admin_waypoints)): ?>
+                                        <optgroup label="Custom Waypoints">
+                                            <?php foreach ($admin_waypoints as $wp): ?>
+                                                <option value="waypoint_<?php echo e($wp['id']); ?>">📍 <?php echo e($wp['label']); ?></option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    <?php endif; ?>
+                                    <?php if (!empty($all_sanctuary_spots)): ?>
+                                        <optgroup label="Sanctuary Spots & Cottages">
+                                            <?php foreach ($all_sanctuary_spots as $sp): ?>
+                                                <option value="spot_<?php echo (int)$sp['spot_number']; ?>">
+                                                    <?php echo e($sp['title']); ?> (<?php echo e(ucfirst($sp['category'])); ?>)
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    <?php endif; ?>
+                                </select>
+                                <button type="button" class="adm-btn-action gold" onclick="addSelectedNodeToActiveRoute();" style="padding: 6px 14px; font-size: 11.5px; font-weight: 700; white-space: nowrap;">
+                                    <i class="fa-solid fa-plus"></i> Add to Pathway
+                                </button>
+                                <button type="button" class="adm-btn-action" onclick="openQuickPropertyModal();" style="padding: 6px 14px; font-size: 11.5px; font-weight: 700; background: rgba(86, 194, 201, 0.2); border: 1px solid #56C2C9; color: #56C2C9; white-space: nowrap;" title="Register a pool, cottage, badminton court or farm directly at this pathway point">
+                                    <i class="fa-solid fa-house-chimney-medical"></i> + Register Property Here
+                                </button>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <button type="button" class="adm-btn-action" style="padding: 6px 12px; font-size: 11px; background: rgba(86, 194, 201, 0.15); color: #56C2C9; border: 1px solid rgba(86, 194, 201, 0.35);" onclick="autoConnectAllSpotsToRoute();" title="Connect Entrance and all Spots in sequence">
+                                    <i class="fa-solid fa-bolt"></i> Auto-Connect All Spots
+                                </button>
+                                <button type="button" class="adm-btn-action" style="padding: 6px 12px; font-size: 11px; background: rgba(231, 76, 60, 0.15); color: #FF7675; border: 1px solid rgba(231, 76, 60, 0.35);" onclick="clearActiveRoutePoints();" title="Clear all points from current pathway">
+                                    <i class="fa-solid fa-eraser"></i> Clear Pathway
+                                </button>
+                                <button type="button" class="adm-btn-action" style="padding: 6px 12px; font-size: 11px; background: rgba(255,255,255,0.06);" onclick="resetToScenicLoop();" title="Reset route to natural scenic loop">
+                                    <i class="fa-solid fa-rotate-left"></i> Reset Loop
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Node Sequence Chain Chips -->
+                        <div class="admin-node-chain-list" id="admin-node-chain-list">
+                            <!-- Populated dynamically via JavaScript -->
+                        </div>
+
+                        <!-- Active Route Customization Settings Row -->
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; padding-top: 12px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
+                            <div class="adm-form-group">
+                                <label class="adm-form-label" style="font-size: 11px;">Route Name</label>
+                                <input type="text" id="route_name_input" class="adm-form-control" style="font-size: 12px;" onchange="updateActiveRouteProp('name', this.value);" placeholder="e.g. Main Promenade Trail">
+                            </div>
+                            <div class="adm-form-group">
+                                <label class="adm-form-label" style="font-size: 11px;">Trail Color</label>
+                                <input type="color" id="route_color_input" class="adm-form-control" style="height: 36px; padding: 2px;" onchange="updateActiveRouteProp('color', this.value);">
+                            </div>
+                            <div class="adm-form-group">
+                                <label class="adm-form-label" style="font-size: 11px;">Stroke Style</label>
+                                <select id="route_stroke_input" class="adm-form-control" style="font-size: 12px;" onchange="updateActiveRouteProp('stroke_type', this.value);">
+                                    <option value="dashed">Dashed Gold Trail (Scenic)</option>
+                                    <option value="solid">Solid Line (Paved Avenue)</option>
+                                    <option value="dotted">Dotted Milestone Path</option>
+                                </select>
+                            </div>
+                            <div class="adm-form-group">
+                                <label class="adm-form-label" style="font-size: 11px;">Circuit Type</label>
+                                <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer; color: #FFFFFF; font-size: 12px;">
+                                    <input type="checkbox" id="route_closed_input" onchange="updateActiveRouteProp('is_closed', this.checked);" style="width: 16px; height: 16px; accent-color: var(--adm-gold);">
+                                    <span>Close Loop back to start</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3899,6 +4240,11 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <button type="button" class="adm-accordion-ctrl-btn" onclick="expandAllAccordion('pane-sanctuary_map', false);" title="Collapse all spot cards">
                             <i class="fa-solid fa-angles-up"></i> Collapse All
                         </button>
+                        <?php if (!empty($all_sanctuary_spots)): ?>
+                            <button type="button" class="adm-btn-danger-outline" onclick="confirmDeleteAllSpots();" style="padding: 6px 12px; font-size: 11px; border-radius: 20px;" title="Delete all registered spots">
+                                <i class="fa-solid fa-trash-can"></i> Delete All Spots
+                            </button>
+                        <?php endif; ?>
                         <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-spot');" style="padding: 6px 12px; font-size: 11.5px;">
                             <i class="fa-solid fa-plus"></i> Add Another Spot
                         </button>
@@ -3919,8 +4265,11 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <?php foreach ($all_sanctuary_spots as $idx => $sp): 
                             $first_photo = !empty($sp['photos_list']) ? $sp['photos_list'][0] : ($sp['image_url'] ?? 'assets/images/01 (1).jpeg');
                             $is_c = (!empty($sp['is_stay']) || $sp['category'] === 'stays');
+                            $sp_color = !empty($sp['pin_color']) ? $sp['pin_color'] : ($is_c ? '#10B981' : '#F59E0B');
+                            $sp_icon = !empty($sp['icon_class']) ? $sp['icon_class'] : ($is_c ? 'fa-solid fa-house-chimney' : 'fa-solid fa-location-dot');
+                            $cat_name = strtoupper($sp['category'] ?? 'FACILITY');
                         ?>
-                            <div class="adm-spot-item-card adm-accordion-card">
+                            <div class="adm-spot-item-card adm-accordion-card" id="spot-card-<?php echo $idx; ?>">
                                 <input type="hidden" name="spot_id[]" value="<?php echo $sp['id']; ?>">
                                 <input type="hidden" name="spot_fallback_image[]" value="<?php echo e($sp['image_url']); ?>">
                                 <!-- Coordinates updated via Master Map Studio Drag & Drop -->
@@ -3930,15 +4279,18 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 <!-- Accordion Header Bar -->
                                 <div class="adm-accordion-header" onclick="toggleAccordion(this, event);">
                                     <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
-                                        <div class="adm-accordion-thumb-box">
+                                        <div class="adm-accordion-thumb-box" style="position: relative;">
                                             <img src="../<?php echo e($first_photo); ?>" alt="Spot" onerror="this.src='../assets/images/01 (1).jpeg';">
+                                            <span id="card-icon-badge-<?php echo $idx; ?>" style="position: absolute; bottom: -4px; right: -4px; width: 20px; height: 20px; border-radius: 50%; background: <?php echo $sp_color; ?>; color: #fff; font-size: 9px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">
+                                                <i class="<?php echo e($sp_icon); ?>"></i>
+                                            </span>
                                         </div>
                                         <div style="min-width: 0;">
                                             <div class="adm-accordion-meta-title">
-                                                <span style="background: <?php echo $is_c ? '#56C2C9' : '#C5A059'; ?>; color: #101F15; font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 4px;">
-                                                    #<?php echo sprintf('%02d', $sp['spot_number']); ?>
+                                                <span id="card-spot-num-badge-<?php echo $idx; ?>" style="background: <?php echo $sp_color; ?>; color: #FFFFFF; font-weight: 800; font-size: 10px; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px;">
+                                                    <?php echo $cat_name; ?>
                                                 </span>
-                                                <span style="color: #FFFFFF; font-weight: 700; font-size: 13.5px;">
+                                                <span id="card-spot-title-text-<?php echo $idx; ?>" style="color: #FFFFFF; font-weight: 700; font-size: 13.5px;">
                                                     <?php echo e($sp['title']); ?>
                                                 </span>
                                                 <?php if (!empty($sp['linked_room_slug'])): ?>
@@ -3948,7 +4300,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                                 <?php endif; ?>
                                             </div>
                                             <div class="adm-accordion-meta-sub">
-                                                <span><i class="fa-solid fa-location-dot" style="color: var(--adm-gold);"></i> Coords: X:<?php echo round((float)$sp['x_coord'], 1); ?>% Y:<?php echo round((float)$sp['y_coord'], 1); ?>%</span>
+                                                <span><i class="fa-solid fa-palette" style="color: <?php echo $sp_color; ?>;"></i> <span id="card-color-text-<?php echo $idx; ?>"><?php echo $sp_color; ?></span></span>
                                                 <span>• <i class="fa-solid fa-images"></i> <?php echo count($sp['photos_list'] ?? []); ?> Photos</span>
                                                 <?php if (!empty($sp['stay_price'])): ?>
                                                     <span>• <strong style="color: #56C2C9;">₹<?php echo number_format((float)$sp['stay_price']); ?>/nt</strong></span>
@@ -3959,9 +4311,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
 
                                     <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
                                         <!-- Interactive Map Coordinate Badge & Locator -->
-                                        <button type="button" onclick="focusPinOnMasterMap(<?php echo $idx; ?>);" class="adm-btn-action" style="padding: 3px 9px; font-size: 11px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 5px;" title="Highlight on Master Map">
+                                        <button type="button" onclick="focusPinOnMasterMap(<?php echo $idx; ?>);" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 5px;" title="Highlight on Master Map">
                                             <i class="fa-solid fa-location-crosshairs"></i>
-                                            <span id="card-coord-badge-<?php echo $idx; ?>">X: <?php echo round((float)$sp['x_coord'], 1); ?>%</span>
+                                            <span>Locate on Map</span>
                                         </button>
                                         <button type="button" class="adm-btn-danger-outline" onclick="confirmDeleteItem('sanctuary_map_settings', 'delete_spot_id', <?php echo (int)$sp['id']; ?>, '<?php echo e(addslashes($sp['title'])); ?>', 'sanctuary_map');" title="Delete Spot">
                                             <i class="fa-solid fa-trash-can"></i>
@@ -3975,6 +4327,40 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 <!-- Accordion Body -->
                                 <div class="adm-accordion-body">
                                     
+                                    <!-- Landmark Preset, Icon & Color Bar -->
+                                    <div style="background: rgba(0,0,0,0.32); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                                        <div style="display: grid; grid-template-columns: 1.5fr 1fr 120px; gap: 10px; align-items: end;">
+                                            <div class="adm-form-group" style="margin: 0;">
+                                                <label class="adm-form-label" style="font-size: 10px; color: var(--adm-gold);"><i class="fa-solid fa-icons"></i> Landmark Type Preset</label>
+                                                <select class="adm-form-control" onchange="applySpotPreset(this, <?php echo $idx; ?>);" style="font-size: 11.5px; height: 34px;">
+                                                    <option value="custom">-- Choose Landmark Preset --</option>
+                                                    <option value="kitchen" data-icon="fa-solid fa-utensils" data-color="#F59E0B" data-cat="dining">🍽️ Kitchen & Farm Dining</option>
+                                                    <option value="pool" data-icon="fa-solid fa-person-swimming" data-color="#0EA5E9" data-cat="amenities">🏊‍♂️ Natural Pool / Stream Plunge</option>
+                                                    <option value="strawberry" data-icon="fa-solid fa-seedling" data-color="#E11D48" data-cat="nature">🍓 Strawberry Farm & Orchards</option>
+                                                    <option value="agro_farm" data-icon="fa-solid fa-wheat-awn" data-color="#16A34A" data-cat="nature">🚜 Organic Vegetable & Agro Fields</option>
+                                                    <option value="manager" data-icon="fa-solid fa-user-tie" data-color="#A88B57" data-cat="amenities">🏠 Manager House / Reception</option>
+                                                    <option value="recreation" data-icon="fa-solid fa-fire" data-color="#D97706" data-cat="amenities">🎯 Recreation Area / Campfire Glade</option>
+                                                    <option value="kids_park" data-icon="fa-solid fa-shapes" data-color="#8B5CF6" data-cat="amenities">🛝 Kids Park & Play Glade</option>
+                                                    <option value="badminton" data-icon="fa-solid fa-table-tennis-paddle-ball" data-color="#84CC16" data-cat="amenities">🏸 Badminton Court / Sports Arena</option>
+                                                    <option value="wooden_single" data-icon="fa-solid fa-house-chimney" data-color="#10B981" data-cat="stays" data-struct="single_hut">🪵 Wooden Hut (Single Room)</option>
+                                                    <option value="wooden_duplex" data-icon="fa-solid fa-layer-group" data-color="#06B6D4" data-cat="stays" data-struct="duplex_hut">🪵 Wooden Hut (Duplex Chalet - 2 Suites)</option>
+                                                    <option value="mud_single" data-icon="fa-solid fa-mountain-sun" data-color="#EA580C" data-cat="stays" data-struct="single_hut">🧱 Mud Hut (Single Room)</option>
+                                                    <option value="mud_duplex" data-icon="fa-solid fa-landmark" data-color="#D946EF" data-cat="stays" data-struct="duplex_hut">🧱 Mud Hut (Duplex Chalet - 2 Suites)</option>
+                                                    <option value="treehouse" data-icon="fa-solid fa-tree" data-color="#059669" data-cat="stays" data-struct="single_hut">🌲 High-Altitude Treehouse</option>
+                                                    <option value="vista" data-icon="fa-solid fa-binoculars" data-color="#3B82F6" data-cat="nature">🌿 Scenic Vista Lookout</option>
+                                                </select>
+                                            </div>
+                                            <div class="adm-form-group" style="margin: 0;">
+                                                <label class="adm-form-label" style="font-size: 10px;">Icon Class</label>
+                                                <input type="text" name="spot_icon_class[]" id="spot_icon_class_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px;" value="<?php echo e($sp_icon); ?>" placeholder="e.g. fa-solid fa-utensils" oninput="syncSpotIconToPin(<?php echo $idx; ?>, this.value);">
+                                            </div>
+                                            <div class="adm-form-group" style="margin: 0;">
+                                                <label class="adm-form-label" style="font-size: 10px;">Pin Color</label>
+                                                <input type="color" name="spot_pin_color[]" id="spot_pin_color_<?php echo $idx; ?>" class="adm-form-control" style="height: 34px; padding: 2px;" value="<?php echo e($sp_color); ?>" oninput="syncSpotColorToPin(<?php echo $idx; ?>, this.value);">
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- Link to Existing Room & Category Bar -->
                                     <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
                                         <div style="display: grid; grid-template-columns: 1fr 130px 130px 110px; gap: 10px; align-items: end;">
@@ -3997,7 +4383,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                                     <option value="stays" <?php echo ($sp['category'] === 'stays' || !empty($sp['is_stay'])) ? 'selected' : ''; ?>>🏡 Stay / Cottage</option>
                                                     <option value="dining" <?php echo ($sp['category'] === 'dining') ? 'selected' : ''; ?>>🍲 Farm Dining</option>
                                                     <option value="nature" <?php echo ($sp['category'] === 'nature') ? 'selected' : ''; ?>>🌿 Nature / Vista</option>
-                                                    <option value="amenities" <?php echo ($sp['category'] === 'amenities') ? 'selected' : ''; ?>>🌊 Brook / Glade</option>
+                                                    <option value="amenities" <?php echo ($sp['category'] === 'amenities') ? 'selected' : ''; ?>>🌊 Farm Stream / Glade</option>
                                                 </select>
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
@@ -4073,6 +4459,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 </div>
             </form>
         </div>
+        
         <script>
             window.allRoomsData = <?php echo json_encode($all_rooms); ?>;
         </script>
@@ -4637,6 +5024,84 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                                 <input type="file" name="room_stitch_right[<?php echo $idx; ?>]" id="stitch_r_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'sbadge_r_<?php echo $room['id']; ?>');">
                                                 <span id="sbadge_r_<?php echo $room['id']; ?>" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <?php $t_stages = get_room_tour_stages($room); ?>
+                                <!-- 360° Scroll Walkthrough Tour Stages & Milestones Customizer -->
+                                <div class="adm-form-group" style="background: rgba(16, 31, 21, 0.55); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 18px; margin-top: 16px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                                        <div>
+                                            <label class="adm-form-label" style="color: var(--adm-gold); margin-bottom: 2px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                                <i class="fa-solid fa-layer-group" style="color: var(--adm-gold);"></i> 360° Scroll Tour Stages &amp; Milestone Data
+                                            </label>
+                                            <span style="font-size: 11px; color: var(--adm-text-secondary);">Customize the 5 interactive overlay cards, badge pills, headings, story descriptions, and bottom milestone indicators displayed while scrolling.</span>
+                                        </div>
+                                        <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3);" onclick="const pane = document.getElementById('tour-stages-pane-<?php echo $room['id']; ?>'); pane.style.display = (pane.style.display === 'none' ? 'block' : 'none');">
+                                            <i class="fa-solid fa-pen-to-square"></i> Toggle Stages Editor
+                                        </button>
+                                    </div>
+
+                                    <div id="tour-stages-pane-<?php echo $room['id']; ?>" style="display: block;">
+                                        <!-- Tour Header Subtitle -->
+                                        <div style="margin-bottom: 14px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                                            <label class="adm-form-label" style="font-size: 11.5px; color: var(--adm-gold);">Tour Header Subtitle / Tagline:</label>
+                                            <input type="text" name="room_tour_subtitle[<?php echo $idx; ?>]" class="adm-form-control" style="font-size: 12px;" value="<?php echo htmlspecialchars($t_stages['subtitle'] ?? ''); ?>" placeholder="Scroll down to fly from the misty forest canopy directly inside the 360° suite.">
+                                        </div>
+
+                                        <!-- 5 Milestone Labels (Bottom Pill Bar) -->
+                                        <div style="margin-bottom: 16px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                                            <label class="adm-form-label" style="font-size: 11.5px; color: var(--adm-gold); margin-bottom: 6px; display: block;">
+                                                <i class="fa-solid fa-bars-progress"></i> Bottom Milestone Progress Bar (5 Steps):
+                                            </label>
+                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+                                                <?php for ($m_i = 1; $m_i <= 5; $m_i++): ?>
+                                                    <div>
+                                                        <span style="font-size: 10px; color: #A1B5A9; font-weight: 700; display: block; margin-bottom: 3px;">Step 0<?php echo $m_i; ?> Label</span>
+                                                        <input type="text" name="room_tour_prog_label_<?php echo $m_i; ?>[<?php echo $idx; ?>]" class="adm-form-control" style="font-size: 11px; padding: 6px 8px;" value="<?php echo htmlspecialchars($t_stages['progressLabels'][$m_i - 1] ?? ''); ?>" required>
+                                                    </div>
+                                                <?php endfor; ?>
+                                            </div>
+                                        </div>
+
+                                        <!-- 5 Interactive Tour Stage Cards -->
+                                        <label class="adm-form-label" style="font-size: 11.5px; color: var(--adm-gold); margin-bottom: 8px; display: block;">
+                                            <i class="fa-solid fa-rectangle-list"></i> 5 Story Stages (Overlay Cards while Scrolling):
+                                        </label>
+                                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                                            <?php 
+                                            $stg_default_names = [
+                                                1 => 'Stage 01: Exterior Sanctuary / Front View',
+                                                2 => 'Stage 02: 180° Valley Glasswork / Bay Window',
+                                                3 => 'Stage 03: Misty Balcony / Canopy Deck / Veranda',
+                                                4 => 'Stage 04: Artisan Bed / Living Suite',
+                                                5 => 'Stage 05: Stone Fireplace / Forest Hearth'
+                                            ];
+                                            for ($stg_i = 1; $stg_i <= 5; $stg_i++): 
+                                                $stg = $t_stages['stages'][$stg_i - 1] ?? ['pill' => '', 'heading' => '', 'text' => ''];
+                                            ?>
+                                                <div style="background: rgba(6, 17, 10, 0.8); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 8px; padding: 12px;">
+                                                    <div style="font-size: 11.5px; font-weight: 700; color: #2ecc71; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                                                        <span><i class="fa-solid fa-circle-dot" style="color: var(--adm-gold); margin-right: 5px;"></i> <?php echo $stg_default_names[$stg_i] ?? "Stage 0{$stg_i}"; ?></span>
+                                                        <span class="adm-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); font-size: 9px;">360 SCROLL STEP <?php echo $stg_i; ?></span>
+                                                    </div>
+                                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                                                        <div>
+                                                            <span style="font-size: 10.5px; color: #A1B5A9; display: block; margin-bottom: 3px;">Top Pill Badge / Tag:</span>
+                                                            <input type="text" name="room_tour_stage_pill_<?php echo $stg_i; ?>[<?php echo $idx; ?>]" class="adm-form-control" style="font-size: 11px;" value="<?php echo htmlspecialchars($stg['pill'] ?? ''); ?>" placeholder='<i class="fa-solid fa-mountain-sun"></i> 01 • 180° VALLEY GLASSWORK'>
+                                                        </div>
+                                                        <div>
+                                                            <span style="font-size: 10.5px; color: #A1B5A9; display: block; margin-bottom: 3px;">Stage Main Heading:</span>
+                                                            <input type="text" name="room_tour_stage_heading_<?php echo $stg_i; ?>[<?php echo $idx; ?>]" class="adm-form-control" style="font-size: 11px; font-weight: 600;" value="<?php echo htmlspecialchars($stg['heading'] ?? ''); ?>" placeholder="Floor-to-Ceiling Curved Bay Window" required>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <span style="font-size: 10.5px; color: #A1B5A9; display: block; margin-bottom: 3px;">Story Description Text:</span>
+                                                        <textarea name="room_tour_stage_text_<?php echo $stg_i; ?>[<?php echo $idx; ?>]" rows="2" class="adm-form-control" style="font-size: 11px; resize: vertical;" placeholder="An expansive architectural curved window framing floating clouds, high-altitude tea valleys, and morning mountain mist." required><?php echo htmlspecialchars($stg['text'] ?? ''); ?></textarea>
+                                                    </div>
+                                                </div>
+                                            <?php endfor; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -6675,5 +7140,177 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     </div> <!-- End .adm-preview-col -->
 
 </div> <!-- End .adm-split-layout-wrapper -->
+
+<!-- =========================================================================
+     GLOBAL MODALS (OUTSIDE SPLIT-SCREEN CONTAINER TO PREVENT CLIPPING)
+     ========================================================================= -->
+
+<!-- 1. Quick Register Property to Pathway Modal -->
+<div id="modal-quick-add-property" class="admin-prop-modal-backdrop" style="display: none;">
+    <div class="admin-prop-modal-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(197, 160, 89, 0.25); padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-house-chimney-medical" style="color: #56C2C9; font-size: 18px;"></i>
+                <h4 style="color: #FFFFFF; font-family: var(--adm-font-title); font-size: 15px; margin: 0;">Register Property & Connect to Pathway</h4>
+            </div>
+            <button type="button" onclick="closeQuickPropertyModal();" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 4px 8px;">✕</button>
+        </div>
+
+        <form id="form-quick-property" action="edit_section.php?section=sanctuary_map" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+            <input type="hidden" name="form_type" value="sanctuary_map_settings">
+            <input type="hidden" name="action" value="add_spot">
+            <input type="hidden" name="active_tab" value="sanctuary_map">
+            <input type="hidden" id="qp_spot_x" name="new_spot_x" value="50">
+            <input type="hidden" id="qp_spot_y" name="new_spot_y" value="50">
+            <input type="hidden" id="qp_icon_class" name="new_spot_icon_class" value="fa-solid fa-person-swimming">
+            <input type="hidden" id="qp_pin_color" name="new_spot_pin_color" value="#0EA5E9">
+            <input type="hidden" name="new_spot_number" value="<?php echo count($all_sanctuary_spots) + 1; ?>">
+            <input type="hidden" id="qp_add_to_route" name="add_to_current_route" value="1">
+
+            <div class="adm-form-group" style="margin-bottom: 12px;">
+                <label class="adm-form-label" style="font-size: 11px; color: var(--adm-gold);"><i class="fa-solid fa-icons"></i> Choose Property / Landmark Type</label>
+                <select id="qp_preset_select" class="adm-form-control" onchange="onQuickPropPresetChange(this);" style="font-size: 12.5px;">
+                    <option value="pool" data-icon="fa-solid fa-person-swimming" data-color="#0EA5E9" data-cat="amenities" data-title="Natural Plunge Pool & Spring Bath" data-desc="Fresh crystal-clear natural mountain spring water pool.">🏊‍♂️ Natural Pool / Stream Plunge</option>
+                    <option value="badminton" data-icon="fa-solid fa-table-tennis-paddle-ball" data-color="#84CC16" data-cat="amenities" data-title="Highland Badminton Court" data-desc="All-weather outdoor sports arena amidst apple trees.">🏸 Badminton Court / Sports Arena</option>
+                    <option value="wooden_single" data-icon="fa-solid fa-house-chimney" data-color="#10B981" data-cat="stays" data-struct="single_hut" data-title="Alpine Wooden Hut" data-price="13500" data-desc="Handcrafted solid pinewood mountain chalet.">🪵 Wooden Hut (Single Room)</option>
+                    <option value="wooden_duplex" data-icon="fa-solid fa-layer-group" data-color="#06B6D4" data-cat="stays" data-struct="duplex_hut" data-title="Duplex Cedar Chalet (2 Suites)" data-price="24000" data-desc="Two independent luxury suites in a panoramic two-level chalet.">🪵 Wooden Hut (Duplex Chalet - 2 Suites)</option>
+                    <option value="mud_single" data-icon="fa-solid fa-mountain-sun" data-color="#EA580C" data-cat="stays" data-struct="single_hut" data-title="Earthen Mudhouse Suite" data-price="11500" data-desc="Naturally thermal-insulated cob clay dwelling with private sit-out.">🧱 Mud Hut (Single Room)</option>
+                    <option value="mud_duplex" data-icon="fa-solid fa-landmark" data-color="#D946EF" data-cat="stays" data-struct="duplex_hut" data-title="Royal Mud Duplex Chalet (2 Suites)" data-price="21000" data-desc="Expansive two-level earthen sanctuary featuring two master bedrooms.">🧱 Mud Hut (Duplex Chalet - 2 Suites)</option>
+                    <option value="strawberry" data-icon="fa-solid fa-seedling" data-color="#E11D48" data-cat="nature" data-title="Strawberry Farm & Berry Orchards" data-desc="Heirloom strawberry cultivation and berry plucking experience.">🍓 Strawberry Farm & Berry Orchards</option>
+                    <option value="agro_farm" data-icon="fa-solid fa-wheat-awn" data-color="#16A34A" data-cat="nature" data-title="Organic Vegetable & Agro Fields" data-desc="Terraced high-range farming of carrots, garlic, and wild herbs.">🚜 Organic Agro Farm & Vegetable Fields</option>
+                    <option value="kitchen" data-icon="fa-solid fa-utensils" data-color="#F59E0B" data-cat="dining" data-title="Farmhouse Kitchen & Dining Hub" data-desc="Central open hearth serving farm-fresh organic meals.">🍽️ Kitchen & Farm Dining Hub</option>
+                    <option value="manager" data-icon="fa-solid fa-user-tie" data-color="#A88B57" data-cat="amenities" data-title="Manager House & Estate Reception" data-desc="Estate concierge office and welcome lounge.">🏠 Manager House & Estate Reception</option>
+                    <option value="recreation" data-icon="fa-solid fa-fire" data-color="#D97706" data-cat="amenities" data-title="Recreation Glade & Campfire Zone" data-desc="Evening BBQ and stargazing campfire glade.">🎯 Recreation Area & Campfire Glade</option>
+                    <option value="kids_park" data-icon="fa-solid fa-shapes" data-color="#8B5CF6" data-cat="amenities" data-title="Kids Adventure Park & Swings" data-desc="Outdoor recreation zone with wooden swings and grassy play lawns.">🛝 Kids Park & Play Glade</option>
+                    <option value="treehouse" data-icon="fa-solid fa-tree" data-color="#059669" data-cat="stays" data-struct="single_hut" data-title="Canopy High Treehouse" data-price="14500" data-desc="Elevated living perched among high forest trees.">🌲 Canopy High Treehouse</option>
+                </select>
+            </div>
+
+            <div class="adm-form-group" style="margin-bottom: 12px;">
+                <label class="adm-form-label" style="font-size: 11px;">Property / Landmark Name</label>
+                <input type="text" id="qp_title" name="new_spot_title" class="adm-form-control" value="Natural Plunge Pool & Spring Bath" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                <div class="adm-form-group" style="margin: 0;">
+                    <label class="adm-form-label" style="font-size: 10.5px;">Category</label>
+                    <select id="qp_category" name="new_spot_category" class="adm-form-control" style="font-size: 11.5px; height: 34px;">
+                        <option value="amenities">🌊 Amenity / Pool / Sports</option>
+                        <option value="stays">🏡 Stay / Accommodation</option>
+                        <option value="dining">🍲 Farm Dining</option>
+                        <option value="nature">🌿 Nature / Farm Field</option>
+                    </select>
+                </div>
+                <div class="adm-form-group" style="margin: 0;" id="qp_price_wrap">
+                    <label class="adm-form-label" style="font-size: 10.5px;">Nightly Rate (₹)</label>
+                    <input type="number" step="0.01" id="qp_stay_price" name="new_spot_stay_price" class="adm-form-control" style="font-size: 11.5px; height: 34px;" placeholder="Optional">
+                </div>
+            </div>
+
+            <div class="adm-form-group" style="margin-bottom: 12px;">
+                <label class="adm-form-label" style="font-size: 10.5px;">Brief Atmosphere Description</label>
+                <textarea id="qp_desc" name="new_spot_desc" rows="2" class="adm-form-control" style="font-size: 11.5px;" required>Fresh crystal-clear natural mountain spring water pool.</textarea>
+            </div>
+
+            <div style="background: rgba(86, 194, 201, 0.1); border: 1px solid rgba(86, 194, 201, 0.25); border-radius: 6px; padding: 8px 12px; margin-bottom: 16px; font-size: 11.5px; color: #56C2C9; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-route"></i>
+                <span>This property will be automatically connected to your active <strong>Route Pathway</strong>!</span>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="adm-btn-action" onclick="closeQuickPropertyModal();" style="background: rgba(255,255,255,0.06); color: #fff;">Cancel</button>
+                <button type="submit" class="adm-btn-action emerald" style="font-weight: 700; padding: 8px 18px;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Create Property & Connect to Pathway</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 2. Manage Custom Waypoints Modal -->
+<div id="modal-manage-waypoints" class="admin-prop-modal-backdrop" style="display: none;">
+    <div class="admin-prop-modal-box" style="max-width: 540px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(197, 160, 89, 0.25); padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-list-check" style="color: #56C2C9; font-size: 18px;"></i>
+                <h4 style="color: #FFFFFF; font-family: var(--adm-font-title); font-size: 15px; margin: 0;">Custom Waypoints Management</h4>
+            </div>
+            <button type="button" onclick="closeManageWaypointsModal();" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 4px 8px;">✕</button>
+        </div>
+
+        <!-- Inline Quick Add Field inside Manage Modal -->
+        <div style="background: rgba(86, 194, 201, 0.08); border: 1px solid rgba(86, 194, 201, 0.25); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <div style="font-size: 11px; font-weight: 700; color: #56C2C9; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-plus-circle"></i> Quick Add New Waypoint
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="inline-new-waypoint-name" class="adm-form-control" placeholder="e.g. Pine Ridge Turn / Sunset Glade" style="font-size: 12.5px; height: 36px; flex: 1;" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); submitInlineAddWaypoint(); }">
+                <button type="button" class="adm-btn-action" onclick="submitInlineAddWaypoint();" style="background: #56C2C9; color: #081d1a; font-weight: 700; font-size: 12px; padding: 0 16px; border: none; white-space: nowrap;">
+                    <i class="fa-solid fa-plus"></i> Add
+                </button>
+            </div>
+        </div>
+
+        <div style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; margin-bottom: 8px;">
+            Active Waypoints On Map
+        </div>
+        <div id="admin-waypoint-list-body" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; margin-bottom: 16px; padding-right: 4px;">
+            <!-- Populated dynamically by openManageWaypointsModal() -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid rgba(197, 160, 89, 0.15);">
+            <button type="button" class="adm-btn-action" onclick="openAddWaypointModal(); closeManageWaypointsModal();" style="background: rgba(86, 194, 201, 0.15); border: 1px solid #56C2C9; color: #56C2C9; font-size: 12px;">
+                <i class="fa-solid fa-pen-to-square"></i> Open Full Waypoint Builder
+            </button>
+            <button type="button" class="adm-btn-action" onclick="closeManageWaypointsModal();" style="background: rgba(255,255,255,0.08); color: #fff; font-size: 12px; padding: 6px 18px;">
+                Done
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Add Custom Waypoint Builder Modal -->
+<div id="modal-add-waypoint" class="admin-prop-modal-backdrop" style="display: none;">
+    <div class="admin-prop-modal-box" style="max-width: 480px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(197, 160, 89, 0.25); padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-location-dot" style="color: #56C2C9; font-size: 18px;"></i>
+                <h4 style="color: #FFFFFF; font-family: var(--adm-font-title); font-size: 15px; margin: 0;">Add Custom Pathway Waypoint</h4>
+            </div>
+            <button type="button" onclick="closeAddWaypointModal();" style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 4px 8px;">✕</button>
+        </div>
+
+        <div class="adm-form-group" style="margin-bottom: 14px;">
+            <label class="adm-form-label" style="font-size: 11px; color: var(--adm-gold); margin-bottom: 6px;">Waypoint / Node Name</label>
+            <input type="text" id="modal_wp_label_input" class="adm-form-control" placeholder="e.g. Farm Footbridge / Pine Ridge Turn" value="Scenic Viewpoint" style="font-size: 13px; height: 38px;" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); submitAddWaypointModal(); }">
+        </div>
+
+        <!-- Quick preset suggestions -->
+        <div style="margin-bottom: 16px;">
+            <label class="adm-form-label" style="font-size: 10px; color: var(--adm-text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block;">Quick Presets:</label>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button type="button" class="adm-btn-badge" onclick="setWaypointLabelPreset('Farm Footbridge');" style="font-size: 11px; padding: 4px 9px; cursor: pointer; background: rgba(86,194,201,0.12); border: 1px solid rgba(86,194,201,0.3); color: #56C2C9; border-radius: 4px;">Farm Footbridge</button>
+                <button type="button" class="adm-btn-badge" onclick="setWaypointLabelPreset('Pine Ridge Turn');" style="font-size: 11px; padding: 4px 9px; cursor: pointer; background: rgba(86,194,201,0.12); border: 1px solid rgba(86,194,201,0.3); color: #56C2C9; border-radius: 4px;">Pine Ridge Turn</button>
+                <button type="button" class="adm-btn-badge" onclick="setWaypointLabelPreset('Sunset Glade Point');" style="font-size: 11px; padding: 4px 9px; cursor: pointer; background: rgba(86,194,201,0.12); border: 1px solid rgba(86,194,201,0.3); color: #56C2C9; border-radius: 4px;">Sunset Glade Point</button>
+                <button type="button" class="adm-btn-badge" onclick="setWaypointLabelPreset('Valley View Gazebo');" style="font-size: 11px; padding: 4px 9px; cursor: pointer; background: rgba(86,194,201,0.12); border: 1px solid rgba(86,194,201,0.3); color: #56C2C9; border-radius: 4px;">Valley View Gazebo</button>
+            </div>
+        </div>
+
+        <div style="background: rgba(86, 194, 201, 0.08); border: 1px solid rgba(86, 194, 201, 0.2); border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 11.5px; color: #56C2C9; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-circle-info" style="font-size: 14px;"></i>
+            <span>The waypoint will appear in the center of the map. You can <strong>drag it anywhere</strong> and adjust trail curves seamlessly.</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="adm-btn-action" onclick="closeAddWaypointModal();" style="background: rgba(255,255,255,0.06); color: #fff;">Cancel</button>
+            <button type="button" class="adm-btn-action emerald" onclick="submitAddWaypointModal();" style="font-weight: 700; padding: 8px 18px;">
+                <i class="fa-solid fa-plus-circle"></i>
+                <span>Add Waypoint to Map</span>
+            </button>
+        </div>
+    </div>
+</div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

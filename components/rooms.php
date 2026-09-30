@@ -64,6 +64,11 @@ if ($has_db_mudhouse && !$has_db_treehouse) {
     $default_stay = 'mudhouse';
 }
 $active_initial_stay = ($default_stay === 'mudhouse') ? $mudhouse : $treehouse;
+
+// Fetch dynamic 360 tour stages & milestones from DB (or defaults)
+$treehouse_tour = get_room_tour_stages($treehouse);
+$mudhouse_tour = get_room_tour_stages($mudhouse);
+$active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehouse_tour;
 ?>
 <!-- Fullscreen 3D Walkthrough: Canopy Treehouse & Earthen Mudhouse -->
 <section id="rooms-experience" class="rooms-3d-fullscreen-section">
@@ -92,11 +97,11 @@ $active_initial_stay = ($default_stay === 'mudhouse') ? $mudhouse : $treehouse;
         <!-- Persistent Top Header -->
         <div class="treehouse-tour-header">
             <div class="tour-badge-row">
-                <span class="tour-sub font-sans" id="tour-concept-badge">FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR</span>
+                <span class="tour-sub font-sans" id="tour-concept-badge"><?php echo htmlspecialchars($active_tour_stages['badge'] ?? 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR'); ?></span>
                 <span class="gimbal-live-pill font-sans"><span class="rec-dot"></span> 360° CINEMATIC WALKTHROUGH</span>
             </div>
             <h2 class="tour-title font-serif" id="tour-main-title"><?php echo htmlspecialchars($active_initial_stay['title']); ?></h2>
-            <p class="tour-subtitle font-sans" id="tour-main-subtitle">Scroll down to fly from the misty forest canopy directly inside the 360° suite.</p>
+            <p class="tour-subtitle font-sans" id="tour-main-subtitle"><?php echo htmlspecialchars($active_tour_stages['subtitle'] ?? 'Scroll down to fly from the misty forest canopy directly inside the 360° suite.'); ?></p>
         </div>
 
         <!-- Mobile Touch 360 Drag Hint -->
@@ -107,10 +112,10 @@ $active_initial_stay = ($default_stay === 'mudhouse') ? $mudhouse : $treehouse;
 
         <!-- Stage 1: Exterior Front View (Visible initially) -->
         <div class="tour-card-floating stage-exterior is-visible" id="tour-stage-1">
-            <span class="stage-pill font-sans" id="stage1-pill"><i class="fa-solid <?php echo $default_stay === 'mudhouse' ? 'fa-house-chimney' : 'fa-tree'; ?>"></i> <?php echo htmlspecialchars(strtoupper($active_initial_stay['elevation'] ?? '1,600M ELEVATION')); ?></span>
-            <h3 class="stage-heading font-serif" id="stage1-heading">Front Exterior & Sanctuary Architecture</h3>
+            <span class="stage-pill font-sans" id="stage1-pill"><?php echo $active_tour_stages['stages'][0]['pill'] ?? ('<i class="fa-solid ' . ($default_stay === 'mudhouse' ? 'fa-house-chimney' : 'fa-tree') . '"></i> ' . htmlspecialchars(strtoupper($active_initial_stay['elevation'] ?? '1,600M ELEVATION'))); ?></span>
+            <h3 class="stage-heading font-serif" id="stage1-heading"><?php echo htmlspecialchars($active_tour_stages['stages'][0]['heading'] ?? 'Front Exterior & Sanctuary Architecture'); ?></h3>
             <p class="stage-text font-sans" id="stage1-text">
-                <?php echo htmlspecialchars($active_initial_stay['description']); ?>
+                <?php echo htmlspecialchars($active_tour_stages['stages'][0]['text'] ?? $active_initial_stay['description']); ?>
             </p>
             <div class="tour-scroll-guide font-sans">
                 <div class="mouse-scroll-icon"><span class="wheel-dot"></span></div>
@@ -120,37 +125,37 @@ $active_initial_stay = ($default_stay === 'mudhouse') ? $mudhouse : $treehouse;
 
         <!-- Stage 2: Inside - Panoramic Bay Window / Garden Glasswork -->
         <div class="tour-card-floating stage-center" id="tour-stage-2">
-            <span class="stage-pill font-sans" id="stage2-pill"><i class="fa-solid fa-mountain-sun"></i> 01 • 180° VALLEY GLASSWORK</span>
-            <h3 class="stage-heading font-serif" id="stage2-heading">Floor-to-Ceiling Curved Bay Window</h3>
+            <span class="stage-pill font-sans" id="stage2-pill"><?php echo $active_tour_stages['stages'][1]['pill'] ?? '<i class="fa-solid fa-mountain-sun"></i> 01 • 180° VALLEY GLASSWORK'; ?></span>
+            <h3 class="stage-heading font-serif" id="stage2-heading"><?php echo htmlspecialchars($active_tour_stages['stages'][1]['heading'] ?? 'Floor-to-Ceiling Curved Bay Window'); ?></h3>
             <p class="stage-text font-sans" id="stage2-text">
-                An expansive architectural curved window framing floating clouds, high-altitude tea valleys, and morning mountain mist.
+                <?php echo htmlspecialchars($active_tour_stages['stages'][1]['text'] ?? 'An expansive architectural curved window framing floating clouds, high-altitude tea valleys, and morning mountain mist.'); ?>
             </p>
         </div>
 
         <!-- Stage 3: Inside - Canopy Deck / Orchard Veranda -->
         <div class="tour-card-floating stage-right" id="tour-stage-3">
-            <span class="stage-pill font-sans" id="stage3-pill"><i class="fa-solid fa-wind"></i> 02 • MISTY CANOPY DECK</span>
-            <h3 class="stage-heading font-serif" id="stage3-heading">Private Cantilevered Timber Balcony</h3>
+            <span class="stage-pill font-sans" id="stage3-pill"><?php echo $active_tour_stages['stages'][2]['pill'] ?? '<i class="fa-solid fa-wind"></i> 02 • MISTY CANOPY DECK'; ?></span>
+            <h3 class="stage-heading font-serif" id="stage3-heading"><?php echo htmlspecialchars($active_tour_stages['stages'][2]['heading'] ?? 'Private Cantilevered Timber Balcony'); ?></h3>
             <p class="stage-text font-sans" id="stage3-text">
-                Step directly outside into the clouds. An open timber deck perched 30 feet high in ancient trees for birdsong and organic mountain tea.
+                <?php echo htmlspecialchars($active_tour_stages['stages'][2]['text'] ?? 'Step directly outside into the clouds. An open timber deck perched 30 feet high in ancient trees for birdsong and organic mountain tea.'); ?>
             </p>
         </div>
 
         <!-- Stage 4: Inside - Bed Suite / Cob Daybed Alcove -->
         <div class="tour-card-floating stage-left" id="tour-stage-4">
-            <span class="stage-pill font-sans" id="stage4-pill"><i class="fa-solid fa-bed"></i> 03 • WILD TEAK BED SUITE</span>
-            <h3 class="stage-heading font-serif" id="stage4-heading">Handcrafted Artisan King Bed</h3>
+            <span class="stage-pill font-sans" id="stage4-pill"><?php echo $active_tour_stages['stages'][3]['pill'] ?? '<i class="fa-solid fa-bed"></i> 03 • WILD TEAK BED SUITE'; ?></span>
+            <h3 class="stage-heading font-serif" id="stage4-heading"><?php echo htmlspecialchars($active_tour_stages['stages'][3]['heading'] ?? 'Handcrafted Artisan King Bed'); ?></h3>
             <p class="stage-text font-sans" id="stage4-text">
-                Hand-hewn from natural wild teak, dressed in 100% breathable organic linen, accompanied by handcrafted bedside lanterns and radial wooden ceiling beams.
+                <?php echo htmlspecialchars($active_tour_stages['stages'][3]['text'] ?? 'Hand-hewn from natural wild teak, dressed in 100% breathable organic linen, accompanied by handcrafted bedside lanterns and radial wooden ceiling beams.'); ?>
             </p>
         </div>
 
         <!-- Stage 5: Inside - Hearth & Lounge -->
         <div class="tour-card-floating stage-right" id="tour-stage-5">
-            <span class="stage-pill font-sans" id="stage5-pill"><i class="fa-solid fa-fire"></i> 04 • THE FOREST HEARTH</span>
-            <h3 class="stage-heading font-serif" id="stage5-heading">Hand-Cut Stone Fireplace & Lounge</h3>
+            <span class="stage-pill font-sans" id="stage5-pill"><?php echo $active_tour_stages['stages'][4]['pill'] ?? '<i class="fa-solid fa-fire"></i> 04 • THE FOREST HEARTH'; ?></span>
+            <h3 class="stage-heading font-serif" id="stage5-heading"><?php echo htmlspecialchars($active_tour_stages['stages'][4]['heading'] ?? 'Hand-Cut Stone Fireplace & Lounge'); ?></h3>
             <p class="stage-text font-sans" id="stage5-text">
-                Warm authentic stone fireplace with crackling hearth wood, curved luxury sofa, and library nook to relax on crisp mountain evenings.
+                <?php echo htmlspecialchars($active_tour_stages['stages'][4]['text'] ?? 'Warm authentic stone fireplace with crackling hearth wood, curved luxury sofa, and library nook to relax on crisp mountain evenings.'); ?>
             </p>
             <button type="button" class="btn-primary tour-cta-btn open-booking-modal-btn font-sans" id="tour-cta-btn" data-villa="<?php echo $default_stay; ?>">
                 <span id="tour-cta-label">Reserve <?php echo htmlspecialchars($active_initial_stay['title']); ?></span>
@@ -170,37 +175,37 @@ $active_initial_stay = ($default_stay === 'mudhouse') ? $mudhouse : $treehouse;
                 <span class="mobile-dot" data-step="4"></span>
                 <span class="mobile-dot" data-step="5"></span>
             </div>
-            <span class="mobile-step-name font-sans" id="mobile-step-label">Exterior Sanctuary</span>
+            <span class="mobile-step-name font-sans" id="mobile-step-label"><?php echo htmlspecialchars($active_tour_stages['progressLabels'][0] ?? 'Exterior Sanctuary'); ?></span>
             <button type="button" class="mobile-step-arrow" id="mobile-tour-next" aria-label="Next Stage">
                 <i class="fa-solid fa-chevron-right"></i>
             </button>
         </div>
 
-        <!-- Bottom Tour Progress Indicator -->
+        <!-- Bottom Tour Progress Indicator (5 Milestones) -->
         <div class="treehouse-tour-progress font-sans">
             <div class="tour-step-item active" id="prog-step-1">
                 <span class="step-badge">01</span>
-                <span class="step-label" id="prog-label-1">Exterior</span>
+                <span class="step-label" id="prog-label-1"><?php echo htmlspecialchars($active_tour_stages['progressLabels'][0] ?? 'Exterior'); ?></span>
             </div>
             <div class="tour-step-divider"></div>
             <div class="tour-step-item" id="prog-step-2">
                 <span class="step-badge">02</span>
-                <span class="step-label" id="prog-label-2">Panoramic Bay</span>
+                <span class="step-label" id="prog-label-2"><?php echo htmlspecialchars($active_tour_stages['progressLabels'][1] ?? 'Panoramic Bay'); ?></span>
             </div>
             <div class="tour-step-divider"></div>
             <div class="tour-step-item" id="prog-step-3">
                 <span class="step-badge">03</span>
-                <span class="step-label" id="prog-label-3">Forest Deck</span>
+                <span class="step-label" id="prog-label-3"><?php echo htmlspecialchars($active_tour_stages['progressLabels'][2] ?? 'Forest Deck'); ?></span>
             </div>
             <div class="tour-step-divider"></div>
             <div class="tour-step-item" id="prog-step-4">
                 <span class="step-badge">04</span>
-                <span class="step-label" id="prog-label-4">Master Suite</span>
+                <span class="step-label" id="prog-label-4"><?php echo htmlspecialchars($active_tour_stages['progressLabels'][3] ?? 'Master Suite'); ?></span>
             </div>
             <div class="tour-step-divider"></div>
             <div class="tour-step-item" id="prog-step-5">
                 <span class="step-badge">05</span>
-                <span class="step-label" id="prog-label-5">Stone Hearth</span>
+                <span class="step-label" id="prog-label-5"><?php echo htmlspecialchars($active_tour_stages['progressLabels'][4] ?? 'Stone Hearth'); ?></span>
             </div>
         </div>
     </div>
@@ -258,10 +263,12 @@ $active_initial_stay = ($default_stay === 'mudhouse') ? $mudhouse : $treehouse;
         defaultStay: <?php echo json_encode($default_stay); ?>,
         treehouse: {
             title: <?php echo json_encode($treehouse['title']); ?>,
-            badge: <?php echo json_encode('FOOD FOREST • ' . strtoupper($treehouse['elevation'] ?? '30FT ELEVATION')); ?>,
-            subtitle: <?php echo json_encode('Scroll down to fly inside the 360° ' . ($treehouse['title'] ?? 'suite') . '.'); ?>,
+            badge: <?php echo json_encode($treehouse_tour['badge'] ?? ('FOOD FOREST • ' . strtoupper($treehouse['elevation'] ?? '30FT ELEVATION'))); ?>,
+            subtitle: <?php echo json_encode($treehouse_tour['subtitle'] ?? ('Scroll down to fly inside the 360° ' . ($treehouse['title'] ?? 'suite') . '.')); ?>,
             ctaLabel: <?php echo json_encode('Reserve ' . ($treehouse['title'] ?? 'Canopy Treehouse')); ?>,
             ctaVilla: 'treehouse',
+            stages: <?php echo json_encode($treehouse_tour['stages']); ?>,
+            progressLabels: <?php echo json_encode($treehouse_tour['progressLabels']); ?>,
             <?php if (!empty($treehouse['image_url'])): ?>
             exteriorImg: <?php echo json_encode($treehouse['image_url']); ?>,
             <?php endif; ?>
@@ -271,10 +278,12 @@ $active_initial_stay = ($default_stay === 'mudhouse') ? $mudhouse : $treehouse;
         },
         mudhouse: {
             title: <?php echo json_encode($mudhouse['title']); ?>,
-            badge: <?php echo json_encode('FOOD FOREST • ' . strtoupper($mudhouse['elevation'] ?? 'COB HERITAGE')); ?>,
-            subtitle: <?php echo json_encode('Scroll down to fly inside the 360° ' . ($mudhouse['title'] ?? 'suite') . '.'); ?>,
+            badge: <?php echo json_encode($mudhouse_tour['badge'] ?? ('FOOD FOREST • ' . strtoupper($mudhouse['elevation'] ?? 'COB HERITAGE'))); ?>,
+            subtitle: <?php echo json_encode($mudhouse_tour['subtitle'] ?? ('Scroll down to fly inside the 360° ' . ($mudhouse['title'] ?? 'suite') . '.')); ?>,
             ctaLabel: <?php echo json_encode('Reserve ' . ($mudhouse['title'] ?? 'Earthen Mudhouse')); ?>,
             ctaVilla: 'mudhouse',
+            stages: <?php echo json_encode($mudhouse_tour['stages']); ?>,
+            progressLabels: <?php echo json_encode($mudhouse_tour['progressLabels']); ?>,
             <?php if (!empty($mudhouse['image_url'])): ?>
             exteriorImg: <?php echo json_encode($mudhouse['image_url']); ?>,
             <?php endif; ?>

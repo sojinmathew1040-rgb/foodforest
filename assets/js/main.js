@@ -1386,9 +1386,25 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!bookingModal) return;
         
         if (preferredVilla && modalVillaSelect) {
-            modalVillaSelect.value = preferredVilla;
-        } else if (document.getElementById('hero-villa') && modalVillaSelect) {
+            let matched = false;
+            for (let i = 0; i < modalVillaSelect.options.length; i++) {
+                const optVal = modalVillaSelect.options[i].value.toLowerCase();
+                const prefVal = preferredVilla.toLowerCase();
+                if (optVal === prefVal || optVal.includes(prefVal) || prefVal.includes(optVal)) {
+                    modalVillaSelect.selectedIndex = i;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                modalVillaSelect.value = preferredVilla;
+            }
+        } else if (document.getElementById('hero-villa') && modalVillaSelect && document.getElementById('hero-villa').value) {
             modalVillaSelect.value = document.getElementById('hero-villa').value;
+        }
+
+        if (modalVillaSelect && (!modalVillaSelect.value || modalVillaSelect.selectedIndex === -1)) {
+            modalVillaSelect.selectedIndex = 0;
         }
 
         const heroGuestVal = document.getElementById('hero-guests') ? parseInt(document.getElementById('hero-guests').value, 10) : 2;
@@ -1397,9 +1413,16 @@ document.addEventListener("DOMContentLoaded", () => {
             if (modalKidsInput) modalKidsInput.value = 0;
         }
 
-        updateStepperButtons();
-        recalculateBookingSummary();
-        checkLiveModalAvailability(false);
+        const selectWrapper = document.getElementById('modal-villa-select-wrapper');
+        if (selectWrapper) selectWrapper.style.display = 'none';
+
+        if (typeof onModalVillaChange === 'function') {
+            onModalVillaChange(false);
+        } else {
+            updateStepperButtons();
+            recalculateBookingSummary();
+            checkLiveModalAvailability(false);
+        }
         bookingModal.classList.add('active');
         document.body.style.overflow = 'hidden';
         if (lenis) lenis.stop();
@@ -1718,6 +1741,49 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        // Update Rich Selected Chalet Card UI
+        const chaletTitleEl = document.getElementById('modal-chalet-card-title');
+        const mscTypePill = document.getElementById('msc-type-pill');
+        const mscStructPill = document.getElementById('msc-struct-pill');
+        const mscBaseGuestsPill = document.getElementById('msc-base-guests-pill');
+        const mscRatePill = document.getElementById('msc-rate-pill');
+
+        if (selectedOption) {
+            const villaTitle = selectedOption.getAttribute('data-name') || selectedOption.text.split('(')[0].replace(/^.*]:\s*/, '').trim();
+            const stayType = selectedOption.getAttribute('data-stay-type') || 'treehouse';
+            const baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
+            const rate = parseFloat(selectedOption.getAttribute('data-price') || "14500");
+            const singleRate = parseFloat(selectedOption.getAttribute('data-single-rate') || rate);
+            
+            if (chaletTitleEl) chaletTitleEl.innerText = villaTitle;
+            if (mscTypePill) {
+                if (stayType === 'mudhouse') {
+                    mscTypePill.innerHTML = '<i class="fa-solid fa-seedling"></i> Earthen Mudhouse';
+                } else if (stayType === 'woodhouse') {
+                    mscTypePill.innerHTML = '<i class="fa-solid fa-tree"></i> Alpine Woodhouse';
+                } else {
+                    mscTypePill.innerHTML = '<i class="fa-solid fa-tree"></i> Canopy Treehouse';
+                }
+            }
+            if (mscStructPill) {
+                if (isDuplex) {
+                    const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
+                    const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
+                    mscStructPill.innerText = (modalTier === 'single_room') ? 'Duplex (Single Suite)' : 'Duplex (Entire 2-Room Suite)';
+                } else {
+                    mscStructPill.innerText = 'Single Cottage';
+                }
+            }
+            if (mscBaseGuestsPill) {
+                const effectiveBase = isDuplex && (document.querySelector('input[name="modal_tier"]:checked')?.value === 'single_room') ? 2 : baseGuests;
+                mscBaseGuestsPill.innerHTML = `<i class="fa-solid fa-users"></i> Base: ${effectiveBase} Guests Included`;
+            }
+            if (mscRatePill) {
+                const effectiveRate = isDuplex && (document.querySelector('input[name="modal_tier"]:checked')?.value === 'single_room') ? singleRate : rate;
+                mscRatePill.innerHTML = `<i class="fa-solid fa-tag"></i> <strong>₹${effectiveRate.toLocaleString('en-IN')}</strong> / nt`;
+            }
+        }
+
         updateStepperButtons();
         recalculateBookingSummary();
         checkLiveModalAvailability(triggerPopup);
@@ -1735,10 +1801,60 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (labelSingle) { labelSingle.style.borderColor = '#56c2c9'; labelSingle.style.background = 'rgba(86, 194, 201, 0.15)'; }
                 if (labelFull) { labelFull.style.borderColor = 'rgba(255,255,255,0.15)'; labelFull.style.background = 'rgba(0,0,0,0.3)'; }
             }
+            // Update struct pill and base guests in card (only for duplex stays)
+            const mscStructPill = document.getElementById('msc-struct-pill');
+            const mscBaseGuestsPill = document.getElementById('msc-base-guests-pill');
+            const mscRatePill = document.getElementById('msc-rate-pill');
+            const selectedOption = modalVillaSelect ? modalVillaSelect.options[modalVillaSelect.selectedIndex] : null;
+            if (selectedOption) {
+                const structType = selectedOption.getAttribute('data-structure-type') || 'single_hut';
+                const isDuplexStay = (structType === 'duplex_hut');
+                const rate = parseFloat(selectedOption.getAttribute('data-price') || "24000");
+                const singleRate = parseFloat(selectedOption.getAttribute('data-single-rate') || "14500");
+                const baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
+                
+                if (isDuplexStay) {
+                    if (mscStructPill) {
+                        mscStructPill.innerText = (radio.value === 'single_room') ? 'Duplex (Single Suite)' : 'Duplex (Entire 2-Room Suite)';
+                    }
+                    if (mscBaseGuestsPill) {
+                        mscBaseGuestsPill.innerHTML = (radio.value === 'single_room') ? '<i class="fa-solid fa-users"></i> Base: 2 Guests Included' : '<i class="fa-solid fa-users"></i> Base: 4 Guests Included';
+                    }
+                    if (mscRatePill) {
+                        const effectiveRate = (radio.value === 'single_room') ? singleRate : rate;
+                        mscRatePill.innerHTML = `<i class="fa-solid fa-tag"></i> <strong>₹${effectiveRate.toLocaleString('en-IN')}</strong> / nt`;
+                    }
+                } else {
+                    if (mscStructPill) mscStructPill.innerText = 'Single Cottage';
+                    if (mscBaseGuestsPill) mscBaseGuestsPill.innerHTML = `<i class="fa-solid fa-users"></i> Base: ${baseGuests} Guests Included`;
+                    if (mscRatePill) mscRatePill.innerHTML = `<i class="fa-solid fa-tag"></i> <strong>₹${rate.toLocaleString('en-IN')}</strong> / nt`;
+                }
+            }
             updateStepperButtons();
             recalculateBookingSummary();
         });
     });
+
+    // Chalet selection dropdown toggle buttons
+    const btnToggleChaletSelect = document.getElementById('btn-toggle-chalet-select');
+    const btnHideChaletSelect = document.getElementById('btn-hide-chalet-select');
+    const modalVillaSelectWrapper = document.getElementById('modal-villa-select-wrapper');
+
+    if (btnToggleChaletSelect && modalVillaSelectWrapper) {
+        btnToggleChaletSelect.addEventListener('click', (e) => {
+            e.preventDefault();
+            const isHidden = modalVillaSelectWrapper.style.display === 'none' || !modalVillaSelectWrapper.style.display;
+            modalVillaSelectWrapper.style.display = isHidden ? 'block' : 'none';
+            if (isHidden && modalVillaSelect) modalVillaSelect.focus();
+        });
+    }
+
+    if (btnHideChaletSelect && modalVillaSelectWrapper) {
+        btnHideChaletSelect.addEventListener('click', (e) => {
+            e.preventDefault();
+            modalVillaSelectWrapper.style.display = 'none';
+        });
+    }
 
     // Price Calculation & Dynamic Rules
     function recalculateBookingSummary() {
@@ -1818,14 +1934,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const baseVillaTotal = villaPrice * nights;
 
         // Addons total (Direct on-site payment to local guides; NOT billed in advance total)
-        let selectedAddonsCount = 0;
-        document.querySelectorAll('.addon-checkbox:checked').forEach(() => {
-            selectedAddonsCount++;
+        const selectedAddonsList = [];
+        document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
+            const card = cb.closest('.addon-card');
+            const name = card?.querySelector('.addon-name')?.innerText?.trim() || 'Signature Experience';
+            const price = card?.querySelector('.addon-price')?.innerText?.trim() || '₹0';
+            selectedAddonsList.push({
+                name: name,
+                price: price
+            });
         });
+        const selectedAddonsCount = selectedAddonsList.length;
 
-        // Curated Food Menu Selection Calculation
+        // Curated Food Menu Selection Calculation & Itemization
         let foodTotal = 0;
         let foodSetsCount = 0;
+        const selectedFoodList = [];
         const isAllFoodSkipped = document.getElementById('toggle-skip-all-food')?.checked || false;
 
         if (!isAllFoodSkipped) {
@@ -1833,11 +1957,20 @@ document.addEventListener("DOMContentLoaded", () => {
                 const qtyInput = card.querySelector('.dish-qty-input');
                 const qty = parseInt(qtyInput?.value || "0", 10);
                 const category = card.getAttribute('data-dish-category');
+                const name = card.getAttribute('data-dish-name') || 'Signature Dish';
                 // Breakfast is complimentary (price = 0)
                 const price = (category === 'breakfast') ? 0 : parseFloat(card.getAttribute('data-dish-price') || "0");
                 if (qty > 0) {
-                    foodTotal += (qty * price);
+                    const subtotal = qty * price;
+                    foodTotal += subtotal;
                     foodSetsCount += qty;
+                    selectedFoodList.push({
+                        name: name,
+                        category: category,
+                        qty: qty,
+                        price: price,
+                        subtotal: subtotal
+                    });
                 }
             });
         }
@@ -1870,11 +2003,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const summaryExtraKidsLabel = document.getElementById('summary-extra-kids-label');
         const summaryExtraKidsRate = document.getElementById('summary-extra-kids-rate');
         const summaryExtraGuestsLine = document.getElementById('summary-extra-guests-line');
-        const summaryFoodLine = document.getElementById('summary-food-line');
-        const summaryFoodLabel = document.getElementById('summary-food-label');
-        const summaryFoodRate = document.getElementById('summary-food-rate');
-        const summaryAddonsLine = document.getElementById('summary-addons-line');
-        const summaryAddonsRate = document.getElementById('summary-addons-rate');
         const summarySubtotalLine = document.getElementById('summary-subtotal-line');
         const summarySubtotalRate = document.getElementById('summary-subtotal-rate');
         const summaryGstLine = document.getElementById('summary-gst-line');
@@ -1912,28 +2040,83 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        // Food Menu itemized line
-        if (summaryFoodLine && summaryFoodRate) {
-            if (foodTotal > 0 || foodSetsCount > 0) {
-                summaryFoodLine.style.display = 'flex';
-                if (summaryFoodLabel) {
-                    summaryFoodLabel.innerText = `Curated Gastronomy (${foodSetsCount} Sets):`;
+        // Food Menu itemized container update
+        const summaryFoodSection = document.getElementById('summary-food-section');
+        const summaryFoodHeading = document.getElementById('summary-food-heading');
+        const summaryFoodRate = document.getElementById('summary-food-rate');
+        const summaryFoodItemsContainer = document.getElementById('summary-food-items-container');
+
+        if (summaryFoodSection && summaryFoodItemsContainer) {
+            if (selectedFoodList.length > 0) {
+                summaryFoodSection.style.display = 'block';
+                if (summaryFoodHeading) {
+                    summaryFoodHeading.innerText = `Curated Gastronomy (${foodSetsCount} Dish Set${foodSetsCount > 1 ? 's' : ''}):`;
                 }
-                summaryFoodRate.innerText = foodTotal > 0 ? `+₹${foodTotal.toLocaleString('en-IN')}` : 'Included';
+                if (summaryFoodRate) {
+                    summaryFoodRate.innerText = foodTotal > 0 ? `+₹${foodTotal.toLocaleString('en-IN')}` : 'Included (₹0.00)';
+                }
+                
+                let foodHtml = '';
+                selectedFoodList.forEach(item => {
+                    const isBfast = item.category === 'breakfast';
+                    const rateBadge = isBfast || item.price === 0
+                        ? '<span style="color: #059669; font-weight: 700; font-size: 11.5px;">Included (₹0.00)</span>'
+                        : `<span style="color: #92400E; font-weight: 700; font-size: 12px;">+₹${item.subtotal.toLocaleString('en-IN')} <small style="font-weight: normal; color: #78716C; font-size: 10px;">(${item.qty} × ₹${item.price.toLocaleString('en-IN')})</small></span>`;
+                    
+                    const catIcon = isBfast ? 'fa-mug-saucer' : (item.category === 'lunch' ? 'fa-bowl-rice' : (item.category === 'snacks' ? 'fa-cookie-bite' : 'fa-fire-burner'));
+
+                    foodHtml += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #374151; padding: 3px 0;">
+                            <span style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                                <i class="fa-solid ${catIcon}" style="font-size: 10px; color: var(--accent-gold); flex-shrink: 0;"></i>
+                                <span style="font-weight: 600; color: #1F2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</span>
+                                <span style="background: rgba(28,56,38,0.08); color: #15803D; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; flex-shrink: 0;">× ${item.qty}</span>
+                            </span>
+                            <span style="margin-left: 8px; white-space: nowrap; text-align: right;">
+                                ${rateBadge}
+                            </span>
+                        </div>
+                    `;
+                });
+                summaryFoodItemsContainer.innerHTML = foodHtml;
             } else {
-                summaryFoodLine.style.display = 'none';
+                summaryFoodSection.style.display = 'none';
+                summaryFoodItemsContainer.innerHTML = '';
             }
         }
 
         if (summaryExtraGuestsLine) summaryExtraGuestsLine.style.display = 'none';
 
-        // Addons Experiences line (Payable on-site notice)
-        if (summaryAddonsLine && summaryAddonsRate) {
-            if (selectedAddonsCount > 0) {
-                summaryAddonsLine.style.display = 'flex';
-                summaryAddonsRate.innerText = 'Payable On-Site (₹0 in Bill)';
+        // Addons Experiences itemized container update
+        const summaryAddonsSection = document.getElementById('summary-addons-section');
+        const summaryAddonsHeading = document.getElementById('summary-addons-heading');
+        const summaryAddonsItemsContainer = document.getElementById('summary-addons-items-container');
+
+        if (summaryAddonsSection && summaryAddonsItemsContainer) {
+            if (selectedAddonsList.length > 0) {
+                summaryAddonsSection.style.display = 'block';
+                if (summaryAddonsHeading) {
+                    summaryAddonsHeading.innerText = `Selected Signature Experiences (${selectedAddonsList.length}):`;
+                }
+
+                let addonsHtml = '';
+                selectedAddonsList.forEach(ad => {
+                    addonsHtml += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #374151; padding: 3px 0;">
+                            <span style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                                <i class="fa-solid fa-sparkles" style="font-size: 10px; color: #0E7490; flex-shrink: 0;"></i>
+                                <span style="font-weight: 600; color: #1F2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ad.name}</span>
+                            </span>
+                            <span style="margin-left: 8px; white-space: nowrap; text-align: right; color: #0E7490; font-weight: 700; font-size: 11.5px;">
+                                ${ad.price} <span style="font-size: 10px; font-weight: 500; color: #64748B;">(On-Site)</span>
+                            </span>
+                        </div>
+                    `;
+                });
+                summaryAddonsItemsContainer.innerHTML = addonsHtml;
             } else {
-                summaryAddonsLine.style.display = 'none';
+                summaryAddonsSection.style.display = 'none';
+                summaryAddonsItemsContainer.innerHTML = '';
             }
         }
 
@@ -1956,6 +2139,73 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (summaryTotal) summaryTotal.innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
+
+        // Real-Time Update for Floating Sticky Checkout Bar
+        const mscbLiveTotal = document.getElementById('mscb-live-total');
+        const mscbTxtNights = document.getElementById('mscb-txt-nights');
+        const mscbTxtGuests = document.getElementById('mscb-txt-guests');
+        const mscbTxtExtra = document.getElementById('mscb-txt-extra');
+        const mscbTxtFood = document.getElementById('mscb-txt-food');
+        const mscbTaxPill = document.getElementById('mscb-tax-pill');
+        const mscbReserveBtn = document.getElementById('btn-mscb-submit');
+
+        if (mscbLiveTotal) {
+            mscbLiveTotal.innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
+            // Subtle pulse micro-animation on change
+            mscbLiveTotal.classList.remove('mscb-pulse');
+            void mscbLiveTotal.offsetWidth;
+            mscbLiveTotal.classList.add('mscb-pulse');
+        }
+        if (mscbTxtNights) {
+            mscbTxtNights.innerText = `${nights} ${nights === 1 ? 'Night' : 'Nights'}`;
+        }
+        if (mscbTxtGuests) {
+            let guestStr = `${adultsCount} Adult${adultsCount > 1 ? 's' : ''}`;
+            if (kidsCount > 0) guestStr += `, ${kidsCount} Kid${kidsCount > 1 ? 's' : ''}`;
+            mscbTxtGuests.innerHTML = `<i class="fa-solid fa-user-group"></i> ${guestStr}`;
+        }
+        if (mscbTxtExtra) {
+            const extraTotalVal = extraAdultsTotal + extraKidsTotal;
+            if (extraTotalVal > 0) {
+                mscbTxtExtra.style.display = 'inline-flex';
+                mscbTxtExtra.innerHTML = `<i class="fa-solid fa-user-plus"></i> +₹${extraTotalVal.toLocaleString('en-IN')} Extra`;
+            } else {
+                mscbTxtExtra.style.display = 'none';
+            }
+        }
+        if (mscbTxtFood) {
+            if (foodTotal > 0) {
+                mscbTxtFood.innerHTML = `<i class="fa-solid fa-utensils"></i> +₹${foodTotal.toLocaleString('en-IN')} Food`;
+            } else if (foodSetsCount > 0) {
+                mscbTxtFood.innerHTML = `<i class="fa-solid fa-utensils"></i> ${foodSetsCount} Sets Incl.`;
+            } else {
+                mscbTxtFood.innerHTML = `<i class="fa-solid fa-utensils"></i> Meals Incl.`;
+            }
+        }
+        if (mscbTaxPill) {
+            if (isGstBill) {
+                mscbTaxPill.innerHTML = `<i class="fa-solid fa-file-invoice-dollar"></i> ${gstRate}% GST Incl.`;
+                mscbTaxPill.style.background = 'rgba(2, 132, 199, 0.2)';
+                mscbTaxPill.style.color = '#38BDF8';
+                mscbTaxPill.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+            } else {
+                mscbTaxPill.innerHTML = `<i class="fa-solid fa-receipt"></i> Est. Folio (GST-Free)`;
+                mscbTaxPill.style.background = 'rgba(16, 185, 129, 0.18)';
+                mscbTaxPill.style.color = '#4ADE80';
+                mscbTaxPill.style.borderColor = 'rgba(74, 222, 128, 0.35)';
+            }
+        }
+        if (mscbReserveBtn) {
+            if (!isCurrentVillaAvailable) {
+                mscbReserveBtn.disabled = true;
+                mscbReserveBtn.classList.add('btn-mscb-disabled');
+                mscbReserveBtn.innerHTML = '<span>Chalet Reserved</span> <i class="fa-solid fa-calendar-xmark"></i>';
+            } else {
+                mscbReserveBtn.disabled = false;
+                mscbReserveBtn.classList.remove('btn-mscb-disabled');
+                mscbReserveBtn.innerHTML = '<span>Confirm &amp; Reserve</span> <i class="fa-solid fa-arrow-right"></i>';
+            }
+        }
     }
 
     if (modalVillaSelect) modalVillaSelect.addEventListener('change', () => onModalVillaChange(true));
@@ -2127,31 +2377,177 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // -------------------------------------------------------------
-    // 6.2 Government ID Proof File Upload Interactions
+    // -------------------------------------------------------------
+    // 6.2 Government ID Proof File Upload & Pre-Flight Anti-Virus Scan
     // -------------------------------------------------------------
     const idFileInput = document.getElementById('modal-id-file');
     const idFilePrompt = document.getElementById('id-file-prompt');
+    const idFileScanning = document.getElementById('id-file-scanning');
     const idFileSelected = document.getElementById('id-file-selected');
     const idFileNameEl = document.getElementById('id-file-name');
     const idFileSizeEl = document.getElementById('id-file-size');
     const btnRemoveIdFile = document.getElementById('btn-remove-id-file');
+    let isIdFileVerifiedClean = false;
+
+    // Advanced Pre-Flight Binary & Antivirus Threat Scanner
+    async function scanFileForVirusesAndThreats(file) {
+        // 1. Strict File Extension Whitelist & Anti-Double Extension Check
+        const fileName = file.name.toLowerCase();
+        const dangerousExts = [
+            '.exe', '.bat', '.cmd', '.sh', '.php', '.php3', '.phtml', '.js', '.vbs', '.scr',
+            '.pif', '.jar', '.dll', '.bin', '.apk', '.msi', '.com', '.vbe', '.wsf', '.hta',
+            '.cpl', '.iso', '.img', '.svg', '.html', '.htm', '.py', '.pl', '.cgi', '.asp', '.aspx'
+        ];
+
+        for (const badExt of dangerousExts) {
+            if (fileName.endsWith(badExt) || fileName.includes(badExt + '.')) {
+                return { safe: false, reason: `Disallowed executable file extension (${badExt}).` };
+            }
+        }
+
+        const validExtRegex = /\.(jpe?g|png|webp|pdf)$/i;
+        if (!validExtRegex.test(fileName)) {
+            return { safe: false, reason: 'Invalid file format. Only JPG, PNG, WEBP, and PDF documents are permitted.' };
+        }
+
+        // 2. File Size Constraint
+        if (file.size > 8 * 1024 * 1024) {
+            return { safe: false, reason: 'File exceeds maximum allowed size of 8MB.' };
+        }
+        if (file.size < 64) {
+            return { safe: false, reason: 'File is empty or corrupted (size under 64 bytes).' };
+        }
+
+        // 3. Binary Magic Byte & Anti-Malware Header Inspection
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const buffer = e.target.result;
+                    const bytes = new Uint8Array(buffer);
+                    const headerHex = Array.from(bytes.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+                    // DOS/Windows PE Executable Signature ('MZ' = 4D 5A)
+                    if (bytes[0] === 0x4D && bytes[1] === 0x5A) {
+                        return resolve({ safe: false, reason: 'Security Alert: Executable PE/DOS binary pattern detected.' });
+                    }
+
+                    // Linux ELF Executable Signature (\x7FELF = 7F 45 4C 46)
+                    if (bytes[0] === 0x7F && bytes[1] === 0x45 && bytes[2] === 0x4C && bytes[3] === 0x46) {
+                        return resolve({ safe: false, reason: 'Security Alert: Linux binary executable pattern detected.' });
+                    }
+
+                    // ZIP/JAR archive executable signature (PK\x03\x04 = 50 4B 03 04)
+                    if (bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04) {
+                        return resolve({ safe: false, reason: 'Security Alert: Compressed ZIP/JAR archive detected instead of document.' });
+                    }
+
+                    // Validate Magic Header for Expected Types
+                    let isMatch = false;
+                    let detectedType = 'unknown';
+
+                    if (headerHex.startsWith('FFD8FF')) {
+                        isMatch = true;
+                        detectedType = 'jpeg';
+                    } else if (headerHex.startsWith('89504E470D0A1A0A')) {
+                        isMatch = true;
+                        detectedType = 'png';
+                    } else if (headerHex.startsWith('52494646') && headerHex.substr(16, 8) === '57454250') {
+                        isMatch = true;
+                        detectedType = 'webp';
+                    } else if (headerHex.startsWith('255044462D')) { // %PDF-
+                        isMatch = true;
+                        detectedType = 'pdf';
+                    }
+
+                    if (!isMatch) {
+                        return resolve({ safe: false, reason: 'MIME Signature Mismatch: The file headers do not match legitimate JPG, PNG, WEBP, or PDF formats.' });
+                    }
+
+                    // 4. Text / Script Pattern Heuristics (Check for embedded webshells or malicious tags)
+                    // Sample up to first 64KB for embedded scripts
+                    const sampleChunk = bytes.slice(0, Math.min(bytes.length, 65536));
+                    let textSample = '';
+                    for (let i = 0; i < sampleChunk.length; i++) {
+                        const code = sampleChunk[i];
+                        if (code >= 32 && code <= 126) {
+                            textSample += String.fromCharCode(code);
+                        } else {
+                            textSample += ' ';
+                        }
+                    }
+
+                    // Anti-virus EICAR test string
+                    if (textSample.includes('EICAR-STANDARD-ANTIVIRUS-TEST-FILE')) {
+                        return resolve({ safe: false, reason: 'Virus Threat Detected: EICAR test signature matched.' });
+                    }
+
+                    // Suspicious web shells or scripts embedded in document
+                    const maliciousScriptKeywords = [
+                        '<?php', '<?=', '<script', 'eval(', 'base64_decode(', 'shell_exec(',
+                        'passthru(', 'system(', 'powershell', 'cmd.exe', '/javascript', '/launch'
+                    ];
+
+                    for (const kw of maliciousScriptKeywords) {
+                        if (textSample.toLowerCase().includes(kw)) {
+                            return resolve({ safe: false, reason: `Suspicious code pattern detected (${kw}). Only genuine ID documents are accepted.` });
+                        }
+                    }
+
+                    // All scans passed
+                    resolve({ safe: true, type: detectedType });
+                } catch (err) {
+                    resolve({ safe: false, reason: 'Could not read file binary buffer: ' + err.message });
+                }
+            };
+
+            reader.onerror = function() {
+                resolve({ safe: false, reason: 'Error reading file on device.' });
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+    }
 
     if (idFileInput) {
-        idFileInput.addEventListener('change', function() {
+        idFileInput.addEventListener('change', async function() {
             if (this.files && this.files[0]) {
                 const file = this.files[0];
-                if (file.size > 8 * 1024 * 1024) {
-                    alert('The chosen file is larger than 8MB. Please select a smaller file (JPG, PNG, WEBP, PDF).');
+
+                // Show scanning indicator
+                isIdFileVerifiedClean = false;
+                if (idFilePrompt) idFilePrompt.style.display = 'none';
+                if (idFileSelected) idFileSelected.style.display = 'none';
+                if (idFileScanning) idFileScanning.style.display = 'flex';
+
+                // Artificial micro-delay to ensure smooth UX and allow background worker to inspect
+                await new Promise(r => setTimeout(r, 450));
+
+                const scanResult = await scanFileForVirusesAndThreats(file);
+
+                if (idFileScanning) idFileScanning.style.display = 'none';
+
+                if (!scanResult.safe) {
+                    alert(`🛡️ Anti-Virus & Security Alert:\n\n${scanResult.reason}\n\nThe selected file was rejected for sanctuary safety. Please upload a genuine photo or PDF of your Government ID card.`);
                     this.value = '';
+                    isIdFileVerifiedClean = false;
                     if (idFilePrompt) idFilePrompt.style.display = 'flex';
                     if (idFileSelected) idFileSelected.style.display = 'none';
                     return;
                 }
+
+                // File verified clean & safe
+                isIdFileVerifiedClean = true;
                 const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
                 if (idFileNameEl) idFileNameEl.innerText = file.name;
-                if (idFileSizeEl) idFileSizeEl.innerText = `(${sizeMb} MB)`;
+                if (idFileSizeEl) idFileSizeEl.innerText = `(${sizeMb > 0 ? sizeMb : '<0.1'} MB)`;
                 if (idFilePrompt) idFilePrompt.style.display = 'none';
                 if (idFileSelected) idFileSelected.style.display = 'flex';
+            } else {
+                isIdFileVerifiedClean = false;
+                if (idFilePrompt) idFilePrompt.style.display = 'flex';
+                if (idFileScanning) idFileScanning.style.display = 'none';
+                if (idFileSelected) idFileSelected.style.display = 'none';
             }
         });
     }
@@ -2161,7 +2557,9 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             e.stopPropagation();
             if (idFileInput) idFileInput.value = '';
+            isIdFileVerifiedClean = false;
             if (idFilePrompt) idFilePrompt.style.display = 'flex';
+            if (idFileScanning) idFileScanning.style.display = 'none';
             if (idFileSelected) idFileSelected.style.display = 'none';
         });
     }
@@ -2179,7 +2577,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     formData.append(key, payload[key]);
                 }
             }
-            if (idFileInput && idFileInput.files && idFileInput.files[0]) {
+            if (idFileInput && idFileInput.files && idFileInput.files[0] && isIdFileVerifiedClean) {
                 formData.append('id_proof_file', idFileInput.files[0]);
             }
             const res = await fetch('api/book.php', {
@@ -2352,6 +2750,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            if (!idFileInput || !idFileInput.files || !idFileInput.files[0] || !isIdFileVerifiedClean) {
+                alert('⚠️ Mandatory Requirement:\nPlease upload a photo or PDF of your Government ID Proof (Aadhaar, Passport, Driving License, etc.) before confirming your reservation.');
+                const box = document.getElementById('id-proof-upload-box');
+                if (box) {
+                    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    box.style.borderColor = '#DC2626';
+                    box.style.background = '#FEF2F2';
+                    setTimeout(() => {
+                        box.style.borderColor = '#0284C7';
+                        box.style.background = '#F0F9FF';
+                    }, 3500);
+                }
+                return;
+            }
+
             if (!isCurrentVillaAvailable) {
                 showRealtimeConflictAlert(
                     'Chalet Already Reserved',
@@ -2406,6 +2819,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            if (!idFileInput || !idFileInput.files || !idFileInput.files[0] || !isIdFileVerifiedClean) {
+                alert('⚠️ Mandatory Requirement:\nPlease upload a photo or PDF of your Government ID Proof (Aadhaar, Passport, Driving License, etc.) before connecting with the Concierge.');
+                const box = document.getElementById('id-proof-upload-box');
+                if (box) {
+                    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    box.style.borderColor = '#DC2626';
+                    box.style.background = '#FEF2F2';
+                    setTimeout(() => {
+                        box.style.borderColor = '#0284C7';
+                        box.style.background = '#F0F9FF';
+                    }, 3500);
+                }
+                return;
+            }
+
             if (payload.billing_type === 'gst') {
                 if (!payload.gst_number || payload.gst_number.length < 8) {
                     alert('Please enter your valid 15-character GSTIN (GST Number) for your GST Tax Invoice.');
@@ -2434,12 +2862,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             const total = document.getElementById('summary-total')?.innerText || '₹14,500';
 
-            let foodSummary = 'Farm À La Carte on Arrival (Skipped)';
+            let foodSummary = 'Farm Dining Plan on Arrival';
             if (payload.food_items && payload.food_items.length > 0) {
-                foodSummary = payload.food_items.map(f => `${f.heading} (${f.quantity} sets)`).join(', ');
+                foodSummary = '\n' + payload.food_items.map(f => `  - ${f.heading} × ${f.quantity} set(s) [${f.category === 'breakfast' ? 'Included (₹0)' : ('₹' + (f.price * f.quantity).toLocaleString('en-IN'))}]`).join('\n');
             }
 
-            let expNote = payload.addons ? `\n• *Experiences (On-Site Direct Pay)*: ${payload.addons}` : '';
+            let expNote = payload.addons ? `\n• *Experiences (On-Site Direct Pay)*:\n${payload.addons.split(',').map(a => `  - ${a.trim()} (Payable On-Site)`).join('\n')}` : '';
             let cityNote = payload.city_state ? `\n• *City/Origin*: ${payload.city_state}` : '';
             let idNote = payload.id_proof_type ? (`\n• *ID Proof*: ${payload.id_proof_type}` + (payload.has_id_file ? ' (📎 Document Attached)' : '')) : '';
 

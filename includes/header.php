@@ -129,6 +129,7 @@ if (!empty($all_header_rooms)) {
                 <nav class="nav-links font-sans">
                     <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
                     <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
+                    <a href="<?php echo $nav_prefix; ?>#sanctuary-amenities" class="nav-item magnetic" data-strength="10">Amenities</a>
                     <a href="booking.php" class="nav-item magnetic" data-strength="10" style="color: var(--accent-gold); font-weight: 700;"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
                     <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
                     <a href="<?php echo $nav_prefix; ?>#dining" class="nav-item magnetic" data-strength="10">Food Menu</a>

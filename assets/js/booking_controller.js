@@ -583,6 +583,73 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // 11.1 Interactive Map Legend Filter Buttons Handling
+    const legendFilterBtns = document.querySelectorAll('.legend-filter-btn');
+    legendFilterBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            legendFilterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const filter = btn.getAttribute('data-legend-filter');
+            let firstVisibleSpotId = null;
+
+            nodes.forEach(node => {
+                const spotId = node.getAttribute('data-spot-id');
+                const isStay = node.getAttribute('data-is-stay') === '1';
+                const isDuplex = node.getAttribute('data-is-duplex') === '1';
+                const struct = node.getAttribute('data-structure') || '';
+                const nodeStatus = node.getAttribute('data-status') || 'available';
+
+                let match = false;
+                if (filter === 'all') {
+                    match = true;
+                } else if (filter === 'available') {
+                    match = (isStay && nodeStatus !== 'booked');
+                } else if (filter === 'booked') {
+                    match = (isStay && nodeStatus === 'booked');
+                } else if (filter === 'single') {
+                    match = (isStay && !isDuplex && (struct === 'single_hut' || struct === 'single'));
+                } else if (filter === 'duplex') {
+                    match = (isStay && (isDuplex || struct === 'duplex_hut'));
+                } else if (filter === 'facilities') {
+                    match = (!isStay);
+                }
+
+                if (match) {
+                    node.style.display = 'block';
+                    node.style.opacity = '1';
+                    if (!firstVisibleSpotId) {
+                        firstVisibleSpotId = spotId;
+                    }
+                } else {
+                    node.style.opacity = '0.12';
+                }
+            });
+
+            // Filter Grid Cards if applicable
+            document.querySelectorAll('.chalet-card').forEach(card => {
+                const cardStruct = card.getAttribute('data-structure');
+                const isBooked = card.classList.contains('is-booked-card');
+
+                let match = false;
+                if (filter === 'all') match = true;
+                else if (filter === 'available') match = !isBooked;
+                else if (filter === 'booked') match = isBooked;
+                else if (filter === 'single') match = (cardStruct === 'single_hut');
+                else if (filter === 'duplex') match = (cardStruct === 'duplex_hut');
+                else if (filter === 'facilities') match = false;
+                else match = true;
+
+                card.style.display = match ? 'flex' : 'none';
+            });
+
+            if (firstVisibleSpotId) {
+                selectChalet(firstVisibleSpotId, false);
+            }
+        });
+    });
+
     // 12. View Switcher (Map View vs Grid View)
     if (viewBtnMap && viewBtnGrid && mapLayout && gridLayout) {
         viewBtnMap.addEventListener('click', () => {
@@ -602,26 +669,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 13. Grid Card "Book Chalet" Buttons
     document.querySelectorAll('.select-from-grid-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
             const card = btn.closest('.chalet-card');
             if (card && card.classList.contains('is-booked-card')) {
                 return;
             }
             const slug = btn.getAttribute('data-slug');
-            const targetSpot = spotsData.find(s => s.linked_room_slug === slug);
+            let targetSpot = spotsData.find(s => s.linked_room_slug === slug);
+            if (!targetSpot) {
+                targetSpot = spotsData.find(s => s.title && slug && s.title.toLowerCase().includes(slug.toLowerCase().replace(/-/g, ' ')));
+            }
             if (targetSpot) {
                 selectChalet(targetSpot.id, false);
-                triggerBookingModalWithSelectedStay();
             }
+            triggerBookingModalWithSelectedStay(slug);
         });
     });
 
     // 14. "Proceed to Reserve" Button -> Triggers Modal with pre-filled state
-    function triggerBookingModalWithSelectedStay() {
-        if (!currentSpot) return;
+    function triggerBookingModalWithSelectedStay(forcedSlug) {
+        const roomSlug = forcedSlug || (currentSpot ? (currentSpot.linked_room_slug || 'mudhouse-stay') : 'mudhouse-stay');
+        const modal = document.getElementById('booking-modal');
+        if (!modal) return;
 
-        // Check availability before triggering
-        if (currentAvailabilityData && currentAvailabilityData.spots_status) {
+        // Check availability before triggering if spot exists
+        if (currentSpot && currentAvailabilityData && currentAvailabilityData.spots_status) {
             const spStatus = currentAvailabilityData.spots_status[currentSpot.id];
             if (spStatus && !spStatus.available) {
                 if (typeof showRealtimeConflictAlert === 'function') {
@@ -634,14 +707,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const roomSlug = currentSpot.linked_room_slug || 'treehouse';
-        const modal = document.getElementById('booking-modal');
-        if (!modal) return;
-
         // Sync Modal fields
         const modalVilla = document.getElementById('modal-villa');
         if (modalVilla) {
-            modalVilla.value = roomSlug;
+            let matched = false;
+            for (let i = 0; i < modalVilla.options.length; i++) {
+                if (modalVilla.options[i].value === roomSlug) {
+                    modalVilla.selectedIndex = i;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && modalVilla.options.length > 0) {
+                modalVilla.selectedIndex = 0;
+            }
             // Trigger change event to sync prices
             const ev = new Event('change', { bubbles: true });
             modalVilla.dispatchEvent(ev);
@@ -655,25 +734,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const modalCin = document.getElementById('modal-checkin');
-        if (modalCin && checkinInput) {
+        if (modalCin && checkinInput && checkinInput.value) {
             modalCin.value = checkinInput.value;
             modalCin.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         const modalCout = document.getElementById('modal-checkout');
-        if (modalCout && checkoutInput) {
+        if (modalCout && checkoutInput && checkoutInput.value) {
             modalCout.value = checkoutInput.value;
             modalCout.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         const modalAdults = document.getElementById('modal-adults');
-        if (modalAdults && adultsInput) {
+        if (modalAdults && adultsInput && adultsInput.value) {
             modalAdults.value = adultsInput.value;
         }
 
         const modalKids = document.getElementById('modal-kids');
-        if (modalKids && kidsInput) {
+        if (modalKids && kidsInput && kidsInput.value) {
             modalKids.value = kidsInput.value;
+        }
+
+        // Hide raw dropdown wrapper so selected cottage card is cleanly showcased
+        const selectWrapper = document.getElementById('modal-villa-select-wrapper');
+        if (selectWrapper) selectWrapper.style.display = 'none';
+
+        if (typeof onModalVillaChange === 'function') {
+            onModalVillaChange(false);
         }
 
         // Open Modal
@@ -682,12 +769,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = 'hidden';
 
         // Scroll modal into view smoothly
-        const container = modal.querySelector('.booking-modal-container');
+        const container = modal.querySelector('.booking-modal-content');
         if (container) container.scrollTop = 0;
     }
 
     if (btnSacOpenCheckout) {
-        btnSacOpenCheckout.addEventListener('click', triggerBookingModalWithSelectedStay);
+        btnSacOpenCheckout.addEventListener('click', () => triggerBookingModalWithSelectedStay());
     }
 
     // 15. Initial Selection and Live Availability Fetch on Page Load

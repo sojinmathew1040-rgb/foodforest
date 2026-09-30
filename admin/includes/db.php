@@ -247,7 +247,7 @@ function seed_mysql_initial_data(PDO $pdo) {
         $testimonials = [
             ['guest_name' => 'Aarav & Nandita Nambiar', 'guest_location' => 'Kochi, Kerala · Stayed Feb 2026', 'stay_badge' => 'CANOPY TREEHOUSE', 'stars' => 5, 'quote' => 'The silence here is pure medicine. Waking up 30 feet above the valley floor to the mist drifting through our bedroom balcony was something we will carry in our hearts forever. The woodfire claypot lunch was unforgettable.', 'initials' => 'AN', 'display_order' => 1],
             ['guest_name' => 'Dr. Julian & Clara Vance', 'guest_location' => 'Edinburgh, UK · Stayed Jan 2026', 'stay_badge' => 'EARTHEN MUDHOUSE', 'stars' => 5, 'quote' => 'As architects passionate about sustainable living, the cob mudhouse blew us away. The natural indoor temperature stayed delightfully cool despite the midday sun. Stargazing by the open hearth was unmatched.', 'initials' => 'JV', 'display_order' => 2],
-            ['guest_name' => 'Meera Krishnan', 'guest_location' => 'Bengaluru, India · Stayed Feb 2026', 'stay_badge' => 'SOLO RETREAT', 'stars' => 5, 'quote' => 'I came seeking refuge from city noise and found complete sanctuary. The sound of the mountain brook, the aroma of crushed wild rosemary on the morning trails, and the warmth of the hosts made me extend my stay by four days.', 'initials' => 'MK', 'display_order' => 3],
+            ['guest_name' => 'Meera Krishnan', 'guest_location' => 'Bengaluru, India · Stayed Feb 2026', 'stay_badge' => 'SOLO RETREAT', 'stars' => 5, 'quote' => 'I came seeking refuge from city noise and found complete sanctuary. The sound of the mountain stream, the aroma of crushed wild rosemary on the morning trails, and the warmth of the hosts made me extend my stay by four days.', 'initials' => 'MK', 'display_order' => 3],
             ['guest_name' => 'Vikramaditya & Rohini Sen', 'guest_location' => 'New Delhi, India · Stayed Dec 2025', 'stay_badge' => 'ORCHARD HARVEST STAY', 'stars' => 5, 'quote' => 'Our children had never plucked apples and passionfruit directly from trees before. Eating ripe fruit straight from the branch while watching the clouds roll into the valley was the highlight of our year.', 'initials' => 'VS', 'display_order' => 4]
         ];
         $ins = $pdo->prepare("INSERT INTO testimonials (guest_name, guest_location, stay_badge, stars, quote, initials, display_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -282,6 +282,7 @@ function seed_mysql_initial_data(PDO $pdo) {
         'currency_symbol' => '₹',
         'checkin_time' => '02:00 PM',
         'checkout_time' => '11:00 AM',
+        'admin_theme' => 'dark',
 
         'hero_eyebrow' => 'KANTHALLOOR, KERALA • PRIVATE ECO-SANCTUARY',
         'hero_title' => 'Where Earth Breathes & Time Stands Still.',
@@ -848,6 +849,11 @@ function ensure_rooms_360_column(PDO $pdo) {
             $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `interior_360_url` VARCHAR(255) NULL AFTER `image_url`");
         }
 
+        $cols_tour = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'tour_stages_json'")->fetchAll();
+        if (empty($cols_tour)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `tour_stages_json` LONGTEXT NULL AFTER `interior_360_url`");
+        }
+
         // Set defaults for treehouse and mudhouse if not set
         $pdo->exec("UPDATE `rooms` SET `interior_360_url` = 'assets/images/treehouse_360_pano.jpg' WHERE `slug` = 'treehouse' AND (`interior_360_url` IS NULL OR `interior_360_url` = '')");
         $pdo->exec("UPDATE `rooms` SET `interior_360_url` = 'assets/images/mudhouse_360_pano.jpg' WHERE `slug` = 'mudhouse' AND (`interior_360_url` IS NULL OR `interior_360_url` = '')");
@@ -856,6 +862,133 @@ function ensure_rooms_360_column(PDO $pdo) {
     }
 
     $checked = true;
+}
+
+/**
+ * Return default 360 tour stages data for a room/stay type
+ */
+function get_default_tour_stages_for_room($slug, $title, $elevation = '', $stay_type = '') {
+    $is_mudhouse = ($stay_type === 'mudhouse' || stripos($slug, 'mud') !== false);
+    
+    if ($is_mudhouse) {
+        return [
+            'badge' => 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR',
+            'subtitle' => 'Scroll down to journey from the terraced flower garden into the hand-sculpted mudhouse suite.',
+            'progressLabels' => [
+                'Garden Exterior',
+                'Glass Façade',
+                'Daybed Alcove',
+                'Living Suite',
+                'Clay Hearth'
+            ],
+            'stages' => [
+                [
+                    'pill' => '<i class="fa-solid fa-house-chimney"></i> ORGANIC COB ARCHITECTURE',
+                    'heading' => 'Cob Exterior & Terraced Orchard Garden',
+                    'text' => 'Handcrafted from unbaked clay, straw, and river silt with terracotta tiled eaves, overlooking misty mountain apple orchards and organic flower gardens.'
+                ],
+                [
+                    'pill' => '<i class="fa-solid fa-mountain-sun"></i> 01 • HIGH GLASS FAÇADE',
+                    'heading' => 'Floor-to-Ceiling Mountain Vista Glass',
+                    'text' => "Dramatic cathedral-height glass portal framing panoramic views of Kanthalloor's cloud-swept peaks, rolling pine forests, and stone garden walkways."
+                ],
+                [
+                    'pill' => '<i class="fa-solid fa-couch"></i> 02 • TRADITIONAL DAYBED ALCOVE',
+                    'heading' => 'Sculpted Earthen Alcove & Teak Pillars',
+                    'text' => 'An organic sunlit daybed recessed into sculpted clay walls with antique carved teak columns, designed for afternoon reading and tranquil tea sessions.'
+                ],
+                [
+                    'pill' => '<i class="fa-solid fa-bed"></i> 03 • HANDCRAFTED LIVING & SLEEP SUITE',
+                    'heading' => 'Artisan Wood Furniture & Terracotta Floors',
+                    'text' => 'Handmade terracotta floor tiles, antique wood coffee tables, woven carpets, and natural linen luxury bedding under soaring exposed timber roof trusses.'
+                ],
+                [
+                    'pill' => '<i class="fa-solid fa-fire"></i> 04 • CLAY HEARTH & BRASS LANTERNS',
+                    'heading' => 'Artisan Stone Fireplace & Ambient Glow',
+                    'text' => 'Authentic hearth with hand-cut stone surround, brass lantern lighting, and curated botanical ceramics creating an enchanting evening sanctuary.'
+                ]
+            ]
+        ];
+    }
+
+    // Default: Treehouse or Forest Cottage
+    $elev_tag = !empty($elevation) ? strtoupper($elevation) : '30FT ELEVATED CANOPY';
+    return [
+        'badge' => 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR',
+        'subtitle' => 'Scroll down to fly from the misty forest canopy directly inside the 360° suite.',
+        'progressLabels' => [
+            'Exterior',
+            'Panoramic Bay',
+            'Forest Deck',
+            'Master Suite',
+            'Stone Hearth'
+        ],
+        'stages' => [
+            [
+                'pill' => '<i class="fa-solid fa-tree"></i> ' . $elev_tag,
+                'heading' => 'Front Exterior & Forest Suspension',
+                'text' => 'Suspended 30 feet above the forest floor within ancient trees. Crafted with wild teak timber, an open cantilevered deck, and expansive curved glass.'
+            ],
+            [
+                'pill' => '<i class="fa-solid fa-mountain-sun"></i> 01 • 180° VALLEY GLASSWORK',
+                'heading' => 'Floor-to-Ceiling Curved Bay Window',
+                'text' => 'An expansive architectural curved window framing floating clouds, high-altitude tea valleys, and morning mountain mist.'
+            ],
+            [
+                'pill' => '<i class="fa-solid fa-wind"></i> 02 • MISTY CANOPY DECK',
+                'heading' => 'Private Cantilevered Timber Balcony',
+                'text' => 'Step directly outside into the clouds. An open timber deck perched 30 feet high in ancient trees for birdsong and organic mountain tea.'
+            ],
+            [
+                'pill' => '<i class="fa-solid fa-bed"></i> 03 • WILD TEAK BED SUITE',
+                'heading' => 'Handcrafted Artisan King Bed',
+                'text' => 'Hand-hewn from natural wild teak, dressed in 100% breathable organic linen, accompanied by handcrafted bedside lanterns and radial wooden ceiling beams.'
+            ],
+            [
+                'pill' => '<i class="fa-solid fa-fire"></i> 04 • THE FOREST HEARTH',
+                'heading' => 'Hand-Cut Stone Fireplace & Lounge',
+                'text' => 'Warm authentic stone fireplace with crackling hearth wood, curved luxury sofa, and library nook to relax on crisp mountain evenings.'
+            ]
+        ]
+    ];
+}
+
+/**
+ * Get resolved tour stages data for a room (from DB or default)
+ */
+function get_room_tour_stages($room) {
+    $defaults = get_default_tour_stages_for_room(
+        $room['slug'] ?? 'treehouse',
+        $room['title'] ?? 'The Canopy Treehouse',
+        $room['elevation'] ?? '',
+        $room['stay_type'] ?? ''
+    );
+
+    if (!empty($room['tour_stages_json'])) {
+        $custom = json_decode($room['tour_stages_json'], true);
+        if (is_array($custom)) {
+            if (!empty($custom['badge'])) $defaults['badge'] = $custom['badge'];
+            if (!empty($custom['subtitle'])) $defaults['subtitle'] = $custom['subtitle'];
+            if (!empty($custom['progressLabels']) && is_array($custom['progressLabels'])) {
+                for ($i = 0; $i < 5; $i++) {
+                    if (isset($custom['progressLabels'][$i]) && $custom['progressLabels'][$i] !== '') {
+                        $defaults['progressLabels'][$i] = $custom['progressLabels'][$i];
+                    }
+                }
+            }
+            if (!empty($custom['stages']) && is_array($custom['stages'])) {
+                for ($i = 0; $i < 5; $i++) {
+                    if (isset($custom['stages'][$i]) && is_array($custom['stages'][$i])) {
+                        if (isset($custom['stages'][$i]['pill']) && $custom['stages'][$i]['pill'] !== '') $defaults['stages'][$i]['pill'] = $custom['stages'][$i]['pill'];
+                        if (isset($custom['stages'][$i]['heading']) && $custom['stages'][$i]['heading'] !== '') $defaults['stages'][$i]['heading'] = $custom['stages'][$i]['heading'];
+                        if (isset($custom['stages'][$i]['text']) && $custom['stages'][$i]['text'] !== '') $defaults['stages'][$i]['text'] = $custom['stages'][$i]['text'];
+                    }
+                }
+            }
+        }
+    }
+
+    return $defaults;
 }
 
 /**
@@ -909,7 +1042,13 @@ function ensure_rooms_pricing_columns(PDO $pdo) {
             $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `single_room_rate` DECIMAL(10,2) NULL AFTER `rate_per_night`");
         }
 
-        // 8. Check & Add adults_count, kids_count, extra_adults, extra_kids to bookings table
+        // 8. Check & Add inventory_checklist (Admin Room Assets Checklist)
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'inventory_checklist'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `inventory_checklist` TEXT NULL AFTER `amenities`");
+        }
+
+        // 9. Check & Add adults_count, kids_count, extra_adults, extra_kids to bookings table
         $b_cols = $pdo->query("SHOW COLUMNS FROM `bookings` LIKE 'adults_count'")->fetchAll();
         if (empty($b_cols)) {
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `adults_count` INT DEFAULT 2 AFTER `guest_email`");
@@ -998,190 +1137,206 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
     if (!in_array('structure_type', $cols)) {
         $pdo->exec("ALTER TABLE `sanctuary_spots` ADD COLUMN `structure_type` VARCHAR(50) DEFAULT 'single_hut' AFTER `linked_room_slug`");
     }
+    if (!in_array('icon_class', $cols)) {
+        $pdo->exec("ALTER TABLE `sanctuary_spots` ADD COLUMN `icon_class` VARCHAR(100) NULL AFTER `category`");
+    }
+    if (!in_array('pin_color', $cols)) {
+        $pdo->exec("ALTER TABLE `sanctuary_spots` ADD COLUMN `pin_color` VARCHAR(50) NULL AFTER `icon_class`");
+    }
 
-    $count = (int)$pdo->query("SELECT COUNT(*) FROM `sanctuary_spots`")->fetchColumn();
-    if ($count === 0) {
-        $spots = [
-            [
-                'spot_number' => 1,
-                'title' => 'Farmhouse Kitchen & Organic Dining',
-                'subtitle_tag' => 'COMMON KITCHEN & DINING',
-                'category' => 'dining',
-                'is_stay' => 0,
-                'linked_room_slug' => null,
-                'stay_price' => null,
-                'elevation' => '1,580M MSL',
-                'temperature' => '19°C Warm Hearth',
-                'description' => 'Central farm hearth serving 100% organic farm-to-table meals harvested daily from our heirloom orchards. Wood-fired open kitchen and mountain view dining.',
-                'aroma' => 'Woodsmoke, cardamom & roasted spices',
-                'sound' => 'Crackling hearth, laughter & tea kettle',
-                'image_url' => 'assets/images/01 (10).jpeg',
-                'photos' => json_encode(['assets/images/01 (10).jpeg', 'assets/images/01 (20).jpeg', 'assets/images/01 (1).jpeg']),
-                'cta_text' => 'Farmhouse Dining',
-                'cta_link' => '#dining',
-                'x_coord' => 18.00,
-                'y_coord' => 56.00,
-                'display_order' => 1
-            ],
-            [
-                'spot_number' => 2,
-                'title' => 'The Earthen Mudhouse Sanctuary',
-                'subtitle_tag' => 'EARTHEN COB VILLA',
-                'category' => 'stays',
-                'is_stay' => 1,
-                'linked_room_slug' => 'mudhouse',
-                'stay_price' => 11500.00,
-                'elevation' => '1,600M MSL',
-                'temperature' => '21°C Thermal Comfort',
-                'description' => 'Handcrafted cob clay cottages sculpted from native red soil, river sand, and straw. Naturally insulated against chilly nights with private sit-out and orchard panorama.',
-                'aroma' => 'Sun-baked earth, vetiver & woodsmoke',
-                'sound' => 'Crackling hearth embers, crickets',
-                'image_url' => 'assets/images/mudhouse_exterior.png',
-                'photos' => json_encode(['assets/images/mudhouse_exterior.png', 'assets/images/01 (26).jpeg', 'assets/images/01 (14).jpeg']),
-                'cta_text' => 'Book Mudhouse',
-                'cta_link' => 'booking.php?villa=mudhouse',
-                'x_coord' => 30.00,
-                'y_coord' => 70.00,
-                'display_order' => 2
-            ],
-            [
-                'spot_number' => 3,
-                'title' => 'High-Altitude Canopy Treehouse',
-                'subtitle_tag' => 'CANOPY TREEHOUSE',
-                'category' => 'stays',
-                'is_stay' => 1,
-                'linked_room_slug' => 'treehouse',
-                'stay_price' => 14500.00,
-                'elevation' => '1,620M MSL',
-                'temperature' => '17°C Alpine Breeze',
-                'description' => 'Elevated living perched 30 feet above the forest floor among ancient high trees. Floor-to-ceiling panoramic glass windows looking out over cascading mist and apple terraces.',
-                'aroma' => 'Fresh cedarwood, wild jasmine & pine',
-                'sound' => 'Wind through high canopies, bulbul calls',
-                'image_url' => 'assets/images/treehouse_exterior.png',
-                'photos' => json_encode(['assets/images/treehouse_exterior.png', 'assets/images/treehouse_curved_window.png', 'assets/images/treehouse_timber_balcony.png']),
-                'cta_text' => 'Book Treehouse',
-                'cta_link' => 'booking.php?villa=treehouse',
-                'x_coord' => 56.00,
-                'y_coord' => 24.00,
-                'display_order' => 3
-            ],
-            [
-                'spot_number' => 4,
-                'title' => 'The Alpine Woodhouse Chalet',
-                'subtitle_tag' => 'PINE TIMBER CHALET',
-                'category' => 'stays',
-                'is_stay' => 1,
-                'linked_room_slug' => 'woodhouse',
-                'stay_price' => 13500.00,
-                'elevation' => '1,620M MSL',
-                'temperature' => '18°C Pine Forest Air',
-                'description' => 'Handcrafted solid cedar and pinewood mountain chalet featuring aromatic wooden walls, high vaulted cathedral ceiling, valley-facing balcony deck, and private fire hearth.',
-                'aroma' => 'Pine needles, cedar resin & crisp mist',
-                'sound' => 'Rustling pine branches, mountain breeze',
-                'image_url' => 'assets/images/01 (25).jpeg',
-                'photos' => json_encode(['assets/images/01 (25).jpeg', 'assets/images/01 (26).jpeg', 'assets/images/treehouse_stone_fireplace.png']),
-                'cta_text' => 'Book Woodhouse',
-                'cta_link' => 'booking.php?villa=woodhouse',
-                'x_coord' => 74.00,
-                'y_coord' => 34.00,
-                'display_order' => 4
-            ],
-            [
-                'spot_number' => 5,
-                'title' => 'Crystal Mountain Brook & Plunge Pool',
-                'subtitle_tag' => 'FRESH SPRING PLUNGE POOL',
-                'category' => 'amenities',
-                'is_stay' => 0,
-                'linked_room_slug' => null,
-                'stay_price' => null,
-                'elevation' => '1,560M MSL',
-                'temperature' => '15°C Spring Freshwater',
-                'description' => 'Pristine mountain brook feeding into a natural granite plunge pool. Serene freshwater bathing and riverside meditation amidst lush shola ferns.',
-                'aroma' => 'Fern leaves, damp river stones & mineral mist',
-                'sound' => 'Melodic rushing stream, pebble resonance',
-                'image_url' => 'assets/images/01 (28).jpeg',
-                'photos' => json_encode(['assets/images/01 (28).jpeg', 'assets/images/01 (3).jpeg', 'assets/images/01 (2).jpeg']),
-                'cta_text' => 'Explore Waters',
-                'cta_link' => '#experiences',
-                'x_coord' => 46.00,
-                'y_coord' => 48.00,
-                'display_order' => 5
-            ],
-            [
-                'spot_number' => 6,
-                'title' => 'Campfire Glade & BBQ Grilling Shed',
-                'subtitle_tag' => 'EVENING BBQ & STARGAZING',
-                'category' => 'amenities',
-                'is_stay' => 0,
-                'linked_room_slug' => null,
-                'stay_price' => null,
-                'elevation' => '1,640M MSL',
-                'temperature' => '14°C Crisp Night Air',
-                'description' => 'Covered rustic timber barbecue pavilion and open granite firepit. Guests gather here for evening grilling rituals and acoustic stargazing under Class-1 dark skies.',
-                'aroma' => 'Ember woodsmoke, roasted pepper & eucalyptus',
-                'sound' => 'Acoustic guitar, crackling embers, mountain breeze',
-                'image_url' => 'assets/images/01 (25).jpeg',
-                'photos' => json_encode(['assets/images/01 (25).jpeg', 'assets/images/treehouse_stone_fireplace.png', 'assets/images/01 (12).jpeg']),
-                'cta_text' => 'Evening Rituals',
-                'cta_link' => '#experiences',
-                'x_coord' => 38.00,
-                'y_coord' => 22.00,
-                'display_order' => 6
-            ],
-            [
-                'spot_number' => 7,
-                'title' => "Children's Play Glade & Orchard Walk",
-                'subtitle_tag' => 'RECREATION & HARVEST TRAILS',
-                'category' => 'nature',
-                'is_stay' => 0,
-                'linked_room_slug' => null,
-                'stay_price' => null,
-                'elevation' => '1,570M MSL',
-                'temperature' => '18°C Mild Mountain Sun',
-                'description' => "Terraced grassy lawn equipped with traditional wooden swings, outdoor play zones for kids, and walking trails weaving through fruit-bearing apple and plum trees.",
-                'aroma' => 'Wild berries, sweet apple blossoms & clover',
-                'sound' => "Songbirds, children's laughter, rustling leaves",
-                'image_url' => 'assets/images/01 (19).jpeg',
-                'photos' => json_encode(['assets/images/01 (19).jpeg', 'assets/images/01 (11).jpeg', 'assets/images/01 (7).jpeg']),
-                'cta_text' => 'Orchard Activities',
-                'cta_link' => '#experiences',
-                'x_coord' => 68.00,
-                'y_coord' => 68.00,
-                'display_order' => 7
-            ]
-        ];
+    // Assign vibrant iconic presets to existing spots if unassigned
+    $pdo->exec("UPDATE `sanctuary_spots` SET `icon_class` = 'fa-solid fa-utensils', `pin_color` = '#F59E0B' WHERE `category` = 'dining' AND (`pin_color` IS NULL OR `pin_color` = '')");
+    $pdo->exec("UPDATE `sanctuary_spots` SET `icon_class` = 'fa-solid fa-mountain-sun', `pin_color` = '#EA580C' WHERE (`title` LIKE '%mudhouse%' OR `title` LIKE '%mud%') AND (`pin_color` IS NULL OR `pin_color` = '')");
+    $pdo->exec("UPDATE `sanctuary_spots` SET `icon_class` = 'fa-solid fa-tree', `pin_color` = '#10B981' WHERE (`title` LIKE '%treehouse%' OR `title` LIKE '%canopy%') AND (`pin_color` IS NULL OR `pin_color` = '')");
+    $pdo->exec("UPDATE `sanctuary_spots` SET `icon_class` = 'fa-solid fa-layer-group', `pin_color` = '#06B6D4' WHERE (`structure_type` = 'duplex_hut' OR `title` LIKE '%woodhouse%' OR `title` LIKE '%duplex%') AND (`pin_color` IS NULL OR `pin_color` = '')");
+    $pdo->exec("UPDATE `sanctuary_spots` SET `icon_class` = 'fa-solid fa-person-swimming', `pin_color` = '#0EA5E9' WHERE (`title` LIKE '%stream%' OR `title` LIKE '%brook%' OR `title` LIKE '%pool%' OR `title` LIKE '%water%') AND (`pin_color` IS NULL OR `pin_color` = '')");
+    $pdo->exec("UPDATE `sanctuary_spots` SET `icon_class` = 'fa-solid fa-fire', `pin_color` = '#D97706' WHERE (`title` LIKE '%campfire%' OR `title` LIKE '%recreation%') AND (`pin_color` IS NULL OR `pin_color` = '')");
+    $pdo->exec("UPDATE `sanctuary_spots` SET `icon_class` = 'fa-solid fa-shapes', `pin_color` = '#8B5CF6' WHERE (`title` LIKE '%children%' OR `title` LIKE '%kids%' OR `title` LIKE '%play%') AND (`pin_color` IS NULL OR `pin_color` = '')");
+    $pdo->exec("UPDATE `sanctuary_spots` SET `icon_class` = 'fa-solid fa-leaf', `pin_color` = '#16A34A' WHERE `pin_color` IS NULL OR `pin_color` = ''");
 
-        $stmt = $pdo->prepare("INSERT INTO `sanctuary_spots` 
-            (spot_number, title, subtitle_tag, category, is_stay, linked_room_slug, stay_price, elevation, temperature, description, aroma, sound, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+    $initialized = (int)$pdo->query("SELECT COUNT(*) FROM `settings` WHERE `setting_key` = 'sanctuary_spots_table_initialized'")->fetchColumn();
+    if (!$initialized) {
+        $count = (int)$pdo->query("SELECT COUNT(*) FROM `sanctuary_spots`")->fetchColumn();
+        if ($count === 0) {
+            $spots = [
+                [
+                    'spot_number' => 1,
+                    'title' => 'Farmhouse Kitchen & Organic Dining',
+                    'subtitle_tag' => 'COMMON KITCHEN & DINING',
+                    'category' => 'dining',
+                    'is_stay' => 0,
+                    'linked_room_slug' => null,
+                    'stay_price' => null,
+                    'elevation' => '1,580M MSL',
+                    'temperature' => '19°C Warm Hearth',
+                    'description' => 'Central farm hearth serving 100% organic farm-to-table meals harvested daily from our heirloom orchards. Wood-fired open kitchen and mountain view dining.',
+                    'aroma' => 'Woodsmoke, cardamom & roasted spices',
+                    'sound' => 'Crackling hearth, laughter & tea kettle',
+                    'image_url' => 'assets/images/01 (10).jpeg',
+                    'photos' => json_encode(['assets/images/01 (10).jpeg', 'assets/images/01 (20).jpeg', 'assets/images/01 (1).jpeg']),
+                    'cta_text' => 'Farmhouse Dining',
+                    'cta_link' => '#dining',
+                    'x_coord' => 18.00,
+                    'y_coord' => 56.00,
+                    'display_order' => 1
+                ],
+                [
+                    'spot_number' => 2,
+                    'title' => 'The Earthen Mudhouse Sanctuary',
+                    'subtitle_tag' => 'EARTHEN COB VILLA',
+                    'category' => 'stays',
+                    'is_stay' => 1,
+                    'linked_room_slug' => 'mudhouse',
+                    'stay_price' => 11500.00,
+                    'elevation' => '1,600M MSL',
+                    'temperature' => '21°C Thermal Comfort',
+                    'description' => 'Handcrafted cob clay cottages sculpted from native red soil, river sand, and straw. Naturally insulated against chilly nights with private sit-out and orchard panorama.',
+                    'aroma' => 'Sun-baked earth, vetiver & woodsmoke',
+                    'sound' => 'Crackling hearth embers, crickets',
+                    'image_url' => 'assets/images/mudhouse_exterior.png',
+                    'photos' => json_encode(['assets/images/mudhouse_exterior.png', 'assets/images/01 (26).jpeg', 'assets/images/01 (14).jpeg']),
+                    'cta_text' => 'Book Mudhouse',
+                    'cta_link' => 'booking.php?villa=mudhouse',
+                    'x_coord' => 30.00,
+                    'y_coord' => 70.00,
+                    'display_order' => 2
+                ],
+                [
+                    'spot_number' => 3,
+                    'title' => 'High-Altitude Canopy Treehouse',
+                    'subtitle_tag' => 'CANOPY TREEHOUSE',
+                    'category' => 'stays',
+                    'is_stay' => 1,
+                    'linked_room_slug' => 'treehouse',
+                    'stay_price' => 14500.00,
+                    'elevation' => '1,620M MSL',
+                    'temperature' => '17°C Alpine Breeze',
+                    'description' => 'Elevated living perched 30 feet above the forest floor among ancient high trees. Floor-to-ceiling panoramic glass windows looking out over cascading mist and apple terraces.',
+                    'aroma' => 'Fresh cedarwood, wild jasmine & pine',
+                    'sound' => 'Wind through high canopies, bulbul calls',
+                    'image_url' => 'assets/images/treehouse_exterior.png',
+                    'photos' => json_encode(['assets/images/treehouse_exterior.png', 'assets/images/treehouse_curved_window.png', 'assets/images/treehouse_timber_balcony.png']),
+                    'cta_text' => 'Book Treehouse',
+                    'cta_link' => 'booking.php?villa=treehouse',
+                    'x_coord' => 56.00,
+                    'y_coord' => 24.00,
+                    'display_order' => 3
+                ],
+                [
+                    'spot_number' => 4,
+                    'title' => 'The Alpine Woodhouse Chalet',
+                    'subtitle_tag' => 'PINE TIMBER CHALET',
+                    'category' => 'stays',
+                    'is_stay' => 1,
+                    'linked_room_slug' => 'woodhouse',
+                    'stay_price' => 13500.00,
+                    'elevation' => '1,620M MSL',
+                    'temperature' => '18°C Pine Forest Air',
+                    'description' => 'Handcrafted solid cedar and pinewood mountain chalet featuring aromatic wooden walls, high vaulted cathedral ceiling, valley-facing balcony deck, and private fire hearth.',
+                    'aroma' => 'Pine needles, cedar resin & crisp mist',
+                    'sound' => 'Rustling pine branches, mountain breeze',
+                    'image_url' => 'assets/images/01 (25).jpeg',
+                    'photos' => json_encode(['assets/images/01 (25).jpeg', 'assets/images/01 (26).jpeg', 'assets/images/treehouse_stone_fireplace.png']),
+                    'cta_text' => 'Book Woodhouse',
+                    'cta_link' => 'booking.php?villa=woodhouse',
+                    'x_coord' => 74.00,
+                    'y_coord' => 34.00,
+                    'display_order' => 4
+                ],
+                [
+                    'spot_number' => 5,
+                    'title' => 'Food Forest Stream & Natural Plunge Pool',
+                    'subtitle_tag' => 'FRESH SPRING PLUNGE POOL',
+                    'category' => 'amenities',
+                    'is_stay' => 0,
+                    'linked_room_slug' => null,
+                    'stay_price' => null,
+                    'elevation' => '1,560M MSL',
+                    'temperature' => '15°C Spring Freshwater',
+                    'description' => 'Pristine mountain stream feeding into a natural granite plunge pool. Serene freshwater bathing and riverside meditation amidst lush shola ferns and organic orchards.',
+                    'aroma' => 'Fern leaves, damp river stones & mineral mist',
+                    'sound' => 'Melodic rushing stream, pebble resonance',
+                    'image_url' => 'assets/images/01 (28).jpeg',
+                    'photos' => json_encode(['assets/images/01 (28).jpeg', 'assets/images/01 (3).jpeg', 'assets/images/01 (2).jpeg']),
+                    'cta_text' => 'Explore Waters',
+                    'cta_link' => '#experiences',
+                    'x_coord' => 46.00,
+                    'y_coord' => 48.00,
+                    'display_order' => 5
+                ],
+                [
+                    'spot_number' => 6,
+                    'title' => 'Campfire Glade & BBQ Grilling Shed',
+                    'subtitle_tag' => 'EVENING BBQ & STARGAZING',
+                    'category' => 'amenities',
+                    'is_stay' => 0,
+                    'linked_room_slug' => null,
+                    'stay_price' => null,
+                    'elevation' => '1,640M MSL',
+                    'temperature' => '14°C Crisp Night Air',
+                    'description' => 'Covered rustic timber barbecue pavilion and open granite firepit. Guests gather here for evening grilling rituals and acoustic stargazing under Class-1 dark skies.',
+                    'aroma' => 'Ember woodsmoke, roasted pepper & eucalyptus',
+                    'sound' => 'Acoustic guitar, crackling embers, mountain breeze',
+                    'image_url' => 'assets/images/01 (25).jpeg',
+                    'photos' => json_encode(['assets/images/01 (25).jpeg', 'assets/images/treehouse_stone_fireplace.png', 'assets/images/01 (12).jpeg']),
+                    'cta_text' => 'Evening Rituals',
+                    'cta_link' => '#experiences',
+                    'x_coord' => 38.00,
+                    'y_coord' => 22.00,
+                    'display_order' => 6
+                ],
+                [
+                    'spot_number' => 7,
+                    'title' => "Children's Play Glade & Orchard Walk",
+                    'subtitle_tag' => 'RECREATION & HARVEST TRAILS',
+                    'category' => 'nature',
+                    'is_stay' => 0,
+                    'linked_room_slug' => null,
+                    'stay_price' => null,
+                    'elevation' => '1,570M MSL',
+                    'temperature' => '18°C Mild Mountain Sun',
+                    'description' => "Terraced grassy lawn equipped with traditional wooden swings, outdoor play zones for kids, and walking trails weaving through fruit-bearing apple and plum trees.",
+                    'aroma' => 'Wild berries, sweet apple blossoms & clover',
+                    'sound' => "Songbirds, children's laughter, rustling leaves",
+                    'image_url' => 'assets/images/01 (19).jpeg',
+                    'photos' => json_encode(['assets/images/01 (19).jpeg', 'assets/images/01 (11).jpeg', 'assets/images/01 (7).jpeg']),
+                    'cta_text' => 'Orchard Activities',
+                    'cta_link' => '#experiences',
+                    'x_coord' => 68.00,
+                    'y_coord' => 68.00,
+                    'display_order' => 7
+                ]
+            ];
 
-        foreach ($spots as $s) {
-            $stmt->execute([
-                $s['spot_number'],
-                $s['title'],
-                $s['subtitle_tag'],
-                $s['category'],
-                $s['is_stay'],
-                $s['linked_room_slug'],
-                $s['stay_price'],
-                $s['elevation'],
-                $s['temperature'],
-                $s['description'],
-                $s['aroma'],
-                $s['sound'],
-                $s['image_url'],
-                $s['photos'],
-                $s['cta_text'],
-                $s['cta_link'],
-                $s['x_coord'],
-                $s['y_coord'],
-                $s['display_order']
-            ]);
+            $stmt = $pdo->prepare("INSERT INTO `sanctuary_spots` 
+                (spot_number, title, subtitle_tag, category, is_stay, linked_room_slug, stay_price, elevation, temperature, description, aroma, sound, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+
+            foreach ($spots as $s) {
+                $stmt->execute([
+                    $s['spot_number'],
+                    $s['title'],
+                    $s['subtitle_tag'],
+                    $s['category'],
+                    $s['is_stay'],
+                    $s['linked_room_slug'],
+                    $s['stay_price'],
+                    $s['elevation'],
+                    $s['temperature'],
+                    $s['description'],
+                    $s['aroma'],
+                    $s['sound'],
+                    $s['image_url'],
+                    $s['photos'],
+                    $s['cta_text'],
+                    $s['cta_link'],
+                    $s['x_coord'],
+                    $s['y_coord'],
+                    $s['display_order']
+                ]);
+            }
         }
-    } else {
-        // Sync existing default spots if they exist
-        $pdo->exec("UPDATE `sanctuary_spots` SET `is_stay` = 1, `linked_room_slug` = 'mudhouse', `stay_price` = 11500.00 WHERE `title` LIKE '%Mudhouse%' AND `linked_room_slug` IS NULL");
-        $pdo->exec("UPDATE `sanctuary_spots` SET `is_stay` = 1, `linked_room_slug` = 'treehouse', `stay_price` = 14500.00 WHERE `title` LIKE '%Treehouse%' AND `linked_room_slug` IS NULL");
+        $pdo->exec("REPLACE INTO settings (setting_key, setting_value) VALUES ('sanctuary_spots_table_initialized', '1')");
     }
 
     $checked = true;
@@ -1219,6 +1374,317 @@ function get_all_sanctuary_spots($only_active = false) {
     } catch (Exception $e) {
         return [];
     }
+}
+
+/**
+ * Retrieve raw or default sanctuary map and custom route network configuration
+ */
+function get_sanctuary_map_config(PDO $pdo = null) {
+    if (!$pdo) {
+        $pdo = get_db();
+    }
+    $raw = get_setting('sanctuary_map_route_data', '');
+    $config = null;
+    if (!empty($raw)) {
+        $config = json_decode($raw, true);
+    }
+
+    if (empty($config) || !is_array($config) || empty($config['routes'])) {
+        // Default connected route matching Image 1:
+        // Entrance -> #01 Farmhouse -> #02 Mudhouse -> #06 Children's Play -> #07 Woodhouse -> #05 Campfire -> #04 Stream -> #03 Treehouse
+        $config = [
+            'mode' => 'custom_routes',
+            'entrance' => [
+                'enabled' => true,
+                'label' => 'MAIN ENTRANCE',
+                'x' => 48.8,
+                'y' => 95.0
+            ],
+            'exit' => [
+                'enabled' => false,
+                'label' => 'ESTATE EXIT',
+                'x' => 85.0,
+                'y' => 92.0
+            ],
+            'custom_waypoints' => [
+                [
+                    'id' => 'wp_forest_bridge',
+                    'label' => 'Forest Footbridge',
+                    'x' => 42.0,
+                    'y' => 44.0
+                ]
+            ],
+            'routes' => [
+                [
+                    'id' => 'route_main_promenade',
+                    'name' => 'Main Sanctuary Walking Trail',
+                    'color' => '#D4AF37',
+                    'stroke_type' => 'dashed',
+                    'line_width' => 3.2,
+                    'is_closed' => false,
+                    'nodes' => [
+                        ['type' => 'entrance', 'curve' => 'straight', 'curve_offset' => 0],
+                        ['type' => 'spot_num', 'spot_number' => 1, 'curve' => 'arch_right', 'curve_offset' => 16],
+                        ['type' => 'spot_num', 'spot_number' => 2, 'curve' => 'arch_left', 'curve_offset' => -14],
+                        ['type' => 'spot_num', 'spot_number' => 6, 'curve' => 'arch_right', 'curve_offset' => 22],
+                        ['type' => 'spot_num', 'spot_number' => 7, 'curve' => 'arch_left', 'curve_offset' => -18],
+                        ['type' => 'spot_num', 'spot_number' => 5, 'curve' => 'arch_right', 'curve_offset' => 16],
+                        ['type' => 'spot_num', 'spot_number' => 4, 'curve' => 'straight', 'curve_offset' => 0],
+                        ['type' => 'spot_num', 'spot_number' => 3, 'curve' => 'arch_left', 'curve_offset' => -16]
+                    ]
+                ]
+            ]
+        ];
+    }
+    return $config;
+}
+
+/**
+ * Compiles custom map routes, resolving spot and waypoint positions to exact SVG paths
+ */
+function compile_sanctuary_map_routes(array $config, array $spots) {
+    $spots_by_id = [];
+    $spots_by_num = [];
+    foreach ($spots as $s) {
+        $spots_by_id[(int)$s['id']] = $s;
+        $spots_by_num[(int)$s['spot_number']] = $s;
+    }
+
+    $waypoints_by_id = [];
+    if (!empty($config['custom_waypoints']) && is_array($config['custom_waypoints'])) {
+        foreach ($config['custom_waypoints'] as $wp) {
+            if (!empty($wp['id'])) {
+                $waypoints_by_id[$wp['id']] = $wp;
+            }
+        }
+    }
+
+    $entrance_cfg = $config['entrance'] ?? ['enabled' => true, 'label' => 'MAIN ENTRANCE', 'x' => 48.8, 'y' => 95.0];
+    $entrance_data = [
+        'enabled' => !empty($entrance_cfg['enabled']),
+        'label' => $entrance_cfg['label'] ?? 'MAIN ENTRANCE',
+        'x' => floatval($entrance_cfg['x'] ?? 48.8),
+        'y' => floatval($entrance_cfg['y'] ?? 95.0),
+        'svg_x' => round((floatval($entrance_cfg['x'] ?? 48.8) / 100.0) * 800, 1),
+        'svg_y' => round((floatval($entrance_cfg['y'] ?? 95.0) / 100.0) * 520, 1)
+    ];
+
+    $exit_cfg = $config['exit'] ?? ['enabled' => false, 'label' => 'ESTATE EXIT', 'x' => 85.0, 'y' => 92.0];
+    $exit_data = [
+        'enabled' => !empty($exit_cfg['enabled']),
+        'label' => $exit_cfg['label'] ?? 'ESTATE EXIT',
+        'x' => floatval($exit_cfg['x'] ?? 85.0),
+        'y' => floatval($exit_cfg['y'] ?? 92.0),
+        'svg_x' => round((floatval($exit_cfg['x'] ?? 85.0) / 100.0) * 800, 1),
+        'svg_y' => round((floatval($exit_cfg['y'] ?? 92.0) / 100.0) * 520, 1)
+    ];
+
+    $compiled_waypoints = [];
+    if (!empty($config['custom_waypoints']) && is_array($config['custom_waypoints'])) {
+        foreach ($config['custom_waypoints'] as $wp) {
+            $wx = floatval($wp['x'] ?? 50.0);
+            $wy = floatval($wp['y'] ?? 50.0);
+            $compiled_waypoints[] = [
+                'id' => $wp['id'] ?? ('wp_' . uniqid()),
+                'label' => $wp['label'] ?? 'Waypoint',
+                'x' => $wx,
+                'y' => $wy,
+                'svg_x' => round(($wx / 100.0) * 800, 1),
+                'svg_y' => round(($wy / 100.0) * 520, 1)
+            ];
+        }
+    }
+
+    $compiled_routes = [];
+    $raw_routes = $config['routes'] ?? [];
+
+    foreach ($raw_routes as $ridx => $r) {
+        $r_id = $r['id'] ?? ('route_' . ($ridx + 1));
+        $r_name = $r['name'] ?? ('Route ' . ($ridx + 1));
+        $r_color = $r['color'] ?? '#D4AF37';
+        $r_stroke = $r['stroke_type'] ?? 'dashed';
+        $r_width = floatval($r['line_width'] ?? 3.2);
+        $is_closed = !empty($r['is_closed']);
+        $raw_nodes = $r['nodes'] ?? [];
+
+        $resolved_points = [];
+        foreach ($raw_nodes as $n) {
+            $ntype = $n['type'] ?? 'spot';
+            $px = null;
+            $py = null;
+            $p_title = 'Point';
+            $p_badge = '';
+            $spot_id = null;
+            $spot_num = null;
+
+            if ($ntype === 'entrance') {
+                $px = $entrance_data['x'];
+                $py = $entrance_data['y'];
+                $p_title = $entrance_data['label'];
+                $p_badge = '🚪 ENTRANCE';
+            } elseif ($ntype === 'exit') {
+                $px = $exit_data['x'];
+                $py = $exit_data['y'];
+                $p_title = $exit_data['label'];
+                $p_badge = '🚪 EXIT';
+            } elseif ($ntype === 'waypoint') {
+                $wpid = $n['waypoint_id'] ?? '';
+                if (!empty($wpid) && isset($waypoints_by_id[$wpid])) {
+                    $px = floatval($waypoints_by_id[$wpid]['x']);
+                    $py = floatval($waypoints_by_id[$wpid]['y']);
+                    $p_title = $waypoints_by_id[$wpid]['label'] ?? 'Waypoint';
+                } elseif (isset($n['x']) && isset($n['y'])) {
+                    $px = floatval($n['x']);
+                    $py = floatval($n['y']);
+                    $p_title = $n['label'] ?? 'Waypoint';
+                }
+                $p_badge = '📍 WAYPOINT';
+            } elseif ($ntype === 'spot_id' || $ntype === 'spot') {
+                $spid = (int)($n['spot_id'] ?? 0);
+                if (isset($spots_by_id[$spid])) {
+                    $sp = $spots_by_id[$spid];
+                    $px = floatval($sp['x_coord']);
+                    $py = floatval($sp['y_coord']);
+                    $p_title = '#' . sprintf('%02d', $sp['spot_number']) . ' ' . $sp['title'];
+                    $p_badge = '#' . sprintf('%02d', $sp['spot_number']);
+                    $spot_id = $sp['id'];
+                    $spot_num = $sp['spot_number'];
+                }
+            } elseif ($ntype === 'spot_num') {
+                $snum = (int)($n['spot_number'] ?? 0);
+                if (isset($spots_by_num[$snum])) {
+                    $sp = $spots_by_num[$snum];
+                    $px = floatval($sp['x_coord']);
+                    $py = floatval($sp['y_coord']);
+                    $p_title = '#' . sprintf('%02d', $sp['spot_number']) . ' ' . $sp['title'];
+                    $p_badge = '#' . sprintf('%02d', $sp['spot_number']);
+                    $spot_id = $sp['id'];
+                    $spot_num = $sp['spot_number'];
+                }
+            }
+
+            if ($px !== null && $py !== null) {
+                $resolved_points[] = [
+                    'node_type' => $ntype,
+                    'spot_id' => $spot_id,
+                    'spot_number' => $spot_num,
+                    'waypoint_id' => $n['waypoint_id'] ?? null,
+                    'label' => $p_title,
+                    'badge' => $p_badge,
+                    'x' => $px,
+                    'y' => $py,
+                    'svg_x' => round(($px / 100.0) * 800, 1),
+                    'svg_y' => round(($py / 100.0) * 520, 1),
+                    'curve' => $n['curve'] ?? 'straight',
+                    'curve_offset' => floatval($n['curve_offset'] ?? 0)
+                ];
+            }
+        }
+
+        // Build SVG path string "d"
+        $svg_d = '';
+        $pts_count = count($resolved_points);
+        if ($pts_count >= 2) {
+            $p0 = $resolved_points[0];
+            $svg_d = "M " . $p0['svg_x'] . "," . $p0['svg_y'];
+
+            for ($i = 0; $i < $pts_count - 1; $i++) {
+                $curr = $resolved_points[$i];
+                $next = $resolved_points[$i + 1];
+                $curve_mode = $next['curve'] ?? 'straight';
+                $curve_offset = floatval($next['curve_offset'] ?? 0);
+
+                $svg_d .= ' ' . build_svg_path_segment($curr['svg_x'], $curr['svg_y'], $next['svg_x'], $next['svg_y'], $curve_mode, $curve_offset);
+            }
+
+            if ($is_closed && $pts_count > 2) {
+                $curr = $resolved_points[$pts_count - 1];
+                $next = $resolved_points[0];
+                $curve_mode = $p0['curve'] ?? 'straight';
+                $curve_offset = floatval($p0['curve_offset'] ?? 0);
+                $svg_d .= ' ' . build_svg_path_segment($curr['svg_x'], $curr['svg_y'], $next['svg_x'], $next['svg_y'], $curve_mode, $curve_offset);
+                $svg_d .= ' Z';
+            }
+        }
+
+        $compiled_routes[] = [
+            'id' => $r_id,
+            'name' => $r_name,
+            'color' => $r_color,
+            'stroke_type' => $r_stroke,
+            'line_width' => $r_width,
+            'is_closed' => $is_closed,
+            'svg_d' => trim($svg_d),
+            'points' => $resolved_points
+        ];
+    }
+
+    return [
+        'config' => $config,
+        'entrance' => $entrance_data,
+        'exit' => $exit_data,
+        'waypoints' => $compiled_waypoints,
+        'routes' => $compiled_routes
+    ];
+}
+
+/**
+ * Builds SVG segment string (Straight Line or Curved Quadratic Bezier)
+ */
+function build_svg_path_segment($x1, $y1, $x2, $y2, $curve_mode = 'straight', $curve_offset = 0.0) {
+    $x1 = floatval($x1);
+    $y1 = floatval($y1);
+    $x2 = floatval($x2);
+    $y2 = floatval($y2);
+
+    if ($curve_mode === 'straight' || (empty($curve_mode) && empty($curve_offset))) {
+        return "L " . round($x2, 1) . "," . round($y2, 1);
+    }
+
+    $dx = $x2 - $x1;
+    $dy = $y2 - $y1;
+    $dist = sqrt($dx * $dx + $dy * $dy);
+    if ($dist < 0.1) {
+        return "L " . round($x2, 1) . "," . round($y2, 1);
+    }
+
+    $nx = -$dy / $dist;
+    $ny = $dx / $dist;
+
+    $mid_x = ($x1 + $x2) / 2.0;
+    $mid_y = ($y1 + $y2) / 2.0;
+
+    $offset = 0.0;
+    if (is_numeric($curve_offset) && $curve_offset != 0) {
+        $offset = floatval($curve_offset);
+    } elseif ($curve_mode === 'arch_right' || $curve_mode === 'curve_right') {
+        $offset = min(55.0, max(14.0, $dist * 0.22));
+    } elseif ($curve_mode === 'arch_left' || $curve_mode === 'curve_left') {
+        $offset = -min(55.0, max(14.0, $dist * 0.22));
+    } elseif ($curve_mode === 'curve') {
+        $offset = min(40.0, max(12.0, $dist * 0.18));
+    }
+
+    $cx = round($mid_x + $nx * $offset, 1);
+    $cy = round($mid_y + $ny * $offset, 1);
+
+    return "Q " . $cx . "," . $cy . " " . round($x2, 1) . "," . round($y2, 1);
+}
+
+/**
+ * Unified getter for entire sanctuary map data (spots + compiled routes + landmarks)
+ */
+function get_sanctuary_map_data(PDO $pdo = null, $only_active_spots = true) {
+    if (!$pdo) {
+        $pdo = get_db();
+    }
+    $spots = get_all_sanctuary_spots($only_active_spots);
+    $config = get_sanctuary_map_config($pdo);
+    $compiled = compile_sanctuary_map_routes($config, $spots);
+
+    return array_merge($compiled, [
+        'spots' => $spots
+    ]);
 }
 
 /**

@@ -37,8 +37,11 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
     <div class="booking-modal-backdrop"></div>
     <div class="booking-modal-container" data-lenis-prevent>
         <!-- Close Button -->
-        <button class="booking-modal-close" id="booking-modal-close" aria-label="Close Reservation Modal">
-            <i class="fa-solid fa-xmark"></i>
+        <button class="booking-modal-close" id="booking-modal-close" aria-label="Close Reservation Modal" title="Close Modal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block; pointer-events: none;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
         </button>
 
         <div class="booking-modal-content">
@@ -61,21 +64,75 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                 
                 <!-- Step 1: Stay Details -->
                 <div class="booking-section-group">
-                    <h4 class="group-title font-serif">1. Select Your Stay & Dates</h4>
-                    <div class="booking-grid-2">
-                        <!-- Villa Selection -->
-                        <div class="form-field" style="margin-bottom: 16px;">
-                            <label for="modal-villa" class="form-label font-sans">Sanctuary Villa or Cottage</label>
-                            <div class="select-wrapper">
-                                <select id="modal-villa" class="form-input font-sans" style="-webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 38px; cursor: pointer;" required>
+                    <h4 class="group-title font-serif">1. Select Your Stay &amp; Dates</h4>
+
+                    <!-- Selected Cottage Showcase Card (Full Width) -->
+                    <div class="form-field full-width-cottage-field" style="margin-bottom: 20px;">
+                        <label class="form-label font-sans" style="color: #1E293B !important; font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span>Sanctuary Villa or Cottage</span>
+                            <span style="font-size: 11px; color: #16A34A; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-circle-check"></i> Pre-Selected Property
+                            </span>
+                        </label>
+
+                        <!-- Rich Pre-Selected Cottage Visual Card -->
+                        <div id="modal-selected-chalet-card" class="modal-selected-chalet-card font-sans">
+                            <div class="msc-card-left">
+                                <div class="msc-badge-row">
+                                    <span class="msc-type-pill" id="msc-type-pill"><i class="fa-solid fa-tree"></i> Treehouse</span>
+                                    <span class="msc-struct-pill" id="msc-struct-pill">Single Cottage</span>
+                                </div>
+                                <h4 class="msc-title font-serif" id="modal-chalet-card-title">Luxury Canopy Treehouse</h4>
+                                <div class="msc-meta-row">
+                                    <span id="msc-base-guests-pill"><i class="fa-solid fa-users"></i> Base: 2 Guests Included</span>
+                                    <span id="msc-rate-pill" class="msc-rate-badge"><i class="fa-solid fa-tag"></i> <strong>₹14,500</strong> / night</span>
+                                    <span class="msc-food-badge"><i class="fa-solid fa-utensils"></i> All Farm Meals Included</span>
+                                </div>
+                            </div>
+                            <div class="msc-card-right">
+                                <button type="button" id="btn-toggle-chalet-select" class="btn-toggle-chalet-select font-sans" title="Click to choose a different cottage">
+                                    <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                                    <span>Change Cottage</span>
+                                </button>
+                        </div>
+
+                        <!-- MakeMyTrip Verified Inclusions Quick Strip -->
+                        <div class="modal-amenities-quick-strip font-sans" style="margin-top: 10px; background: #F1F8F4; border: 1px solid rgba(28, 56, 38, 0.15); border-radius: 8px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; color: #166534; font-weight: 600;">
+                                <span><i class="fa-solid fa-wifi"></i> Forest Wi-Fi</span>
+                                <span><i class="fa-solid fa-square-parking"></i> Free Parking</span>
+                                <span><i class="fa-solid fa-bolt"></i> 24/7 Power</span>
+                                <span><i class="fa-solid fa-bell-concierge"></i> Concierge</span>
+                                <span><i class="fa-solid fa-shower"></i> Solar Hot Water</span>
+                                <span><i class="fa-solid fa-utensils"></i> 4 Meals Incl.</span>
+                            </div>
+                            <a href="#sanctuary-amenities" onclick="document.getElementById('booking-modal-close').click();" style="font-size: 11px; color: #047857; text-decoration: underline; font-weight: 700;">
+                                <i class="fa-solid fa-sparkles"></i> View 8 Categories
+                            </a>
+                        </div>
+
+                        <!-- Collapsible Dropdown Selector (Hidden by default, opened via 'Change Cottage') -->
+                        <div id="modal-villa-select-wrapper" style="display: none; margin-top: 10px; background: #F8FAF8; border: 1.5px dashed rgba(28, 56, 38, 0.25); border-radius: 8px; padding: 12px 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span class="font-sans" style="font-size: 11.5px; font-weight: 700; color: #1E293B; text-transform: uppercase;">
+                                    <i class="fa-solid fa-list-check" style="color: var(--accent-gold);"></i> Choose Another Cottage:
+                                </span>
+                                <button type="button" id="btn-hide-chalet-select" style="background: none; border: none; font-size: 11px; color: #64748B; cursor: pointer; text-decoration: underline;">
+                                    Keep Selected
+                                </button>
+                            </div>
+                            <div class="select-wrapper" style="position: relative; width: 100%;">
+                                <select id="modal-villa" class="form-input font-sans" style="color: #0F172A !important; background-color: #FFFFFF !important; font-size: 13.5px !important; font-weight: 600 !important; border: 1.5px solid rgba(28, 56, 38, 0.25) !important; border-radius: 6px !important; padding: 12px 40px 12px 14px !important; width: 100% !important; min-height: 48px !important; cursor: pointer !important; -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231C3826' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E&quot;) !important; background-repeat: no-repeat !important; background-position: right 14px center !important; background-size: 16px !important;" required>
                                     <?php
                                     if (!empty($modal_villas)):
+                                        $v_idx = 0;
                                         foreach ($modal_villas as $mv):
                                             $struct = $mv['structure_type'] ?? 'single_hut';
                                             $struct_label = ($struct === 'duplex_hut') ? 'Duplex (2-Room Suite)' : 'Single Cottage';
                                             $cat_icon = ($mv['stay_type'] === 'mudhouse') ? '🌿 Mudhouse' : '🌲 Treehouse';
                                     ?>
                                         <option value="<?php echo htmlspecialchars($mv['slug']); ?>" 
+                                                <?php echo ($v_idx === 0) ? 'selected' : ''; ?>
                                                 data-price="<?php echo htmlspecialchars($mv['rate_per_night']); ?>" 
                                                 data-single-rate="<?php echo htmlspecialchars($mv['single_room_rate'] ?? $mv['rate_per_night']); ?>"
                                                 data-name="<?php echo htmlspecialchars($mv['title']); ?>"
@@ -89,10 +146,11 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                             <?php echo "{$cat_icon} [{$struct_label}]: " . htmlspecialchars($mv['title']); ?> (From ₹<?php echo number_format($mv['rate_per_night'], 0, '.', ','); ?>/nt • Base <?php echo (int)($mv['base_guests'] ?? 2); ?> Guests)
                                         </option>
                                     <?php 
+                                            $v_idx++;
                                         endforeach;
                                     else: 
                                     ?>
-                                        <option value="treehouse" data-price="14500" data-single-rate="14500" data-name="Luxury Canopy Treehouse" data-min-guests="2" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="treehouse">
+                                        <option value="treehouse" selected data-price="14500" data-single-rate="14500" data-name="Luxury Canopy Treehouse" data-min-guests="2" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="treehouse">
                                             🌲 Treehouse [Single Cottage]: Luxury Canopy Treehouse (₹14,500/nt • Base 2 Guests)
                                         </option>
                                         <option value="mudhouse" data-price="11500" data-single-rate="11500" data-name="Traditional Earthen Mudhouse" data-min-guests="2" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="mudhouse">
@@ -100,97 +158,101 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                         </option>
                                     <?php endif; ?>
                                 </select>
-                                <i class="fa-solid fa-chevron-down select-arrow"></i>
-                            </div>
-
-                            <!-- Duplex Tier Switcher & Visual Architecture Guide Button -->
-                            <div id="modal-duplex-tier-box" style="display: none; margin-top: 10px; background: rgba(197, 160, 89, 0.08); border: 1px dashed rgba(197, 160, 89, 0.45); border-radius: 8px; padding: 12px 14px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
-                                    <span class="font-sans" style="font-size: 11px; font-weight: 700; color: var(--accent-green); text-transform: uppercase; letter-spacing: 0.5px;">
-                                        <i class="fa-solid fa-layer-group" style="color: var(--accent-gold);"></i> Duplex Reservation Options:
-                                    </span>
-                                    <button type="button" class="btn-open-duplex-guide font-sans" onclick="openDuplexExplainer();" style="background: transparent; border: none; color: #0E7490; font-size: 11.5px; cursor: pointer; text-decoration: underline; display: flex; align-items: center; gap: 4px; padding: 0; font-weight: 600;">
-                                        <i class="fa-solid fa-circle-question"></i> What is a Duplex? View Layout Plan
-                                    </button>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                    <label class="modal-tier-radio-label" id="modal-tier-label-full" style="background: #FFFFFF; border: 1.5px solid var(--accent-gold); border-radius: 6px; padding: 10px; cursor: pointer; display: flex; align-items: flex-start; gap: 8px;">
-                                        <input type="radio" name="modal_tier" value="full" checked style="margin-top: 2px; accent-color: var(--accent-gold);">
-                                        <div>
-                                            <strong style="font-size: 12.5px; color: var(--accent-green); display: block; font-weight: 700;">Entire Duplex (2 Rooms)</strong>
-                                            <span style="font-size: 12px; color: var(--accent-gold); font-weight: 700;" id="modal-duplex-full-rate-txt">₹24,000/nt</span>
-                                            <small style="font-size: 10px; color: #64748B; display: block;">Base 4 Guests • Max 8</small>
-                                        </div>
-                                    </label>
-                                    <label class="modal-tier-radio-label" id="modal-tier-label-single" style="background: #FAFAFA; border: 1.5px solid rgba(28, 56, 38, 0.15); border-radius: 6px; padding: 10px; cursor: pointer; display: flex; align-items: flex-start; gap: 8px;">
-                                        <input type="radio" name="modal_tier" value="single_room" style="margin-top: 2px; accent-color: var(--accent-gold);">
-                                        <div>
-                                            <strong style="font-size: 12.5px; color: var(--accent-green); display: block; font-weight: 700;">Single Room in Duplex</strong>
-                                            <span style="font-size: 12px; color: #0E7490; font-weight: 700;" id="modal-duplex-single-rate-txt">₹14,500/nt</span>
-                                            <small style="font-size: 10px; color: #64748B; display: block;">Base 2 Guests • Max 4</small>
-                                        </div>
-                                    </label>
-                                </div>
                             </div>
                         </div>
 
-                        <!-- Luxury Dual Steppers: Adults & Children -->
-                        <div class="form-field guest-steppers-container" style="margin-bottom: 16px;">
-                            <div class="steppers-header-row">
-                                <label class="form-label font-sans" style="margin-bottom: 0;">Guests & Occupancy</label>
-                                <span id="room-occupancy-note" class="font-sans occupancy-note">
-                                    <i class="fa-solid fa-circle-info"></i> Base: 2 Included • Max Capacity: 4
+                        <!-- Duplex Tier Switcher & Visual Architecture Guide Button -->
+                        <div id="modal-duplex-tier-box" style="display: none; margin-top: 10px; background: rgba(197, 160, 89, 0.08); border: 1px dashed rgba(197, 160, 89, 0.45); border-radius: 8px; padding: 12px 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px;">
+                                <span class="font-sans" style="font-size: 11px; font-weight: 700; color: var(--accent-green); text-transform: uppercase; letter-spacing: 0.5px;">
+                                    <i class="fa-solid fa-layer-group" style="color: var(--accent-gold);"></i> Duplex Reservation Options:
                                 </span>
+                                <button type="button" class="btn-open-duplex-guide font-sans" onclick="openDuplexExplainer();" style="background: transparent; border: none; color: #0E7490; font-size: 11.5px; cursor: pointer; text-decoration: underline; display: flex; align-items: center; gap: 4px; padding: 0; font-weight: 600;">
+                                    <i class="fa-solid fa-circle-question"></i> What is a Duplex? View Layout Plan
+                                </button>
                             </div>
-                            <div class="guest-steppers-grid">
-                                <!-- Adults Stepper -->
-                                <div class="guest-stepper-box">
-                                    <div class="stepper-label-group">
-                                        <span class="stepper-title font-sans"><i class="fa-solid fa-user"></i> Adults</span>
-                                        <span class="stepper-sub font-sans">Ages 12+ yrs</span>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <label class="modal-tier-radio-label" id="modal-tier-label-full" style="background: #FFFFFF; border: 1.5px solid var(--accent-gold); border-radius: 6px; padding: 10px; cursor: pointer; display: flex; align-items: flex-start; gap: 8px;">
+                                    <input type="radio" name="modal_tier" value="full" checked style="margin-top: 2px; accent-color: var(--accent-gold);">
+                                    <div>
+                                        <strong style="font-size: 12.5px; color: var(--accent-green); display: block; font-weight: 700;">Entire Duplex (2 Rooms)</strong>
+                                        <span style="font-size: 12px; color: var(--accent-gold); font-weight: 700;" id="modal-duplex-full-rate-txt">₹24,000/nt</span>
+                                        <small style="font-size: 10px; color: #64748B; display: block;">Base 4 Guests • Max 8</small>
                                     </div>
-                                    <div class="stepper-controls">
-                                        <button type="button" class="btn-stepper btn-stepper-minus" data-target="modal-adults" aria-label="Decrease Adults">−</button>
-                                        <input type="number" id="modal-adults" name="adults_count" value="2" min="1" max="10" readonly class="stepper-val font-sans">
-                                        <button type="button" class="btn-stepper btn-stepper-plus" data-target="modal-adults" aria-label="Increase Adults">+</button>
+                                </label>
+                                <label class="modal-tier-radio-label" id="modal-tier-label-single" style="background: #FAFAFA; border: 1.5px solid rgba(28, 56, 38, 0.15); border-radius: 6px; padding: 10px; cursor: pointer; display: flex; align-items: flex-start; gap: 8px;">
+                                    <input type="radio" name="modal_tier" value="single_room" style="margin-top: 2px; accent-color: var(--accent-gold);">
+                                    <div>
+                                        <strong style="font-size: 12.5px; color: var(--accent-green); display: block; font-weight: 700;">Single Room in Duplex</strong>
+                                        <span style="font-size: 12px; color: #0E7490; font-weight: 700;" id="modal-duplex-single-rate-txt">₹14,500/nt</span>
+                                        <small style="font-size: 10px; color: #64748B; display: block;">Base 2 Guests • Max 4</small>
                                     </div>
-                                </div>
-
-                                <!-- Children Stepper -->
-                                <div class="guest-stepper-box">
-                                    <div class="stepper-label-group">
-                                        <span class="stepper-title font-sans"><i class="fa-solid fa-child"></i> Children</span>
-                                        <span class="stepper-sub font-sans">Ages 5–11 yrs <span class="infant-tag">(Under 5 Free)</span></span>
-                                    </div>
-                                    <div class="stepper-controls">
-                                        <button type="button" class="btn-stepper btn-stepper-minus" data-target="modal-kids" aria-label="Decrease Children">−</button>
-                                        <input type="number" id="modal-kids" name="kids_count" value="0" min="0" max="8" readonly class="stepper-val font-sans">
-                                        <button type="button" class="btn-stepper btn-stepper-plus" data-target="modal-kids" aria-label="Increase Children">+</button>
-                                    </div>
-                                </div>
+                                </label>
                             </div>
-                            <input type="hidden" id="modal-guests" value="2">
                         </div>
                     </div>
 
-                    <div class="booking-grid-2">
-                        <!-- Check-in -->
-                        <div class="form-field">
-                            <label for="modal-checkin" class="form-label font-sans">Check-In Date</label>
-                            <div class="input-icon-wrapper">
-                                <i class="fa-regular fa-calendar input-icon"></i>
-                                <input type="date" id="modal-checkin" class="form-input font-sans" required>
+                    <!-- Stay Dates Field -->
+                    <div class="form-field full-width" style="margin-bottom: 20px;">
+                        <label class="form-label font-sans" style="margin-bottom: 8px; color: #1E293B !important; font-weight: 700; font-size: 13.5px;">
+                            <i class="fa-regular fa-calendar-days" style="color: var(--accent-gold); margin-right: 6px;"></i> Stay Dates
+                        </label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                            <div>
+                                <span style="font-size: 11.5px; color: #64748B; display: block; margin-bottom: 4px; font-weight: 600;">Check-In Date</span>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-regular fa-calendar input-icon"></i>
+                                    <input type="date" id="modal-checkin" class="form-input font-sans" required>
+                                </div>
+                            </div>
+                            <div>
+                                <span style="font-size: 11.5px; color: #64748B; display: block; margin-bottom: 4px; font-weight: 600;">Check-Out Date</span>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-regular fa-calendar input-icon"></i>
+                                    <input type="date" id="modal-checkout" class="form-input font-sans" required>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Check-out -->
-                        <div class="form-field">
-                            <label for="modal-checkout" class="form-label font-sans">Check-Out Date</label>
-                            <div class="input-icon-wrapper">
-                                <i class="fa-regular fa-calendar input-icon"></i>
-                                <input type="date" id="modal-checkout" class="form-input font-sans" required>
+                    <!-- Luxury Dual Steppers: Adults & Children (Full Width) -->
+                    <div class="form-field full-width guest-steppers-container" style="margin-bottom: 20px; background: #F8FAF8; border: 1.5px solid rgba(28, 56, 38, 0.12); border-radius: 10px; padding: 16px 18px;">
+                        <div class="steppers-header-row" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                            <label class="form-label font-sans" style="margin-bottom: 0; color: #1E293B !important; font-weight: 700; font-size: 13.5px;">
+                                <i class="fa-solid fa-users" style="color: var(--accent-gold); margin-right: 6px;"></i> Guests &amp; Occupancy
+                            </label>
+                            <span id="room-occupancy-note" class="font-sans occupancy-note" style="font-size: 11.5px; color: #047857; font-weight: 600;">
+                                <i class="fa-solid fa-circle-info"></i> Base: 2 Included • Extra Adult +₹1,500/nt • Child +₹800/nt
+                            </span>
+                        </div>
+                        <div class="guest-steppers-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                            <!-- Adults Stepper -->
+                            <div class="guest-stepper-box">
+                                <div class="stepper-label-group">
+                                    <span class="stepper-title font-sans"><i class="fa-solid fa-user"></i> Adults</span>
+                                    <span class="stepper-sub font-sans">Ages 12+ yrs</span>
+                                </div>
+                                <div class="stepper-controls">
+                                    <button type="button" class="btn-stepper btn-stepper-minus" data-target="modal-adults" aria-label="Decrease Adults">−</button>
+                                    <input type="number" id="modal-adults" name="adults_count" value="2" min="1" max="10" readonly class="stepper-val font-sans">
+                                    <button type="button" class="btn-stepper btn-stepper-plus" data-target="modal-adults" aria-label="Increase Adults">+</button>
+                                </div>
+                            </div>
+
+                            <!-- Children Stepper -->
+                            <div class="guest-stepper-box">
+                                <div class="stepper-label-group">
+                                    <span class="stepper-title font-sans"><i class="fa-solid fa-child"></i> Children</span>
+                                    <span class="stepper-sub font-sans">Ages 5–11 yrs <span class="infant-tag">(Under 5 Free)</span></span>
+                                </div>
+                                <div class="stepper-controls">
+                                    <button type="button" class="btn-stepper btn-stepper-minus" data-target="modal-kids" aria-label="Decrease Children">−</button>
+                                    <input type="number" id="modal-kids" name="kids_count" value="0" min="0" max="8" readonly class="stepper-val font-sans">
+                                    <button type="button" class="btn-stepper btn-stepper-plus" data-target="modal-kids" aria-label="Increase Children">+</button>
+                                </div>
                             </div>
                         </div>
+                        <input type="hidden" id="modal-guests" value="2">
                     </div>
 
                     <!-- Dynamic Real-Time Availability Feedback & Alternative Suggestions Box -->
@@ -567,34 +629,60 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         </div>
                     </div>
 
-                    <!-- Upload Government ID Document / Photo -->
+                    <!-- Upload Government ID Document / Photo (Mandatory with Pre-Flight Virus Scan) -->
                     <div class="form-field" style="margin-bottom: 16px;">
-                        <label class="form-label font-sans" style="color: #1E293B !important; font-weight: 600; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <span><i class="fa-solid fa-id-card-clip" style="color: var(--accent-gold); margin-right: 5px;"></i> Upload Government ID Proof (Optional)</span>
-                            <span style="font-size: 11px; color: #64748B; font-weight: 500;">Max 8MB (JPG, PNG, WEBP, PDF)</span>
+                        <label class="form-label font-sans" style="color: #1E293B !important; font-weight: 600; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+                            <span>
+                                <i class="fa-solid fa-id-card-clip" style="color: var(--accent-gold); margin-right: 5px;"></i>
+                                <strong>Upload Government ID Proof</strong> <span style="color: #DC2626; font-weight: 700;">(Mandatory *)</span>
+                            </span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="background: rgba(220, 38, 38, 0.1); color: #DC2626; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; border: 1px solid rgba(220, 38, 38, 0.25);">REQUIRED</span>
+                                <span style="font-size: 11px; color: #64748B; font-weight: 500;">Max 8MB (JPG, PNG, WEBP, PDF)</span>
+                            </div>
                         </label>
                         <div class="id-proof-upload-wrapper" id="id-proof-upload-box" style="position: relative; border: 1.5px dashed #0284C7; background: #F0F9FF; border-radius: 8px; padding: 14px 18px; text-align: center; cursor: pointer; transition: all 0.2s ease;">
-                            <input type="file" id="modal-id-file" name="id_proof_file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 5;">
+                            <input type="file" id="modal-id-file" name="id_proof_file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 5;" required>
                             
+                            <!-- Prompt State -->
                             <div id="id-file-prompt" style="display: flex; align-items: center; justify-content: center; gap: 12px; color: #0369A1;">
                                 <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(2, 132, 199, 0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                                     <i class="fa-solid fa-cloud-arrow-up" style="font-size: 18px; color: #0284C7;"></i>
                                 </div>
                                 <div style="text-align: left;">
-                                    <span class="font-sans" style="font-size: 13px; font-weight: 700; color: #0369A1; display: block;">Click or drag photo/PDF of ID card</span>
-                                    <span class="font-sans" style="font-size: 11.5px; color: #475569; display: block;">Securely encrypted • Enables fast contactless sanctuary check-in</span>
+                                    <span class="font-sans" style="font-size: 13px; font-weight: 700; color: #0369A1; display: block;">Click or drag photo/PDF of ID card <span style="color: #DC2626;">*</span></span>
+                                    <span class="font-sans" style="font-size: 11.5px; color: #475569; display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                                        <i class="fa-solid fa-shield-virus" style="color: #059669;"></i> Real-Time Virus &amp; Threat Scanned • 256-Bit Encrypted
+                                    </span>
                                 </div>
                             </div>
 
-                            <div id="id-file-selected" style="display: none; align-items: center; justify-content: space-between; background: #FFFFFF; border: 1.5px solid #059669; border-radius: 6px; padding: 8px 12px; gap: 8px;">
+                            <!-- Scanning State -->
+                            <div id="id-file-scanning" style="display: none; align-items: center; justify-content: center; gap: 10px; padding: 6px; color: #0284C7;">
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size: 20px; color: #0284C7;"></i>
+                                <div style="text-align: left;">
+                                    <span class="font-sans" style="font-size: 13px; font-weight: 700; color: #0369A1; display: block;">Scanning file for viruses &amp; malicious code...</span>
+                                    <span class="font-sans" style="font-size: 11px; color: #64748B;">Checking binary integrity and signatures</span>
+                                </div>
+                            </div>
+
+                            <!-- File Selected & Verified Clean State -->
+                            <div id="id-file-selected" style="display: none; align-items: center; justify-content: space-between; background: #FFFFFF; border: 1.5px solid #059669; border-radius: 6px; padding: 10px 14px; gap: 10px;">
                                 <div style="display: flex; align-items: center; gap: 10px; overflow: hidden; text-align: left;">
-                                    <i class="fa-solid fa-file-circle-check" style="color: #059669; font-size: 20px; flex-shrink: 0;"></i>
+                                    <div style="width: 34px; height: 34px; border-radius: 50%; background: rgba(5, 150, 105, 0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                        <i class="fa-solid fa-shield-check" style="color: #059669; font-size: 18px;"></i>
+                                    </div>
                                     <div style="overflow: hidden;">
-                                        <div id="id-file-name" class="font-sans" style="font-size: 13px; font-weight: 700; color: #065F46; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">filename.pdf</div>
-                                        <span id="id-file-size" class="font-sans" style="font-size: 11px; color: #64748B;">(1.2 MB)</span>
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span id="id-file-name" class="font-sans" style="font-size: 13px; font-weight: 700; color: #065F46; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">filename.pdf</span>
+                                            <span id="id-file-size" class="font-sans" style="font-size: 11px; color: #64748B;">(1.2 MB)</span>
+                                        </div>
+                                        <div style="font-size: 11px; color: #059669; font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: 1px;">
+                                            <i class="fa-solid fa-check-double"></i> Anti-Virus Verified: Clean &amp; Safe
+                                        </div>
                                     </div>
                                 </div>
-                                <button type="button" id="btn-remove-id-file" style="background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); color: #DC2626; cursor: pointer; font-size: 11.5px; padding: 4px 10px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; position: relative; z-index: 10;" title="Remove chosen file">
+                                <button type="button" id="btn-remove-id-file" style="background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); color: #DC2626; cursor: pointer; font-size: 11.5px; padding: 5px 10px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; position: relative; z-index: 10;" title="Remove chosen file">
                                     <i class="fa-solid fa-trash-can"></i> Remove
                                 </button>
                             </div>
@@ -638,15 +726,26 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         <span id="summary-extra-kids-rate" class="font-sans font-weight-600">+₹0</span>
                     </div>
                     
-                    <!-- Curated Food Menu Itemized Line -->
-                    <div class="summary-line" id="summary-food-line" style="display: none; color: #d97706;">
-                        <span class="font-sans"><i class="fa-solid fa-utensils" style="font-size: 11px;"></i> <span id="summary-food-label">Curated Gastronomy:</span></span>
-                        <span id="summary-food-rate" class="font-sans font-weight-600">+₹0</span>
+                    <!-- Curated Food Menu Itemized Section -->
+                    <div id="summary-food-section" style="display: none; background: rgba(217, 119, 6, 0.05); border: 1.5px solid rgba(217, 119, 6, 0.25); border-radius: 8px; padding: 12px 14px; margin: 10px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed rgba(217, 119, 6, 0.25); font-weight: 700; font-size: 13px; color: #92400E;">
+                            <span class="font-sans"><i class="fa-solid fa-utensils" style="font-size: 11px; margin-right: 5px;"></i> <span id="summary-food-heading">Curated Gastronomy Dishes</span></span>
+                            <span id="summary-food-rate" class="font-sans" style="font-size: 13px; font-weight: 700; color: #92400E;">+₹0</span>
+                        </div>
+                        <div id="summary-food-items-container" style="display: flex; flex-direction: column; gap: 6px;">
+                            <!-- Dynamically injected itemized dishes -->
+                        </div>
                     </div>
 
-                    <div class="summary-line" id="summary-addons-line" style="display: none; color: #0E7490;">
-                        <span class="font-sans"><i class="fa-solid fa-person-hiking" style="font-size: 11px;"></i> <span id="summary-addons-label">Selected Experiences:</span></span>
-                        <span id="summary-addons-rate" class="font-sans font-weight-600" style="color: #0E7490;">Payable On-Site (₹0 in Bill)</span>
+                    <!-- Selected Signature Experiences Itemized Section -->
+                    <div id="summary-addons-section" style="display: none; background: rgba(14, 116, 144, 0.05); border: 1.5px solid rgba(14, 116, 144, 0.25); border-radius: 8px; padding: 12px 14px; margin: 10px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px dashed rgba(14, 116, 144, 0.25); font-weight: 700; font-size: 13px; color: #0E7490;">
+                            <span class="font-sans"><i class="fa-solid fa-sparkles" style="font-size: 11px; margin-right: 5px;"></i> <span id="summary-addons-heading">Selected Signature Experiences</span></span>
+                            <span class="font-sans" style="font-size: 11.5px; font-weight: 600; color: #0E7490;">Payable On-Site (₹0 in Bill)</span>
+                        </div>
+                        <div id="summary-addons-items-container" style="display: flex; flex-direction: column; gap: 6px;">
+                            <!-- Dynamically injected itemized experiences -->
+                        </div>
                     </div>
 
                     <!-- Taxable Subtotal Line (Shown when GST is Active) -->
@@ -665,7 +764,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         <span class="font-serif" id="summary-total-title">Estimated Total (Standard Folio):</span>
                         <span id="summary-total" class="font-serif price-highlight">₹14,500</span>
                     </div>
-                </div>
+                </div> <!-- End .booking-summary-box -->
 
                 <!-- Action Buttons -->
                 <div class="booking-action-buttons">
@@ -722,6 +821,34 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                 </div>
             </div>
 
+        </div> <!-- end .booking-modal-content -->
+
+        <!-- Floating Live Real-Time Bill & Direct Checkout Sticky Bar -->
+        <div id="modal-sticky-checkout-bar" class="modal-sticky-checkout-bar font-sans">
+            <div class="mscb-content-wrap">
+                <div class="mscb-main-info">
+                    <div class="mscb-label-row">
+                        <span class="mscb-live-dot"></span>
+                        <span class="mscb-label">Live Total Bill:</span>
+                        <span class="mscb-tax-pill" id="mscb-tax-pill">Standard Folio (GST-Free)</span>
+                    </div>
+                    <div class="mscb-total-row">
+                        <span class="mscb-amount font-serif" id="mscb-live-total">₹14,500</span>
+                        <span class="mscb-nights-badge" id="mscb-txt-nights">1 Night</span>
+                    </div>
+                    <div class="mscb-breakdown-pills">
+                        <span class="mscb-pill" id="mscb-txt-guests"><i class="fa-solid fa-user-group"></i> 2 Guests</span>
+                        <span class="mscb-pill" id="mscb-txt-extra" style="display: none;"><i class="fa-solid fa-user-plus"></i> Extra Guests</span>
+                        <span class="mscb-pill" id="mscb-txt-food"><i class="fa-solid fa-utensils"></i> Meals Incl.</span>
+                    </div>
+                </div>
+                <div class="mscb-actions">
+                    <button type="button" class="btn-mscb-reserve font-sans" id="btn-mscb-submit" onclick="document.getElementById('btn-submit-booking-direct').click();">
+                        <span>Confirm &amp; Reserve</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>

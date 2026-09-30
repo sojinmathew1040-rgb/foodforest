@@ -69,6 +69,66 @@
     --adm-transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* =========================================================================
+   LIGHT / WHITE THEME TOKENS (PREMIUM PORCELAIN & ALPINE IVORY)
+   ========================================================================= */
+[data-theme="light"],
+body.theme-light,
+html[data-theme="light"] {
+    /* Base Color Tokens */
+    --adm-bg-main: #F4F7F4;
+    --adm-bg-surface: #FFFFFF;
+    --adm-bg-surface-elevated: #FFFFFF;
+    --adm-bg-card: #FFFFFF;
+    --adm-bg-card-hover: #F0F5F1;
+    --adm-bg-input: #F8FAF8;
+    --adm-bg-glass: rgba(255, 255, 255, 0.94);
+
+    /* Metallic Gold & Warm Accents */
+    --adm-gold: #B38E3B;
+    --adm-gold-light: #8C6B23;
+    --adm-gold-bright: #6B5014;
+    --adm-gold-dark: #7A5B18;
+    --adm-gold-dim: rgba(179, 142, 59, 0.12);
+    --adm-gold-border: rgba(179, 142, 59, 0.35);
+    --adm-gold-glow: 0 0 20px rgba(179, 142, 59, 0.2);
+    --adm-gold-gradient: linear-gradient(135deg, #D4AF5F 0%, #B38E3B 50%, #8C6B23 100%);
+    --adm-gold-gradient-hover: linear-gradient(135deg, #DEBE74 0%, #C49F4C 50%, #9D7A2C 100%);
+
+    /* Semantic Status Colors */
+    --adm-emerald: #0D8A5E;
+    --adm-emerald-bright: #09734D;
+    --adm-emerald-dim: rgba(13, 138, 94, 0.12);
+    --adm-emerald-border: rgba(13, 138, 94, 0.35);
+
+    --adm-amber: #D97706;
+    --adm-amber-bright: #B45309;
+    --adm-amber-dim: rgba(217, 119, 6, 0.12);
+    --adm-amber-border: rgba(217, 119, 6, 0.35);
+
+    --adm-terracotta: #DC2626;
+    --adm-terracotta-bright: #B91C1C;
+    --adm-terracotta-dim: rgba(220, 38, 38, 0.12);
+    --adm-terracotta-border: rgba(220, 38, 38, 0.35);
+
+    --adm-slate: #64748B;
+    --adm-slate-dim: rgba(100, 116, 139, 0.12);
+    --adm-slate-border: rgba(100, 116, 139, 0.25);
+
+    /* Typography Colors (High Contrast on White) */
+    --adm-text-primary: #0F1D13;
+    --adm-text-secondary: #2E4234;
+    --adm-text-muted: #5C7463;
+    --adm-text-gold: #8C6B23;
+
+    /* Borders & Depth */
+    --adm-border-subtle: 1px solid rgba(15, 29, 19, 0.12);
+    --adm-border-gold-subtle: 1px solid var(--adm-gold-border);
+    --adm-shadow-sm: 0 2px 8px rgba(15, 29, 19, 0.06);
+    --adm-shadow-md: 0 6px 20px rgba(15, 29, 19, 0.08);
+    --adm-shadow-lg: 0 14px 36px rgba(15, 29, 19, 0.12);
+}
+
 /* Global Reset & Box Model */
 *, *::before, *::after {
     box-sizing: border-box;
@@ -2479,19 +2539,35 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #ECC880 0%, #C5A059 55%, #9D7B37 100%);
-    border: 2.5px solid #FFFFFF;
-    box-shadow: 0 0 16px rgba(197, 160, 89, 0.65), 0 4px 10px rgba(0, 0, 0, 0.5);
+    background: #0d1b14;
+    border: 2px solid #C5A059;
+    box-shadow: 0 0 14px rgba(197, 160, 89, 0.4), 0 4px 10px rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 800;
-    color: #0A160F;
+    color: #C5A059;
     font-family: var(--adm-font-sans);
     letter-spacing: -0.3px;
     position: relative;
     pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.admin-pin-mini-num {
+    position: absolute;
+    top: -5px;
+    right: -6px;
+    background: #0a1710;
+    color: #FFFFFF;
+    font-size: 8.5px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    line-height: 1.1;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
 }
 
 .admin-pin-pulse {
@@ -2555,6 +2631,496 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
     flex-wrap: wrap;
     gap: 10px;
     font-size: 12px;
+}
+
+/* --- Pathway Drawing & Route Customization Studio Styles --- */
+.admin-map-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: rgba(8, 18, 12, 0.85);
+    border: 1px solid rgba(197, 160, 89, 0.3);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+}
+
+.admin-map-tool-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(197, 160, 89, 0.25);
+    color: #E0E7E3;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.admin-map-tool-btn:hover {
+    background: rgba(197, 160, 89, 0.15);
+    border-color: var(--adm-gold);
+    color: #FFFFFF;
+    transform: translateY(-1px);
+}
+
+.admin-map-tool-btn.active {
+    background: linear-gradient(135deg, rgba(197, 160, 89, 0.35), rgba(46, 204, 113, 0.25));
+    border-color: #2ECC71;
+    color: #FFFFFF;
+    box-shadow: 0 0 12px rgba(46, 204, 113, 0.35);
+}
+
+.admin-map-tool-btn.gold-active {
+    background: linear-gradient(135deg, #C5A059, #9D7B37);
+    border-color: #ECC880;
+    color: #0A160F;
+    box-shadow: 0 0 14px rgba(197, 160, 89, 0.5);
+    font-weight: 700;
+}
+
+/* Guided Step Bar Buttons */
+.adm-btn-step-pill {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(197, 160, 89, 0.3);
+    color: #FFFFFF;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.adm-btn-step-pill:hover {
+    background: rgba(197, 160, 89, 0.2);
+    border-color: var(--adm-gold);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.adm-btn-step-pill .step-num {
+    background: var(--adm-gold);
+    color: #0A160F;
+    font-weight: 800;
+    font-size: 10px;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.adm-btn-step-pill.highlight {
+    background: rgba(46, 204, 113, 0.15);
+    border-color: rgba(46, 204, 113, 0.4);
+    color: #2ECC71;
+}
+
+.adm-btn-step-pill.highlight:hover {
+    background: rgba(46, 204, 113, 0.28);
+    border-color: #2ECC71;
+}
+
+.adm-btn-step-pill.highlight .step-num {
+    background: #2ECC71;
+    color: #081d1a;
+}
+
+/* Floating HUD for Pencil Mode */
+.admin-pencil-floating-hud {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(8, 20, 14, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1.5px solid #56C2C9;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75), 0 0 16px rgba(86, 194, 201, 0.3);
+    border-radius: 30px;
+    padding: 7px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 100;
+    animation: adminPencilSlideDown 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: auto;
+}
+
+@keyframes adminPencilSlideDown {
+    from { transform: translate(-50%, -20px); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.adm-btn-pencil-finish {
+    background: #2ECC71 !important;
+    color: #081d1a !important;
+    border: none !important;
+    border-radius: 20px !important;
+    padding: 5px 14px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    box-shadow: 0 0 12px rgba(46, 204, 113, 0.5) !important;
+    transition: all 0.2s ease !important;
+}
+
+.adm-btn-pencil-finish:hover {
+    transform: scale(1.05) !important;
+    background: #27ae60 !important;
+    color: #FFFFFF !important;
+}
+
+.adm-btn-pencil-new-branch {
+    background: rgba(86, 194, 201, 0.2) !important;
+    color: #56C2C9 !important;
+    border: 1px solid #56C2C9 !important;
+    border-radius: 20px !important;
+    padding: 5px 12px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.adm-btn-pencil-new-branch:hover {
+    background: #56C2C9 !important;
+    color: #081d1a !important;
+}
+
+.adm-btn-pencil-cancel {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-radius: 20px !important;
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.adm-btn-pencil-cancel:hover {
+    background: rgba(231, 76, 60, 0.4) !important;
+    color: #FF7675 !important;
+}
+
+.admin-map-canvas-container.is-pencil-mode {
+    cursor: crosshair !important;
+}
+
+.admin-map-canvas-container.is-pencil-mode .admin-master-pin,
+.admin-map-canvas-container.is-pencil-mode .admin-entrance-pin,
+.admin-map-canvas-container.is-pencil-mode .admin-exit-pin,
+.admin-map-canvas-container.is-pencil-mode .admin-waypoint-pin {
+    cursor: pointer !important;
+}
+
+/* Entrance & Exit Markers */
+.admin-entrance-pin,
+.admin-exit-pin,
+.admin-waypoint-pin {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    z-index: 12;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.15s ease;
+}
+
+.admin-entrance-pin *,
+.admin-exit-pin *,
+.admin-waypoint-pin * {
+    pointer-events: none;
+}
+
+.admin-entrance-pin:hover,
+.admin-exit-pin:hover,
+.admin-waypoint-pin:hover {
+    transform: translate(-50%, -50%) scale(1.15);
+    z-index: 26;
+}
+
+.admin-entrance-pin.is-dragging,
+.admin-exit-pin.is-dragging,
+.admin-waypoint-pin.is-dragging {
+    cursor: grabbing !important;
+    transform: translate(-50%, -50%) scale(1.25) !important;
+    z-index: 60 !important;
+    transition: none !important;
+}
+
+.admin-entrance-badge,
+.admin-exit-badge,
+.admin-waypoint-badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+    margin-top: 4px;
+    font-family: var(--adm-font-title);
+    letter-spacing: 0.5px;
+}
+
+.admin-entrance-badge {
+    background: rgba(10, 24, 16, 0.95);
+    border: 1px solid var(--adm-gold);
+    color: var(--adm-gold);
+}
+
+.admin-exit-badge {
+    background: rgba(28, 16, 8, 0.95);
+    border: 1px solid #E67E22;
+    color: #F39C12;
+}
+
+.admin-waypoint-badge {
+    background: rgba(8, 22, 25, 0.95);
+    border: 1px solid #56C2C9;
+    color: #56C2C9;
+    font-family: var(--adm-font-sans);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.admin-waypoint-del-btn {
+    pointer-events: auto !important;
+    background: rgba(231, 76, 60, 0.85);
+    color: #FFFFFF !important;
+    border: none;
+    border-radius: 50%;
+    width: 15px;
+    height: 15px;
+    min-width: 15px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 800;
+    cursor: pointer;
+    margin-left: 3px;
+    transition: all 0.15s ease;
+    line-height: 1;
+    padding: 0;
+}
+.admin-waypoint-del-btn:hover {
+    background: #e74c3c !important;
+    transform: scale(1.3);
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.8);
+}
+
+/* Route Sequence & Curve Studio UI */
+.admin-route-builder-card {
+    background: rgba(10, 22, 15, 0.7);
+    border: 1px solid rgba(197, 160, 89, 0.25);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 18px;
+}
+
+#admin-route-selector {
+    min-width: 220px;
+    max-width: 320px;
+    height: 38px !important;
+    padding: 6px 32px 6px 12px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    background-color: #0b1e13 !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23C5A059' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 14px 14px !important;
+    border: 1px solid rgba(197, 160, 89, 0.45) !important;
+    border-radius: 8px !important;
+    color: #FFFFFF !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    cursor: pointer;
+}
+
+#admin-route-selector option {
+    background: #08150d !important;
+    color: #FFFFFF !important;
+    padding: 8px 12px;
+}
+
+.admin-route-builder-card .adm-form-control {
+    height: 38px !important;
+    padding: 8px 12px !important;
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+}
+
+.admin-route-builder-card input[type="color"].adm-form-control {
+    padding: 2px 4px !important;
+    height: 38px !important;
+}
+
+.admin-node-chain-list {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px dashed rgba(197, 160, 89, 0.3);
+    border-radius: 8px;
+    min-height: 56px;
+    margin-bottom: 16px;
+}
+
+.admin-node-chip {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 11.5px;
+    color: #FFFFFF;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.admin-node-chip.chip-entrance {
+    border-color: var(--adm-gold);
+    background: rgba(197, 160, 89, 0.15);
+}
+
+.admin-node-chip.chip-exit {
+    border-color: #E67E22;
+    background: rgba(230, 126, 34, 0.15);
+}
+
+.admin-node-chip.chip-waypoint {
+    border-color: #56C2C9;
+    background: rgba(86, 194, 201, 0.15);
+}
+
+.admin-curve-connector {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(8, 18, 12, 0.9);
+    border: 1px solid rgba(197, 160, 89, 0.4);
+    border-radius: 16px;
+    padding: 2px 7px;
+    font-size: 10.5px;
+    cursor: pointer;
+    color: var(--adm-gold);
+    transition: all 0.18s ease;
+}
+
+.admin-curve-connector:hover {
+    background: rgba(197, 160, 89, 0.25);
+    border-color: #ECC880;
+    transform: scale(1.06);
+}
+
+.admin-node-ctrl-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.admin-node-ctrl-btn:hover {
+    color: #FFFFFF;
+    background: rgba(197, 160, 89, 0.3);
+    border-color: var(--adm-gold);
+}
+
+.admin-node-del-btn {
+    background: rgba(231, 76, 60, 0.22);
+    border: 1px solid rgba(231, 76, 60, 0.55);
+    color: #FF7675;
+    cursor: pointer;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 5px;
+    margin-left: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.admin-node-del-btn:hover {
+    background: #E74C3C;
+    border-color: #C0392B;
+    color: #FFFFFF;
+    transform: scale(1.06);
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+}
+
+/* Quick Add Property to Pathway Modal & Waypoints Modal */
+.admin-prop-modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(4, 10, 7, 0.88) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    z-index: 99999999 !important;
+    display: none;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+}
+
+.admin-prop-modal-box {
+    background: #0d1b14 !important;
+    border: 1.5px solid rgba(197, 160, 89, 0.5) !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    max-width: 520px !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    padding: 24px !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95), 0 0 30px rgba(197, 160, 89, 0.15) !important;
+    animation: adminModalPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    position: relative !important;
+    z-index: 100000000 !important;
+}
+
+@keyframes adminModalPop {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
 
 /* =========================================================================
@@ -3298,6 +3864,929 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* =========================================================================
+   NATIVE MOBILE APP VIEW & 100% RESPONSIVE ENGINE (ADMIN CONSOLE)
+   ========================================================================= */
+
+/* Mobile Sidebar Drawer Close Button (Hidden by default on Desktop) */
+.adm-sidebar-close-mob {
+    display: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #F87171;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-left: auto;
+}
+
+.adm-sidebar-close-mob:hover {
+    background: #EF4444;
+    color: #FFFFFF;
+}
+
+/* Mobile Sidebar Drawer Backdrop Overlay */
+.adm-mobile-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 12, 8, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.adm-mobile-sidebar-backdrop.is-active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Mobile App Bottom Navigation Dock (Hidden on Desktop) */
+.adm-mobile-bottom-dock {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: rgba(9, 19, 13, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1.5px solid rgba(197, 160, 89, 0.35);
+    z-index: 999;
+    box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.65);
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 4px calc(env(safe-area-inset-bottom, 0px));
+}
+
+.adm-mob-dock-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #839788;
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-family: var(--adm-font-sans);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    flex: 1;
+    max-width: 80px;
+}
+
+.adm-mob-dock-icon {
+    position: relative;
+    font-size: 17px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+.adm-mob-dock-item:hover,
+.adm-mob-dock-item:active {
+    color: var(--adm-gold-light);
+}
+
+.adm-mob-dock-item:hover .adm-mob-dock-icon {
+    transform: translateY(-2px);
+}
+
+.adm-mob-dock-item.active {
+    color: var(--adm-gold-bright);
+    font-weight: 700;
+}
+
+.adm-mob-dock-item.active .adm-mob-dock-icon {
+    color: var(--adm-gold);
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 8px rgba(197, 160, 89, 0.5));
+}
+
+.adm-mob-dock-item.active::after {
+    content: '';
+    position: absolute;
+    top: -1.5px;
+    width: 24px;
+    height: 3px;
+    background: var(--adm-gold-gradient);
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 0 10px rgba(197, 160, 89, 0.8);
+}
+
+.adm-mob-dock-badge {
+    position: absolute;
+    top: -4px;
+    right: -10px;
+    background: #EF4444;
+    color: #FFFFFF;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 10px;
+    min-width: 15px;
+    text-align: center;
+    line-height: 1.2;
+    border: 1px solid #09130D;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+.adm-mob-dock-badge.green {
+    background: #10B981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.adm-mob-dock-badge.red {
+    background: #EF4444;
+}
+
+/* =========================================================================
+   TABLETS & MEDIUM SCREENS (<= 992px)
+   ========================================================================= */
+@media (max-width: 992px) {
+    /* 1. Sidebar becomes Slide-Out Mobile App Drawer */
+    .adm-sidebar {
+        width: 300px;
+        max-width: 86vw;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 10000;
+        transform: translateX(-100%);
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: none;
+        background: #08120B;
+        border-right: 1.5px solid rgba(197, 160, 89, 0.35);
+    }
+
+    .adm-sidebar.is-open {
+        transform: translateX(0);
+        box-shadow: 12px 0 40px rgba(0, 0, 0, 0.85), 0 0 35px rgba(197, 160, 89, 0.2);
+    }
+
+    .adm-sidebar-toggle-btn {
+        display: none !important;
+    }
+
+    .adm-sidebar-close-mob {
+        display: inline-flex;
+    }
+
+    .adm-mobile-sidebar-backdrop {
+        display: block;
+    }
+
+    /* 2. Full Width Viewport */
+    .adm-main-viewport {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 100% !important;
+    }
+
+    .adm-topbar {
+        padding: 0 18px;
+        height: 64px;
+    }
+
+    .adm-mobile-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        background: rgba(197, 160, 89, 0.12);
+        border: 1px solid rgba(197, 160, 89, 0.28);
+        color: var(--adm-gold-light);
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .adm-mobile-toggle:hover {
+        background: var(--adm-gold);
+        color: #08120B;
+    }
+
+    .adm-page-title {
+        font-size: 17px;
+    }
+
+    .adm-page-sub {
+        font-size: 11px;
+    }
+
+    .adm-content-body {
+        padding: 20px 18px;
+    }
+
+    .adm-kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+}
+
+/* =========================================================================
+   MOBILE PHONES (<= 768px) — 100% APP EXPERIENCE
+   ========================================================================= */
+@media (max-width: 768px) {
+    /* 1. Show Native App Bottom Dock */
+    .adm-mobile-bottom-dock {
+        display: flex;
+    }
+
+    /* 2. Safe-area bottom padding on page body */
+    .adm-content-body {
+        padding: 16px 14px;
+        padding-bottom: 88px !important;
+    }
+
+    /* 3. Compact Mobile Topbar */
+    .adm-topbar {
+        height: 58px;
+        padding: 0 14px;
+    }
+
+    .adm-topbar-left {
+        gap: 10px;
+    }
+
+    .adm-page-title {
+        font-size: 15px;
+        letter-spacing: 0.5px;
+    }
+
+    .adm-page-sub {
+        display: none; /* Hide subtitle to preserve clean title in mobile header */
+    }
+
+    .adm-estate-live-badge {
+        padding: 4px 9px;
+        font-size: 11px;
+        gap: 5px;
+    }
+
+    .adm-btn-site-preview {
+        padding: 5px 10px;
+        font-size: 11.5px;
+    }
+
+    /* 4. KPI Stat Cards: 2-Column App Grid */
+    .adm-kpi-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .adm-kpi-card {
+        padding: 14px 12px;
+        border-radius: 10px;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .adm-kpi-icon-wrap {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+        opacity: 0.85;
+    }
+
+    .adm-kpi-label {
+        font-size: 10.5px;
+        line-height: 1.3;
+        padding-right: 28px;
+    }
+
+    .adm-kpi-number {
+        font-size: 19px;
+        margin: 4px 0 2px;
+    }
+
+    .adm-kpi-trend {
+        font-size: 10px;
+    }
+
+    /* 5. Responsive Tables & Data Wrappers */
+    .adm-table-wrap,
+    .adm-table-responsive,
+    .adm-data-table-container,
+    .table-responsive {
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        border-radius: 10px !important;
+        margin-bottom: 16px !important;
+        border: 1px solid rgba(197, 160, 89, 0.2) !important;
+        background: rgba(16, 31, 21, 0.6) !important;
+    }
+
+    .adm-data-table,
+    .adm-table {
+        min-width: 600px !important;
+        width: 100% !important;
+    }
+
+    .adm-data-table th,
+    .adm-data-table td,
+    .adm-table th,
+    .adm-table td {
+        padding: 10px 12px !important;
+        font-size: 12.5px !important;
+    }
+
+    /* 6. Form Grids & Layout Containers Collapse to 1 Column */
+    .adm-grid-2,
+    .adm-grid-3,
+    .adm-grid-4,
+    .adm-form-grid,
+    .adm-row-2,
+    .adm-row-3 {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    /* 7. Action Buttons & Filter Toolbars */
+    .adm-toolbar-row,
+    .adm-filter-bar,
+    .adm-action-bar,
+    .adm-search-filter-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+
+    .adm-search-input-wrap,
+    .adm-filter-select,
+    .adm-btn-toolbar {
+        width: 100% !important;
+    }
+
+    /* 8. Settings & CMS Tabs: Horizontally Scrollable Touch Carousel */
+    .adm-tabs-nav,
+    .adm-nav-tabs,
+    .adm-settings-nav-pills,
+    .adm-section-tabs-bar {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        gap: 8px !important;
+        padding-bottom: 8px !important;
+        margin-bottom: 16px !important;
+        scrollbar-width: none !important;
+    }
+
+    .adm-tabs-nav::-webkit-scrollbar,
+    .adm-settings-nav-pills::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .adm-tab-pill,
+    .adm-tab-btn {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+        padding: 8px 14px !important;
+        font-size: 12px !important;
+    }
+
+    /* 9. Accordion Cards & CMS Sections */
+    .adm-accordion-header,
+    .adm-dish-card-header {
+        padding: 12px 14px !important;
+        gap: 10px !important;
+    }
+
+    .adm-accordion-meta-title,
+    .adm-dish-meta-title {
+        font-size: 13.5px !important;
+    }
+
+    .adm-accordion-body,
+    .adm-dish-card-body {
+        padding: 16px 14px !important;
+    }
+
+    /* 10. Touch Input Enhancements */
+    .adm-input,
+    .adm-select,
+    .adm-textarea,
+    select,
+    input[type="text"],
+    input[type="date"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="email"],
+    input[type="password"] {
+        font-size: 15px !important; /* Prevents iOS auto-zoom on input focus */
+        min-height: 44px !important;
+    }
+
+    .adm-btn-primary,
+    .adm-btn-secondary,
+    .adm-btn-save,
+    .adm-btn-action {
+        min-height: 44px !important;
+        font-size: 13.5px !important;
+    }
+
+    /* 11. Section Nav Bar & Split Screen on Mobile */
+    .adm-section-nav-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        padding: 12px !important;
+    }
+
+    .adm-section-nav-left,
+    .adm-section-nav-right {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        width: 100% !important;
+        gap: 10px !important;
+    }
+
+    .adm-section-jump-select {
+        width: 100% !important;
+    }
+
+    .adm-split-layout-wrapper {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 16px !important;
+    }
+
+    .adm-editor-col {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* 12. Responsive Modals */
+    .adm-modal-content,
+    .adm-modal-box,
+    .admin-prop-modal-box {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        margin: 10px auto !important;
+        max-height: 88vh !important;
+        border-radius: 12px !important;
+    }
+
+    /* 13. Settings Card Grid */
+    .adm-settings-cards-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+}
+
+/* =========================================================================
+   EXTRA COMPACT SMARTPHONES (<= 400px)
+   ========================================================================= */
+@media (max-width: 400px) {
+    .adm-kpi-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .adm-mob-dock-item {
+        padding: 5px 6px;
+        font-size: 9px;
+    }
+
+    .adm-mob-dock-icon {
+        font-size: 15px;
+    }
+}
+
+/* =========================================================================
+   THEME TOGGLE BUTTON & LIGHT MODE COMPONENT OVERRIDES
+   ========================================================================= */
+
+/* Topbar Theme Toggle Button */
+.adm-theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(197, 160, 89, 0.12);
+    border: 1px solid var(--adm-gold-border);
+    color: var(--adm-text-primary);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-family: var(--adm-font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+}
+
+.adm-theme-toggle-btn:hover {
+    background: var(--adm-gold);
+    color: #09130D;
+    box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);
+    transform: translateY(-1px);
+}
+
+.adm-theme-toggle-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+}
+
+.adm-theme-toggle-btn .icon-sun {
+    display: none;
+    color: #F59E0B;
+}
+
+.adm-theme-toggle-btn .icon-moon {
+    display: inline-block;
+    color: var(--adm-gold);
+}
+
+/* -------------------------------------------------------------
+   LIGHT MODE: GLOBAL COMPONENT RULES
+   ------------------------------------------------------------- */
+[data-theme="light"],
+body.theme-light,
+html[data-theme="light"] {
+    color-scheme: light;
+}
+
+/* 1. Body & Viewport */
+[data-theme="light"] body.adm-body,
+body.theme-light.adm-body {
+    background-color: #F4F7F4 !important;
+    color: #2E4234 !important;
+    background-image: 
+        radial-gradient(circle at 10% 10%, rgba(13, 138, 94, 0.05) 0%, transparent 45%),
+        radial-gradient(circle at 90% 90%, rgba(179, 142, 59, 0.05) 0%, transparent 45%) !important;
+}
+
+/* 2. Topbar */
+[data-theme="light"] .adm-topbar {
+    background: rgba(255, 255, 255, 0.94) !important;
+    border-bottom: 1px solid rgba(15, 29, 19, 0.1) !important;
+    box-shadow: 0 4px 20px rgba(15, 29, 19, 0.04) !important;
+}
+
+[data-theme="light"] .adm-page-title {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-page-sub {
+    color: #5C7463 !important;
+}
+
+[data-theme="light"] .adm-theme-toggle-btn {
+    background: rgba(179, 142, 59, 0.12) !important;
+    border-color: rgba(179, 142, 59, 0.35) !important;
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-theme-toggle-btn:hover {
+    background: #B38E3B !important;
+    color: #FFFFFF !important;
+}
+
+[data-theme="light"] .adm-theme-toggle-btn .icon-sun {
+    display: inline-block !important;
+}
+
+[data-theme="light"] .adm-theme-toggle-btn .icon-moon {
+    display: none !important;
+}
+
+[data-theme="light"] .adm-topbar-user {
+    background: #F0F5F1 !important;
+    border: 1px solid rgba(15, 29, 19, 0.1) !important;
+}
+
+[data-theme="light"] .adm-user-name {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-user-role {
+    color: #5C7463 !important;
+}
+
+/* 3. Sidebar */
+[data-theme="light"] .adm-sidebar {
+    background: #FFFFFF !important;
+    border-right: 1px solid rgba(15, 29, 19, 0.12) !important;
+    box-shadow: 4px 0 20px rgba(15, 29, 19, 0.04) !important;
+}
+
+[data-theme="light"] .adm-sidebar-brand {
+    border-bottom: 1px solid rgba(15, 29, 19, 0.08) !important;
+    background: #FAFCFA !important;
+}
+
+[data-theme="light"] .adm-brand-name {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-brand-tagline {
+    color: #5C7463 !important;
+}
+
+[data-theme="light"] .adm-nav-heading {
+    color: #8C6B23 !important;
+}
+
+[data-theme="light"] .adm-nav-link {
+    color: #2E4234 !important;
+}
+
+[data-theme="light"] .adm-nav-link:hover {
+    background: rgba(13, 138, 94, 0.08) !important;
+    color: #0D8A5E !important;
+}
+
+[data-theme="light"] .adm-nav-link.active {
+    background: linear-gradient(135deg, rgba(179, 142, 59, 0.18) 0%, rgba(13, 138, 94, 0.1) 100%) !important;
+    color: #8C6B23 !important;
+    border-color: rgba(179, 142, 59, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(179, 142, 59, 0.15) !important;
+}
+
+[data-theme="light"] .adm-sidebar-footer {
+    border-top: 1px solid rgba(15, 29, 19, 0.08) !important;
+    background: #F8FAF8 !important;
+}
+
+/* 4. Cards, Headers & Panels */
+[data-theme="light"] .adm-card,
+[data-theme="light"] .adm-table-card,
+[data-theme="light"] .adm-toolbar-card {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(15, 29, 19, 0.12) !important;
+    box-shadow: 0 4px 16px rgba(15, 29, 19, 0.06) !important;
+}
+
+[data-theme="light"] .adm-card-header,
+[data-theme="light"] .adm-table-header {
+    background: #F9FBF9 !important;
+    border-bottom: 1px solid rgba(15, 29, 19, 0.08) !important;
+}
+
+[data-theme="light"] .adm-table-title,
+[data-theme="light"] .adm-card-title {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-table-subtitle,
+[data-theme="light"] .adm-card-subtitle {
+    color: #5C7463 !important;
+}
+
+/* 5. KPI Stat Cards */
+[data-theme="light"] .adm-kpi-card {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(15, 29, 19, 0.12) !important;
+    box-shadow: 0 2px 10px rgba(15, 29, 19, 0.05) !important;
+}
+
+[data-theme="light"] .adm-kpi-card.gold { border-left: 3px solid #B38E3B !important; }
+[data-theme="light"] .adm-kpi-card.emerald { border-left: 3px solid #0D8A5E !important; }
+[data-theme="light"] .adm-kpi-card.amber { border-left: 3px solid #D97706 !important; }
+[data-theme="light"] .adm-kpi-card.terracotta { border-left: 3px solid #DC2626 !important; }
+
+[data-theme="light"] .adm-kpi-number {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-kpi-label {
+    color: #5C7463 !important;
+}
+
+[data-theme="light"] .adm-kpi-trend {
+    color: #5C7463 !important;
+}
+
+[data-theme="light"] .adm-kpi-trend.positive {
+    color: #0D8A5E !important;
+}
+
+/* 6. Tables */
+[data-theme="light"] .adm-table-responsive,
+[data-theme="light"] .adm-table-wrap {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(15, 29, 19, 0.12) !important;
+}
+
+[data-theme="light"] .adm-data-table thead tr,
+[data-theme="light"] .adm-table thead tr {
+    background: #F0F5F1 !important;
+    border-bottom: 2px solid rgba(15, 29, 19, 0.1) !important;
+}
+
+[data-theme="light"] .adm-data-table th,
+[data-theme="light"] .adm-table th {
+    color: #0F1D13 !important;
+    font-weight: 700 !important;
+}
+
+[data-theme="light"] .adm-data-table tbody tr,
+[data-theme="light"] .adm-table tbody tr {
+    border-bottom: 1px solid rgba(15, 29, 19, 0.06) !important;
+    background: #FFFFFF !important;
+}
+
+[data-theme="light"] .adm-data-table tbody tr:nth-child(even),
+[data-theme="light"] .adm-table tbody tr:nth-child(even) {
+    background: #FAFCFA !important;
+}
+
+[data-theme="light"] .adm-data-table tbody tr:hover,
+[data-theme="light"] .adm-table tbody tr:hover {
+    background: #F2F7F3 !important;
+}
+
+[data-theme="light"] .adm-data-table td,
+[data-theme="light"] .adm-table td {
+    color: #2E4234 !important;
+}
+
+[data-theme="light"] .adm-ref-badge {
+    background: #F0F5F1 !important;
+    color: #8C6B23 !important;
+    border: 1px solid rgba(179, 142, 59, 0.3) !important;
+}
+
+/* 7. Forms, Inputs, Textareas, Selects */
+[data-theme="light"] .adm-form-control,
+[data-theme="light"] input.adm-form-control,
+[data-theme="light"] textarea.adm-form-control,
+[data-theme="light"] select.adm-form-control,
+[data-theme="light"] .adm-input,
+[data-theme="light"] .adm-select,
+[data-theme="light"] .adm-textarea,
+[data-theme="light"] .adm-section-jump-select,
+[data-theme="light"] .adm-filter-select {
+    background: #FFFFFF !important;
+    border: 1px solid #CAD7CE !important;
+    color: #0F1D13 !important;
+    box-shadow: none !important;
+}
+
+[data-theme="light"] .adm-form-control:focus,
+[data-theme="light"] input.adm-form-control:focus,
+[data-theme="light"] textarea.adm-form-control:focus,
+[data-theme="light"] select.adm-form-control:focus,
+[data-theme="light"] .adm-input:focus,
+[data-theme="light"] .adm-select:focus {
+    border-color: #B38E3B !important;
+    background: #FFFFFF !important;
+    box-shadow: 0 0 0 3px rgba(179, 142, 59, 0.18) !important;
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-form-label,
+[data-theme="light"] label.adm-form-label {
+    color: #8C6B23 !important;
+}
+
+[data-theme="light"] .adm-form-group small {
+    color: #5C7463 !important;
+}
+
+/* 8. Buttons & Actions */
+[data-theme="light"] .adm-btn-action.outline {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(15, 29, 19, 0.18) !important;
+    color: #2E4234 !important;
+}
+
+[data-theme="light"] .adm-btn-action.outline:hover {
+    background: #F0F5F1 !important;
+    border-color: #B38E3B !important;
+    color: #8C6B23 !important;
+}
+
+[data-theme="light"] .adm-btn-action.gold {
+    background: linear-gradient(135deg, #D4AF5F 0%, #B38E3B 50%, #8C6B23 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+}
+
+[data-theme="light"] .adm-btn-action.gold:hover {
+    background: linear-gradient(135deg, #DEBE74 0%, #C49F4C 50%, #9D7A2C 100%) !important;
+    box-shadow: 0 4px 14px rgba(179, 142, 59, 0.35) !important;
+}
+
+/* 9. Settings Cards Hub */
+[data-theme="light"] .adm-setting-card-btn {
+    background: #FFFFFF !important;
+    border: 1.5px solid rgba(15, 29, 19, 0.12) !important;
+    box-shadow: 0 2px 8px rgba(15, 29, 19, 0.05) !important;
+}
+
+[data-theme="light"] .adm-setting-card-btn:hover {
+    border-color: #B38E3B !important;
+    background: #F8FAF8 !important;
+    box-shadow: 0 6px 18px rgba(15, 29, 19, 0.08) !important;
+}
+
+[data-theme="light"] .adm-setting-card-btn.is-active {
+    border-color: #B38E3B !important;
+    background: linear-gradient(135deg, rgba(179, 142, 59, 0.14) 0%, #FFFFFF 100%) !important;
+    box-shadow: 0 0 0 1.5px #B38E3B, 0 6px 18px rgba(15, 29, 19, 0.08) !important;
+}
+
+[data-theme="light"] .adm-setting-card-content h4 {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-setting-card-content p {
+    color: #5C7463 !important;
+}
+
+[data-theme="light"] .adm-setting-card-num {
+    color: #8C6B23 !important;
+}
+
+/* 10. Modals & Dialogs */
+[data-theme="light"] .adm-modal-backdrop,
+[data-theme="light"] .admin-prop-modal-backdrop {
+    background: rgba(15, 29, 19, 0.6) !important;
+}
+
+[data-theme="light"] .adm-modal-content,
+[data-theme="light"] .admin-prop-modal-box {
+    background: #FFFFFF !important;
+    border-color: rgba(179, 142, 59, 0.35) !important;
+    box-shadow: 0 20px 60px rgba(15, 29, 19, 0.2) !important;
+}
+
+[data-theme="light"] .adm-modal-header {
+    background: #F9FBF9 !important;
+    border-bottom: 1px solid rgba(15, 29, 19, 0.08) !important;
+}
+
+[data-theme="light"] .adm-modal-title {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-modal-footer {
+    background: #F9FBF9 !important;
+    border-top: 1px solid rgba(15, 29, 19, 0.08) !important;
+}
+
+/* 11. Mobile Bottom Dock */
+[data-theme="light"] .adm-mobile-bottom-dock {
+    background: rgba(255, 255, 255, 0.96) !important;
+    border-top: 1.5px solid rgba(179, 142, 59, 0.3) !important;
+    box-shadow: 0 -8px 25px rgba(15, 29, 19, 0.08) !important;
+}
+
+[data-theme="light"] .adm-mob-dock-item {
+    color: #5C7463 !important;
+}
+
+[data-theme="light"] .adm-mob-dock-item.active {
+    color: #8C6B23 !important;
+}
+
+[data-theme="light"] .adm-mob-dock-item.active .adm-mob-dock-icon {
+    color: #B38E3B !important;
+}
+
+/* 12. Theme Preference Selector Cards */
+.adm-theme-card-option.is-selected .adm-theme-preview-box {
+    border-color: #10B981 !important;
+    box-shadow: 0 0 0 2px #10B981, 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+}
+
+.adm-theme-card-option:not(.is-selected) .adm-theme-check-icon {
+    display: none;
 }
 
 
