@@ -1375,6 +1375,50 @@ input, select, textarea {
     border-color: #a855f7;
     box-shadow: 0 4px 14px rgba(168, 85, 247, 0.45);
 }
+.adm-btn-stage.revert-checkout {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #fbbf24;
+}
+.adm-btn-stage.revert-checkout:hover {
+    background: #f59e0b;
+    color: #111827;
+    border-color: #f59e0b;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.45);
+}
+.adm-btn-stage.revert-checkin {
+    background: rgba(14, 165, 233, 0.16);
+    border-color: rgba(14, 165, 233, 0.45);
+    color: #38bdf8;
+}
+.adm-btn-stage.revert-checkin:hover {
+    background: #0ea5e9;
+    color: #0c1929;
+    border-color: #0ea5e9;
+    box-shadow: 0 4px 14px rgba(14, 165, 233, 0.45);
+}
+.adm-btn-stage.revert-cancel {
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(34, 197, 94, 0.45);
+    color: #4ade80;
+}
+.adm-btn-stage.revert-cancel:hover {
+    background: #22c55e;
+    color: #052e16;
+    border-color: #22c55e;
+    box-shadow: 0 4px 14px rgba(34, 197, 94, 0.45);
+}
+.adm-btn-stage.revert-pending {
+    background: rgba(148, 163, 184, 0.16);
+    border-color: rgba(148, 163, 184, 0.35);
+    color: #cbd5e1;
+}
+.adm-btn-stage.revert-pending:hover {
+    background: #64748b;
+    color: #FFFFFF;
+    border-color: #64748b;
+    box-shadow: 0 4px 14px rgba(100, 116, 139, 0.45);
+}
 
 /* Table Button Action Icons - Executive Luxury Interactivity */
 .adm-actions-cell {

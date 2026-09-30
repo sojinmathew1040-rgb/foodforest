@@ -101,6 +101,14 @@ try {
     $datedBackupFile = $backupDir . '/foodforest_backup_' . $dateSlug . '.sql';
     file_put_contents($datedBackupFile, $sqlContent);
     
+    // Save to db directory
+    $dbFolder = __DIR__ . '/db';
+    if (!is_dir($dbFolder)) {
+        mkdir($dbFolder, 0755, true);
+    }
+    file_put_contents($dbFolder . '/foodforest.sql', $sqlContent);
+    file_put_contents($dbFolder . '/foodforest_backup.sql', $sqlContent);
+
     // Also update root foodforest.sql and admin/data/foodforest.sql
     file_put_contents(__DIR__ . '/foodforest.sql', $sqlContent);
     if (is_dir(__DIR__ . '/admin/data')) {
@@ -109,10 +117,11 @@ try {
     
     echo json_encode([
         'status' => 'success',
-        'message' => 'Database backup successfully created in backup folder',
+        'message' => 'Database backup successfully created in db and backup folders',
         'database' => DB_NAME,
         'timestamp' => $timestamp,
         'files' => [
+            'db_folder_sql' => $dbFolder . '/foodforest.sql',
             'backup_folder_main' => $mainBackupFile,
             'backup_folder_dated' => $datedBackupFile,
             'root_file' => __DIR__ . '/foodforest.sql',

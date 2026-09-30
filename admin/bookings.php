@@ -675,28 +675,26 @@ function build_tab_url($tab_name, $current_params = []) {
                             </td>
                             <td class="adm-col-actions">
                                 <div class="adm-actions-cell">
-                                    <!-- Dynamic Context-Aware Primary Stage Action -->
+                                    <!-- Dynamic Context-Aware Primary Stage Action & Revert Options -->
                                     <?php if ($st === 'pending'): ?>
                                         <form method="POST" style="display:inline; margin:0;" title="Approve & Confirm Reservation">
                                             <input type="hidden" name="action" value="update_status">
                                             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                             <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
                                             <input type="hidden" name="status" value="confirmed">
-                                            <button type="submit" class="adm-btn-stage approve" title="Approve Reservation">
+                                            <button type="submit" class="adm-btn-stage approve" title="Approve & Confirm Reservation">
                                                 <i class="fa-solid fa-check"></i>
                                                 <span>Approve</span>
                                             </button>
                                         </form>
-                                    <?php elseif ($st === 'waitlist' || ($st === 'confirmed' && $b['checkin_date'] <= $today)): ?>
-                                        <!-- Check-In Guest from Waiting List / Arrivals -->
-                                        <form method="POST" style="display:inline; margin:0;" title="Check-In Guest (Mark In-House with current time)">
+                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Cancel/Reject this pending reservation for <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?>?');" title="Reject / Cancel Reservation">
                                             <input type="hidden" name="action" value="update_status">
                                             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                             <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
-                                            <input type="hidden" name="status" value="inhouse">
-                                            <button type="submit" class="adm-btn-stage checkin" title="Guest Arrival / Check-In">
-                                                <i class="fa-solid fa-hotel"></i>
-                                                <span>Check-In</span>
+                                            <input type="hidden" name="status" value="cancelled">
+                                            <button type="submit" class="adm-btn-stage" style="background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.4); color: #f87171;" title="Reject Reservation">
+                                                <i class="fa-solid fa-ban"></i>
+                                                <span>Reject</span>
                                             </button>
                                         </form>
                                     <?php elseif ($st === 'inhouse'): ?>
@@ -705,8 +703,44 @@ function build_tab_url($tab_name, $current_params = []) {
                                             <i class="fa-solid fa-door-open"></i>
                                             <span>Check-Out</span>
                                         </button>
-                                    <?php elseif ($st === 'confirmed' && !$is_past): ?>
-                                        <form method="POST" style="display:inline; margin:0;" title="Early Check-In Guest">
+                                        <!-- Revert Check-In back to Confirmed -->
+                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Revert Check-In for <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?>? Status will be restored to Confirmed Upcoming.');" title="Revert Check-In (Restore to Confirmed Upcoming)">
+                                            <input type="hidden" name="action" value="revert_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="target_status" value="confirmed">
+                                            <button type="submit" class="adm-btn-stage revert-checkin" title="Revert Check-In (Undo arrival)">
+                                                <i class="fa-solid fa-rotate-left"></i>
+                                                <span>Revert In</span>
+                                            </button>
+                                        </form>
+                                    <?php elseif ($st === 'completed'): ?>
+                                        <!-- Revert Check-Out back to In-House -->
+                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Revert Check-Out for <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?>? Status will be restored to In-House active stay.');" title="Revert Check-Out (Restore to In-House)">
+                                            <input type="hidden" name="action" value="revert_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="target_status" value="inhouse">
+                                            <button type="submit" class="adm-btn-stage revert-checkout" title="Revert Check-Out (Undo departure)">
+                                                <i class="fa-solid fa-rotate-left"></i>
+                                                <span>Revert Out</span>
+                                            </button>
+                                        </form>
+                                    <?php elseif ($st === 'cancelled' || $st === 'rejected'): ?>
+                                        <!-- Revert Cancellation back to Confirmed -->
+                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Restore cancelled reservation for <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?> back to Confirmed?');" title="Revert Cancellation (Restore to Confirmed)">
+                                            <input type="hidden" name="action" value="revert_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="target_status" value="confirmed">
+                                            <button type="submit" class="adm-btn-stage revert-cancel" title="Revert Cancellation (Restore to Confirmed)">
+                                                <i class="fa-solid fa-rotate-left"></i>
+                                                <span>Revert Cancel</span>
+                                            </button>
+                                        </form>
+                                    <?php elseif ($st === 'confirmed'): ?>
+                                        <!-- Check-In Guest -->
+                                        <form method="POST" style="display:inline; margin:0;" title="Check-In Guest (Mark In-House)">
                                             <input type="hidden" name="action" value="update_status">
                                             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                             <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
@@ -714,6 +748,38 @@ function build_tab_url($tab_name, $current_params = []) {
                                             <button type="submit" class="adm-btn-stage checkin" title="Guest Arrival / Check-In">
                                                 <i class="fa-solid fa-hotel"></i>
                                                 <span>Check-In</span>
+                                            </button>
+                                        </form>
+                                        <!-- Revert to Pending Option -->
+                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Reset reservation for <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?> back to Pending Review?');" title="Reset to Pending Review">
+                                            <input type="hidden" name="action" value="revert_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="target_status" value="pending">
+                                            <button type="submit" class="adm-btn-stage revert-pending" title="Reset status to Pending Review">
+                                                <i class="fa-solid fa-clock-rotate-left"></i>
+                                                <span>To Pending</span>
+                                            </button>
+                                        </form>
+                                    <?php elseif ($st === 'waitlist'): ?>
+                                        <form method="POST" style="display:inline; margin:0;" title="Check-In Guest (Mark In-House)">
+                                            <input type="hidden" name="action" value="update_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="status" value="inhouse">
+                                            <button type="submit" class="adm-btn-stage checkin" title="Guest Arrival / Check-In">
+                                                <i class="fa-solid fa-hotel"></i>
+                                                <span>Check-In</span>
+                                            </button>
+                                        </form>
+                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Reset waitlist reservation back to Pending Review?');" title="Reset to Pending Review">
+                                            <input type="hidden" name="action" value="revert_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="target_status" value="pending">
+                                            <button type="submit" class="adm-btn-stage revert-pending" title="Reset status to Pending Review">
+                                                <i class="fa-solid fa-clock-rotate-left"></i>
+                                                <span>To Pending</span>
                                             </button>
                                         </form>
                                     <?php endif; ?>
