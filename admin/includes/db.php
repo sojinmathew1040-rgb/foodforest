@@ -443,7 +443,21 @@ function get_all_rooms($only_available = false) {
             $sql .= " WHERE is_available = 1";
         }
         $sql .= " ORDER BY id ASC";
-        return $pdo->query($sql)->fetchAll();
+        $rooms = $pdo->query($sql)->fetchAll();
+        foreach ($rooms as &$rm) {
+            $photos_arr = [];
+            if (!empty($rm['photos'])) {
+                $dec = json_decode($rm['photos'], true);
+                if (is_array($dec)) {
+                    $photos_arr = array_values(array_filter($dec));
+                }
+            }
+            if (empty($photos_arr) && !empty($rm['image_url'])) {
+                $photos_arr = [$rm['image_url']];
+            }
+            $rm['photos_list'] = $photos_arr;
+        }
+        return $rooms;
     } catch (Exception $e) {
         return [];
     }
@@ -1048,6 +1062,12 @@ function ensure_rooms_pricing_columns(PDO $pdo) {
             $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `inventory_checklist` TEXT NULL AFTER `amenities`");
         }
 
+        // 9. Check & Add photos to rooms table
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'photos'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `photos` TEXT NULL AFTER `image_url`");
+        }
+
         // 9. Check & Add adults_count, kids_count, extra_adults, extra_kids to bookings table
         $b_cols = $pdo->query("SHOW COLUMNS FROM `bookings` LIKE 'adults_count'")->fetchAll();
         if (empty($b_cols)) {
@@ -1349,7 +1369,7 @@ function get_all_sanctuary_spots($only_active = false) {
     try {
         $pdo = get_db();
         ensure_sanctuary_spots_table_exists($pdo);
-        $sql = "SELECT s.*, r.rate_per_night AS room_rate, r.single_room_rate, COALESCE(s.structure_type, r.structure_type, 'single_hut') AS structure_type, r.max_guests AS room_max_guests, r.base_guests AS room_base_guests 
+        $sql = "SELECT s.*, r.rate_per_night AS room_rate, r.single_room_rate, COALESCE(s.structure_type, r.structure_type, 'single_hut') AS structure_type, r.max_guests AS room_max_guests, r.base_guests AS room_base_guests, r.image_url AS room_image_url, r.photos AS room_photos 
                 FROM `sanctuary_spots` s
                 LEFT JOIN `rooms` r ON s.linked_room_slug = r.slug";
         if ($only_active) {
@@ -1362,11 +1382,23 @@ function get_all_sanctuary_spots($only_active = false) {
             if (!empty($sp['photos'])) {
                 $dec = json_decode($sp['photos'], true);
                 if (is_array($dec)) {
-                    $photos_arr = $dec;
+                    $photos_arr = array_values(array_filter($dec));
+                }
+            }
+            if (empty($photos_arr) && !empty($sp['room_photos'])) {
+                $dec = json_decode($sp['room_photos'], true);
+                if (is_array($dec)) {
+                    $photos_arr = array_values(array_filter($dec));
                 }
             }
             if (empty($photos_arr) && !empty($sp['image_url'])) {
                 $photos_arr = [$sp['image_url']];
+            }
+            if (empty($photos_arr) && !empty($sp['room_image_url'])) {
+                $photos_arr = [$sp['room_image_url']];
+            }
+            if (empty($sp['image_url']) && !empty($sp['room_image_url'])) {
+                $sp['image_url'] = $sp['room_image_url'];
             }
             $sp['photos_list'] = $photos_arr;
         }
@@ -2492,11 +2524,11 @@ function check_room_availability($pdo, $room_slug, $checkin_date, $checkout_date
         
         $sql = "SELECT id, reference_code, guest_name, checkin_date, checkout_date, booking_source 
                 FROM bookings 
-                WHERE villa_type = ? 
+                WHERE (villa_type = ? OR FIND_IN_SET(?, REPLACE(villa_type, ' ', '')) OR villa_type LIKE ?) 
                   AND status NOT IN ('cancelled', 'rejected') 
                   AND (checkin_date < ? AND checkout_date > ?)";
         
-        $params = [$room_slug, $checkout_date, $checkin_date];
+        $params = [$room_slug, $room_slug, '%' . $room_slug . '%', $checkout_date, $checkin_date];
         
         if (!empty($exclude_booking_id)) {
             $sql .= " AND id != ?";
@@ -2989,7 +3021,10 @@ function get_booking_billing_details($pdo, $identifier) {
             'advance_paid' => $advance_paid,
             'balance_due' => $balance_due,
             'payment_status' => $payment_status,
-            'payment_method' => $b['payment_method'] ?? 'unspecified'
+            'payment_method' => $b['payment_method'] ?? 'unspecified',
+            'extra_child_rate' => $extra_child_rate,
+            'extra_adult_rate' => $extra_adult_rate,
+            'base_guests' => $base_guests
         ];
 
         return $b;

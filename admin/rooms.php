@@ -135,9 +135,26 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
             </div>
 
             <!-- Villa Image Banner -->
-            <div style="height: 170px; overflow: hidden; position: relative; background: #07100B;">
+            <div style="height: 180px; overflow: hidden; position: relative; background: #07100B;">
                 <img id="preview-img-<?php echo $room['id']; ?>" src="../<?php echo e(($room['image_url'] ?? '') ?: ($is_treehouse ? 'assets/images/treehouse_exterior.png' : 'assets/images/mudhouse_exterior.png')); ?>" alt="<?php echo e($room['title']); ?>" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
+            <?php 
+            $rm_photos = [];
+            if (!empty($room['photos'])) {
+                $dec = json_decode($room['photos'], true);
+                if (is_array($dec)) $rm_photos = array_filter($dec);
+            }
+            if (!empty($rm_photos)): 
+            ?>
+            <div style="display: flex; gap: 6px; padding: 8px 14px; background: rgba(0,0,0,0.35); overflow-x: auto; border-bottom: 1px solid rgba(197, 160, 89, 0.2); align-items: center;">
+                <span style="font-size: 10.5px; color: var(--adm-gold); font-weight: 700; text-transform: uppercase; white-space: nowrap; margin-right: 4px;">
+                    <i class="fa-solid fa-images"></i> Photos (<?php echo count($rm_photos); ?>):
+                </span>
+                <?php foreach ($rm_photos as $p_idx => $p_url): ?>
+                    <img src="../<?php echo e($p_url); ?>" alt="Photo <?php echo $p_idx + 1; ?>" style="width: 52px; height: 36px; object-fit: cover; border-radius: 4px; border: 1.5px solid <?php echo ($p_url === $room['image_url']) ? 'var(--adm-gold)' : 'rgba(255,255,255,0.2)'; ?>; cursor: pointer; flex-shrink: 0;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Click to preview">
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
 
             <form method="POST" class="adm-villa-body" enctype="multipart/form-data" style="padding: 20px;">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">

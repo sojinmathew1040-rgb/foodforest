@@ -138,7 +138,7 @@ $room_features = [
         'tagline' => 'Elevated 30 Feet in Ancient Trees • Floor-to-Ceiling Curved Bay Window',
         'icon' => 'fa-solid fa-tree',
         'badge' => '30FT ELEVATION SUITE',
-        'rate' => '₹14,500 / night',
+        'rate' => '₹5,000 / night',
         'specific_items' => [
             ['name' => '30ft High Canopy Cantilevered Deck', 'desc' => 'Private suspended timber deck immersed in clouds and tree-canopy birdsong.', 'icon' => 'fa-solid fa-wind'],
             ['name' => 'Curved 180° Panoramic Glasswork', 'desc' => 'Floor-to-ceiling panoramic glass framing shifting mountain mist and tea horizon.', 'icon' => 'fa-solid fa-mountain-sun'],
@@ -151,7 +151,7 @@ $room_features = [
         'tagline' => 'Hand-Sculpted Cob Architecture • Natural Thermal Insulation & Cob Veranda',
         'icon' => 'fa-solid fa-house-chimney',
         'badge' => 'COB HERITAGE SUITE',
-        'rate' => '₹11,500 / night',
+        'rate' => '₹5,000 / night',
         'specific_items' => [
             ['name' => 'Natural Earthen Cob Thermal Cooling', 'desc' => 'Breathable red clay and straw walls naturally keeping indoor air cool by day and warm by night.', 'icon' => 'fa-solid fa-temperature-arrow-down'],
             ['name' => 'Private Earthen Courtyard Veranda', 'desc' => 'Breathable terracotta courtyard connecting guest quarters directly with the soil.', 'icon' => 'fa-solid fa-couch'],
@@ -187,11 +187,11 @@ $room_features = [
         <div class="ram-room-switcher font-sans">
             <button type="button" class="ram-room-btn active" id="ram-btn-treehouse" onclick="switchRoomAmenitiesChalet('treehouse');">
                 <i class="fa-solid fa-tree"></i>
-                <span>Canopy Treehouse (₹14,500)</span>
+                <span>Canopy Treehouse (₹5,000)</span>
             </button>
             <button type="button" class="ram-room-btn" id="ram-btn-mudhouse" onclick="switchRoomAmenitiesChalet('mudhouse');">
                 <i class="fa-solid fa-house-chimney"></i>
-                <span>Earthen Mudhouse (₹11,500)</span>
+                <span>Earthen Mudhouse (₹5,000)</span>
             </button>
         </div>
 

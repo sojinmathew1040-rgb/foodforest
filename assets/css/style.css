@@ -9576,6 +9576,29 @@ html, body {
     box-shadow: 0 6px 16px rgba(197, 160, 89, 0.12);
 }
 
+.msc-card-thumb-wrap {
+    width: 95px;
+    height: 72px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.14);
+    border: 1.5px solid rgba(197, 160, 89, 0.4);
+    background: #0E2016;
+}
+
+.msc-chalet-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.modal-selected-chalet-card:hover .msc-chalet-thumb {
+    transform: scale(1.06);
+}
+
 .msc-card-left {
     display: flex;
     flex-direction: column;
@@ -9827,6 +9850,10 @@ html, body {
 }
 
 .btn-mscb-reserve:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(197, 160, 89, 0.55);
+}
+
 /* =========================================================================
    Food Forest Sanctuary — Categorized Amenities & Estate Facilities Hub
    Modeled after MakeMyTrip Hotel Details & Luxury Farmstay Perks
@@ -10386,6 +10413,510 @@ html, body {
         padding: 28px 20px;
     }
 }
+
+/* =========================================================================
+   Smart Group Auto-Suggestion & Multi-Property Accommodation Engine
+   ========================================================================= */
+.bms-group-rec-drawer {
+    background: linear-gradient(135deg, rgba(16, 38, 26, 0.98), rgba(11, 26, 18, 0.99));
+    border: 1.5px solid rgba(197, 160, 89, 0.55);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), 0 0 20px rgba(197, 160, 89, 0.15);
+    animation: fadeInDown 0.35s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.bms-group-rec-drawer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10B981, #C5A059, #38BDF8, #10B981);
+    background-size: 200% 100%;
+    animation: shimmerGradient 4s linear infinite;
+}
+
+@keyframes shimmerGradient {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+.bms-rec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+    padding-bottom: 14px;
+}
+
+.bms-rec-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(197, 160, 89, 0.18);
+    border: 1px solid rgba(197, 160, 89, 0.45);
+    color: var(--accent-gold);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-bottom: 6px;
+}
+
+.bms-rec-title {
+    color: #F8FAF8;
+    font-size: 1.45rem;
+    margin: 4px 0 6px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.bms-rec-subtitle {
+    color: #C2D1C9;
+    font-size: 13.5px;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.bms-rec-subtitle strong {
+    color: var(--accent-gold);
+}
+
+.btn-rec-action-dismiss {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #E2E8F0;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.btn-rec-action-dismiss:hover {
+    background: rgba(220, 38, 38, 0.2);
+    border-color: #EF4444;
+    color: #FCA5A5;
+}
+
+.bms-rec-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.rec-option-card {
+    background: rgba(17, 35, 24, 0.85);
+    border: 1.5px solid rgba(197, 160, 89, 0.3);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.rec-option-card:hover {
+    border-color: var(--accent-gold);
+    background: rgba(25, 48, 34, 0.95);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.rec-option-card.is-active-rec {
+    border: 2px solid #4ADE80;
+    background: linear-gradient(145deg, rgba(22, 54, 36, 0.98), rgba(16, 40, 28, 0.98));
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.3), 0 4px 14px rgba(0,0,0,0.4);
+}
+
+.rec-option-card.is-active-rec::after {
+    content: 'ACTIVE SPOTLIGHT';
+    position: absolute;
+    top: -10px;
+    right: 14px;
+    background: #16A34A;
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.rec-card-top-tag {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rec-card-title {
+    color: #FFFFFF;
+    font-size: 1.12rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    line-height: 1.3;
+}
+
+.rec-card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.rec-chalet-chip {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #E2E8F0;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.rec-chalet-chip.duplex-chip {
+    border-color: rgba(6, 182, 212, 0.4);
+    color: #67E8F9;
+    background: rgba(6, 182, 212, 0.1);
+}
+
+.rec-card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.rec-card-cap {
+    font-size: 11.5px;
+    color: #94A3B8;
+}
+
+.rec-card-cap strong {
+    color: #4ADE80;
+    font-size: 12.5px;
+}
+
+.rec-card-price {
+    text-align: right;
+}
+
+.rec-card-price-num {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--accent-gold);
+}
+
+.rec-card-price-period {
+    font-size: 10.5px;
+    color: #94A3B8;
+    display: block;
+}
+
+.bms-rec-active-bar {
+    background: rgba(10, 24, 16, 0.95);
+    border: 1.5px solid rgba(74, 222, 128, 0.4);
+    border-radius: 10px;
+    padding: 12px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.bms-rec-active-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 13.5px;
+    color: #F8FAF8;
+}
+
+.rec-active-label {
+    color: #4ADE80;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rec-active-meta {
+    color: #94A3B8;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.btn-rec-book-combo {
+    background: linear-gradient(135deg, #16A34A, #15803D);
+    border: 1px solid #4ADE80;
+    color: #FFFFFF;
+    font-size: 13.5px;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+    transition: all 0.2s ease;
+}
+
+.btn-rec-book-combo:hover {
+    background: linear-gradient(135deg, #22C55E, #16A34A);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(34, 197, 94, 0.45);
+}
+
+/* Map Spotlighting & Dimming Rules */
+.bms-chalet-node.node-spotlight {
+    opacity: 1 !important;
+    z-index: 100 !important;
+    filter: none !important;
+    pointer-events: auto !important;
+}
+
+.bms-chalet-node.node-spotlight .node-box {
+    border-color: #4ADE80 !important;
+    box-shadow: 0 0 25px rgba(74, 222, 128, 0.95), 0 0 50px rgba(197, 160, 89, 0.6) !important;
+    animation: spotlightPulse 1.8s infinite alternate !important;
+}
+
+.bms-chalet-node.node-spotlight .node-halo {
+    opacity: 0.8 !important;
+    transform: translate(-50%, -50%) scale(1.6) !important;
+    animation: spotlightHaloPulse 1.8s infinite ease-out !important;
+}
+
+@keyframes spotlightPulse {
+    0% {
+        box-shadow: 0 0 16px rgba(74, 222, 128, 0.8), 0 0 35px rgba(197, 160, 89, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 32px rgba(74, 222, 128, 1), 0 0 60px rgba(197, 160, 89, 0.9);
+    }
+}
+
+@keyframes spotlightHaloPulse {
+    0% {
+        transform: translate(-50%, -50%) scale(1.3);
+        opacity: 0.5;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(2.0);
+        opacity: 0.9;
+    }
+}
+
+.spotlight-rec-pill {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #16A34A;
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 12px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    border: 1px solid #4ADE80;
+    pointer-events: none;
+    z-index: 105;
+}
+
+.bms-chalet-node.node-dimmed-by-recommendation {
+    opacity: 0.08 !important;
+    filter: grayscale(100%) !important;
+    pointer-events: none !important;
+    transition: opacity 0.4s ease, filter 0.4s ease !important;
+}
+
+/* Multi-Chalet Group Container in Booking Modal */
+.modal-multi-chalet-container {
+    background: #F1F8F4;
+    border: 1.5px solid rgba(22, 163, 74, 0.4);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.mmc-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(22, 163, 74, 0.2);
+    padding-bottom: 10px;
+}
+
+.mmc-badge-pill {
+    display: inline-block;
+    background: rgba(22, 163, 74, 0.15);
+    color: #166534;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 12px;
+    margin-bottom: 4px;
+}
+
+.mmc-title {
+    color: #0F172A;
+    font-size: 1.25rem;
+    margin: 0;
+    font-weight: 700;
+}
+
+.btn-modal-switch-single {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-modal-switch-single:hover {
+    background: #F8FAFC;
+    color: #0F172A;
+    border-color: #94A3B8;
+}
+
+.modal-multi-chalet-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.mmc-chalet-item-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #FFFFFF;
+    border: 1px solid rgba(22, 163, 74, 0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.mmc-chalet-item-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mmc-item-thumb {
+    width: 58px;
+    height: 58px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid rgba(0,0,0,0.08);
+}
+
+.mmc-item-name {
+    color: #0F172A;
+    font-size: 13.5px;
+    font-weight: 700;
+    margin: 0 0 2px;
+}
+
+.mmc-item-type {
+    font-size: 11px;
+    color: #047857;
+    font-weight: 600;
+    display: block;
+}
+
+.mmc-item-guests {
+    font-size: 11px;
+    color: #64748B;
+}
+
+.mmc-chalet-item-right {
+    text-align: right;
+}
+
+.mmc-item-rate {
+    color: #0F172A;
+    font-size: 13.5px;
+    font-weight: 700;
+    display: block;
+}
+
+.mmc-item-rate-sub {
+    font-size: 10px;
+    color: #64748B;
+}
+
+.mmc-summary-strip {
+    background: #FFFFFF;
+    border: 1px solid rgba(22, 163, 74, 0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12.5px;
+    color: #1E293B;
+}
+
+.mmc-summary-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
 
 
 

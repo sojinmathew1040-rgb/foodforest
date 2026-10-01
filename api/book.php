@@ -65,42 +65,101 @@ try {
     $cout = new DateTime($checkout_date);
     $nights = max(1, $cin->diff($cout)->days);
 
-    // Dual Adult & Child Occupancy Math:
-    // Retrieve active room specifications
-    $room_stmt = $pdo->prepare("SELECT rate_per_night, single_room_rate, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type FROM rooms WHERE slug = ?");
-    $room_stmt->execute([$villa_type]);
-    $room = $room_stmt->fetch(PDO::FETCH_ASSOC);
+    // Multi-Chalet & Single Chalet Handling
+    $villas_raw = $input['villas'] ?? $villa_type;
+    if (is_string($villas_raw) && strpos($villas_raw, ',') !== false) {
+        $slugs_list = array_values(array_filter(array_map('trim', explode(',', $villas_raw))));
+    } elseif (is_array($villas_raw)) {
+        $slugs_list = array_values(array_filter(array_map('trim', $villas_raw)));
+    } else {
+        $slugs_list = [trim($villa_type)];
+    }
 
-    // Double-Booking & Multi-Channel Availability Check
-    if (!check_room_availability($pdo, $villa_type, $checkin_date, $checkout_date)) {
-        http_response_code(409);
+    $is_multi_room = count($slugs_list) > 1;
+    $booking_tier = trim($input['tier'] ?? ($input['pricing_tier'] ?? 'full'));
+    $matched_rooms = [];
+    $total_rate_per_night = 0.0;
+    $total_base_guests = 0;
+    $total_max_guests = 0;
+    $room_titles = [];
+
+    $room_stmt = $pdo->prepare("SELECT slug, rate_per_night, single_room_rate, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type FROM rooms WHERE slug = ?");
+
+    foreach ($slugs_list as $s_slug) {
+        $room_stmt->execute([$s_slug]);
+        $r_data = $room_stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$r_data) {
+            $all_r = $pdo->query("SELECT slug, rate_per_night, single_room_rate, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type FROM rooms")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($all_r as $ar) {
+                if (stripos($ar['slug'], $s_slug) !== false || stripos($s_slug, $ar['slug']) !== false) {
+                    $r_data = $ar;
+                    break;
+                }
+            }
+        }
+        if (!$r_data) {
+            $r_data = [
+                'slug' => $s_slug,
+                'rate_per_night' => 5000,
+                'single_room_rate' => 5000,
+                'title' => ucwords(str_replace('-', ' ', $s_slug)),
+                'base_guests' => 2,
+                'max_guests' => 4,
+                'extra_guest_rate' => 750,
+                'extra_child_rate' => 0,
+                'stay_type' => 'treehouse',
+                'structure_type' => 'single_hut'
+            ];
+        }
+
+        // Double-Booking & Multi-Channel Availability Check for each chalet
+        if (!check_room_availability($pdo, $r_data['slug'], $checkin_date, $checkout_date)) {
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'message' => 'We apologize, but ' . ($r_data['title'] ?? 'one of the selected chalets') . ' has already been reserved for the selected dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates or chalets.'
+            ]);
+            exit;
+        }
+
+        $r_rate = (float)$r_data['rate_per_night'];
+        $r_base = (int)($r_data['base_guests'] ?? 2);
+        $r_max = (int)($r_data['max_guests'] ?? 4);
+        if (!$is_multi_room && $booking_tier === 'single_room' && !empty($r_data['single_room_rate'])) {
+            $r_rate = (float)$r_data['single_room_rate'];
+            $r_base = 2;
+            $r_max = 4;
+        }
+
+        $matched_rooms[] = $r_data;
+        $total_rate_per_night += $r_rate;
+        $total_base_guests += $r_base;
+        $total_max_guests += $r_max;
+        $room_titles[] = $r_data['title'];
+    }
+
+    if ($adults_count > $total_max_guests) {
+        http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'We apologize, but ' . ($room['title'] ?? 'this chalet') . ' has already been reserved for the selected dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates.'
+            'message' => "Maximum {$total_max_guests} Adults are permitted for the selected room(s) (Max 4 Adults per room)."
         ]);
         exit;
     }
 
-    $booking_tier = trim($input['tier'] ?? ($input['pricing_tier'] ?? 'full'));
-    $rate_per_night = $room ? (float)$room['rate_per_night'] : 14500;
-    $base_guests = $room ? (int)($room['base_guests'] ?? 2) : 2;
-
-    // If single room option in duplex is selected
-    if ($booking_tier === 'single_room' && !empty($room['single_room_rate'])) {
-        $rate_per_night = (float)$room['single_room_rate'];
-        $base_guests = 2; // Single room accommodates base 2 guests
-    }
-
-    $villa_title = $room ? $room['title'] : 'Sanctuary Villa';
-    if ($booking_tier === 'single_room' && !empty($room['structure_type']) && $room['structure_type'] === 'duplex_hut') {
+    $villa_type = implode(', ', array_map(function($r) { return $r['slug']; }, $matched_rooms));
+    $villa_title = implode(' & ', $room_titles);
+    if (!$is_multi_room && $booking_tier === 'single_room' && !empty($matched_rooms[0]['structure_type']) && $matched_rooms[0]['structure_type'] === 'duplex_hut') {
         $villa_title .= ' (Single Room)';
     }
 
-    $extra_adult_rate = $room ? (float)($room['extra_guest_rate'] ?? 1500) : 1500;
-    $extra_child_rate = $room ? (float)($room['extra_child_rate'] ?? 800) : 800;
+    $rate_per_night = $total_rate_per_night;
+    $base_guests = $total_base_guests;
+    $extra_adult_rate = !empty($matched_rooms[0]['extra_guest_rate']) ? (float)$matched_rooms[0]['extra_guest_rate'] : 750.0;
+    $extra_child_rate = isset($matched_rooms[0]['extra_child_rate']) ? (float)$matched_rooms[0]['extra_child_rate'] : 0.0;
 
     // Dual Adult & Child Occupancy Math:
-    // Adults fill the base slots first
+    // Adults fill the combined base slots first
     $adults_in_base = min($adults_count, $base_guests);
     $extra_adults = max(0, $adults_count - $adults_in_base);
     $remaining_base_slots = max(0, $base_guests - $adults_in_base);
@@ -440,6 +499,20 @@ try {
     }
     $id_proof_file = $new_filename;
 
+    $billing_items_json = json_encode([
+        'is_multi_room' => $is_multi_room,
+        'rooms' => array_map(function($rm) {
+            return [
+                'slug' => $rm['slug'],
+                'title' => $rm['title'],
+                'rate_per_night' => (float)$rm['rate_per_night'],
+                'base_guests' => (int)($rm['base_guests'] ?? 2),
+                'max_guests' => (int)($rm['max_guests'] ?? 4),
+                'structure_type' => $rm['structure_type'] ?? 'single_hut'
+            ];
+        }, $matched_rooms)
+    ]);
+
     $stmt = $pdo->prepare("
         INSERT INTO bookings (
             reference_code, user_id, is_guest, guest_access_token, expires_at,
@@ -448,7 +521,7 @@ try {
             guest_name, guest_phone, guest_email,
             id_proof_type, id_proof_number, id_proof_file, city_state, country,
             guests_count, adults_count, kids_count, extra_adults, extra_kids,
-            checkin_date, checkout_date, nights, addons,
+            checkin_date, checkout_date, nights, addons, billing_items_json,
             food_items, food_amount, room_amount, food_status,
             special_notes, total_amount, status
         ) VALUES (
@@ -458,7 +531,7 @@ try {
             ?, ?, ?,
             ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?,
-            ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, 'pending'
         )
@@ -495,6 +568,7 @@ try {
         $checkout_date,
         $nights,
         $addons,
+        $billing_items_json,
         !empty($verified_food_items) ? json_encode($verified_food_items) : null,
         $food_total,
         $room_total,

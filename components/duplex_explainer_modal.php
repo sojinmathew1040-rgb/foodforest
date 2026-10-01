@@ -12,8 +12,8 @@ foreach ($rooms_d as $rd) {
         break;
     }
 }
-$duplex_full_rate = $duplex_room ? (float)$duplex_room['rate_per_night'] : 24000;
-$duplex_single_rate = $duplex_room ? (float)($duplex_room['single_room_rate'] ?? 14500) : 14500;
+$duplex_full_rate = $duplex_room ? (float)$duplex_room['rate_per_night'] : 8000;
+$duplex_single_rate = $duplex_room ? (float)($duplex_room['single_room_rate'] ?? 4000) : 4000;
 ?>
 <div id="duplex-explainer-modal" class="duplex-modal-overlay font-sans" aria-hidden="true" role="dialog" style="display: none;">
     <div class="duplex-modal-backdrop" onclick="closeDuplexExplainer();"></div>

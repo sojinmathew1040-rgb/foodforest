@@ -240,6 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.openAdmModal = function(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
+            modal.style.removeProperty("display");
             modal.classList.add("is-open");
             document.body.style.overflow = "hidden";
         }

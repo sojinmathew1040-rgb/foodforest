@@ -1267,13 +1267,15 @@ document.addEventListener("DOMContentLoaded", () => {
             if (modalTier === 'single_room') {
                 baseGuests = 2;
                 maxRoomGuests = 4;
-                minGuests = 2;
+                minGuests = 1;
             } else {
                 baseGuests = parseInt(selectedOption?.getAttribute('data-base-guests') || "4", 10);
                 maxRoomGuests = parseInt(selectedOption?.getAttribute('data-max-guests') || "8", 10);
                 minGuests = parseInt(selectedOption?.getAttribute('data-min-guests') || "2", 10);
             }
         }
+
+        const maxAdultsAllowed = (isDuplex && modalTier !== 'single_room') ? 8 : 4;
 
         let structLabel = 'Single Cottage';
         if (isDuplex) {
@@ -1286,10 +1288,13 @@ document.addEventListener("DOMContentLoaded", () => {
         // Clamping bounds
         if (currentAdults < 1) currentAdults = 1;
         if (currentKids < 0) currentKids = 0;
+        if (currentAdults > maxAdultsAllowed) {
+            currentAdults = maxAdultsAllowed;
+        }
         if (currentAdults + currentKids > maxRoomGuests) {
             currentKids = Math.max(0, maxRoomGuests - currentAdults);
             if (currentAdults > maxRoomGuests) {
-                currentAdults = maxRoomGuests;
+                currentAdults = Math.min(maxAdultsAllowed, maxRoomGuests);
                 currentKids = 0;
             }
         }
@@ -1302,14 +1307,14 @@ document.addEventListener("DOMContentLoaded", () => {
         // Update occupancy note badge
         const noteEl = document.getElementById('room-occupancy-note');
         if (noteEl) {
-            noteEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${structLabel} • Base: ${baseGuests} Included • Max: ${maxRoomGuests}`;
+            noteEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${structLabel} • Base: ${baseGuests} Adults Included (Max ${maxAdultsAllowed} Adults) • Extra Person ₹750/nt • Kids below 10 Free`;
         }
 
         // Stepper button disabled states
         const adultsMinus = document.querySelector('.btn-stepper-minus[data-target="modal-adults"]');
         const adultsPlus = document.querySelector('.btn-stepper-plus[data-target="modal-adults"]');
         if (adultsMinus) adultsMinus.disabled = (currentAdults <= 1);
-        if (adultsPlus) adultsPlus.disabled = (totalGuests >= maxRoomGuests);
+        if (adultsPlus) adultsPlus.disabled = (currentAdults >= maxAdultsAllowed || totalGuests >= maxRoomGuests);
 
         const kidsMinus = document.querySelector('.btn-stepper-minus[data-target="modal-kids"]');
         const kidsPlus = document.querySelector('.btn-stepper-plus[data-target="modal-kids"]');
@@ -1330,14 +1335,19 @@ document.addEventListener("DOMContentLoaded", () => {
             const min = parseInt(input.min || "0", 10);
 
             const selectedOption = modalVillaSelect ? modalVillaSelect.options[modalVillaSelect.selectedIndex] : null;
-            const maxRoomGuests = parseInt(selectedOption?.getAttribute('data-max-guests') || "4", 10);
+            const structureType = selectedOption?.getAttribute('data-structure-type') || 'single_hut';
+            const isDuplex = (structureType === 'duplex_hut');
+            const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
+            const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
+            const maxRoomGuests = (isDuplex && modalTier === 'single_room') ? 4 : parseInt(selectedOption?.getAttribute('data-max-guests') || "4", 10);
+            const maxAdultsAllowed = (isDuplex && modalTier !== 'single_room') ? 8 : 4;
 
             let currentAdults = parseInt(modalAdultsInput?.value || "2", 10);
             let currentKids = parseInt(modalKidsInput?.value || "0", 10);
 
             if (targetId === 'modal-adults') {
                 if (isPlus) {
-                    if (currentAdults + currentKids < maxRoomGuests) {
+                    if (currentAdults < maxAdultsAllowed && currentAdults + currentKids < maxRoomGuests) {
                         val++;
                         if (modalAdultsInput) modalAdultsInput.dataset.userEdited = "true";
                     } else {
@@ -1375,7 +1385,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!opt) return;
             const baseGuests = parseInt(opt.getAttribute('data-base-guests') || "2", 10);
             const maxGuests = parseInt(opt.getAttribute('data-max-guests') || "4", 10);
-            const extraRate = parseFloat(opt.getAttribute('data-extra-rate') || "1500");
+            const extraRate = parseFloat(opt.getAttribute('data-extra-rate') || "750");
             updateGuestOptions(heroGuestsSelect, baseGuests, maxGuests, extraRate, heroGuestsSelect.value);
         }
         heroVillaSelect.addEventListener('change', onHeroVillaChange);
@@ -1728,8 +1738,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (duplexTierBox) {
             if (isDuplex) {
                 duplexTierBox.style.display = 'block';
-                const fullPrice = parseFloat(selectedOption.getAttribute('data-price') || "24000");
-                const singlePrice = parseFloat(selectedOption.getAttribute('data-single-rate') || "14500");
+                const fullPrice = parseFloat(selectedOption.getAttribute('data-price') || "8000");
+                const singlePrice = parseFloat(selectedOption.getAttribute('data-single-rate') || "4000");
                 const fullTxt = document.getElementById('modal-duplex-full-rate-txt');
                 const singleTxt = document.getElementById('modal-duplex-single-rate-txt');
                 if (fullTxt) fullTxt.innerText = `₹${fullPrice.toLocaleString('en-IN')}/nt`;
@@ -1743,6 +1753,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Update Rich Selected Chalet Card UI
         const chaletTitleEl = document.getElementById('modal-chalet-card-title');
+        const chaletThumbEl = document.getElementById('modal-chalet-card-thumb');
         const mscTypePill = document.getElementById('msc-type-pill');
         const mscStructPill = document.getElementById('msc-struct-pill');
         const mscBaseGuestsPill = document.getElementById('msc-base-guests-pill');
@@ -1750,12 +1761,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (selectedOption) {
             const villaTitle = selectedOption.getAttribute('data-name') || selectedOption.text.split('(')[0].replace(/^.*]:\s*/, '').trim();
+            const villaImg = selectedOption.getAttribute('data-image');
             const stayType = selectedOption.getAttribute('data-stay-type') || 'treehouse';
             const baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
-            const rate = parseFloat(selectedOption.getAttribute('data-price') || "14500");
+            const rate = parseFloat(selectedOption.getAttribute('data-price') || "5000");
             const singleRate = parseFloat(selectedOption.getAttribute('data-single-rate') || rate);
             
             if (chaletTitleEl) chaletTitleEl.innerText = villaTitle;
+            if (chaletThumbEl && villaImg) chaletThumbEl.src = villaImg;
             if (mscTypePill) {
                 if (stayType === 'mudhouse') {
                     mscTypePill.innerHTML = '<i class="fa-solid fa-seedling"></i> Earthen Mudhouse';
@@ -1809,8 +1822,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (selectedOption) {
                 const structType = selectedOption.getAttribute('data-structure-type') || 'single_hut';
                 const isDuplexStay = (structType === 'duplex_hut');
-                const rate = parseFloat(selectedOption.getAttribute('data-price') || "24000");
-                const singleRate = parseFloat(selectedOption.getAttribute('data-single-rate') || "14500");
+                const rate = parseFloat(selectedOption.getAttribute('data-price') || "8000");
+                const singleRate = parseFloat(selectedOption.getAttribute('data-single-rate') || "4000");
                 const baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
                 
                 if (isDuplexStay) {
@@ -1835,6 +1848,81 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // Multi-Chalet Group Booking State & API
+    window.selectedMultiChaletCombo = null;
+
+    window.setModalMultiChaletStay = function(chaletCombo) {
+        if (!chaletCombo || !chaletCombo.chalets || chaletCombo.chalets.length === 0) return;
+        window.selectedMultiChaletCombo = chaletCombo;
+
+        const multiContainer = document.getElementById('modal-multi-chalet-container');
+        const singleCard = document.getElementById('modal-selected-chalet-card');
+        const selectWrapper = document.getElementById('modal-villa-select-wrapper');
+        const duplexTierBox = document.getElementById('modal-duplex-tier-box');
+        const multiList = document.getElementById('modal-multi-chalet-list');
+        const groupTitle = document.getElementById('mmc-group-title');
+        const capTxt = document.getElementById('mmc-total-capacity-txt');
+        const baseCapTxt = document.getElementById('mmc-base-capacity-txt');
+        const rateTxt = document.getElementById('mmc-combined-rate-txt');
+
+        if (singleCard) singleCard.style.display = 'none';
+        if (selectWrapper) selectWrapper.style.display = 'none';
+        if (duplexTierBox) duplexTierBox.style.display = 'none';
+        if (multiContainer) multiContainer.style.display = 'block';
+
+        if (groupTitle) groupTitle.innerText = chaletCombo.title || `Combined Clustered Stays (${chaletCombo.chalets.length} Chalets)`;
+        if (capTxt) capTxt.innerText = `Up to ${chaletCombo.maxCapacity} Guests`;
+        if (baseCapTxt) baseCapTxt.innerText = `${chaletCombo.baseCapacity} Base Included`;
+        if (rateTxt) rateTxt.innerText = `₹${(chaletCombo.totalBaseRate || 0).toLocaleString('en-IN')} / nt`;
+
+        if (multiList) {
+            multiList.innerHTML = '';
+            chaletCombo.chalets.forEach(ch => {
+                const item = document.createElement('div');
+                item.className = 'mmc-chalet-item-card';
+                const img = ch.image_url || (ch.photos_list && ch.photos_list[0]) || 'assets/images/treehouse_exterior_front.jpg';
+                const isDuplex = ch.structure_type === 'duplex_hut' || (ch.title && ch.title.toLowerCase().includes('duplex'));
+                const typeLabel = isDuplex ? '🏰 Duplex Residence (2 Suites)' : '🏡 Single Forest Cottage';
+                const spotNum = ch.spot_number ? `Spot ${String(ch.spot_number).padStart(2, '0')} • ` : '';
+                const baseG = ch.base_guests || (isDuplex ? 4 : 2);
+                const maxG = ch.max_guests || (isDuplex ? 8 : 4);
+                const rate = parseFloat(ch.room_rate || ch.rate_per_night || ch.stay_price || 14500);
+
+                item.innerHTML = `
+                    <div class="mmc-chalet-item-left">
+                        <img src="${img}" alt="${ch.title}" class="mmc-item-thumb" onerror="this.src='assets/images/treehouse_exterior_front.jpg';">
+                        <div>
+                            <span class="mmc-item-type">${spotNum}${typeLabel}</span>
+                            <h5 class="mmc-item-name">${ch.title}</h5>
+                            <span class="mmc-item-guests"><i class="fa-solid fa-users"></i> Base: ${baseG} Guests Included • Max ${maxG} Guests</span>
+                        </div>
+                    </div>
+                    <div class="mmc-chalet-item-right">
+                        <span class="mmc-item-rate">₹${rate.toLocaleString('en-IN')}<small style="font-size:10px; font-weight:normal;">/nt</small></span>
+                        <span class="mmc-item-rate-sub">Meals Included</span>
+                    </div>
+                `;
+                multiList.appendChild(item);
+            });
+        }
+
+        recalculateBookingSummary();
+    };
+
+    const btnSwitchSingleModal = document.getElementById('btn-modal-switch-single');
+    if (btnSwitchSingleModal) {
+        btnSwitchSingleModal.addEventListener('click', () => {
+            window.selectedMultiChaletCombo = null;
+            const multiContainer = document.getElementById('modal-multi-chalet-container');
+            const singleCard = document.getElementById('modal-selected-chalet-card');
+            const selectWrapper = document.getElementById('modal-villa-select-wrapper');
+            if (multiContainer) multiContainer.style.display = 'none';
+            if (singleCard) singleCard.style.display = 'flex';
+            if (selectWrapper) selectWrapper.style.display = 'block';
+            onModalVillaChange(false);
+        });
+    }
+
     // Chalet selection dropdown toggle buttons
     const btnToggleChaletSelect = document.getElementById('btn-toggle-chalet-select');
     const btnHideChaletSelect = document.getElementById('btn-hide-chalet-select');
@@ -1858,7 +1946,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Price Calculation & Dynamic Rules
     function recalculateBookingSummary() {
-        if (!modalCheckin || !modalCheckout || !modalVillaSelect) return;
+        if (!modalCheckin || !modalCheckout) return;
 
         const checkinDate = new Date(modalCheckin.value);
         const checkoutDate = new Date(modalCheckout.value);
@@ -1889,31 +1977,45 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        const selectedOption = modalVillaSelect.options[modalVillaSelect.selectedIndex];
-        if (!selectedOption) return;
+        let villaPrice = 5000;
+        let villaName = "Luxury Canopy Treehouse";
+        let baseGuests = 2;
+        let maxGuests = 4;
+        let extraAdultRate = 750;
+        let extraChildRate = 0;
 
-        const structureType = selectedOption.getAttribute('data-structure-type') || "single_hut";
-        const isDuplex = (structureType === 'duplex_hut');
-        const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
-        const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
+        if (window.selectedMultiChaletCombo) {
+            villaPrice = parseFloat(window.selectedMultiChaletCombo.totalBaseRate || 48000);
+            villaName = window.selectedMultiChaletCombo.title || "Group Clustered Chalets";
+            baseGuests = parseInt(window.selectedMultiChaletCombo.baseCapacity || 8, 10);
+            maxGuests = parseInt(window.selectedMultiChaletCombo.maxCapacity || 16, 10);
+        } else {
+            if (!modalVillaSelect) return;
+            const selectedOption = modalVillaSelect.options[modalVillaSelect.selectedIndex];
+            if (!selectedOption) return;
 
-        let villaPrice = parseFloat(selectedOption.getAttribute('data-price') || "14500");
-        let villaName = selectedOption.getAttribute('data-name') || "Luxury Canopy Treehouse";
-        let baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
-        let maxGuests = parseInt(selectedOption.getAttribute('data-max-guests') || "4", 10);
-        const extraAdultRate = parseFloat(selectedOption.getAttribute('data-extra-rate') || "1500");
-        const extraChildRate = parseFloat(selectedOption.getAttribute('data-extra-child-rate') || "800");
-        const stayType = selectedOption.getAttribute('data-stay-type') || "treehouse";
+            const structureType = selectedOption.getAttribute('data-structure-type') || "single_hut";
+            const isDuplex = (structureType === 'duplex_hut');
+            const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
+            const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
 
-        if (isDuplex) {
-            if (modalTier === 'single_room') {
-                villaPrice = parseFloat(selectedOption.getAttribute('data-single-rate') || "14500");
-                baseGuests = 2;
-                maxGuests = 4;
-            } else {
-                villaPrice = parseFloat(selectedOption.getAttribute('data-price') || "24000");
-                baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "4", 10);
-                maxGuests = parseInt(selectedOption.getAttribute('data-max-guests') || "8", 10);
+            villaPrice = parseFloat(selectedOption.getAttribute('data-price') || "5000");
+            villaName = selectedOption.getAttribute('data-name') || "Luxury Canopy Treehouse";
+            baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
+            maxGuests = parseInt(selectedOption.getAttribute('data-max-guests') || "4", 10);
+            extraAdultRate = parseFloat(selectedOption.getAttribute('data-extra-rate') || "750");
+            extraChildRate = parseFloat(selectedOption.getAttribute('data-extra-child-rate') || "0");
+
+            if (isDuplex) {
+                if (modalTier === 'single_room') {
+                    villaPrice = parseFloat(selectedOption.getAttribute('data-single-rate') || "4000");
+                    baseGuests = 2;
+                    maxGuests = 4;
+                } else {
+                    villaPrice = parseFloat(selectedOption.getAttribute('data-price') || "8000");
+                    baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "4", 10);
+                    maxGuests = parseInt(selectedOption.getAttribute('data-max-guests') || "8", 10);
+                }
             }
         }
 
@@ -2599,7 +2701,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const idProofType = document.getElementById('modal-id-type')?.value || 'Aadhaar Card';
         const idProofNumber = document.getElementById('modal-id-number')?.value.trim() || '';
         const guestNotes = document.getElementById('modal-notes')?.value.trim() || '';
-        const villaSlug = modalVillaSelect?.value || 'treehouse';
+        
+        let villaSlug = modalVillaSelect?.value || 'treehouse';
+        let villasList = [];
+        let isMultiRoom = false;
+
+        if (window.selectedMultiChaletCombo && window.selectedMultiChaletCombo.chalets && window.selectedMultiChaletCombo.chalets.length > 0) {
+            villasList = window.selectedMultiChaletCombo.chalets.map(c => c.linked_room_slug || c.slug);
+            villaSlug = villasList.join(', ');
+            isMultiRoom = true;
+        }
 
         const adultsCount = parseInt(modalAdultsInput?.value || "2", 10);
         const kidsCount = parseInt(modalKidsInput?.value || "0", 10);
@@ -2668,6 +2779,8 @@ document.addEventListener("DOMContentLoaded", () => {
             id_proof_number: idProofNumber,
             has_id_file: (idFileInput?.files && idFileInput.files.length > 0),
             villa: villaSlug,
+            villas: villasList,
+            is_multi_room: isMultiRoom,
             tier: modalTier,
             adults: adultsCount,
             kids: kidsCount,

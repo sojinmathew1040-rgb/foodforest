@@ -63,17 +63,17 @@ require_once __DIR__ . '/includes/header.php';
                         <label class="ctrl-label font-sans"><i class="fa-solid fa-user"></i> Adults</label>
                         <div class="ctrl-stepper">
                             <button type="button" class="ctrl-step-btn btn-minus" data-target="book-adults">−</button>
-                            <input type="number" id="book-adults" class="ctrl-step-val font-sans" value="2" min="1" max="10" readonly>
+                            <input type="number" id="book-adults" class="ctrl-step-val font-sans" value="2" min="1" max="30" readonly>
                             <button type="button" class="ctrl-step-btn btn-plus" data-target="book-adults">+</button>
                         </div>
                     </div>
 
                     <!-- Children Counter -->
                     <div class="ctrl-field">
-                        <label class="ctrl-label font-sans"><i class="fa-solid fa-child"></i> Children <small style="font-size: 10px; color: var(--accent-gold);">(5–11y)</small></label>
+                        <label class="ctrl-label font-sans"><i class="fa-solid fa-child"></i> Children <small style="font-size: 10px; color: #4ADE80; font-weight: 700;">(Below 10 Free)</small></label>
                         <div class="ctrl-stepper">
                             <button type="button" class="ctrl-step-btn btn-minus" data-target="book-kids">−</button>
-                            <input type="number" id="book-kids" class="ctrl-step-val font-sans" value="0" min="0" max="6" readonly>
+                            <input type="number" id="book-kids" class="ctrl-step-val font-sans" value="0" min="0" max="15" readonly>
                             <button type="button" class="ctrl-step-btn btn-plus" data-target="book-kids">+</button>
                         </div>
                     </div>
@@ -193,11 +193,14 @@ require_once __DIR__ . '/includes/header.php';
 
             <!-- Live Stay Date & Availability Summary Bar -->
             <div id="bms-live-date-status-bar" class="bms-live-date-bar font-sans" style="background: #10261A; border: 1.5px solid rgba(197, 160, 89, 0.45); border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.12);">
-                <div style="display: flex; align-items: center; gap: 12px; color: #EAEFED; font-size: 13.5px;">
+                <div style="display: flex; align-items: center; gap: 12px; color: #EAEFED; font-size: 13.5px; flex-wrap: wrap;">
                     <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(197, 160, 89, 0.22); color: var(--accent-gold); font-size: 13px;">
                         <i class="fa-solid fa-calendar-days"></i>
                     </span>
                     <span>Live Estate Availability for: <strong id="bms-live-dates-txt" style="color: var(--accent-gold); letter-spacing: 0.3px;">Loading stay dates...</strong></span>
+                    <button type="button" id="btn-restore-recommendation" class="btn-restore-rec font-sans" style="display: none; background: rgba(22, 163, 74, 0.2); border: 1px solid #16A34A; color: #4ADE80; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 6px; cursor: pointer; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> <span>View Group Suggestions</span>
+                    </button>
                 </div>
                 <div id="bms-live-counts-wrap" style="display: flex; align-items: center; gap: 16px; font-size: 13px;">
                     <span style="color: #4ADE80; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-circle-check"></i> <span id="bms-count-avail">Available</span></span>
@@ -210,6 +213,301 @@ require_once __DIR__ . '/includes/header.php';
     <!-- Main View Content Area (Map View & Grid View) -->
     <section class="booking-view-container">
         <div class="container">
+
+            <!-- Group Recommendation Drawer Style Fallback -->
+            <style>
+            .bms-group-rec-drawer {
+                background: linear-gradient(135deg, rgba(16, 38, 26, 0.98), rgba(11, 26, 18, 0.99)) !important;
+                border: 1.5px solid rgba(197, 160, 89, 0.55) !important;
+                border-radius: 14px !important;
+                padding: 22px 24px !important;
+                margin-bottom: 24px !important;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 20px rgba(197, 160, 89, 0.15) !important;
+                position: relative !important;
+                overflow: hidden !important;
+                color: #FFFFFF !important;
+            }
+            .bms-group-rec-drawer::before {
+                content: '';
+                position: absolute;
+                top: 0; left: 0; right: 0;
+                height: 3px;
+                background: linear-gradient(90deg, #10B981, #C5A059, #38BDF8, #10B981);
+                background-size: 200% 100%;
+                animation: shimmerRecGradient 4s linear infinite;
+            }
+            @keyframes shimmerRecGradient {
+                0% { background-position: 100% 0; }
+                100% { background-position: -100% 0; }
+            }
+            .bms-rec-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                flex-wrap: wrap;
+                gap: 16px;
+                margin-bottom: 18px;
+                border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+                padding-bottom: 14px;
+            }
+            .bms-rec-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: rgba(197, 160, 89, 0.18);
+                border: 1px solid rgba(197, 160, 89, 0.45);
+                color: #C5A059;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.8px;
+                text-transform: uppercase;
+                padding: 4px 10px;
+                border-radius: 20px;
+                margin-bottom: 6px;
+            }
+            .bms-rec-title {
+                color: #F8FAF8;
+                font-size: 1.45rem;
+                margin: 4px 0 6px;
+                font-weight: 700;
+                font-family: var(--font-primary, serif);
+            }
+            .bms-rec-subtitle {
+                color: #C2D1C9;
+                font-size: 13.5px;
+                margin: 0;
+                line-height: 1.5;
+            }
+            .bms-rec-subtitle strong {
+                color: #C5A059;
+            }
+            .btn-rec-action-dismiss {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                color: #E2E8F0;
+                font-size: 12.5px;
+                font-weight: 600;
+                padding: 8px 14px;
+                border-radius: 8px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                transition: all 0.2s ease;
+            }
+            .btn-rec-action-dismiss:hover {
+                background: rgba(220, 38, 38, 0.2);
+                border-color: #EF4444;
+                color: #FCA5A5;
+            }
+            .bms-rec-options-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 16px;
+                margin-bottom: 18px;
+            }
+            .rec-option-card {
+                background: rgba(17, 35, 24, 0.9);
+                border: 1.5px solid rgba(197, 160, 89, 0.3);
+                border-radius: 12px;
+                padding: 16px;
+                cursor: pointer;
+                transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                box-sizing: border-box;
+            }
+            .rec-option-card:hover {
+                border-color: #C5A059;
+                background: rgba(25, 48, 34, 0.98);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+            }
+            .rec-option-card.is-active-rec {
+                border: 2px solid #4ADE80 !important;
+                background: linear-gradient(145deg, rgba(22, 54, 36, 0.98), rgba(16, 40, 28, 0.98)) !important;
+                box-shadow: 0 0 20px rgba(74, 222, 128, 0.3), 0 4px 14px rgba(0,0,0,0.4) !important;
+            }
+            .rec-option-card.is-active-rec::after {
+                content: 'ACTIVE SPOTLIGHT';
+                position: absolute;
+                top: -10px;
+                right: 14px;
+                background: #16A34A;
+                color: #FFFFFF;
+                font-size: 10px;
+                font-weight: 800;
+                letter-spacing: 0.6px;
+                padding: 2px 8px;
+                border-radius: 10px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            }
+            .rec-card-top-tag {
+                font-size: 11px;
+                font-weight: 700;
+                color: #C5A059;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 6px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .rec-card-title {
+                color: #F8FAF8;
+                font-size: 15px;
+                font-weight: 700;
+                margin: 0 0 8px;
+                line-height: 1.35;
+            }
+            .rec-card-chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin-bottom: 10px;
+            }
+            .rec-chalet-chip {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                color: #E2E8F0;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 3px 8px;
+                border-radius: 6px;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .rec-chalet-chip.duplex-chip {
+                background: rgba(197, 160, 89, 0.15);
+                border-color: rgba(197, 160, 89, 0.4);
+                color: #F3E5AB;
+            }
+            .rec-card-meta {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+                padding-top: 10px;
+                margin-top: 6px;
+            }
+            .rec-card-cap {
+                font-size: 12px;
+                color: #CBD5E1;
+            }
+            .rec-card-cap strong {
+                color: #4ADE80;
+            }
+            .rec-card-price {
+                text-align: right;
+            }
+            .rec-card-price-num {
+                font-size: 17px;
+                font-weight: 800;
+                color: #C5A059;
+                display: block;
+                line-height: 1.1;
+                font-family: var(--font-secondary, sans-serif);
+            }
+            .rec-card-price-period {
+                font-size: 10.5px;
+                color: #94A3B8;
+            }
+            .bms-rec-active-bar {
+                background: rgba(12, 27, 18, 0.95);
+                border: 1px solid rgba(74, 222, 128, 0.4);
+                border-radius: 10px;
+                padding: 12px 18px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .bms-rec-active-summary {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 10px;
+                font-size: 13px;
+                color: #E2E8F0;
+            }
+            .rec-active-label {
+                color: #4ADE80;
+                font-weight: 700;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .rec-active-meta {
+                background: rgba(255, 255, 255, 0.08);
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 11.5px;
+                color: #94A3B8;
+            }
+            .btn-rec-book-combo {
+                background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+                color: #FFFFFF;
+                border: none;
+                font-size: 13.5px;
+                font-weight: 700;
+                padding: 10px 22px;
+                border-radius: 8px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+                transition: all 0.2s ease;
+            }
+            .btn-rec-book-combo:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 18px rgba(34, 197, 94, 0.5);
+            }
+            </style>
+
+            <!-- Smart Auto-Suggestion / Recommendation Drawer for Large Groups & Multi-Cottage Stays -->
+            <div id="bms-group-recommendation-panel" class="bms-group-rec-drawer font-sans" style="display: none;">
+                <div class="bms-rec-header">
+                    <div class="bms-rec-header-left">
+                        <span class="bms-rec-badge font-sans">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> SMART GROUP AUTO-SUGGESTION
+                        </span>
+                        <h3 class="bms-rec-title font-serif">Curated Chalet Combinations for Your Group</h3>
+                        <p class="bms-rec-subtitle font-sans" id="bms-rec-subtitle-txt">
+                            To comfortably accommodate your group of <strong>14 Guests</strong> together, we recommend adjacent clustered chalets on the estate. Non-suggested properties are dimmed on the map.
+                        </p>
+                    </div>
+                    <div class="bms-rec-header-actions">
+                        <button type="button" id="btn-rec-dismiss-toggle" class="btn-rec-action-dismiss font-sans" title="Show all properties on the map and choose rooms manually">
+                            <i class="fa-solid fa-eye"></i> <span>Show All Chalets (Dismiss Suggestion)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Combination Option Cards Carousel/Grid -->
+                <div class="bms-rec-options-grid" id="bms-rec-options-grid">
+                    <!-- Populated dynamically by booking_controller.js -->
+                </div>
+
+                <!-- Active Option Floating Control Bar -->
+                <div class="bms-rec-active-bar" id="bms-rec-active-bar">
+                    <div class="bms-rec-active-summary">
+                        <span class="rec-active-label"><i class="fa-solid fa-crosshairs"></i> Currently Spotlighting on Map:</span>
+                        <strong id="bms-rec-active-title" style="color: var(--accent-gold);">Option 1: 2 Adjacent Duplex Chalets</strong>
+                        <span id="bms-rec-active-meta" class="rec-active-meta">16 Guests Max • 4 Master Suites • Upper Ridge</span>
+                    </div>
+                    <div class="bms-rec-active-ctas">
+                        <button type="button" id="btn-rec-book-active" class="btn-rec-book-combo font-sans">
+                            <i class="fa-solid fa-calendar-check"></i>
+                            <span id="btn-rec-book-txt">Book Recommended Combination (2 Chalets)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
             
             <!-- 1. MAP VIEW LAYOUT -->
             <div class="booking-map-layout" id="booking-map-layout">
@@ -472,7 +770,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <input type="radio" name="sac_tier_choice" value="full" checked>
                                         <div class="tier-option-content">
                                             <span class="toc-name font-sans">Full Duplex Suite</span>
-                                            <span class="toc-rate font-serif" id="toc-rate-full">₹24,000/nt</span>
+                                            <span class="toc-rate font-serif" id="toc-rate-full">₹8,000/nt</span>
                                             <small class="toc-note font-sans">Entire 2-Floor Residence (Base 4 Guests)</small>
                                         </div>
                                     </label>
@@ -480,7 +778,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <input type="radio" name="sac_tier_choice" value="single_room">
                                         <div class="tier-option-content">
                                             <span class="toc-name font-sans">Single Master Room</span>
-                                            <span class="toc-rate font-serif" id="toc-rate-single">₹14,500/nt</span>
+                                            <span class="toc-rate font-serif" id="toc-rate-single">₹4,000/nt</span>
                                             <small class="toc-note font-sans">1 Master Room in Chalet (Base 2 Guests)</small>
                                         </div>
                                     </label>
@@ -504,9 +802,8 @@ require_once __DIR__ . '/includes/header.php';
                                     </button>
                                 </div>
                                 <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px;">
-                                    <span style="color: #1E3324;"><i class="fa-solid fa-user-plus" style="color: #9A7B38; margin-right: 4px;"></i> Extra Adult: <strong style="color: #0E1C13;">+₹1,500/nt</strong> (All Meals Incl.)</span>
-                                    <span style="color: #1E3324;"><i class="fa-solid fa-child" style="color: #9A7B38; margin-right: 4px;"></i> Extra Child (5–11y): <strong style="color: #0E1C13;">+₹800/nt</strong></span>
-                                    <span style="color: #166534; font-weight: 700;"><i class="fa-solid fa-baby" style="color: #166534; margin-right: 4px;"></i> Infant (0–4y): <strong>Free</strong></span>
+                                    <span style="color: #1E3324;"><i class="fa-solid fa-user-plus" style="color: #9A7B38; margin-right: 4px;"></i> Extra Person: <strong style="color: #0E1C13;">+₹750/nt</strong> (All Meals Incl.)</span>
+                                    <span style="color: #166534; font-weight: 700;"><i class="fa-solid fa-child" style="color: #166534; margin-right: 4px;"></i> Kids below 10 years: <strong>Free</strong></span>
                                 </div>
                             </div>
 
@@ -514,7 +811,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="sac-price-breakdown font-sans">
                                 <div class="price-row">
                                     <span id="sac-price-label">Room Rate (1 Night):</span>
-                                    <strong id="sac-base-price">₹14,500</strong>
+                                    <strong id="sac-base-price">₹5,000</strong>
                                 </div>
                                 <div class="price-row" id="sac-extra-row" style="display: none;">
                                     <span>Extra Guests:</span>
@@ -522,7 +819,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                                 <div class="price-row total-row">
                                     <span>Total Net Amount:</span>
-                                    <strong class="total-val font-serif" id="sac-total-price">₹14,500</strong>
+                                    <strong class="total-val font-serif" id="sac-total-price">₹5,000</strong>
                                 </div>
                             </div>
 
@@ -552,9 +849,14 @@ require_once __DIR__ . '/includes/header.php';
                         $single_rate = (float)($rm['single_room_rate'] ?? $r_rate);
                     ?>
                         <div class="chalet-card font-sans" data-villa-slug="<?php echo htmlspecialchars($rm['slug']); ?>" data-stay-cat="<?php echo htmlspecialchars($rm['stay_type'] ?? 'treehouse'); ?>" data-structure="<?php echo htmlspecialchars($rm['structure_type'] ?? 'single_hut'); ?>" data-is-duplex="<?php echo $is_dup ? '1' : '0'; ?>">
-                            <div class="chalet-card-media">
+                            <div class="chalet-card-media" style="position: relative;">
                                 <img src="<?php echo htmlspecialchars($rm['image_url']); ?>" alt="<?php echo htmlspecialchars($rm['title']); ?>" onerror="this.src='assets/images/01 (25).jpeg';">
                                 <span class="chalet-badge-pill"><?php echo htmlspecialchars($rm['elevation']); ?></span>
+                                <?php if (!empty($rm['photos_list']) && count($rm['photos_list']) > 1): ?>
+                                    <span class="chalet-photos-count-badge font-sans" style="position: absolute; bottom: 8px; right: 10px; background: rgba(7, 16, 11, 0.78); color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; backdrop-filter: blur(4px); border: 1px solid rgba(197, 160, 89, 0.4); display: inline-flex; align-items: center; gap: 5px;">
+                                        <i class="fa-solid fa-images" style="color: var(--accent-gold);"></i> <?php echo count($rm['photos_list']); ?> Photos
+                                    </span>
+                                <?php endif; ?>
                             </div>
                             <div class="chalet-card-body">
                                 <div class="chalet-header-row">
@@ -580,7 +882,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
 
                                 <div class="chalet-pricing-policy font-sans" style="font-size: 11px; color: #2D4234; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(28, 56, 38, 0.16); padding-top: 6px;">
-                                    <span>Extra Adult: <strong style="color: #9A7B38;">+₹1,500/nt</strong> • Child: <strong style="color: #9A7B38;">+₹800/nt</strong></span>
+                                    <span>Extra Person: <strong style="color: #9A7B38;">+₹<?php echo number_format((float)($rm['extra_guest_rate'] ?? 750), 0); ?>/nt</strong> • Kids below 10: <strong style="color: #047857;">Free</strong></span>
                                     <button type="button" onclick="openAmenitiesGuide();" style="background: none; border: none; color: #1E6B52; font-size: 11px; cursor: pointer; text-decoration: underline; font-weight: 600;">
                                         8 Amenities
                                     </button>

@@ -75,8 +75,42 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                             </span>
                         </label>
 
+                        <!-- Multi-Chalet Group Reservation Panel (Visible when 2+ properties are selected) -->
+                        <div id="modal-multi-chalet-container" class="modal-multi-chalet-container font-sans" style="display: none; margin-bottom: 18px;">
+                            <div class="mmc-header-row">
+                                <div class="mmc-header-badge">
+                                    <span class="mmc-badge-pill"><i class="fa-solid fa-users-rectangle"></i> MULTI-CHALET GROUP RESERVATION</span>
+                                    <h4 class="mmc-title font-serif" id="mmc-group-title">Combined Clustered Stays (2 Chalets)</h4>
+                                </div>
+                                <button type="button" id="btn-modal-switch-single" class="btn-modal-switch-single font-sans" title="Switch to booking a single cottage instead">
+                                    <i class="fa-solid fa-arrow-rotate-left"></i>
+                                    <span>Switch to Single Chalet</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Itemized Chalet Cards List -->
+                            <div id="modal-multi-chalet-list" class="modal-multi-chalet-list">
+                                <!-- Rendered dynamically with chalet cards -->
+                            </div>
+
+                            <!-- Combined Capacity Strip -->
+                            <div class="mmc-summary-strip">
+                                <div class="mmc-summary-item">
+                                    <i class="fa-solid fa-people-roof" style="color: var(--accent-gold);"></i>
+                                    <span>Combined Capacity: <strong id="mmc-total-capacity-txt">Up to 16 Guests</strong> (<span id="mmc-base-capacity-txt">8 Base Included</span>)</span>
+                                </div>
+                                <div class="mmc-summary-item">
+                                    <i class="fa-solid fa-receipt" style="color: #16A34A;"></i>
+                                    <span>Combined Base Tariff: <strong id="mmc-combined-rate-txt">₹48,000 / nt</strong></span>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Rich Pre-Selected Cottage Visual Card -->
                         <div id="modal-selected-chalet-card" class="modal-selected-chalet-card font-sans">
+                            <div class="msc-card-thumb-wrap">
+                                <img id="modal-chalet-card-thumb" src="<?php echo htmlspecialchars($modal_villas[0]['image_url'] ?? 'assets/images/treehouse_exterior_front.jpg'); ?>" alt="Cottage Thumbnail" class="msc-chalet-thumb" onerror="this.src='assets/images/treehouse_exterior_front.jpg';">
+                            </div>
                             <div class="msc-card-left">
                                 <div class="msc-badge-row">
                                     <span class="msc-type-pill" id="msc-type-pill"><i class="fa-solid fa-tree"></i> Treehouse</span>
@@ -94,6 +128,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                     <i class="fa-solid fa-arrow-right-arrow-left"></i>
                                     <span>Change Cottage</span>
                                 </button>
+                            </div>
                         </div>
 
                         <!-- MakeMyTrip Verified Inclusions Quick Strip -->
@@ -146,11 +181,12 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                                 data-price="<?php echo htmlspecialchars($mv['rate_per_night']); ?>" 
                                                 data-single-rate="<?php echo htmlspecialchars($mv['single_room_rate'] ?? $mv['rate_per_night']); ?>"
                                                 data-name="<?php echo htmlspecialchars($mv['title']); ?>"
+                                                data-image="<?php echo htmlspecialchars($mv['image_url']); ?>"
                                                 data-min-guests="<?php echo (int)($mv['min_guests'] ?? 2); ?>"
                                                 data-base-guests="<?php echo (int)($mv['base_guests'] ?? 2); ?>"
                                                 data-max-guests="<?php echo (int)($mv['max_guests'] ?? 4); ?>"
-                                                data-extra-rate="<?php echo htmlspecialchars($mv['extra_guest_rate'] ?? 1500); ?>"
-                                                data-extra-child-rate="<?php echo htmlspecialchars($mv['extra_child_rate'] ?? 800); ?>"
+                                                data-extra-rate="<?php echo htmlspecialchars($mv['extra_guest_rate'] ?? 750); ?>"
+                                                data-extra-child-rate="<?php echo htmlspecialchars($mv['extra_child_rate'] ?? 0); ?>"
                                                 data-structure-type="<?php echo htmlspecialchars($struct); ?>"
                                                 data-stay-type="<?php echo htmlspecialchars($mv['stay_type'] ?? 'treehouse'); ?>">
                                             <?php echo "{$cat_icon} [{$struct_label}]: " . htmlspecialchars($mv['title']); ?> (From ₹<?php echo number_format($mv['rate_per_night'], 0, '.', ','); ?>/nt • Base <?php echo (int)($mv['base_guests'] ?? 2); ?> Guests)
@@ -160,11 +196,11 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                         endforeach;
                                     else: 
                                     ?>
-                                        <option value="treehouse" selected data-price="14500" data-single-rate="14500" data-name="Luxury Canopy Treehouse" data-min-guests="2" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="treehouse">
-                                            🌲 Treehouse [Single Cottage]: Luxury Canopy Treehouse (₹14,500/nt • Base 2 Guests)
+                                        <option value="treehouse" selected data-price="5000" data-single-rate="5000" data-name="Luxury Canopy Treehouse" data-min-guests="1" data-base-guests="2" data-max-guests="4" data-extra-rate="750" data-extra-child-rate="0" data-structure-type="single_hut" data-stay-type="treehouse">
+                                            🌲 Treehouse [Single Cottage]: Luxury Canopy Treehouse (₹5,000/nt • Base 2 Guests)
                                         </option>
-                                        <option value="mudhouse" data-price="11500" data-single-rate="11500" data-name="Traditional Earthen Mudhouse" data-min-guests="2" data-base-guests="2" data-max-guests="4" data-extra-rate="1500" data-extra-child-rate="800" data-structure-type="single_hut" data-stay-type="mudhouse">
-                                            🌿 Mudhouse [Single Cottage]: Traditional Earthen Mudhouse (₹11,500/nt • Base 2 Guests)
+                                        <option value="mudhouse" data-price="5000" data-single-rate="5000" data-name="Traditional Earthen Mudhouse" data-min-guests="1" data-base-guests="2" data-max-guests="4" data-extra-rate="750" data-extra-child-rate="0" data-structure-type="single_hut" data-stay-type="mudhouse">
+                                            🌿 Mudhouse [Single Cottage]: Traditional Earthen Mudhouse (₹5,000/nt • Base 2 Guests)
                                         </option>
                                     <?php endif; ?>
                                 </select>
@@ -186,7 +222,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                     <input type="radio" name="modal_tier" value="full" checked style="margin-top: 2px; accent-color: var(--accent-gold);">
                                     <div>
                                         <strong style="font-size: 12.5px; color: var(--accent-green); display: block; font-weight: 700;">Entire Duplex (2 Rooms)</strong>
-                                        <span style="font-size: 12px; color: var(--accent-gold); font-weight: 700;" id="modal-duplex-full-rate-txt">₹24,000/nt</span>
+                                        <span style="font-size: 12px; color: var(--accent-gold); font-weight: 700;" id="modal-duplex-full-rate-txt">₹8,000/nt</span>
                                         <small style="font-size: 10px; color: #64748B; display: block;">Base 4 Guests • Max 8</small>
                                     </div>
                                 </label>
@@ -194,7 +230,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                     <input type="radio" name="modal_tier" value="single_room" style="margin-top: 2px; accent-color: var(--accent-gold);">
                                     <div>
                                         <strong style="font-size: 12.5px; color: var(--accent-green); display: block; font-weight: 700;">Single Room in Duplex</strong>
-                                        <span style="font-size: 12px; color: #0E7490; font-weight: 700;" id="modal-duplex-single-rate-txt">₹14,500/nt</span>
+                                        <span style="font-size: 12px; color: #0E7490; font-weight: 700;" id="modal-duplex-single-rate-txt">₹4,000/nt</span>
                                         <small style="font-size: 10px; color: #64748B; display: block;">Base 2 Guests • Max 4</small>
                                     </div>
                                 </label>
@@ -232,7 +268,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                 <i class="fa-solid fa-users" style="color: var(--accent-gold); margin-right: 6px;"></i> Guests &amp; Occupancy
                             </label>
                             <span id="room-occupancy-note" class="font-sans occupancy-note" style="font-size: 11.5px; color: #047857; font-weight: 600;">
-                                <i class="fa-solid fa-circle-info"></i> Base: 2 Included • Extra Adult +₹1,500/nt • Child +₹800/nt
+                                <i class="fa-solid fa-circle-info"></i> Base: 2 Included (Max 4 Adults/room) • Extra Person +₹750/nt • Kids below 10 Free
                             </span>
                         </div>
                         <div class="guest-steppers-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
@@ -240,11 +276,11 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                             <div class="guest-stepper-box">
                                 <div class="stepper-label-group">
                                     <span class="stepper-title font-sans"><i class="fa-solid fa-user"></i> Adults</span>
-                                    <span class="stepper-sub font-sans">Ages 12+ yrs</span>
+                                    <span class="stepper-sub font-sans">Base 2 (Max 4 per room) • Extra ₹750</span>
                                 </div>
                                 <div class="stepper-controls">
                                     <button type="button" class="btn-stepper btn-stepper-minus" data-target="modal-adults" aria-label="Decrease Adults">−</button>
-                                    <input type="number" id="modal-adults" name="adults_count" value="2" min="1" max="10" readonly class="stepper-val font-sans">
+                                    <input type="number" id="modal-adults" name="adults_count" value="2" min="1" max="8" readonly class="stepper-val font-sans">
                                     <button type="button" class="btn-stepper btn-stepper-plus" data-target="modal-adults" aria-label="Increase Adults">+</button>
                                 </div>
                             </div>
@@ -253,11 +289,11 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                             <div class="guest-stepper-box">
                                 <div class="stepper-label-group">
                                     <span class="stepper-title font-sans"><i class="fa-solid fa-child"></i> Children</span>
-                                    <span class="stepper-sub font-sans">Ages 5–11 yrs <span class="infant-tag">(Under 5 Free)</span></span>
+                                    <span class="stepper-sub font-sans">Below 10 yrs <span class="infant-tag" style="color: #047857; font-weight: 700;">(Complimentary Free)</span></span>
                                 </div>
                                 <div class="stepper-controls">
                                     <button type="button" class="btn-stepper btn-stepper-minus" data-target="modal-kids" aria-label="Decrease Children">−</button>
-                                    <input type="number" id="modal-kids" name="kids_count" value="0" min="0" max="8" readonly class="stepper-val font-sans">
+                                    <input type="number" id="modal-kids" name="kids_count" value="0" min="0" max="15" readonly class="stepper-val font-sans">
                                     <button type="button" class="btn-stepper btn-stepper-plus" data-target="modal-kids" aria-label="Increase Children">+</button>
                                 </div>
                             </div>

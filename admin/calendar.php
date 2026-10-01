@@ -652,6 +652,10 @@ function openCalendarCheckoutAudit() {
 }
 
 function submitCalendarRevert(targetStatus, label) {
+    if (targetStatus === 'completed') {
+        openCalendarCheckoutAudit();
+        return;
+    }
     const bId = document.getElementById('vb-booking-id').value;
     const name = document.getElementById('vb-title').innerText;
     if (confirm('Change / Revert status for "' + name + '" to ' + label + '?')) {

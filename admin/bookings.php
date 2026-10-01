@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $rate = $r_data ? (float)$r_data['rate_per_night'] : 14500;
                 $base_guests = $r_data ? (int)($r_data['base_guests'] ?? 2) : 2;
                 $extra_adult_rate = $r_data ? (float)($r_data['extra_guest_rate'] ?? 1500) : 1500;
-                $extra_child_rate = $r_data ? (float)($r_data['extra_child_rate'] ?? 800) : 800;
+                $extra_child_rate = isset($_POST['child_rate']) && $_POST['child_rate'] !== '' ? (float)$_POST['child_rate'] : ($r_data ? (float)($r_data['extra_child_rate'] ?? 0) : 0);
 
                 // Dual Occupancy math
                 $adults_in_base = min($adults_count, $base_guests);
@@ -708,17 +708,11 @@ function build_tab_url($tab_name, $current_params = []) {
                                             </button>
                                         </form>
                                     <?php elseif ($st === 'inhouse'): ?>
-                                        <!-- Direct Check-Out Guest Button -->
-                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Check-Out guest <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?>? Status will be updated to Checked-Out &amp; Completed.');" title="Check-Out Guest">
-                                            <input type="hidden" name="action" value="update_status">
-                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
-                                            <input type="hidden" name="status" value="completed">
-                                            <button type="submit" class="adm-btn-stage checkout" title="Direct Check-Out (Mark Completed)">
-                                                <i class="fa-solid fa-door-open"></i>
-                                                <span>Check-Out</span>
-                                            </button>
-                                        </form>
+                                        <!-- Check-Out Guest Button (Directs to Stay Audit First) -->
+                                        <button type="button" class="adm-btn-stage checkout" title="Check-Out Guest (Initiates Stay Audit &amp; Clearance)" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
+                                            <i class="fa-solid fa-door-open"></i>
+                                            <span>Check-Out</span>
+                                        </button>
                                         <!-- Stay Audit & Verification Wizard -->
                                         <button type="button" class="adm-btn-stage" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35); color: #c084fc;" title="Audit Room, Food &amp; Experiences before Check-Out" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
                                             <i class="fa-solid fa-list-check"></i>
@@ -968,15 +962,20 @@ function build_tab_url($tab_name, $current_params = []) {
                     </div>
                 </div>
 
-                <div class="adm-grid-2">
+                <div class="adm-grid-3">
                     <div class="adm-form-group">
                         <label class="adm-label">Adults (12+ yrs) *</label>
-                        <input type="number" name="adults_count" class="adm-input" value="2" min="1" max="10" required style="padding-left: 14px;">
+                        <input type="number" name="adults_count" class="adm-input" value="2" min="1" max="50" required style="padding-left: 14px;">
                         <input type="hidden" name="guests_count" value="2">
                     </div>
                     <div class="adm-form-group">
                         <label class="adm-label">Children (5–11 yrs)</label>
-                        <input type="number" name="kids_count" class="adm-input" value="0" min="0" max="8" style="padding-left: 14px;">
+                        <input type="number" name="kids_count" class="adm-input" value="0" min="0" max="40" style="padding-left: 14px;">
+                    </div>
+                    <div class="adm-form-group">
+                        <label class="adm-label">Child Fee / Night (₹)</label>
+                        <input type="number" step="50" min="0" name="child_rate" class="adm-input" value="0" placeholder="0 = Complimentary" style="padding-left: 14px; font-weight: 700; color: #f59e0b;">
+                        <span style="font-size: 10.5px; color: var(--adm-text-muted); display: block; margin-top: 3px;">0 = Complimentary</span>
                     </div>
                 </div>
 
@@ -1073,6 +1072,21 @@ function build_tab_url($tab_name, $current_params = []) {
                         <div>
                             <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Dates & Duration</span>
                             <div style="color: var(--adm-text-primary);" id="view-dates-duration">-</div>
+                    </div>
+
+                    <!-- Party Size & Chalet Capacity Allotment Check -->
+                    <div style="margin-top: 14px; padding: 12px 14px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); font-weight: 700; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-users-viewfinder" style="color: var(--adm-gold); margin-right: 4px;"></i> Room Allotment &amp; Capacity Check
+                            </span>
+                            <span id="view-capacity-badge" style="font-size: 11px; padding: 3px 9px; border-radius: 4px; font-weight: 700;">Capacity OK</span>
+                        </div>
+                        <div id="view-guests-party-breakdown" style="display: flex; gap: 8px; flex-wrap: wrap; font-size: 12.5px;">
+                            <!-- Populated in JS: Adults, Children, Total, Child Fee -->
+                        </div>
+                        <div id="view-capacity-alert" style="display: none; margin-top: 10px; font-size: 12px; color: #FCA5A5; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.35); padding: 8px 12px; border-radius: 6px; line-height: 1.4;">
+                            <!-- Warning text when guests exceed capacity -->
                         </div>
                     </div>
 
@@ -1187,7 +1201,13 @@ function build_tab_url($tab_name, $current_params = []) {
 <?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
 
 <script>
+window.allRoomsLookup = <?php echo json_encode($rooms_lookup); ?>;
+
 function submitRevertStatus(bookingId, targetStatus, guestName, label) {
+    if (targetStatus === 'completed') {
+        openCheckoutAuditModal(bookingId);
+        return;
+    }
     if (confirm('Revert / Change status for ' + (guestName || 'this reservation') + ' to "' + label + '"?')) {
         document.getElementById('revert-booking-id').value = bookingId;
         document.getElementById('revert-target-status').value = targetStatus;
@@ -1225,13 +1245,25 @@ function quickSetModalStatus(statusVal) {
         }
     }
     if (statusVal === 'completed') {
-        if (!confirm('Check-Out this guest now and mark reservation as Completed?')) {
-            return;
-        }
+        openCheckoutAuditFromViewModal();
+        return;
     }
     document.getElementById('view-status-select').value = statusVal;
     document.getElementById('form-update-status').submit();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const formUpdateStatus = document.getElementById('form-update-status');
+    if (formUpdateStatus) {
+        formUpdateStatus.addEventListener('submit', function(e) {
+            const sel = document.getElementById('view-status-select');
+            if (sel && sel.value === 'completed') {
+                e.preventDefault();
+                openCheckoutAuditFromViewModal();
+            }
+        });
+    }
+});
 
 function deleteCurrentModalBooking() {
     const bId = document.getElementById('view-booking-id').value;
@@ -1284,10 +1316,89 @@ function viewBookingDetails(b) {
         if (idFileWrap) idFileWrap.style.display = 'none';
     }
     
-    const villaTitle = (b.villa_type === 'treehouse') ? 'Luxury Canopy Treehouse' : 'Traditional Earthen Mudhouse';
-    document.getElementById('view-villa-stay').innerText = villaTitle + ' (' + b.guests_count + ' Guests)';
+    // Resolve Room Title & Max Capacity
+    let villaTitle = b.villa_type;
+    let maxCap = 4;
+    let baseCap = 2;
+    if (window.allRoomsLookup && window.allRoomsLookup[b.villa_type]) {
+        const r = window.allRoomsLookup[b.villa_type];
+        villaTitle = r.title;
+        maxCap = parseInt(r.max_guests, 10) || 4;
+        baseCap = parseInt(r.base_guests, 10) || 2;
+    } else if (b.villa_type && b.villa_type.includes(',')) {
+        const slugs = b.villa_type.split(',').map(s => s.trim());
+        const titles = [];
+        let mCap = 0;
+        let bCap = 0;
+        slugs.forEach(sl => {
+            if (window.allRoomsLookup && window.allRoomsLookup[sl]) {
+                titles.push(window.allRoomsLookup[sl].title);
+                mCap += parseInt(window.allRoomsLookup[sl].max_guests, 10) || 4;
+                bCap += parseInt(window.allRoomsLookup[sl].base_guests, 10) || 2;
+            } else {
+                titles.push(sl);
+                mCap += 4;
+                bCap += 2;
+            }
+        });
+        villaTitle = titles.join(' + ');
+        maxCap = mCap;
+        baseCap = bCap;
+    } else if (b.villa_type === 'treehouse') {
+        villaTitle = 'Luxury Canopy Treehouse';
+    } else if (b.villa_type === 'mudhouse') {
+        villaTitle = 'Traditional Earthen Mudhouse';
+    }
+
+    const adults = parseInt(b.adults_count || b.guests_count || 2, 10);
+    const kids = parseInt(b.kids_count || 0, 10);
+    const totalGuests = parseInt(b.guests_count || (adults + kids), 10);
+
+    document.getElementById('view-villa-stay').innerText = villaTitle + ' (Max ' + maxCap + ' Guests)';
     document.getElementById('view-dates-duration').innerText = b.checkin_date + ' → ' + b.checkout_date + ' (' + b.nights + ' Nights)';
     document.getElementById('view-total-amount').innerText = '₹' + Number(b.total_amount).toLocaleString('en-IN');
+
+    // Populate Party & Capacity Allotment Check
+    const partyEl = document.getElementById('view-guests-party-breakdown');
+    const badgeEl = document.getElementById('view-capacity-badge');
+    const alertEl = document.getElementById('view-capacity-alert');
+
+    if (partyEl) {
+        let childFeeText = '';
+        if (kids > 0) {
+            const cr = parseFloat(b.extra_child_rate || 0);
+            childFeeText = cr > 0 ? ` • Surcharge ₹${cr}/N` : ' • Complimentary (₹0)';
+        }
+        partyEl.innerHTML = `
+            <span class="adm-badge" style="background: rgba(197, 160, 89, 0.2); color: #C5A059; border: 1px solid rgba(197, 160, 89, 0.4); padding: 3px 9px;">
+                <i class="fa-solid fa-person" style="margin-right: 4px;"></i> <strong>${adults}</strong> Adults
+            </span>
+            <span class="adm-badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.4); padding: 3px 9px;">
+                <i class="fa-solid fa-child" style="margin-right: 4px;"></i> <strong>${kids}</strong> Children ${childFeeText}
+            </span>
+            <span class="adm-badge" style="background: rgba(255, 255, 255, 0.08); color: #FFFFFF; padding: 3px 9px;">
+                Total: <strong>${totalGuests}</strong> Guests
+            </span>
+        `;
+    }
+
+    if (badgeEl && alertEl) {
+        if (totalGuests > maxCap) {
+            badgeEl.innerText = `⚠️ Exceeds Capacity (Max ${maxCap})`;
+            badgeEl.style.background = 'rgba(239, 68, 68, 0.2)';
+            badgeEl.style.color = '#F87171';
+            badgeEl.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+
+            alertEl.style.display = 'block';
+            alertEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="margin-right: 5px;"></i> <strong>Capacity Alert:</strong> This reservation party of <strong>${totalGuests} guests</strong> (${adults} Adults, ${kids} Children) exceeds the standard capacity of this chalet (${maxCap} guests max). Please allot additional adjacent chalets or configure extra rollaway bedding.`;
+        } else {
+            badgeEl.innerText = `✓ Within Capacity (Max ${maxCap})`;
+            badgeEl.style.background = 'rgba(34, 197, 94, 0.2)';
+            badgeEl.style.color = '#4ADE80';
+            badgeEl.style.border = '1px solid rgba(34, 197, 94, 0.4)';
+            alertEl.style.display = 'none';
+        }
+    }
     
     document.getElementById('view-addons-text').innerText = b.addons || 'None selected';
     document.getElementById('view-notes-text').innerText = b.special_notes || 'No special requests noted.';

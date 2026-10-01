@@ -127,21 +127,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const adults = parseInt(adultsInput ? adultsInput.value : "2", 10) || 2;
         const kids = parseInt(kidsInput ? kidsInput.value : "0", 10) || 0;
 
-        let ratePerNight = parseFloat(currentSpot.room_rate || currentSpot.stay_price || 14500);
+        let ratePerNight = parseFloat(currentSpot.room_rate || currentSpot.stay_price || 5000);
         let baseGuests = currentRoom ? parseInt(currentRoom.base_guests || 2, 10) : 2;
-        let extraAdultRate = currentRoom ? parseFloat(currentRoom.extra_guest_rate || 1500) : 1500;
-        let extraChildRate = currentRoom ? parseFloat(currentRoom.extra_child_rate || 800) : 800;
+        let extraAdultRate = currentRoom ? parseFloat(currentRoom.extra_guest_rate || 750) : 750;
+        let extraChildRate = currentRoom ? parseFloat(currentRoom.extra_child_rate || 0) : 0;
 
         const isDuplex = (currentSpot.structure_type === 'duplex_hut' || (currentRoom && currentRoom.structure_type === 'duplex_hut'));
+        const maxAdultsForSpot = (isDuplex && currentTier !== 'single_room') ? 8 : 4;
 
         if (isDuplex && currentTier === 'single_room') {
-            ratePerNight = parseFloat(currentSpot.single_room_rate || currentRoom.single_room_rate || 14500);
+            ratePerNight = parseFloat(currentSpot.single_room_rate || currentRoom.single_room_rate || 4000);
             baseGuests = 2;
         }
 
-        // Occupancy calculations
-        const adultsInBase = Math.min(adults, baseGuests);
-        const extraAdults = Math.max(0, adults - adultsInBase);
+        // Occupancy calculations (Rule: For 1 room base 2, max 4 adults; full duplex base 4, max 8 adults)
+        const cappedAdults = Math.min(adults, maxAdultsForSpot);
+        const adultsInBase = Math.min(cappedAdults, baseGuests);
+        const extraAdults = Math.max(0, cappedAdults - adultsInBase);
         const remainingBase = Math.max(0, baseGuests - adultsInBase);
         const kidsInBase = Math.min(kids, remainingBase);
         const extraKids = Math.max(0, kids - kidsInBase);
@@ -197,8 +199,12 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPhotos = [];
         if (spot.photos_list && spot.photos_list.length > 0) {
             currentPhotos = spot.photos_list;
+        } else if (currentRoom && currentRoom.photos_list && currentRoom.photos_list.length > 0) {
+            currentPhotos = currentRoom.photos_list;
         } else if (spot.image_url) {
             currentPhotos = [spot.image_url];
+        } else if (currentRoom && currentRoom.image_url) {
+            currentPhotos = [currentRoom.image_url];
         } else {
             currentPhotos = ['assets/images/01 (25).jpeg'];
         }
@@ -267,8 +273,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sacTierBox) {
             if (isDuplex && isStay) {
                 sacTierBox.style.display = 'block';
-                const fullRate = parseFloat(spot.room_rate || 24000);
-                const singleRate = parseFloat(spot.single_room_rate || 14500);
+                const fullRate = parseFloat(spot.room_rate || 8000);
+                const singleRate = parseFloat(spot.single_room_rate || 4000);
                 if (tocRateFull) tocRateFull.innerText = `₹${fullRate.toLocaleString('en-IN')}/nt`;
                 if (tocRateSingle) tocRateSingle.innerText = `₹${singleRate.toLocaleString('en-IN')}/nt`;
             } else {
@@ -481,11 +487,580 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectChalet(currentSpot.id, false);
             }
 
+            // 5. Evaluate Smart Group Auto-Suggestions
+            evaluateGroupRecommendations(triggerNotification);
+
         } catch (err) {
             if (err.name !== 'AbortError') {
                 console.error('Booking live availability error:', err);
             }
         }
+    }
+
+    // -------------------------------------------------------------
+    // Smart Auto-Suggestion & Multi-Property Accommodation Engine
+    // -------------------------------------------------------------
+    let currentRecommendations = [];
+    let activeRecommendationIdx = 0;
+    let isRecommendationDismissed = false;
+
+    function evaluateGroupRecommendations(userInitiated = false) {
+        const recPanel = document.getElementById('bms-group-recommendation-panel');
+        const restoreBtn = document.getElementById('btn-restore-recommendation');
+        const subtitleTxt = document.getElementById('bms-rec-subtitle-txt');
+        const optionsGrid = document.getElementById('bms-rec-options-grid');
+        const activeTitleEl = document.getElementById('bms-rec-active-title');
+        const activeMetaEl = document.getElementById('bms-rec-active-meta');
+        const bookBtnTxt = document.getElementById('btn-rec-book-txt');
+
+        if (!recPanel) return;
+
+        const adults = parseInt(adultsInput ? adultsInput.value : "2", 10) || 2;
+        const kids = parseInt(kidsInput ? kidsInput.value : "0", 10) || 0;
+        const totalGuests = adults + kids;
+
+        // When user explicitly clicks "Check Availability", reset dismissed state
+        if (userInitiated) {
+            isRecommendationDismissed = false;
+        }
+
+        // For small groups (<= 4 guests), standard single chalets fit everyone; hide group drawer
+        if (totalGuests <= 4) {
+            recPanel.style.display = 'none';
+            if (restoreBtn) restoreBtn.style.display = 'none';
+            clearMapSpotlightAndDimming();
+            return;
+        }
+
+        // If user explicitly dismissed the suggestions previously for this search
+        if (isRecommendationDismissed && !userInitiated) {
+            recPanel.style.display = 'none';
+            if (restoreBtn) restoreBtn.style.display = 'inline-flex';
+            clearMapSpotlightAndDimming();
+            return;
+        }
+
+        // Filter available stay spots for selected stay dates
+        const availableStaySpots = spotsData.filter(s => {
+            const isStay = (!emptyOrZero(s.is_stay) || s.category === 'stays');
+            if (!isStay) return false;
+            if (currentAvailabilityData && currentAvailabilityData.spots_status) {
+                const spStat = currentAvailabilityData.spots_status[s.id];
+                if (spStat && !spStat.available) return false;
+            }
+            return true;
+        });
+
+        // Helper to resolve spot object with linked room data
+        function enrichSpot(s) {
+            if (!s) return null;
+            const r = findRoomBySlug(s.linked_room_slug);
+            const isDuplex = s.structure_type === 'duplex_hut' || (r && r.structure_type === 'duplex_hut');
+            return {
+                id: parseInt(s.id, 10),
+                spot_number: parseInt(s.spot_number || s.id, 10),
+                title: s.title,
+                slug: s.linked_room_slug || (r ? r.slug : 'treehouse'),
+                linked_room_slug: s.linked_room_slug || (r ? r.slug : 'treehouse'),
+                structure_type: isDuplex ? 'duplex_hut' : 'single_hut',
+                base_guests: isDuplex ? 4 : (r ? parseInt(r.base_guests, 10) : 2),
+                max_guests: isDuplex ? 8 : (r ? parseInt(r.max_guests, 10) : (s.slug === 'grand-wooden-alpine-house' ? 5 : 4)),
+                room_rate: parseFloat(s.room_rate || s.stay_price || (r ? r.rate_per_night : 14500)),
+                image_url: s.image_url || (r ? r.image_url : 'assets/images/treehouse_exterior_front.jpg')
+            };
+        }
+
+        const enrichedAvailable = availableStaySpots.map(enrichSpot).filter(Boolean);
+
+        // Build potential combinations
+        const potentialCombos = [];
+
+        // Helper to compile a combo
+        function makeCombo(title, tag, desc, spotNumbers) {
+            const matchedChalets = spotNumbers.map(num => enrichedAvailable.find(es => parseInt(es.spot_number, 10) === parseInt(num, 10) || parseInt(es.id, 10) === parseInt(num, 10))).filter(Boolean);
+            if (matchedChalets.length < spotNumbers.length) {
+                return null;
+            }
+            const totalBase = matchedChalets.reduce((acc, c) => acc + c.base_guests, 0);
+            const totalMax = matchedChalets.reduce((acc, c) => acc + c.max_guests, 0);
+            const totalRate = matchedChalets.reduce((acc, c) => acc + c.room_rate, 0);
+
+            // CRITICAL: Ensure combo has enough capacity to house the ENTIRE group (Adults + Children)
+            if (totalMax < totalGuests) {
+                return null;
+            }
+
+            return {
+                title: title,
+                tag: tag,
+                description: desc,
+                chalets: matchedChalets,
+                spotIds: matchedChalets.map(c => c.id),
+                baseCapacity: totalBase,
+                maxCapacity: totalMax,
+                totalBaseRate: totalRate
+            };
+        }
+
+        // Bracket 1: Large Parties (25 to 32+ guests, e.g. 27 Guests: 12 Adults + 15 Children)
+        if (totalGuests >= 25) {
+            // Option 1: 3 Duplex Residences + Grand Alpine Timber House (Cap: 8*3 + 5 = 29 Guests)
+            let combo1 = makeCombo(
+                '3 Duplex Residences + Grand Alpine Timber House',
+                'Upper Ridge & Peak Meadow • Accommodates ' + totalGuests + ' Guests',
+                '6 Master Bedroom Suites + Grand Alpine Timber House • Accommodates up to 29 guests with scenic connecting trails and panoramic mist balconies',
+                [2, 3, 4, 10]
+            ) || makeCombo(
+                '3 Duplex Residences + Grand Alpine Timber House',
+                'North Ridge & Meadow • Accommodates ' + totalGuests + ' Guests',
+                '6 Master Bedroom Suites + Grand Alpine House • Private valley walkways and cloud view balconies',
+                [3, 4, 5, 10]
+            ) || makeCombo(
+                '3 Duplex Residences + Grand Alpine Timber House',
+                'Peak Ridge Cluster • Accommodates ' + totalGuests + ' Guests',
+                '6 Master Bedroom Suites + Grand Alpine House • Top elevation forest retreat',
+                [4, 5, 6, 10]
+            );
+            if (combo1) potentialCombos.push(combo1);
+
+            // Option 2: 2 Duplex Residences + 3 Standalone Woodhouse Cottages & Mudhouse (Cap: 8*2 + 4*3 = 28 Guests)
+            let combo2 = makeCombo(
+                '2 Duplex Residences + 3 Standalone Cottages & Mudhouse',
+                'Estate Ridge & Orchard Slope • Accommodates ' + totalGuests + ' Guests',
+                '2 Duplexes (4 Suites) + 2 Standalone Woodhouse Cottages + 1 Earthen Cob Mudhouse with cozy fireplaces',
+                [2, 3, 8, 7, 9]
+            ) || makeCombo(
+                '2 Duplex Residences + 3 Standalone Cottages & Mudhouse',
+                'North Ridge & Orchard Slope • Accommodates ' + totalGuests + ' Guests',
+                '4 Master Suites + 3 Private Standalone Cottages with stone hearths and forest lawn access',
+                [4, 5, 8, 7, 9]
+            );
+            if (combo2) potentialCombos.push(combo2);
+
+            // Option 3: 4 Adjoining Duplex Chalet Residences (Cap: 8*4 = 32 Guests)
+            let combo3 = makeCombo(
+                '4 Adjoining Duplex Chalet Residences',
+                'Ridge Cloudscape Collection • Accommodates ' + totalGuests + ' Guests',
+                '8 Master Bedroom Suites across 4 adjoining duplex chalets along the mist-clad upper ridge',
+                [2, 3, 4, 5]
+            ) || makeCombo(
+                '4 Adjoining Duplex Chalet Residences',
+                'North-Peak Ridge Collection • Accommodates ' + totalGuests + ' Guests',
+                '8 Master Bedroom Suites across 4 adjoining duplex residences on the upper ridge',
+                [3, 4, 5, 6]
+            );
+            if (combo3) potentialCombos.push(combo3);
+
+        } else if (totalGuests >= 17) {
+            // Bracket 2: Medium-Large Parties (17 to 24 guests)
+            let combo1 = makeCombo(
+                '3 Adjoining Duplex Chalet Residences',
+                'Upper Ridge • Fits ' + totalGuests + ' Guests',
+                '6 Master Bedroom Suites across 3 contiguous duplexes with panoramic valley decks (Capacity: 24)',
+                [2, 3, 4]
+            ) || makeCombo(
+                '3 North Ridge Duplex Residences',
+                'North Ridge • Fits ' + totalGuests + ' Guests',
+                '6 Master Bedroom Suites along the high scenic trail (Capacity: 24)',
+                [4, 5, 6]
+            );
+            if (combo1) potentialCombos.push(combo1);
+
+            let combo2 = makeCombo(
+                '2 Duplex Suites + 2 Standalone Woodhouse Cottages',
+                'Ridge & Orchard Slope • Fits ' + totalGuests + ' Guests',
+                '4 Master Suites + 2 Standalone Cottages with fireplaces and orchard views (Capacity: 24)',
+                [2, 3, 8, 7]
+            ) || makeCombo(
+                '2 Duplex Suites + 2 Standalone Woodhouse Cottages',
+                'North Ridge & Orchard • Fits ' + totalGuests + ' Guests',
+                '4 Master Suites + 2 Standalone Cottages (Capacity: 24)',
+                [4, 5, 8, 7]
+            );
+            if (combo2) potentialCombos.push(combo2);
+
+            let combo3 = makeCombo(
+                'Grand Alpine House + 2 Duplex Chalet Residences',
+                'Peak Heritage & Ridge • Fits ' + totalGuests + ' Guests',
+                'Grand alpine vaulted hall + 4 duplex suites accommodating up to 25 guests',
+                [10, 2, 3]
+            ) || makeCombo(
+                'Grand Alpine House + Duplex Suite + 2 Cottages',
+                'Heritage Meadow & Orchard • Fits ' + totalGuests + ' Guests',
+                'Grand alpine house + 1 duplex + 2 standalone cottages (Capacity: 25)',
+                [10, 2, 8, 7]
+            );
+            if (combo3) potentialCombos.push(combo3);
+
+        } else if (totalGuests >= 9) {
+            // Bracket 3: Medium Groups (9 to 16 guests)
+            let comboDuplex = makeCombo(
+                '2 Adjoining Duplex Chalet Residences',
+                'Adjacent on Upper Ridge • Most Popular',
+                '4 Master Bedroom Suites • 30-Second Scenic Walkway • Panoramic Mist Balconies (Capacity: 16)',
+                [2, 3]
+            ) || makeCombo(
+                '2 North Ridge Duplex Suites',
+                'Adjacent on North Ridge • Alpine Cloudscapes',
+                '4 Master Bedrooms • Walking Path Proximity • Private Lounge Decks (Capacity: 16)',
+                [4, 5]
+            ) || makeCombo(
+                '2 Peak Duplex Chalet Suites',
+                'Adjacent on Peak Contour',
+                '4 Master Bedrooms • High Altitude Cloud Views (Capacity: 16)',
+                [5, 6]
+            );
+            if (comboDuplex) potentialCombos.push(comboDuplex);
+
+            let comboBlend = makeCombo(
+                '1 Duplex Suite + 2 Standalone Cottages',
+                'Cluster Blend • Orchard Slope Proximity',
+                '1 Duplex Residence (2 Suites) + 2 Standalone Woodhouse Cottages with Fireplaces (Capacity: 16)',
+                [2, 8, 7]
+            ) || makeCombo(
+                '1 Duplex Suite + 2 Standalone Cottages',
+                'Cluster Blend • Orchard Slope Proximity',
+                '1 Duplex Residence (2 Suites) + 2 Standalone Woodhouse Cottages with Fireplaces (Capacity: 16)',
+                [4, 8, 7]
+            ) || makeCombo(
+                '1 Duplex Suite + Pine Cottage & Mudhouse',
+                'Cluster Blend • Heritage Meadow',
+                '1 Duplex Residence + 1 Standalone Woodhouse + 1 Earthen Cob Mudhouse (Capacity: 16)',
+                [2, 8, 9]
+            );
+            if (comboBlend) potentialCombos.push(comboBlend);
+
+            let comboHeritage = makeCombo(
+                'Grand Alpine House + Duplex Suite + Mudhouse',
+                'Architectural Heritage Collection',
+                'Vaulted pine living hall + 2 luxury duplex suites + thermal cob clay mudhouse (Capacity: 17)',
+                [10, 4, 9]
+            ) || makeCombo(
+                'Grand Alpine House + Duplex Suite + Pine Cottage',
+                'Mountain Meadow Collection',
+                'Grand wooden alpine house + luxury duplex chalet + orchard pine cottage (Capacity: 17)',
+                [10, 2, 8]
+            ) || makeCombo(
+                'Grand Alpine House + 2 Standalone Cottages',
+                'Heritage Meadow Cluster',
+                'Grand wooden alpine house + 2 private standalone cottages (Capacity: 17)',
+                [10, 9, 8]
+            );
+            if (comboHeritage) potentialCombos.push(comboHeritage);
+
+        } else {
+            // Bracket 4: Groups of 5 to 8 guests
+            let combo1 = makeCombo(
+                'Duplex Chalet Residence (Entire Suite)',
+                'Upper Ridge • 2 Private Suites',
+                'Complete 2-bedroom duplex chalet accommodating up to 8 guests',
+                [2]
+            ) || makeCombo(
+                'North Ridge Duplex Suite',
+                'Alpine Cloudscape Duplex',
+                'Two master bedrooms with private lounge decks',
+                [4]
+            );
+            if (combo1) potentialCombos.push(combo1);
+
+            let combo2 = makeCombo(
+                '2 Standalone Pine Cottages',
+                'Adjacent Orchard Slope',
+                'Pine Cottage Hut 02 + Pine Cottage Hut 03 side-by-side with private fireplaces (Capacity: 8)',
+                [8, 7]
+            );
+            if (combo2) potentialCombos.push(combo2);
+
+            let combo3 = makeCombo(
+                'Grand Alpine House + Heritage Mudhouse',
+                'Heritage Meadow Cluster',
+                'Pinewood vaulted hall + earthen cob mudhouse suite (Accommodates up to 9 guests)',
+                [10, 9]
+            );
+            if (combo3) potentialCombos.push(combo3);
+        }
+
+        // Dynamic Greedy Combinatorial Fallback (if preset combos not found or less than 2)
+        if (potentialCombos.length < 2 && enrichedAvailable.length >= 2) {
+            // Strategy 1: Greedy Duplex First
+            const sortedDuplexFirst = [...enrichedAvailable].sort((a, b) => {
+                if (a.structure_type === 'duplex_hut' && b.structure_type !== 'duplex_hut') return -1;
+                if (b.structure_type === 'duplex_hut' && a.structure_type !== 'duplex_hut') return 1;
+                return b.max_guests - a.max_guests;
+            });
+            let cap1 = 0, spots1 = [];
+            for (const sp of sortedDuplexFirst) {
+                spots1.push(sp);
+                cap1 += sp.max_guests;
+                if (cap1 >= totalGuests) break;
+            }
+            if (spots1.length >= 2 && !potentialCombos.some(p => p.spotIds.slice().sort().join(',') === spots1.map(s => s.id).sort().join(','))) {
+                potentialCombos.push({
+                    title: `Curated High-Capacity Estate Cluster (${spots1.length} Chalets)`,
+                    tag: `Fits Party of ${totalGuests} Guests`,
+                    description: `Combined accommodation for ${totalGuests} guests (${adults} Adults, ${kids} Children) with ${spots1.reduce((a, b) => a + b.base_guests, 0)} base guests included`,
+                    chalets: spots1,
+                    spotIds: spots1.map(s => s.id),
+                    baseCapacity: spots1.reduce((a, b) => a + b.base_guests, 0),
+                    maxCapacity: cap1,
+                    totalBaseRate: spots1.reduce((a, b) => a + b.room_rate, 0)
+                });
+            }
+
+            // Strategy 2: Proximity Sequential Clustering
+            const sortedBySpot = [...enrichedAvailable].sort((a, b) => a.spot_number - b.spot_number);
+            let cap2 = 0, spots2 = [];
+            for (const sp of sortedBySpot) {
+                spots2.push(sp);
+                cap2 += sp.max_guests;
+                if (cap2 >= totalGuests) break;
+            }
+            if (spots2.length >= 2 && !potentialCombos.some(p => p.spotIds.slice().sort().join(',') === spots2.map(s => s.id).sort().join(','))) {
+                potentialCombos.push({
+                    title: `Adjacent Walking Path Chalets (${spots2.length} Chalets)`,
+                    tag: `Contiguous Estate Walkway • Fits ${totalGuests} Guests`,
+                    description: `Contiguous chalets along the stone trail accommodating up to ${cap2} guests with private balconies and mountain views`,
+                    chalets: spots2,
+                    spotIds: spots2.map(s => s.id),
+                    baseCapacity: spots2.reduce((a, b) => a + b.base_guests, 0),
+                    maxCapacity: cap2,
+                    totalBaseRate: spots2.reduce((a, b) => a + b.room_rate, 0)
+                });
+            }
+        }
+
+        if (potentialCombos.length === 0) {
+            recPanel.style.display = 'none';
+            if (restoreBtn) restoreBtn.style.display = 'none';
+            clearMapSpotlightAndDimming();
+            return;
+        }
+
+        currentRecommendations = potentialCombos;
+        activeRecommendationIdx = 0;
+
+        // Render Panel Content
+        if (subtitleTxt) {
+            subtitleTxt.innerHTML = `To comfortably accommodate your party of <strong>${totalGuests} Guests (${adults} Adults, ${kids} Children)</strong> together, we recommend adjacent clustered chalets on the estate. Non-suggested properties are dimmed on the map.`;
+        }
+
+        if (optionsGrid) {
+            optionsGrid.innerHTML = '';
+            currentRecommendations.forEach((combo, idx) => {
+                const card = document.createElement('div');
+                card.className = `rec-option-card ${idx === 0 ? 'is-active-rec' : ''}`;
+                card.setAttribute('data-combo-idx', idx);
+
+                const chipsHtml = combo.chalets.map(c => {
+                    const isDup = c.structure_type === 'duplex_hut';
+                    return `<span class="rec-chalet-chip ${isDup ? 'duplex-chip' : ''}">
+                        ${isDup ? '🏰' : '🏡'} Spot ${String(c.spot_number).padStart(2, '0')}: ${c.title}
+                    </span>`;
+                }).join('');
+
+                card.innerHTML = `
+                    <div>
+                        <div class="rec-card-top-tag">
+                            <i class="fa-solid fa-sparkles"></i> Option ${idx + 1} • ${combo.tag}
+                        </div>
+                        <h4 class="rec-card-title">${combo.title}</h4>
+                        <div class="rec-card-chips">${chipsHtml}</div>
+                        <p style="font-size: 11.5px; color: #94A3B8; margin: 0 0 10px; line-height: 1.4;">${combo.description}</p>
+                    </div>
+                    <div class="rec-card-meta">
+                        <div class="rec-card-cap">
+                            Capacity: <strong>Up to ${combo.maxCapacity} Guests</strong>
+                            <div style="font-size: 10.5px; color: #64748B;">Base ${combo.baseCapacity} Guests Included</div>
+                        </div>
+                        <div class="rec-card-price">
+                            <span class="rec-card-price-num">₹${combo.totalBaseRate.toLocaleString('en-IN')}</span>
+                            <span class="rec-card-price-period">per night (All Meals Incl.)</span>
+                        </div>
+                    </div>
+                `;
+
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.rec-option-card').forEach(c => c.classList.remove('is-active-rec'));
+                    card.classList.add('is-active-rec');
+                    activeRecommendationIdx = idx;
+                    updateActiveRecommendationBar();
+                    applySpotlightForCombo(combo);
+                });
+
+                optionsGrid.appendChild(card);
+            });
+        }
+
+        function updateActiveRecommendationBar() {
+            const active = currentRecommendations[activeRecommendationIdx];
+            if (!active) return;
+            if (activeTitleEl) activeTitleEl.innerText = `Option ${activeRecommendationIdx + 1}: ${active.title}`;
+            if (activeMetaEl) activeMetaEl.innerText = `${active.maxCapacity} Guests Max • ${active.chalets.length} Chalets • ${active.tag}`;
+            if (bookBtnTxt) bookBtnTxt.innerText = `Book Recommended Combination (${active.chalets.length} Chalets)`;
+        }
+
+        updateActiveRecommendationBar();
+
+        // Apply spotlight on map for the first recommended combination
+        applySpotlightForCombo(currentRecommendations[0]);
+
+        // Show panel
+        recPanel.style.display = 'block';
+        if (restoreBtn) restoreBtn.style.display = 'none';
+
+        if (userInitiated) {
+            recPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    // Spotlights the suggested combination and dims all other nodes
+    function applySpotlightForCombo(combo) {
+        if (!combo || !combo.spotIds) return;
+
+        nodes.forEach(node => {
+            const spotId = parseInt(node.getAttribute('data-spot-id'), 10);
+            const isMatch = combo.spotIds.includes(spotId);
+
+            if (isMatch) {
+                node.classList.add('node-spotlight');
+                node.classList.remove('node-dimmed-by-recommendation');
+                node.style.opacity = '1';
+                node.style.pointerEvents = 'auto';
+
+                let recPill = node.querySelector('.spotlight-rec-pill');
+                if (!recPill) {
+                    recPill = document.createElement('span');
+                    recPill.className = 'spotlight-rec-pill';
+                    recPill.innerHTML = '<i class="fa-solid fa-star"></i> Suggested Group Stay';
+                    node.appendChild(recPill);
+                }
+            } else {
+                node.classList.remove('node-spotlight');
+                node.classList.add('node-dimmed-by-recommendation');
+                node.style.opacity = '0.08';
+                node.style.pointerEvents = 'none';
+
+                const recPill = node.querySelector('.spotlight-rec-pill');
+                if (recPill) recPill.remove();
+            }
+        });
+
+        // Also spotlight in grid view if user switches to grid
+        document.querySelectorAll('.chalet-card').forEach(card => {
+            const cardSlug = card.getAttribute('data-villa-slug');
+            const isMatch = combo.chalets.some(c => c.slug === cardSlug);
+            if (isMatch) {
+                card.style.borderColor = '#4ADE80';
+                card.style.boxShadow = '0 0 16px rgba(74, 222, 128, 0.4)';
+                card.style.opacity = '1';
+            } else {
+                card.style.borderColor = 'rgba(28, 56, 38, 0.15)';
+                card.style.boxShadow = 'none';
+                card.style.opacity = '0.35';
+            }
+        });
+
+        // Set sidebar to inspect the first chalet of the combination
+        if (combo.spotIds.length > 0) {
+            selectChalet(combo.spotIds[0], false);
+        }
+    }
+
+    // Clears spotlight and restores full visibility across all chalets
+    function clearMapSpotlightAndDimming() {
+        nodes.forEach(node => {
+            node.classList.remove('node-spotlight', 'node-dimmed-by-recommendation');
+            node.style.opacity = '1';
+            node.style.pointerEvents = 'auto';
+            const recPill = node.querySelector('.spotlight-rec-pill');
+            if (recPill) recPill.remove();
+        });
+
+        document.querySelectorAll('.chalet-card').forEach(card => {
+            card.style.borderColor = '';
+            card.style.boxShadow = '';
+            card.style.opacity = '1';
+        });
+    }
+
+    // Dismiss suggestion button listener
+    const btnRecDismiss = document.getElementById('btn-rec-dismiss-toggle');
+    if (btnRecDismiss) {
+        btnRecDismiss.addEventListener('click', () => {
+            isRecommendationDismissed = true;
+            const recPanel = document.getElementById('bms-group-recommendation-panel');
+            const restoreBtn = document.getElementById('btn-restore-recommendation');
+            if (recPanel) recPanel.style.display = 'none';
+            if (restoreBtn) restoreBtn.style.display = 'inline-flex';
+            clearMapSpotlightAndDimming();
+        });
+    }
+
+    // Restore suggestion button listener
+    const btnRestoreRec = document.getElementById('btn-restore-recommendation');
+    if (btnRestoreRec) {
+        btnRestoreRec.addEventListener('click', () => {
+            isRecommendationDismissed = false;
+            const recPanel = document.getElementById('bms-group-recommendation-panel');
+            if (recPanel) recPanel.style.display = 'block';
+            btnRestoreRec.style.display = 'none';
+            if (currentRecommendations.length > 0) {
+                applySpotlightForCombo(currentRecommendations[activeRecommendationIdx]);
+            }
+        });
+    }
+
+    // Book Recommended Combination Action CTA listener
+    const btnRecBookActive = document.getElementById('btn-rec-book-active');
+    if (btnRecBookActive) {
+        btnRecBookActive.addEventListener('click', () => {
+            const activeCombo = currentRecommendations[activeRecommendationIdx];
+            if (!activeCombo) return;
+            triggerBookingModalWithMultiChalet(activeCombo);
+        });
+    }
+
+    // Multi-Chalet Group Reservation Modal Trigger
+    function triggerBookingModalWithMultiChalet(chaletCombo) {
+        const modal = document.getElementById('booking-modal');
+        if (!modal) return;
+
+        // Sync Dates
+        const modalCin = document.getElementById('modal-checkin');
+        if (modalCin && checkinInput && checkinInput.value) {
+            modalCin.value = checkinInput.value;
+            modalCin.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        const modalCout = document.getElementById('modal-checkout');
+        if (modalCout && checkoutInput && checkoutInput.value) {
+            modalCout.value = checkoutInput.value;
+            modalCout.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Sync Adults & Kids
+        const modalAdults = document.getElementById('modal-adults');
+        if (modalAdults && adultsInput && adultsInput.value) {
+            modalAdults.value = adultsInput.value;
+        }
+
+        const modalKids = document.getElementById('modal-kids');
+        if (modalKids && kidsInput && kidsInput.value) {
+            modalKids.value = kidsInput.value;
+        }
+
+        // Populate and activate Multi-Chalet mode in modal
+        if (typeof window.setModalMultiChaletStay === 'function') {
+            window.setModalMultiChaletStay(chaletCombo);
+        }
+
+        // Open Modal
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+
+        const container = modal.querySelector('.booking-modal-content');
+        if (container) container.scrollTop = 0;
     }
 
     // 10. Date & Guest Inputs change
@@ -516,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let val = parseInt(input.value || "1", 10);
             const min = parseInt(input.min || "0", 10);
-            const max = parseInt(input.max || "10", 10);
+            const max = parseInt(input.max || "30", 10);
 
             if (btn.classList.contains('btn-plus')) {
                 if (val < max) val++;
@@ -525,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             input.value = val;
             recalculateSidebarPricing();
+            evaluateGroupRecommendations(false);
         });
     });
 
@@ -569,6 +1145,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Trigger live availability API query
             await fetchLiveAvailabilityForDates(true);
+            evaluateGroupRecommendations(true);
 
             // Button success state
             btnCheckLiveAvail.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #4ADE80;"></i> <span>Updated</span>';
@@ -822,6 +1399,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnSacOpenCheckout) {
         btnSacOpenCheckout.addEventListener('click', () => triggerBookingModalWithSelectedStay());
+    }
+
+    // Photo Gallery Carousel Controls
+    if (sacGalPrev) {
+        sacGalPrev.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            currentPhotoIdx--;
+            updateSidebarPhoto();
+        });
+    }
+    if (sacGalNext) {
+        sacGalNext.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            currentPhotoIdx++;
+            updateSidebarPhoto();
+        });
     }
 
     // 15. Initial Selection and Live Availability Fetch on Page Load

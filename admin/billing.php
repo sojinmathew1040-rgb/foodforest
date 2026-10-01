@@ -819,7 +819,7 @@ $currency = get_setting('currency_symbol', '₹');
                 <div style="font-weight: 700; color: var(--adm-gold); font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-tree"></i> 1. Accommodation & Stay Breakdown
                 </div>
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; align-items: end;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; align-items: end; margin-bottom: 12px;">
                     <div>
                         <label class="adm-form-label" style="font-size: 12px;">Villa / Property</label>
                         <input type="text" id="modalVillaTitle" class="adm-input" readonly style="opacity: 0.8; background: #0A160F;">
@@ -829,8 +829,30 @@ $currency = get_setting('currency_symbol', '₹');
                         <input type="text" id="modalNights" class="adm-input" readonly style="opacity: 0.8; background: #0A160F;">
                     </div>
                     <div>
-                        <label class="adm-form-label" style="font-size: 12px;">Room Total (<?php echo $currency; ?>)</label>
+                        <label class="adm-form-label" style="font-size: 12px;">Room &amp; Stay Total (<?php echo $currency; ?>)</label>
                         <input type="number" step="0.01" name="room_amount" id="modalRoomAmount" class="adm-input" style="font-weight: 700; color: var(--adm-gold);" oninput="recalculateModalTotals()">
+                    </div>
+                </div>
+
+                <!-- Guest Party & Child Payment Configuration -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr 1.3fr; gap: 12px; background: rgba(0,0,0,0.25); padding: 12px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); align-items: center;">
+                    <div>
+                        <label class="adm-form-label" style="font-size: 11.5px; color: var(--adm-text-muted);"><i class="fa-solid fa-person"></i> Adults Count</label>
+                        <input type="text" id="modalAdultsCount" class="adm-input" readonly style="opacity: 0.85; background: #07150E; font-weight: 600; text-align: center;">
+                    </div>
+                    <div>
+                        <label class="adm-form-label" style="font-size: 11.5px; color: #38BDF8;"><i class="fa-solid fa-child"></i> Children Count</label>
+                        <input type="text" id="modalKidsCount" class="adm-input" readonly style="opacity: 0.85; background: #07150E; font-weight: 600; color: #38BDF8; text-align: center;">
+                    </div>
+                    <div>
+                        <label class="adm-form-label" style="font-size: 11.5px; color: #F59E0B;"><i class="fa-solid fa-coins"></i> Child Tariff / Night (₹)</label>
+                        <input type="number" step="50" min="0" id="modalChildRate" class="adm-input" placeholder="0 (Complimentary)" style="background: #07150E; font-weight: 700; color: #F59E0B;" oninput="applyChildRateToRoomTotal()">
+                    </div>
+                    <div>
+                        <label class="adm-form-label" style="font-size: 11.5px; color: var(--adm-text-muted);">Child Fee Summary</label>
+                        <div id="modalChildStatusBadge" style="height: 38px; display: flex; align-items: center; font-size: 12px; font-weight: 600; color: #22C55E; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.25); padding: 0 10px; border-radius: 6px;">
+                            <i class="fa-solid fa-gift" style="margin-right: 6px;"></i> Complimentary (₹0)
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1080,6 +1102,15 @@ function openBillEditModal(booking) {
     document.getElementById('modalNights').value = p.nights + ' Night(s)';
     document.getElementById('modalRoomAmount').value = p.room_amount || 0;
 
+    // Guest occupancy & Child rate
+    var adults = p.adults_count || booking.adults_count || 2;
+    var kids = (p.kids_count !== undefined) ? p.kids_count : (booking.kids_count || 0);
+    var childRate = (p.extra_child_rate !== undefined) ? p.extra_child_rate : (booking.extra_child_rate || 0);
+    document.getElementById('modalAdultsCount').value = adults;
+    document.getElementById('modalKidsCount').value = kids;
+    document.getElementById('modalChildRate').value = childRate;
+    updateChildFeeStatusBadge(kids, childRate, p.nights || 1);
+
     // GST & Billing Fields
     var isGst = (p.billing_type === 'gst' || booking.billing_type === 'gst');
     if (isGst) {
@@ -1132,6 +1163,51 @@ function openBillEditModal(booking) {
 
 function closeBillEditModal() {
     document.getElementById('billEditModal').style.display = 'none';
+}
+
+function updateChildFeeStatusBadge(kids, rate, nights) {
+    var badge = document.getElementById('modalChildStatusBadge');
+    if (!badge) return;
+    var k = parseInt(kids, 10) || 0;
+    var r = parseFloat(rate) || 0;
+    var n = parseInt(nights, 10) || 1;
+    if (k <= 0) {
+        badge.innerHTML = '<i class="fa-solid fa-check" style="margin-right: 6px;"></i> No Children';
+        badge.style.color = '#94A3B8';
+        badge.style.background = 'rgba(255,255,255,0.05)';
+        badge.style.borderColor = 'rgba(255,255,255,0.1)';
+    } else if (r <= 0) {
+        badge.innerHTML = '<i class="fa-solid fa-gift" style="margin-right: 6px;"></i> ' + k + ' Child Complimentary (₹0)';
+        badge.style.color = '#22C55E';
+        badge.style.background = 'rgba(34, 197, 94, 0.1)';
+        badge.style.borderColor = 'rgba(34, 197, 94, 0.25)';
+    } else {
+        var totalChildFee = k * r * n;
+        badge.innerHTML = '<i class="fa-solid fa-coins" style="margin-right: 6px;"></i> ' + k + ' Child × ₹' + r.toLocaleString('en-IN') + '/N = +₹' + totalChildFee.toLocaleString('en-IN');
+        badge.style.color = '#F59E0B';
+        badge.style.background = 'rgba(245, 158, 11, 0.12)';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+    }
+}
+
+function applyChildRateToRoomTotal() {
+    if (!activeModalBooking) return;
+    var p = activeModalBooking.parsed;
+    var kids = parseInt(document.getElementById('modalKidsCount').value, 10) || 0;
+    var newChildRate = parseFloat(document.getElementById('modalChildRate').value) || 0;
+    var nights = parseInt(p.nights, 10) || 1;
+    
+    updateChildFeeStatusBadge(kids, newChildRate, nights);
+
+    var baseRate = parseFloat(p.rate_per_night) || 14500;
+    var baseTotal = baseRate * nights;
+    var extraAdultTotal = (p.extra_adults || 0) * (p.extra_adult_rate || 1500) * nights;
+    var extraKidsCount = (p.extra_kids !== undefined) ? p.extra_kids : kids;
+    var childFeeTotal = extraKidsCount * newChildRate * nights;
+
+    var newRoomTotal = baseTotal + extraAdultTotal + childFeeTotal;
+    document.getElementById('modalRoomAmount').value = newRoomTotal;
+    recalculateModalTotals();
 }
 
 // Food Row Helpers

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script>
+window.errors = [];
+window.onerror = function(msg, url, line, col, error) {
+    window.errors.push({msg: msg, line: line, col: col, error: error ? error.stack : ''});
+    document.body.innerHTML += '<div style="color:red">ERROR: ' + msg + ' at line ' + line + '</div>';
+};
+</script>
+</head>
+<body>
+<h1>Testing Scripts & Modal Elements</h1>
+
+<!-- Include the actual modal markup from checkout_audit_modal.php -->
+<div id="modal-container"></div>
+
+<script src="script_block_0.js"></script>
+<script src="script_block_1.js"></script>
+
+<script>
+// Load modal HTML
+fetch('http://localhost/foodforest/admin/includes/checkout_audit_modal.php')
+    .then(r => r.text())
+    .then(html => {
+        document.getElementById('modal-container').innerHTML = html;
+        console.log('Modal HTML injected!');
+    });
+</script>
+
+<script src="script_block_3.js"></script>
+<script src="script_block_4.js"></script>
+
+<script>
+setTimeout(function() {
+    console.log('Testing full openCheckoutAuditModal(6)...');
+    try {
+        openCheckoutAuditModal(6);
+        document.body.innerHTML += '<div>openCheckoutAuditModal called!</div>';
+    } catch(e) {
+        document.body.innerHTML += '<div style="color:red">ERROR IN CALL: ' + e.message + '</div>';
+    }
+}, 500);
+
+setTimeout(function() {
+    const m = document.getElementById('modal-checkout-audit');
+    if (m) {
+        document.body.innerHTML += '<div>Modal found! is-open: ' + m.classList.contains('is-open') + ', display: ' + m.style.display + '</div>';
+    } else {
+        document.body.innerHTML += '<div style="color:red">Modal NOT found!</div>';
+    }
+}, 2000);
+</script>
+</body>
+</html>
