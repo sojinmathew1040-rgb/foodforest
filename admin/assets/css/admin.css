@@ -1537,6 +1537,97 @@ input, select, textarea {
     box-shadow: 0 4px 14px rgba(239, 68, 68, 0.45);
 }
 
+/* Revert / Status Dropdown Menu */
+.adm-dropdown-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.adm-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 1050;
+    min-width: 225px;
+    background: #122217;
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 10px;
+    padding: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 15px rgba(197, 160, 89, 0.15);
+    backdrop-filter: blur(16px);
+    display: none;
+    flex-direction: column;
+    gap: 3px;
+    animation: admDropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.adm-dropdown-wrap.active .adm-dropdown-menu,
+.adm-dropdown-menu.show {
+    display: flex;
+}
+
+@keyframes admDropdownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.adm-dropdown-header {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--adm-gold-light);
+    padding: 6px 10px 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.adm-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--adm-text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-decoration: none;
+}
+
+.adm-dropdown-item:hover {
+    background: rgba(197, 160, 89, 0.15);
+    color: #FFFFFF;
+}
+
+.adm-dropdown-item i {
+    width: 16px;
+    text-align: center;
+    font-size: 12px;
+}
+
+.adm-dropdown-item.opt-pending:hover { background: rgba(148, 163, 184, 0.2); color: #e2e8f0; }
+.adm-dropdown-item.opt-confirmed:hover { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+.adm-dropdown-item.opt-inhouse:hover { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
+.adm-dropdown-item.opt-checkout:hover { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.adm-dropdown-item.opt-waitlist:hover { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.adm-dropdown-item.opt-cancel:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+
 /* -------------------------------------------------------------
    7. Villas & Stays Cards (rooms.php)
    ------------------------------------------------------------- */

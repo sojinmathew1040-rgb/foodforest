@@ -303,6 +303,11 @@ $recent_inquiries = $pdo->query("
                                         <i class="fa-brands fa-whatsapp"></i>
                                     </button>
 
+                                    <!-- Stay Audit & Check-Out Wizard Button -->
+                                    <button type="button" class="adm-btn-icon" style="background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc;" title="Stay Audit & Check-Out" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
+                                        <i class="fa-solid fa-door-open"></i>
+                                    </button>
+
                                     <!-- View Details in Full Bookings Page -->
                                     <a href="bookings.php?search=<?php echo urlencode($b['reference_code']); ?>" class="adm-btn-icon view" title="View Full Reservation Record">
                                         <i class="fa-solid fa-eye"></i>
@@ -317,4 +322,5 @@ $recent_inquiries = $pdo->query("
     </div>
 </div>
 
+<?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

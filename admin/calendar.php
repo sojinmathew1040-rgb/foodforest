@@ -88,6 +88,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ?")->execute([$b_id]);
             $alert_message = "Booking #{$b_id} marked as cancelled.";
             $alert_type = 'success';
+        } elseif ($action === 'revert_status' || $action === 'update_status') {
+            $b_id = (int)$_POST['booking_id'];
+            $target_status = $_POST['target_status'] ?? ($_POST['status'] ?? 'confirmed');
+
+            if ($target_status === 'inhouse') {
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'inhouse', checked_in_at = COALESCE(checked_in_at, NOW()), checked_out_at = NULL WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = "Reservation #{$b_id} set to In-House (Checked-In).";
+            } elseif ($target_status === 'confirmed') {
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'confirmed', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = "Reservation #{$b_id} reverted to Confirmed (Upcoming).";
+            } elseif ($target_status === 'pending') {
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'pending', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = "Reservation #{$b_id} reset to Pending Review.";
+            } elseif ($target_status === 'completed') {
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'completed', checked_in_at = COALESCE(checked_in_at, NOW()), checked_out_at = COALESCE(checked_out_at, NOW()) WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = "Reservation #{$b_id} marked as Checked-Out & Completed.";
+            } elseif ($target_status === 'waitlist') {
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'waitlist', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = "Reservation #{$b_id} moved to Waiting List.";
+            } elseif ($target_status === 'cancelled' || $target_status === 'rejected') {
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = "Reservation #{$b_id} marked as Cancelled.";
+            }
+            $alert_type = 'success';
         }
     }
 }
@@ -491,25 +521,55 @@ $total_bookings_count = count($bookings);
                 <div style="color: var(--adm-gold); font-weight: 700; margin-bottom: 2px;">Notes:</div>
                 <div id="vb-notes" style="white-space: pre-line;"></div>
             </div>
+
+            <!-- Quick Stage & Revert Controls inside Calendar Modal -->
+            <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 8px; padding: 10px; margin-top: 4px;">
+                <div style="font-size: 11px; text-transform: uppercase; color: var(--adm-gold-light); font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                    <span><i class="fa-solid fa-arrows-rotate"></i> Change / Revert Status</span>
+                    <span id="vb-status-badge" style="text-transform: capitalize; padding: 2px 8px; border-radius: 4px; font-size: 10.5px; background: rgba(197, 160, 89, 0.2); color: var(--adm-gold);">Status</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(75px, 1fr)); gap: 6px;">
+                    <button type="button" class="adm-btn-action outline" style="padding: 7px 5px; font-size: 11px; justify-content: center; color: #cbd5e1; border-color: rgba(148, 163, 184, 0.4);" onclick="submitCalendarRevert('pending', 'Pending Review')" title="Revert to Pending Review">
+                        <i class="fa-solid fa-clock-rotate-left"></i> To Pending
+                    </button>
+                    <button type="button" class="adm-btn-action emerald" style="padding: 7px 5px; font-size: 11px; justify-content: center;" onclick="submitCalendarRevert('confirmed', 'Confirmed Upcoming')" title="Confirm or Revert to Confirmed">
+                        <i class="fa-solid fa-circle-check"></i> Confirm
+                    </button>
+                    <button type="button" class="adm-btn-action cyan" style="padding: 7px 5px; font-size: 11px; justify-content: center; background: rgba(6, 182, 212, 0.18); border: 1px solid rgba(6, 182, 212, 0.4); color: #22d3ee;" onclick="submitCalendarRevert('inhouse', 'In-House (Checked-In)')" title="Check-In / Revert to In-House">
+                        <i class="fa-solid fa-hotel"></i> Check-In
+                    </button>
+                    <button type="button" class="adm-btn-action purple" style="padding: 7px 5px; font-size: 11px; justify-content: center; background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc;" onclick="submitCalendarRevert('completed', 'Checked-Out & Completed')" title="Check-Out / Mark Completed">
+                        <i class="fa-solid fa-door-open"></i> Check-Out
+                    </button>
+                    <button type="button" class="adm-btn-action amber" style="padding: 7px 5px; font-size: 11px; justify-content: center; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24;" onclick="submitCalendarRevert('waitlist', 'Waiting List')" title="Move to Waitlist">
+                        <i class="fa-solid fa-user-clock"></i> Waitlist
+                    </button>
+                    <button type="button" class="adm-btn-action danger" style="padding: 7px 5px; font-size: 11px; justify-content: center;" onclick="submitCalendarRevert('cancelled', 'Cancelled')" title="Cancel Reservation">
+                        <i class="fa-solid fa-ban"></i> Cancel
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div style="display: flex; justify-content: space-between; gap: 10px;">
-            <form method="POST" action="calendar.php?month=<?php echo $curr_month; ?>&year=<?php echo $curr_year; ?>" onsubmit="return confirm('Are you sure you want to cancel this reservation?');">
-                <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
-                <input type="hidden" name="action" value="cancel_booking">
-                <input type="hidden" name="booking_id" id="vb-booking-id" value="">
-                <button type="submit" class="adm-btn-action" style="background: rgba(231, 76, 60, 0.2); border: 1px solid #e74c3c; color: #e74c3c; font-size: 11.5px; padding: 7px 12px;">
-                    <i class="fa-solid fa-trash-can"></i> Cancel
-                </button>
-            </form>
-
             <div style="display: flex; gap: 8px;">
+                <button type="button" class="adm-btn-action purple" onclick="openCalendarCheckoutAudit();" style="font-size: 11.5px; padding: 7px 12px; background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc;" title="Audit Room, Food & Experiences">
+                    <i class="fa-solid fa-list-check"></i> Stay Audit
+                </button>
                 <a href="#" id="vb-wa-btn" target="_blank" class="adm-btn-action" style="background: #25D366; color: #072814; font-weight: 700; font-size: 11.5px; padding: 7px 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
                     <i class="fa-brands fa-whatsapp"></i> WhatsApp
                 </a>
-                <button type="button" class="adm-btn-action outline" onclick="closeModal('modal-view-booking')" style="padding: 7px 14px; font-size: 11.5px;">Close</button>
             </div>
+            <button type="button" class="adm-btn-action outline" onclick="closeModal('modal-view-booking')" style="padding: 7px 14px; font-size: 11.5px;">Close</button>
         </div>
+
+        <!-- Hidden form for calendar revert -->
+        <form method="POST" id="form-calendar-revert" action="calendar.php?month=<?php echo $curr_month; ?>&year=<?php echo $curr_year; ?>" style="display:none;">
+            <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+            <input type="hidden" name="action" value="revert_status">
+            <input type="hidden" name="booking_id" id="cal-revert-id" value="">
+            <input type="hidden" name="target_status" id="cal-revert-status" value="">
+        </form>
     </div>
 </div>
 
@@ -552,6 +612,24 @@ function openBookingDetailModal(b) {
     document.getElementById('vb-notes').innerText = b.special_notes || 'No notes provided.';
     document.getElementById('vb-booking-id').value = b.id;
 
+    const statusMap = {
+        'inhouse': { label: 'In-House (Checked-In)', color: '#22d3ee', bg: 'rgba(6, 182, 212, 0.2)' },
+        'confirmed': { label: 'Confirmed (Upcoming)', color: '#34d399', bg: 'rgba(16, 185, 129, 0.2)' },
+        'completed': { label: 'Checked-Out & Completed', color: '#c084fc', bg: 'rgba(168, 85, 247, 0.2)' },
+        'waitlist': { label: 'Waiting List', color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.2)' },
+        'cancelled': { label: 'Cancelled', color: '#f87171', bg: 'rgba(239, 68, 68, 0.2)' },
+        'pending': { label: 'Pending Review', color: '#cbd5e1', bg: 'rgba(148, 163, 184, 0.2)' }
+    };
+    const stKey = (b.status || 'confirmed').toLowerCase();
+    const stInfo = statusMap[stKey] || { label: b.status, color: '#e2e8f0', bg: 'rgba(255,255,255,0.1)' };
+    const stBadge = document.getElementById('vb-status-badge');
+    if (stBadge) {
+        stBadge.innerText = stInfo.label;
+        stBadge.style.color = stInfo.color;
+        stBadge.style.backgroundColor = stInfo.bg;
+        stBadge.style.border = '1px solid ' + stInfo.color;
+    }
+
     const waPhone = (b.guest_phone || '').replace(/[^0-9]/g, '');
     const waBtn = document.getElementById('vb-wa-btn');
     if (waPhone && waPhone.length >= 10) {
@@ -565,10 +643,29 @@ function openBookingDetailModal(b) {
     modal.style.display = 'flex';
 }
 
+function openCalendarCheckoutAudit() {
+    const bId = document.getElementById('vb-booking-id').value;
+    closeModal('modal-view-booking');
+    if (typeof openCheckoutAuditModal === 'function') {
+        openCheckoutAuditModal(bId);
+    }
+}
+
+function submitCalendarRevert(targetStatus, label) {
+    const bId = document.getElementById('vb-booking-id').value;
+    const name = document.getElementById('vb-title').innerText;
+    if (confirm('Change / Revert status for "' + name + '" to ' + label + '?')) {
+        document.getElementById('cal-revert-id').value = bId;
+        document.getElementById('cal-revert-status').value = targetStatus;
+        document.getElementById('form-calendar-revert').submit();
+    }
+}
+
 function closeModal(modalId) {
     const m = document.getElementById(modalId);
     if (m) m.style.display = 'none';
 }
 </script>
 
+<?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

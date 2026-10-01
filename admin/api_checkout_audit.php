@@ -10,7 +10,7 @@ require_once __DIR__ . '/includes/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-if (!is_admin_logged_in()) {
+if (function_exists('is_admin_logged_in') ? !is_admin_logged_in() : (empty($_SESSION['admin_logged_in']) && empty($_SESSION['admin_id']))) {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'Unauthorized administrator access.']);
     exit;
@@ -22,7 +22,7 @@ ensure_booking_gst_columns($pdo);
 ensure_food_menu_table_exists($pdo);
 ensure_rooms_pricing_columns($pdo);
 
-$method = $_SERVER['REQUEST_METHOD'];
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Helper for default room inventory checklist
 function get_default_room_inventory_checklist($villa_slug = '') {
@@ -68,7 +68,8 @@ if ($method === 'GET' || (isset($_GET['action']) && $_GET['action'] === 'get_aud
             exit;
         }
 
-        $billing_params = get_billing_params_for_booking($booking);
+        $billing_data = get_booking_billing_details($pdo, $booking['id']);
+        $billing_params = $billing_data ? ($billing_data['parsed'] ?? []) : [];
 
         // Parse Room Inventory Checklist
         $room_inventory = [];
@@ -92,21 +93,25 @@ if ($method === 'GET' || (isset($_GET['action']) && $_GET['action'] === 'get_aud
         }
 
         // Fetch all active Food Menu items for substitution dropdown
-        $all_dishes = $pdo->query("SELECT id, name, category, price, is_complimentary, description FROM food_menu WHERE is_available = 1 ORDER BY category ASC, display_order ASC, name ASC")->fetchAll(PDO::FETCH_ASSOC);
+        $all_dishes = $pdo->query("SELECT id, heading AS name, heading, category, price, is_active, description FROM food_menu WHERE is_active = 1 ORDER BY category ASC, display_order ASC, heading ASC")->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch all experiences for substitution
         $all_experiences = $pdo->query("SELECT id, title, badge, timing FROM experiences WHERE is_active = 1 ORDER BY display_order ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch all rooms for room verification & upgrade checking
+        $all_rooms = $pdo->query("SELECT id, slug, title, stay_type, rate_per_night AS base_price, rate_per_night FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode([
             'success' => true,
             'booking' => $booking,
             'billing_params' => $billing_params,
-            'food_items' => $billing_params['food_items'],
-            'activities' => $billing_params['activities'],
-            'custom_items' => $billing_params['custom_items'],
+            'food_items' => $billing_params['food_items'] ?? [],
+            'activities' => $billing_params['activities'] ?? [],
+            'custom_items' => $billing_params['custom_items'] ?? [],
             'room_inventory' => $room_inventory,
             'available_menu_items' => $all_dishes,
-            'available_experiences' => $all_experiences
+            'available_experiences' => $all_experiences,
+            'available_rooms' => $all_rooms
         ]);
         exit;
     } catch (Exception $e) {
@@ -143,7 +148,7 @@ if ($method === 'POST') {
         // Process updated/verified food items (with substitutions support)
         $verified_food = $input['food_items'] ?? null;
         $food_total = (float)($booking['food_amount'] ?? 0);
-        $food_json = $booking['food_items'];
+        $food_json = $booking['food_items'] ?? '[]';
 
         if (is_array($verified_food)) {
             $food_total = 0.00;
@@ -174,7 +179,7 @@ if ($method === 'POST') {
 
         // Process verified activities (with substitution / cancel support)
         $verified_activities = $input['activities'] ?? null;
-        $activities_json = $booking['activities_json'];
+        $activities_json = $booking['activities_json'] ?? '[]';
 
         if (is_array($verified_activities)) {
             $clean_act = [];
@@ -200,23 +205,27 @@ if ($method === 'POST') {
             $activities_json = json_encode($clean_act, JSON_UNESCAPED_UNICODE);
         }
 
-        // Process missing item damage penalties into custom_items
+        // Process missing item damage penalties into billing_items_json
         $missing_penalties = (float)($input['missing_damage_penalty'] ?? 0);
         $penalty_notes = trim($input['missing_damage_notes'] ?? '');
-        $custom_items_json = $booking['custom_items'];
+        $custom_items_json = $booking['billing_items_json'] ?? '[]';
 
         if ($missing_penalties > 0) {
             $custom_items = [];
-            if (!empty($booking['custom_items'])) {
-                $custom_items = json_decode($booking['custom_items'], true) ?: [];
+            if (!empty($booking['billing_items_json'])) {
+                $custom_items = json_decode($booking['billing_items_json'], true) ?: [];
             }
             // Remove previous inventory damage fee if re-auditing
             $custom_items = array_filter($custom_items, function($ci) {
-                return stripos($ci['name'] ?? '', 'Inventory') === false && stripos($ci['name'] ?? '', 'Damage') === false;
+                $itemName = $ci['name'] ?? ($ci['item_name'] ?? '');
+                return stripos($itemName, 'Inventory') === false && stripos($itemName, 'Damage') === false;
             });
             $custom_items[] = [
                 'name' => 'Room Asset Damage / Replacement Fee (' . ($penalty_notes ?: 'Missing Items') . ')',
-                'amount' => $missing_penalties
+                'amount' => $missing_penalties,
+                'price' => $missing_penalties,
+                'quantity' => 1,
+                'subtotal' => $missing_penalties
             ];
             $custom_items_json = json_encode(array_values($custom_items), JSON_UNESCAPED_UNICODE);
         }
@@ -224,12 +233,12 @@ if ($method === 'POST') {
         // Check if status should be marked completed
         $mark_checkout = !empty($input['mark_checkout']);
         $new_status = $mark_checkout ? 'completed' : $booking['status'];
-        $checkout_timestamp = $mark_checkout ? date('Y-m-d H:i:s') : $booking['checked_out_at'];
+        $checkout_timestamp = $mark_checkout ? date('Y-m-d H:i:s') : ($booking['checked_out_at'] ?? null);
 
         // Recalculate room & total
-        $room_amt = (float)$booking['room_amount'];
+        $room_amt = (float)($booking['room_amount'] ?? 0);
         if ($room_amt <= 0) {
-            $room_amt = (float)$booking['total_amount'] - (float)$booking['food_amount'];
+            $room_amt = (float)($booking['total_amount'] ?? 0) - (float)($booking['food_amount'] ?? 0);
         }
         $new_total = $room_amt + $food_total + $missing_penalties;
 
@@ -237,7 +246,7 @@ if ($method === 'POST') {
             food_items = ?, 
             food_amount = ?, 
             activities_json = ?, 
-            custom_items = ?, 
+            billing_items_json = ?, 
             status = ?, 
             checked_out_at = COALESCE(?, checked_out_at) 
             WHERE id = ?");

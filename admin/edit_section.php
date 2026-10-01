@@ -74,6 +74,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'download_backup') {
 
         // Also refresh the disk backups
         @file_put_contents(__DIR__ . '/../foodforest.sql', $sql_dump);
+        @file_put_contents(__DIR__ . '/../db/foodforest.sql', $sql_dump);
+        @file_put_contents(__DIR__ . '/../backup/foodforest_backup.sql', $sql_dump);
         @file_put_contents(__DIR__ . '/data/foodforest.sql', $sql_dump);
 
         header('Content-Type: application/sql; charset=utf-8');
@@ -4517,8 +4519,13 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <div class="adm-form-group">
                             <label class="adm-form-label">Stay Category *</label>
                             <select name="new_room_stay_type" class="adm-form-control" style="font-weight: 700; color: #2ecc71;" required>
-                                <option value="mudhouse">🌿 Mudhouse Stay (Handcrafted Earth & Terracotta)</option>
                                 <option value="treehouse" selected>🌲 Treehouse Stay (Timber Canopy & High Ridge)</option>
+                                <option value="mudhouse">🌿 Mudhouse Stay (Handcrafted Earth & Terracotta)</option>
+                                <option value="woodhouse">🪵 Alpine Woodhouse (Pine & Mountain Log)</option>
+                                <option value="cottage">🏡 Forest Cottage (Private Garden Retreat)</option>
+                                <option value="villa">🏛️ Sanctuary Villa (Exclusive Forest Estate)</option>
+                                <option value="glasshouse">🪟 Glass Cabin (Panoramic View)</option>
+                                <option value="suite">🏰 Luxury Suite (Private Suite)</option>
                             </select>
                         </div>
                         <div class="adm-form-group">
@@ -4825,8 +4832,13 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                     <div class="adm-form-group">
                                         <label class="adm-form-label">Stay Category</label>
                                         <select name="room_stay_type[]" class="adm-form-control" style="font-weight: 700; color: #2ecc71;">
-                                            <option value="mudhouse" <?php echo $stay_type === 'mudhouse' ? 'selected' : ''; ?>>🌿 Mudhouse Stay</option>
                                             <option value="treehouse" <?php echo $stay_type === 'treehouse' ? 'selected' : ''; ?>>🌲 Treehouse Stay</option>
+                                            <option value="mudhouse" <?php echo $stay_type === 'mudhouse' ? 'selected' : ''; ?>>🌿 Mudhouse Stay</option>
+                                            <option value="woodhouse" <?php echo $stay_type === 'woodhouse' ? 'selected' : ''; ?>>🪵 Alpine Woodhouse</option>
+                                            <option value="cottage" <?php echo $stay_type === 'cottage' ? 'selected' : ''; ?>>🏡 Forest Cottage</option>
+                                            <option value="villa" <?php echo $stay_type === 'villa' ? 'selected' : ''; ?>>🏛️ Sanctuary Villa</option>
+                                            <option value="glasshouse" <?php echo $stay_type === 'glasshouse' ? 'selected' : ''; ?>>🪟 Glass Cabin</option>
+                                            <option value="suite" <?php echo $stay_type === 'suite' ? 'selected' : ''; ?>>🏰 Luxury Suite</option>
                                         </select>
                                     </div>
                                     <div class="adm-form-group">

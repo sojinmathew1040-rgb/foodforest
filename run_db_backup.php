@@ -97,17 +97,15 @@ try {
     $mainBackupFile = $backupDir . '/foodforest_backup.sql';
     file_put_contents($mainBackupFile, $sqlContent);
     
-    // Save timestamped version
-    $datedBackupFile = $backupDir . '/foodforest_backup_' . $dateSlug . '.sql';
-    file_put_contents($datedBackupFile, $sqlContent);
-    
-    // Save to db directory
+    // Save to db directory (single latest backup)
     $dbFolder = __DIR__ . '/db';
     if (!is_dir($dbFolder)) {
         mkdir($dbFolder, 0755, true);
     }
     file_put_contents($dbFolder . '/foodforest.sql', $sqlContent);
-    file_put_contents($dbFolder . '/foodforest_backup.sql', $sqlContent);
+    if (file_exists($dbFolder . '/foodforest_backup.sql')) {
+        @unlink($dbFolder . '/foodforest_backup.sql');
+    }
 
     // Also update root foodforest.sql and admin/data/foodforest.sql
     file_put_contents(__DIR__ . '/foodforest.sql', $sqlContent);
@@ -117,13 +115,12 @@ try {
     
     echo json_encode([
         'status' => 'success',
-        'message' => 'Database backup successfully created in db and backup folders',
+        'message' => 'Latest database backup successfully updated',
         'database' => DB_NAME,
         'timestamp' => $timestamp,
         'files' => [
-            'db_folder_sql' => $dbFolder . '/foodforest.sql',
-            'backup_folder_main' => $mainBackupFile,
-            'backup_folder_dated' => $datedBackupFile,
+            'db_backup' => $dbFolder . '/foodforest.sql',
+            'backup_folder_file' => $mainBackupFile,
             'root_file' => __DIR__ . '/foodforest.sql',
             'admin_data_file' => __DIR__ . '/admin/data/foodforest.sql'
         ],

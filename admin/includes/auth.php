@@ -20,11 +20,18 @@ require_once __DIR__ . '/db.php';
 get_db();
 
 /**
+ * Checks whether an administrator is actively logged in.
+ */
+function is_admin_logged_in() {
+    return (!empty($_SESSION['admin_logged_in']) || !empty($_SESSION['admin_id']));
+}
+
+/**
  * Ensures administrator is actively logged in.
  * If not, redirects to login page with return url.
  */
 function require_admin_auth() {
-    if (empty($_SESSION['admin_id']) || empty($_SESSION['admin_logged_in'])) {
+    if (!is_admin_logged_in()) {
         $current_url = $_SERVER['REQUEST_URI'];
         header("Location: login.php?return=" . urlencode($current_url));
         exit;

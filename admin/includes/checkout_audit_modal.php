@@ -3,7 +3,7 @@
      Step-by-step verification of Room Inventory Assets, Food Substitution & Experiences
      ========================================================================= -->
 <div class="adm-modal-backdrop" id="modal-checkout-audit" style="display: none; z-index: 100050;">
-    <div class="adm-modal-content" style="max-width: 820px; max-height: 92vh; display: flex; flex-direction: column;">
+    <div class="adm-modal-content" style="max-width: 840px; max-height: 94vh; display: flex; flex-direction: column;">
         
         <!-- Modal Header -->
         <div class="adm-modal-header" style="border-bottom: var(--adm-border-subtle); padding: 18px 24px; flex-shrink: 0;">
@@ -64,6 +64,32 @@
                         <div style="text-align: right;">
                             <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Occupancy</span>
                             <div style="font-size: 13.5px; font-weight: 600; color: var(--adm-text-primary);" id="audit-occupancy">2 Adults</div>
+                        </div>
+                    </div>
+
+                    <!-- Room Assignment Verification Check -->
+                    <div style="background: rgba(197, 160, 89, 0.08); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                        <div style="font-size: 12.5px; font-weight: 700; color: var(--adm-gold-light); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-hotel"></i> Check-in Room Allocation Check
+                        </div>
+                        <div style="font-size: 12px; color: var(--adm-text-secondary); margin-bottom: 8px;">
+                            Confirm whether the guest stayed in the booked chalet or if a room upgrade/change was provided upon check-in:
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--adm-text-primary); cursor: pointer;">
+                                <input type="radio" name="room_allocation_status" value="original" checked onchange="toggleRoomUpgradeSelect(false)" style="accent-color: var(--adm-gold);">
+                                <span>Stayed in Booked Villa</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--adm-gold-light); cursor: pointer;">
+                                <input type="radio" name="room_allocation_status" value="upgraded" onchange="toggleRoomUpgradeSelect(true)" style="accent-color: var(--adm-gold);">
+                                <span>Upgraded / Moved to Alternative Villa</span>
+                            </label>
+                        </div>
+                        <div id="room-upgrade-selector-wrap" style="display: none; margin-top: 10px;">
+                            <label class="adm-label" style="font-size: 11.5px;">Select Actual Villa Stayed In:</label>
+                            <select id="audit-allocated-room-select" class="adm-input" style="font-size: 12.5px; padding: 6px 10px;" onchange="onAllocatedRoomChanged(this.value)">
+                                <!-- Populated dynamically from available rooms -->
+                            </select>
                         </div>
                     </div>
 
@@ -378,6 +404,7 @@ let auditActivities = [];
 let auditRoomInventory = [];
 let availableMenuItems = [];
 let availableExperiences = [];
+let availableRoomsList = [];
 
 function openCheckoutAuditModal(bookingInput) {
     currentAuditStep = 1;
@@ -388,29 +415,42 @@ function openCheckoutAuditModal(bookingInput) {
 
     if (bookingId > 0 || refCode) {
         fetch('api_checkout_audit.php?action=get_audit_data&booking_id=' + bookingId + '&ref=' + encodeURIComponent(refCode))
-            .then(res => res.json())
+            .then(async res => {
+                const text = await res.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('Server error (' + res.status + '): ' + (text.substring(0, 200) || 'Invalid JSON response'));
+                }
+            })
             .then(data => {
                 if (data.success && data.booking) {
                     availableMenuItems = data.available_menu_items || [];
                     availableExperiences = data.available_experiences || [];
+                    availableRoomsList = data.available_rooms || [];
                     populateCheckoutAuditModal(data.booking, data.food_items || [], data.activities || [], data.room_inventory || []);
-                    openAdmModal('modal-checkout-audit');
+                    if (typeof openAdmModal === 'function') {
+                        openAdmModal('modal-checkout-audit');
+                    } else {
+                        const m = document.getElementById('modal-checkout-audit');
+                        if (m) m.style.display = 'flex';
+                    }
                 } else {
                     alert(data.error || 'Could not load stay audit data.');
                 }
             })
             .catch(err => {
-                console.error(err);
-                alert('Failed to connect to Stay Audit API.');
+                console.error('Stay Audit API Error:', err);
+                alert(err.message || 'Failed to connect to Stay Audit API.');
             });
     }
 }
 
 function populateCheckoutAuditModal(b, foodList, actList, invList) {
     currentAuditBooking = b;
-    auditFoodItems = JSON.parse(JSON.stringify(foodList));
-    auditActivities = JSON.parse(JSON.stringify(actList));
-    auditRoomInventory = JSON.parse(JSON.stringify(invList));
+    auditFoodItems = JSON.parse(JSON.stringify(foodList || []));
+    auditActivities = JSON.parse(JSON.stringify(actList || []));
+    auditRoomInventory = JSON.parse(JSON.stringify(invList || []));
 
     document.getElementById('audit-booking-id').value = b.id;
     document.getElementById('audit-ref-code').value = b.reference_code;
@@ -419,13 +459,38 @@ function populateCheckoutAuditModal(b, foodList, actList, invList) {
     
     const villaTitle = b.room_title || ((b.villa_type === 'treehouse') ? 'Luxury Canopy Treehouse' : 'Traditional Earthen Mudhouse');
     document.getElementById('audit-villa-name').innerText = villaTitle;
-    document.getElementById('audit-stay-dates').innerText = b.checkin_date + ' → ' + b.checkout_date + ' (' + b.nights + ' Nights)';
-    document.getElementById('audit-occupancy').innerText = b.guests_count + ' Guests (' + (b.adults_count || 2) + ' Adults' + (b.kids_count > 0 ? ', ' + b.kids_count + ' Kids' : '') + ')';
+    document.getElementById('audit-stay-dates').innerText = b.checkin_date + ' → ' + b.checkout_date + ' (' + (b.nights || 1) + ' Nights)';
+    document.getElementById('audit-occupancy').innerText = (b.guests_count || 2) + ' Guests (' + (b.adults_count || 2) + ' Adults' + (b.kids_count > 0 ? ', ' + b.kids_count + ' Kids' : '') + ')';
+
+    // Populate Available Rooms Dropdown
+    const roomSelect = document.getElementById('audit-allocated-room-select');
+    if (roomSelect && availableRoomsList.length > 0) {
+        roomSelect.innerHTML = availableRoomsList.map(r => `
+            <option value="${r.slug}" ${r.slug === b.villa_type ? 'selected' : ''}>
+                ${r.title} (Base: ₹${Number(r.base_price).toLocaleString('en-IN')})
+            </option>
+        `).join('');
+    }
 
     renderRoomInventoryList();
     renderAuditFoodList();
     renderAuditActivitiesList();
     updateAuditFinalCalculations();
+}
+
+function toggleRoomUpgradeSelect(show) {
+    const wrap = document.getElementById('room-upgrade-selector-wrap');
+    if (wrap) wrap.style.display = show ? 'block' : 'none';
+}
+
+function onAllocatedRoomChanged(newSlug) {
+    if (!newSlug || !currentAuditBooking) return;
+    const selectedRoom = availableRoomsList.find(r => r.slug === newSlug);
+    if (selectedRoom) {
+        document.getElementById('audit-villa-name').innerText = selectedRoom.title + ' (Upgraded / Transferred)';
+        currentAuditBooking.room_title = selectedRoom.title;
+        currentAuditBooking.villa_type = selectedRoom.slug;
+    }
 }
 
 // 1. ROOM INVENTORY CHECKLIST
@@ -500,15 +565,15 @@ function renderAuditFoodList() {
         const price = parseFloat(item.price || 0);
         const qty = parseInt(item.quantity || 1, 10);
         const isServed = item.served !== false;
-        const isSubstituted = !empty(item.is_substituted);
+        const isSubstituted = Boolean(item.is_substituted);
         const subtotal = isServed ? (price * qty) : 0;
 
         const catIcon = isBfast ? 'fa-mug-saucer' : (item.category === 'lunch' ? 'fa-bowl-rice' : (item.category === 'snacks' ? 'fa-cookie-bite' : 'fa-fire-burner'));
 
         html += `
             <div class="audit-dish-card font-sans ${isSubstituted ? 'is-substituted' : ''} ${!isServed ? 'is-cancelled' : ''}">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 220px;">
                         <input type="checkbox" ${isServed ? 'checked' : ''} onchange="toggleAuditFoodServed(${idx}, this.checked)" style="accent-color: var(--adm-gold); width: 16px; height: 16px;" title="Delivered & Served">
                         <div>
                             <strong style="color: var(--adm-text-primary); font-size: 13.5px; display: block;">
@@ -566,10 +631,6 @@ function renderAuditFoodList() {
     updateAuditFinalCalculations();
 }
 
-function empty(val) {
-    return !val || val === '' || val === 0 || val === '0';
-}
-
 function toggleAuditFoodServed(idx, isChecked) {
     if (auditFoodItems[idx]) {
         auditFoodItems[idx].served = isChecked;
@@ -598,7 +659,8 @@ function onSubstituteSelectChanged(idx, dishId) {
     if (!dishId) return;
     const selected = availableMenuItems.find(d => String(d.id) === String(dishId));
     if (selected) {
-        document.getElementById('sub-custom-price-' idx).value = selected.price;
+        const priceInput = document.getElementById('sub-custom-price-' + idx);
+        if (priceInput) priceInput.value = selected.price;
     }
 }
 
@@ -678,8 +740,8 @@ function renderAuditActivitiesList() {
 
         html += `
             <div class="audit-dish-card font-sans ${!isDone ? 'is-cancelled' : ''}">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 220px;">
                         <input type="checkbox" ${isDone ? 'checked' : ''} onchange="toggleAuditActivityCompleted(${idx}, this.checked)" style="accent-color: #0E7490; width: 16px; height: 16px;">
                         <div>
                             <strong style="color: var(--adm-text-primary); font-size: 13.5px; display: block;">
@@ -755,7 +817,6 @@ function addCustomAuditActivity() {
 function updateAuditFinalCalculations() {
     if (!currentAuditBooking) return;
 
-    const nights = Math.max(1, parseInt(currentAuditBooking.nights || 1, 10));
     let roomAmt = parseFloat(currentAuditBooking.room_amount || 0);
     if (roomAmt <= 0) {
         roomAmt = parseFloat(currentAuditBooking.total_amount || 0) - parseFloat(currentAuditBooking.food_amount || 0);
@@ -816,20 +877,26 @@ function goToAuditStep(stepNum) {
     if (prevBtn) prevBtn.style.visibility = (stepNum > 1) ? 'visible' : 'hidden';
 
     if (stepNum === 1) {
-        stepInd.innerText = 'Step 1 of 4: Room & Asset Checklist';
-        nextBtn.innerHTML = '<span>Next: Verify Food</span> <i class="fa-solid fa-arrow-right"></i>';
-        nextBtn.style.display = 'inline-flex';
+        if (stepInd) stepInd.innerText = 'Step 1 of 4: Room & Asset Checklist';
+        if (nextBtn) {
+            nextBtn.innerHTML = '<span>Next: Verify Food</span> <i class="fa-solid fa-arrow-right"></i>';
+            nextBtn.style.display = 'inline-flex';
+        }
     } else if (stepNum === 2) {
-        stepInd.innerText = 'Step 2 of 4: Food & Dish Substitutions';
-        nextBtn.innerHTML = '<span>Next: Verify Experiences</span> <i class="fa-solid fa-arrow-right"></i>';
-        nextBtn.style.display = 'inline-flex';
+        if (stepInd) stepInd.innerText = 'Step 2 of 4: Food & Dish Substitutions';
+        if (nextBtn) {
+            nextBtn.innerHTML = '<span>Next: Verify Experiences</span> <i class="fa-solid fa-arrow-right"></i>';
+            nextBtn.style.display = 'inline-flex';
+        }
     } else if (stepNum === 3) {
-        stepInd.innerText = 'Step 3 of 4: Signature Experiences';
-        nextBtn.innerHTML = '<span>Next: Final Summary</span> <i class="fa-solid fa-arrow-right"></i>';
-        nextBtn.style.display = 'inline-flex';
+        if (stepInd) stepInd.innerText = 'Step 3 of 4: Signature Experiences';
+        if (nextBtn) {
+            nextBtn.innerHTML = '<span>Next: Final Summary</span> <i class="fa-solid fa-arrow-right"></i>';
+            nextBtn.style.display = 'inline-flex';
+        }
     } else if (stepNum === 4) {
-        stepInd.innerText = 'Step 4 of 4: Finalize & Generate Invoice';
-        nextBtn.style.display = 'none';
+        if (stepInd) stepInd.innerText = 'Step 4 of 4: Finalize & Generate Invoice';
+        if (nextBtn) nextBtn.style.display = 'none';
         updateAuditFinalCalculations();
     }
 }
@@ -865,10 +932,22 @@ function submitStayAuditAndRedirect(destination) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(res => res.json())
+    .then(async res => {
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            throw new Error('Server error (' + res.status + '): ' + (text.substring(0, 200) || 'Invalid server response'));
+        }
+    })
     .then(data => {
         if (data.success) {
-            closeAdmModal('modal-checkout-audit');
+            if (typeof closeAdmModal === 'function') {
+                closeAdmModal('modal-checkout-audit');
+            } else {
+                const m = document.getElementById('modal-checkout-audit');
+                if (m) m.style.display = 'none';
+            }
             if (destination === 'billing') {
                 window.location.href = data.billing_url;
             } else if (destination === 'print') {
@@ -882,8 +961,8 @@ function submitStayAuditAndRedirect(destination) {
         }
     })
     .catch(err => {
-        console.error(err);
-        alert('Network error while saving stay audit.');
+        console.error('Stay Audit Save Error:', err);
+        alert(err.message || 'Network error while saving stay audit.');
     });
 }
 </script>

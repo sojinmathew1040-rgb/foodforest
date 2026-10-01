@@ -222,6 +222,10 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
                             <option value="treehouse" <?php echo (($room['stay_type'] ?? '') === 'treehouse') ? 'selected' : ''; ?>>🌲 Canopy Treehouse</option>
                             <option value="mudhouse" <?php echo (($room['stay_type'] ?? '') === 'mudhouse') ? 'selected' : ''; ?>>🌿 Earthen Mudhouse</option>
                             <option value="woodhouse" <?php echo (($room['stay_type'] ?? '') === 'woodhouse') ? 'selected' : ''; ?>>🪵 Alpine Woodhouse</option>
+                            <option value="cottage" <?php echo (($room['stay_type'] ?? '') === 'cottage') ? 'selected' : ''; ?>>🏡 Forest Cottage</option>
+                            <option value="villa" <?php echo (($room['stay_type'] ?? '') === 'villa') ? 'selected' : ''; ?>>🏛️ Sanctuary Villa</option>
+                            <option value="glasshouse" <?php echo (($room['stay_type'] ?? '') === 'glasshouse') ? 'selected' : ''; ?>>🪟 Glass Cabin</option>
+                            <option value="suite" <?php echo (($room['stay_type'] ?? '') === 'suite') ? 'selected' : ''; ?>>🏰 Luxury Suite</option>
                         </select>
                     </div>
                 </div>

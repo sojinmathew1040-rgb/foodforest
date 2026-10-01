@@ -9,10 +9,10 @@ $seasons = get_all_seasons(true);
 <section id="seasons" class="seasons-section section-padding">
     <div class="container">
         
-        <div class="seasons-header">
+        <div class="seasons-header text-center">
             <span class="section-label"><?php echo htmlspecialchars($seasons_badge); ?></span>
             <h3 class="section-title font-serif split-text" style="color: var(--accent-green);"><?php echo htmlspecialchars($seasons_title); ?></h3>
-            <p class="seasons-desc font-sans" style="color: var(--text-light);">
+            <p class="seasons-desc font-sans" style="color: var(--text-light); max-width: 720px; margin: 15px auto 0;">
                 <?php echo htmlspecialchars($seasons_desc); ?>
             </p>
         </div>

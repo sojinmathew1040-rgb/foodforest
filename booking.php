@@ -78,6 +78,15 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
 
+                    <!-- Action: Check Availability CTA Button -->
+                    <div class="ctrl-field btn-check-avail-field">
+                        <label class="ctrl-label font-sans"><i class="fa-solid fa-magnifying-glass"></i> Availability</label>
+                        <button type="button" class="btn-check-availability font-sans" id="btn-check-live-availability" title="Refresh Real-Time Chalet Availability">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <span>Check Availability</span>
+                        </button>
+                    </div>
+
                     <!-- View Switcher Tabs -->
                     <div class="ctrl-field view-switcher-field">
                         <label class="ctrl-label font-sans"><i class="fa-solid fa-sliders"></i> Layout View</label>
@@ -93,15 +102,60 @@ require_once __DIR__ . '/includes/header.php';
 
                 </div>
 
-                <!-- Stay Concept Filter Chips -->
+                <?php
+                // Dynamic Stay Category Definitions & Active Types Extraction
+                $category_definitions = [
+                    'treehouse'  => ['label' => 'Canopy Treehouse',  'icon' => '🌲'],
+                    'mudhouse'   => ['label' => 'Earthen Mudhouse',   'icon' => '🌿'],
+                    'woodhouse'  => ['label' => 'Alpine Woodhouse',   'icon' => '🪵'],
+                    'cottage'    => ['label' => 'Forest Cottage',     'icon' => '🏡'],
+                    'villa'      => ['label' => 'Sanctuary Villa',    'icon' => '🏛️'],
+                    'glasshouse' => ['label' => 'Glass Cabin',        'icon' => '🪟'],
+                    'suite'      => ['label' => 'Luxury Suite',       'icon' => '🏰']
+                ];
+
+                $active_stay_types = [];
+                $has_duplex = false;
+                $has_single = false;
+
+                foreach ($rooms as $rm) {
+                    if (!empty($rm['stay_type'])) {
+                        $st = strtolower(trim($rm['stay_type']));
+                        if (!in_array($st, $active_stay_types)) {
+                            $active_stay_types[] = $st;
+                        }
+                    }
+                    $struct = $rm['structure_type'] ?? 'single_hut';
+                    if ($struct === 'duplex_hut') {
+                        $has_duplex = true;
+                    }
+                    if ($struct === 'single_hut') {
+                        $has_single = true;
+                    }
+                }
+                ?>
+
+                <!-- Dynamic Stay Concept Filter Chips -->
                 <div class="booking-filter-chips-row">
                     <span class="chips-label font-sans"><i class="fa-solid fa-filter"></i> Filter Stays:</span>
                     <button type="button" class="chip-btn active" data-stay-filter="all">All Chalets</button>
-                    <button type="button" class="chip-btn" data-stay-filter="treehouse">🌲 Canopy Treehouse</button>
-                    <button type="button" class="chip-btn" data-stay-filter="mudhouse">🌿 Earthen Mudhouse</button>
-                    <button type="button" class="chip-btn" data-stay-filter="woodhouse">🪵 Alpine Woodhouse</button>
-                    <button type="button" class="chip-btn" data-stay-filter="duplex">🏰 Duplex Suites</button>
-                    <button type="button" class="chip-btn" data-stay-filter="single">🏡 Single Cottages</button>
+                    <?php 
+                    foreach ($active_stay_types as $st): 
+                        $meta = $category_definitions[$st] ?? [
+                            'label' => ucwords(str_replace(['_', '-'], ' ', $st)),
+                            'icon' => '🏡'
+                        ];
+                    ?>
+                        <button type="button" class="chip-btn" data-stay-filter="<?php echo htmlspecialchars($st); ?>">
+                            <?php echo $meta['icon']; ?> <?php echo htmlspecialchars($meta['label']); ?>
+                        </button>
+                    <?php endforeach; ?>
+                    <?php if ($has_duplex): ?>
+                        <button type="button" class="chip-btn" data-stay-filter="duplex">🏰 Duplex Suites</button>
+                    <?php endif; ?>
+                    <?php if ($has_single && $has_duplex): ?>
+                        <button type="button" class="chip-btn" data-stay-filter="single">🏡 Single Cottages</button>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -119,14 +173,18 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="legend-badge badge-booked"></span>
                     <strong style="color: #DC2626;">Booked / Reserved</strong>
                 </button>
+                <?php if ($has_single): ?>
                 <button type="button" class="legend-filter-btn font-sans" data-legend-filter="single" title="Filter to single cottages">
                     <span class="legend-badge badge-single"><i class="fa-solid fa-house-chimney"></i></span>
                     <span>Single Cottage</span>
                 </button>
+                <?php endif; ?>
+                <?php if ($has_duplex): ?>
                 <button type="button" class="legend-filter-btn font-sans" data-legend-filter="duplex" title="Filter to 2-room duplex chalets">
                     <span class="legend-badge badge-duplex"><i class="fa-solid fa-layer-group"></i></span>
                     <span>Duplex Chalet (2 Suites)</span>
                 </button>
+                <?php endif; ?>
                 <button type="button" class="legend-filter-btn font-sans" data-legend-filter="facilities" title="Filter to dining, plunge pool & estate amenities">
                     <span class="legend-badge badge-facility"><i class="fa-solid fa-utensils"></i></span>
                     <span>Estate Facilities</span>
@@ -305,12 +363,12 @@ require_once __DIR__ . '/includes/header.php';
                             $y_pos = (float)$sp['y_coord'];
                             $x_pos = (float)$sp['x_coord'];
                             $pos_classes = [];
-                            if ($y_pos < 36.0) {
+                            if ($y_pos <= 45.0) {
                                 $pos_classes[] = 'pos-bottom';
                             }
-                            if ($x_pos < 22.0) {
+                            if ($x_pos <= 25.0) {
                                 $pos_classes[] = 'pos-left';
-                            } elseif ($x_pos > 78.0) {
+                            } elseif ($x_pos >= 75.0) {
                                 $pos_classes[] = 'pos-right';
                             }
                             $pos_class_str = implode(' ', $pos_classes);
@@ -438,17 +496,17 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <!-- Transparent Rate Policy Card -->
-                            <div class="sac-rates-policy font-sans" style="background: rgba(197, 160, 89, 0.08); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 10px 12px; margin: 12px 0; font-size: 11.5px; color: #BAC8C0; line-height: 1.45;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; color: var(--accent-gold); font-weight: 700;">
-                                    <span><i class="fa-solid fa-shield-halved"></i> All-Inclusive Sanctuary Tariff</span>
-                                    <button type="button" onclick="openAmenitiesGuide();" style="background: none; border: none; color: #56c2c9; font-size: 11px; cursor: pointer; text-decoration: underline; padding: 0;">
+                            <div class="sac-rates-policy font-sans" style="background: rgba(197, 160, 89, 0.12); border: 1px dashed rgba(197, 160, 89, 0.5); border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 11.5px; line-height: 1.5;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; color: #8F6B2A; font-weight: 700;">
+                                    <span style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-shield-halved" style="color: var(--accent-gold);"></i> All-Inclusive Sanctuary Tariff</span>
+                                    <button type="button" onclick="openAmenitiesGuide();" style="background: none; border: none; color: #1E6B52; font-size: 11px; cursor: pointer; text-decoration: underline; font-weight: 600; padding: 0;">
                                         <i class="fa-solid fa-circle-info"></i> All 8 Amenities
                                     </button>
                                 </div>
-                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">
-                                    <span style="color: #E2E8F0;"><i class="fa-solid fa-user-plus" style="color: var(--accent-gold);"></i> Extra Adult: <strong>+₹1,500/nt</strong> (All Meals Incl.)</span>
-                                    <span style="color: #E2E8F0;"><i class="fa-solid fa-child" style="color: var(--accent-gold);"></i> Extra Child (5–11y): <strong>+₹800/nt</strong></span>
-                                    <span style="color: #4ADE80;"><i class="fa-solid fa-baby"></i> Infant (0–4y): <strong>Free</strong></span>
+                                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px;">
+                                    <span style="color: #1E3324;"><i class="fa-solid fa-user-plus" style="color: #9A7B38; margin-right: 4px;"></i> Extra Adult: <strong style="color: #0E1C13;">+₹1,500/nt</strong> (All Meals Incl.)</span>
+                                    <span style="color: #1E3324;"><i class="fa-solid fa-child" style="color: #9A7B38; margin-right: 4px;"></i> Extra Child (5–11y): <strong style="color: #0E1C13;">+₹800/nt</strong></span>
+                                    <span style="color: #166534; font-weight: 700;"><i class="fa-solid fa-baby" style="color: #166534; margin-right: 4px;"></i> Infant (0–4y): <strong>Free</strong></span>
                                 </div>
                             </div>
 
@@ -521,9 +579,9 @@ require_once __DIR__ . '/includes/header.php';
                                     <span><i class="fa-solid fa-wifi"></i> Forest Wi-Fi</span>
                                 </div>
 
-                                <div class="chalet-pricing-policy font-sans" style="font-size: 11px; color: #94A3B8; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 6px;">
-                                    <span>Extra Adult: <strong style="color: var(--accent-gold);">+₹1,500/nt</strong> • Child: <strong style="color: var(--accent-gold);">+₹800/nt</strong></span>
-                                    <button type="button" onclick="openAmenitiesGuide();" style="background: none; border: none; color: #56c2c9; font-size: 11px; cursor: pointer; text-decoration: underline;">
+                                <div class="chalet-pricing-policy font-sans" style="font-size: 11px; color: #2D4234; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed rgba(28, 56, 38, 0.16); padding-top: 6px;">
+                                    <span>Extra Adult: <strong style="color: #9A7B38;">+₹1,500/nt</strong> • Child: <strong style="color: #9A7B38;">+₹800/nt</strong></span>
+                                    <button type="button" onclick="openAmenitiesGuide();" style="background: none; border: none; color: #1E6B52; font-size: 11px; cursor: pointer; text-decoration: underline; font-weight: 600;">
                                         8 Amenities
                                     </button>
                                 </div>
@@ -668,12 +726,26 @@ window.preselectVillaSlug = <?php echo json_encode($preselect_slug); ?>;
 <script>
 function openAmenitiesGuide() {
     var m = document.getElementById('amenities-guide-modal');
-    if (m) m.style.display = 'flex';
+    if (m) {
+        m.style.display = 'flex';
+        m.style.opacity = '1';
+        m.style.pointerEvents = 'auto';
+        m.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
 }
 function closeAmenitiesGuide() {
     var m = document.getElementById('amenities-guide-modal');
-    if (m) m.style.display = 'none';
+    if (m) {
+        m.classList.remove('active');
+        m.style.display = 'none';
+        m.style.opacity = '0';
+        m.style.pointerEvents = 'none';
+        document.body.style.overflow = '';
+    }
 }
+window.openAmenitiesGuide = openAmenitiesGuide;
+window.closeAmenitiesGuide = closeAmenitiesGuide;
 </script>
 
 <?php

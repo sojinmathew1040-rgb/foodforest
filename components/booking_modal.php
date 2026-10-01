@@ -106,9 +106,9 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                 <span><i class="fa-solid fa-shower"></i> Solar Hot Water</span>
                                 <span><i class="fa-solid fa-utensils"></i> 4 Meals Incl.</span>
                             </div>
-                            <a href="#sanctuary-amenities" onclick="document.getElementById('booking-modal-close').click();" style="font-size: 11px; color: #047857; text-decoration: underline; font-weight: 700;">
-                                <i class="fa-solid fa-sparkles"></i> View 8 Categories
-                            </a>
+                            <button type="button" onclick="const currentVilla = (document.getElementById('modal-villa') ? document.getElementById('modal-villa').value : 'treehouse'); openRoomAmenitiesModal(currentVilla);" style="background: none; border: none; font-size: 11px; color: #047857; text-decoration: underline; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 0;">
+                                <i class="fa-solid fa-sparkles"></i> View All Inclusions & Amenities
+                            </button>
                         </div>
 
                         <!-- Collapsible Dropdown Selector (Hidden by default, opened via 'Change Cottage') -->
@@ -124,12 +124,22 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                             <div class="select-wrapper" style="position: relative; width: 100%;">
                                 <select id="modal-villa" class="form-input font-sans" style="color: #0F172A !important; background-color: #FFFFFF !important; font-size: 13.5px !important; font-weight: 600 !important; border: 1.5px solid rgba(28, 56, 38, 0.25) !important; border-radius: 6px !important; padding: 12px 40px 12px 14px !important; width: 100% !important; min-height: 48px !important; cursor: pointer !important; -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231C3826' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E&quot;) !important; background-repeat: no-repeat !important; background-position: right 14px center !important; background-size: 16px !important;" required>
                                     <?php
+                                    $cat_icons_map = [
+                                        'treehouse'  => '🌲 Treehouse',
+                                        'mudhouse'   => '🌿 Mudhouse',
+                                        'woodhouse'  => '🪵 Woodhouse',
+                                        'cottage'    => '🏡 Cottage',
+                                        'villa'      => '🏛️ Villa',
+                                        'glasshouse' => '🪟 Glasshouse',
+                                        'suite'      => '🏰 Suite'
+                                    ];
                                     if (!empty($modal_villas)):
                                         $v_idx = 0;
                                         foreach ($modal_villas as $mv):
                                             $struct = $mv['structure_type'] ?? 'single_hut';
                                             $struct_label = ($struct === 'duplex_hut') ? 'Duplex (2-Room Suite)' : 'Single Cottage';
-                                            $cat_icon = ($mv['stay_type'] === 'mudhouse') ? '🌿 Mudhouse' : '🌲 Treehouse';
+                                            $mv_st = strtolower(trim($mv['stay_type'] ?? 'treehouse'));
+                                            $cat_icon = $cat_icons_map[$mv_st] ?? ('🏡 ' . ucfirst($mv_st));
                                     ?>
                                         <option value="<?php echo htmlspecialchars($mv['slug']); ?>" 
                                                 <?php echo ($v_idx === 0) ? 'selected' : ''; ?>

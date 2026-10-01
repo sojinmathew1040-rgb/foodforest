@@ -77,9 +77,12 @@ if (!empty($all_header_rooms)) {
     }, $all_header_rooms);
     $min_start_rate = min($rates);
 }
+$is_home = (basename($_SERVER['PHP_SELF']) == 'index.php' || basename($_SERVER['PHP_SELF']) == '');
+$nav_prefix = $is_home ? '' : 'index.php';
+$is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
 ?>
     <!-- Luxury Header Wrapper (Coordinates Top Announcement & Main Navigation) -->
-    <div class="site-header-wrapper" id="site-header-wrapper">
+    <div class="site-header-wrapper <?php echo !$is_home ? 'solid-header' : ''; ?>" id="site-header-wrapper">
         <!-- Top Luxury Announcement & Ambient Audio Bar -->
         <div class="top-announcement-bar" id="top-announcement-bar">
             <div class="top-announcement-container">
@@ -121,16 +124,12 @@ if (!empty($all_header_rooms)) {
                     <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
                 </a>
 
-                <?php
-                $is_home = (basename($_SERVER['PHP_SELF']) == 'index.php' || basename($_SERVER['PHP_SELF']) == '');
-                $nav_prefix = $is_home ? '' : 'index.php';
-                ?>
                 <!-- Editorial Nav Links -->
                 <nav class="nav-links font-sans">
                     <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
                     <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
                     <a href="<?php echo $nav_prefix; ?>#sanctuary-amenities" class="nav-item magnetic" data-strength="10">Amenities</a>
-                    <a href="booking.php" class="nav-item magnetic" data-strength="10" style="color: var(--accent-gold); font-weight: 700;"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
+                    <a href="booking.php" class="nav-item magnetic <?php echo $is_booking_page ? 'active nav-item-booking' : ''; ?>" data-strength="10"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
                     <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
                     <a href="<?php echo $nav_prefix; ?>#dining" class="nav-item magnetic" data-strength="10">Food Menu</a>
                     <a href="<?php echo $nav_prefix; ?>#sanctuary" class="nav-item magnetic" data-strength="10">Landscape</a>

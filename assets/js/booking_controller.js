@@ -59,9 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
     nodes.forEach(node => {
         const topVal = parseFloat(node.style.top || "50");
         const leftVal = parseFloat(node.style.left || "50");
-        if (topVal < 36) node.classList.add('pos-bottom');
-        if (leftVal < 22) node.classList.add('pos-left');
-        else if (leftVal > 78) node.classList.add('pos-right');
+        if (topVal <= 45) node.classList.add('pos-bottom');
+        if (leftVal <= 25) node.classList.add('pos-left');
+        else if (leftVal >= 75) node.classList.add('pos-right');
     });
 
     // State
@@ -528,27 +528,77 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // 10.1 Dedicated "Check Availability" CTA Button Trigger
+    const btnCheckLiveAvail = document.getElementById('btn-check-live-availability');
+    if (btnCheckLiveAvail) {
+        btnCheckLiveAvail.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            // Date validation
+            if (!checkinInput || !checkoutInput) return;
+            const cin = checkinInput.value;
+            const cout = checkoutInput.value;
+
+            if (!cin || !cout) {
+                alert('Please select both Check-In and Check-Out dates.');
+                return;
+            }
+
+            const d1 = new Date(cin);
+            const d2 = new Date(cout);
+            if (d2 <= d1) {
+                alert('Check-Out date must be at least 1 day after Check-In date.');
+                return;
+            }
+
+            // Visual feedback on button
+            btnCheckLiveAvail.classList.add('is-loading');
+            const originalHTML = btnCheckLiveAvail.innerHTML;
+            btnCheckLiveAvail.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Checking...</span>';
+
+            // Recalculate sidebar pricing for updated dates and guests
+            recalculateSidebarPricing();
+
+            // Add subtle refresh pulse to content below (map or grid)
+            const currentLayout = (viewBtnGrid && viewBtnGrid.classList.contains('active')) ? gridLayout : mapLayout;
+            if (currentLayout) {
+                currentLayout.classList.remove('refreshed-pulse');
+                void currentLayout.offsetWidth; // Trigger reflow
+                currentLayout.classList.add('refreshed-pulse');
+            }
+
+            // Trigger live availability API query
+            await fetchLiveAvailabilityForDates(true);
+
+            // Button success state
+            btnCheckLiveAvail.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #4ADE80;"></i> <span>Updated</span>';
+
+            setTimeout(() => {
+                btnCheckLiveAvail.classList.remove('is-loading');
+                btnCheckLiveAvail.innerHTML = originalHTML;
+            }, 1200);
+        });
+    }
+
     // 11. Filter Chips Handling
     filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             filterBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
-            const filter = btn.getAttribute('data-stay-filter');
+            const filter = (btn.getAttribute('data-stay-filter') || 'all').toLowerCase().trim();
             let firstVisibleSpotId = null;
 
             nodes.forEach(node => {
                 const isStay = node.getAttribute('data-is-stay') === '1';
-                const stayCat = node.getAttribute('data-stay-cat') || '';
-                const struct = node.getAttribute('data-structure') || '';
+                const stayCat = (node.getAttribute('data-stay-cat') || '').toLowerCase().trim();
+                const struct = (node.getAttribute('data-structure') || '').toLowerCase().trim();
 
                 let match = false;
                 if (filter === 'all') match = true;
-                else if (filter === 'treehouse') match = (stayCat === 'treehouse' && isStay);
-                else if (filter === 'mudhouse') match = (stayCat === 'mudhouse' && isStay);
-                else if (filter === 'woodhouse') match = (stayCat === 'woodhouse' && isStay);
                 else if (filter === 'duplex') match = (struct === 'duplex_hut' && isStay);
                 else if (filter === 'single') match = (struct === 'single_hut' && isStay);
+                else match = (stayCat === filter && isStay);
 
                 if (match) {
                     node.style.display = 'block';
@@ -563,16 +613,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Filter Grid Cards as well
             document.querySelectorAll('.chalet-card').forEach(card => {
-                const cardCat = card.getAttribute('data-stay-cat');
-                const cardStruct = card.getAttribute('data-structure');
+                const cardCat = (card.getAttribute('data-stay-cat') || '').toLowerCase().trim();
+                const cardStruct = (card.getAttribute('data-structure') || '').toLowerCase().trim();
                 let match = false;
                 if (filter === 'all') match = true;
-                else if (filter === 'treehouse') match = (cardCat === 'treehouse');
-                else if (filter === 'mudhouse') match = (cardCat === 'mudhouse');
-                else if (filter === 'woodhouse') match = (cardCat === 'woodhouse');
                 else if (filter === 'duplex') match = (cardStruct === 'duplex_hut');
                 else if (filter === 'single') match = (cardStruct === 'single_hut');
-                else match = true;
+                else match = (cardCat === filter);
 
                 card.style.display = match ? 'flex' : 'none';
             });

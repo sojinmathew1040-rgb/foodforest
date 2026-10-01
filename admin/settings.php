@@ -73,6 +73,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'download_backup') {
 
         // Also refresh the disk backups
         @file_put_contents(__DIR__ . '/../foodforest.sql', $sql_dump);
+        @file_put_contents(__DIR__ . '/../db/foodforest.sql', $sql_dump);
+        @file_put_contents(__DIR__ . '/../backup/foodforest_backup.sql', $sql_dump);
         @file_put_contents(__DIR__ . '/data/foodforest.sql', $sql_dump);
 
         header('Content-Type: application/sql; charset=utf-8');

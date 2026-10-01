@@ -11,9 +11,6 @@ require_once 'components/welcome.php';
 // Load 3D WebGL Rooms & Luxury Stays Showcase Section
 require_once 'components/rooms.php';
 
-// Load Categorized Amenities & Sanctuary Facilities Section
-require_once 'components/amenities.php';
-
 // Load Curated Experiences Section
 require_once 'components/experiences.php';
 
@@ -37,6 +34,9 @@ require_once 'components/testimonials.php';
 
 // Load Interactive Luxury Reservation Concierge Modal
 require_once 'components/booking_modal.php';
+
+// Load Chalet Inclusions & Room Amenities Modal
+require_once 'components/room_amenities_modal.php';
 
 // Load Footer
 require_once 'includes/footer.php';

@@ -184,3 +184,73 @@ $duplex_single_rate = $duplex_room ? (float)($duplex_room['single_room_rate'] ??
 
     </div>
 </div>
+
+<script>
+function openDuplexExplainer() {
+    var modal = document.getElementById('duplex-explainer-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.opacity = '1';
+        modal.style.visibility = 'visible';
+        modal.style.pointerEvents = 'auto';
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        var currentModalTier = document.querySelector('input[name="modal_tier"]:checked')?.value || 
+                               document.querySelector('input[name="sac_tier_choice"]:checked')?.value || 'full';
+        selectDuplexOption(currentModalTier);
+    }
+}
+window.openDuplexExplainer = openDuplexExplainer;
+
+function closeDuplexExplainer() {
+    var modal = document.getElementById('duplex-explainer-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+        modal.style.opacity = '0';
+        modal.style.visibility = 'hidden';
+        modal.style.pointerEvents = 'none';
+        var bModal = document.getElementById('booking-modal');
+        if (!bModal || !bModal.classList.contains('active')) {
+            document.body.style.overflow = '';
+        }
+    }
+}
+window.closeDuplexExplainer = closeDuplexExplainer;
+
+function selectDuplexOption(tier) {
+    var cardSingle = document.getElementById('choice-card-single');
+    var cardFull = document.getElementById('choice-card-full');
+    var radioSingle = document.getElementById('radio-choice-single');
+    var radioFull = document.getElementById('radio-choice-full');
+
+    if (tier === 'single_room') {
+        if (cardSingle) cardSingle.classList.add('active-selected');
+        if (cardFull) cardFull.classList.remove('active-selected');
+        if (radioSingle) radioSingle.checked = true;
+    } else {
+        if (cardFull) cardFull.classList.add('active-selected');
+        if (cardSingle) cardSingle.classList.remove('active-selected');
+        if (radioFull) radioFull.checked = true;
+    }
+}
+window.selectDuplexOption = selectDuplexOption;
+
+function applyDuplexChoice(tier) {
+    var modalRadio = document.querySelector('input[name="modal_tier"][value="' + tier + '"]');
+    if (modalRadio) {
+        modalRadio.checked = true;
+        modalRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    var sacRadio = document.querySelector('input[name="sac_tier_choice"][value="' + tier + '"]');
+    if (sacRadio) {
+        sacRadio.checked = true;
+        sacRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    closeDuplexExplainer();
+}
+window.applyDuplexChoice = applyDuplexChoice;
+</script>

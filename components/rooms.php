@@ -96,9 +96,15 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
 
         <!-- Persistent Top Header -->
         <div class="treehouse-tour-header">
-            <div class="tour-badge-row">
-                <span class="tour-sub font-sans" id="tour-concept-badge"><?php echo htmlspecialchars($active_tour_stages['badge'] ?? 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR'); ?></span>
-                <span class="gimbal-live-pill font-sans"><span class="rec-dot"></span> 360° CINEMATIC WALKTHROUGH</span>
+            <div class="tour-badge-row" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span class="tour-sub font-sans" id="tour-concept-badge"><?php echo htmlspecialchars($active_tour_stages['badge'] ?? 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR'); ?></span>
+                    <span class="gimbal-live-pill font-sans"><span class="rec-dot"></span> 360° CINEMATIC WALKTHROUGH</span>
+                </div>
+                <button type="button" class="tour-amenities-explore-btn font-sans" onclick="openRoomAmenitiesModal(window.currentActiveTourStay || '<?php echo $default_stay; ?>');" title="View all verified inclusions and facilities for this chalet" style="background: rgba(197, 160, 89, 0.18); border: 1px solid rgba(197, 160, 89, 0.45); color: #F5E8C7; padding: 6px 13px; border-radius: 20px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s ease;">
+                    <i class="fa-solid fa-sparkles" style="color: #C5A059;"></i>
+                    <span>Chalet Inclusions & Amenities</span>
+                </button>
             </div>
             <h2 class="tour-title font-serif" id="tour-main-title"><?php echo htmlspecialchars($active_initial_stay['title']); ?></h2>
             <p class="tour-subtitle font-sans" id="tour-main-subtitle"><?php echo htmlspecialchars($active_tour_stages['subtitle'] ?? 'Scroll down to fly from the misty forest canopy directly inside the 360° suite.'); ?></p>
@@ -117,6 +123,12 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
             <p class="stage-text font-sans" id="stage1-text">
                 <?php echo htmlspecialchars($active_tour_stages['stages'][0]['text'] ?? $active_initial_stay['description']); ?>
             </p>
+            <div style="margin-top: 10px; margin-bottom: 8px;">
+                <button type="button" class="font-sans" onclick="openRoomAmenitiesModal(window.currentActiveTourStay || '<?php echo $default_stay; ?>');" style="background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.35); color: #F5E8C7; padding: 6px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-sparkles" style="color: #C5A059;"></i>
+                    <span>View Room Inclusions (Wi-Fi, Meals, En-Suite)</span>
+                </button>
+            </div>
             <div class="tour-scroll-guide font-sans">
                 <div class="mouse-scroll-icon"><span class="wheel-dot"></span></div>
                 <span>Scroll down to step inside</span>
@@ -157,10 +169,16 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
             <p class="stage-text font-sans" id="stage5-text">
                 <?php echo htmlspecialchars($active_tour_stages['stages'][4]['text'] ?? 'Warm authentic stone fireplace with crackling hearth wood, curved luxury sofa, and library nook to relax on crisp mountain evenings.'); ?>
             </p>
-            <button type="button" class="btn-primary tour-cta-btn open-booking-modal-btn font-sans" id="tour-cta-btn" data-villa="<?php echo $default_stay; ?>">
-                <span id="tour-cta-label">Reserve <?php echo htmlspecialchars($active_initial_stay['title']); ?></span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;">
+                <button type="button" class="btn-primary tour-cta-btn open-booking-modal-btn font-sans" id="tour-cta-btn" data-villa="<?php echo $default_stay; ?>" style="flex: 1; min-width: 170px;">
+                    <span id="tour-cta-label">Reserve <?php echo htmlspecialchars($active_initial_stay['title']); ?></span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <button type="button" class="font-sans" onclick="openRoomAmenitiesModal(window.currentActiveTourStay || '<?php echo $default_stay; ?>');" title="View all verified inclusions and facilities for this chalet" style="background: rgba(197, 160, 89, 0.18); border: 1px solid rgba(197, 160, 89, 0.45); color: #F5E8C7; padding: 10px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-sparkles" style="color: #C5A059;"></i>
+                    <span>Inclusions</span>
+                </button>
+            </div>
         </div>
 
         <!-- Mobile Stage Stepper Bar (visible on mobile only) -->
@@ -232,10 +250,15 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
                     <p class="font-sans">
                         <?php echo htmlspecialchars($treehouse['description']); ?>
                     </p>
-                    <button type="button" class="btn-primary open-booking-modal-btn font-sans" data-villa="treehouse" style="margin-top: 15px; width: 100%;">
-                        <span>Reserve <?php echo htmlspecialchars($treehouse['title']); ?></span>
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </button>
+                    <div style="display: flex; gap: 8px; margin-top: 15px;">
+                        <button type="button" class="btn-primary open-booking-modal-btn font-sans" data-villa="treehouse" style="flex: 1;">
+                            <span>Reserve <?php echo htmlspecialchars($treehouse['title']); ?></span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <button type="button" class="font-sans" onclick="openRoomAmenitiesModal('treehouse')" style="background: rgba(197, 160, 89, 0.18); border: 1px solid rgba(197, 160, 89, 0.45); color: #F5E8C7; padding: 10px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+                            <i class="fa-solid fa-sparkles" style="color: #C5A059;"></i> Inclusions
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -250,10 +273,15 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
                     <p class="font-sans">
                         <?php echo htmlspecialchars($mudhouse['description']); ?>
                     </p>
-                    <button type="button" class="btn-primary open-booking-modal-btn font-sans" data-villa="mudhouse" style="margin-top: 15px; width: 100%;">
-                        <span>Reserve <?php echo htmlspecialchars($mudhouse['title']); ?></span>
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </button>
+                    <div style="display: flex; gap: 8px; margin-top: 15px;">
+                        <button type="button" class="btn-primary open-booking-modal-btn font-sans" data-villa="mudhouse" style="flex: 1;">
+                            <span>Reserve <?php echo htmlspecialchars($mudhouse['title']); ?></span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <button type="button" class="font-sans" onclick="openRoomAmenitiesModal('mudhouse')" style="background: rgba(197, 160, 89, 0.18); border: 1px solid rgba(197, 160, 89, 0.45); color: #F5E8C7; padding: 10px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">
+                            <i class="fa-solid fa-sparkles" style="color: #C5A059;"></i> Inclusions
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

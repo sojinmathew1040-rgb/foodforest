@@ -52,25 +52,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $target_status = $_POST['target_status'] ?? 'confirmed';
 
             if ($target_status === 'inhouse') {
-                // Revert Check-Out: Restore to In-House and clear check-out timestamp
-                $stmt = $pdo->prepare("UPDATE bookings SET status = 'inhouse', checked_out_at = NULL WHERE id = ?");
+                // Revert to In-House (Undo Check-Out or Direct Check-In): Ensure checked_in_at is set, clear checked_out_at
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'inhouse', checked_in_at = COALESCE(checked_in_at, NOW()), checked_out_at = NULL WHERE id = ?");
                 $stmt->execute([$b_id]);
-                $alert_message = 'Check-Out successfully reverted. Reservation is now active as In-House.';
+                $alert_message = 'Reservation successfully changed/reverted to In-House (Active Guest).';
             } elseif ($target_status === 'confirmed') {
-                // Revert Check-In / Revert Cancel: Restore to Confirmed
+                // Revert to Confirmed (Undo Check-In / Revert Cancel): Clear in/out timestamps
                 $stmt = $pdo->prepare("UPDATE bookings SET status = 'confirmed', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
                 $stmt->execute([$b_id]);
                 $alert_message = 'Status successfully reverted to Confirmed (Upcoming Arrival).';
             } elseif ($target_status === 'pending') {
-                // Reset to Pending Review
+                // Reset to Pending Review: Clear in/out timestamps
                 $stmt = $pdo->prepare("UPDATE bookings SET status = 'pending', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
                 $stmt->execute([$b_id]);
                 $alert_message = 'Reservation reset to Pending Review status.';
+            } elseif ($target_status === 'completed') {
+                // Mark Checked-Out & Completed
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'completed', checked_in_at = COALESCE(checked_in_at, NOW()), checked_out_at = COALESCE(checked_out_at, NOW()) WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = 'Reservation marked as Checked-Out & Completed.';
             } elseif ($target_status === 'waitlist') {
                 // Move to Waitlist
                 $stmt = $pdo->prepare("UPDATE bookings SET status = 'waitlist', checked_in_at = NULL, checked_out_at = NULL WHERE id = ?");
                 $stmt->execute([$b_id]);
                 $alert_message = 'Reservation moved to Waiting List.';
+            } elseif ($target_status === 'cancelled' || $target_status === 'rejected') {
+                // Cancel Reservation
+                $stmt = $pdo->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ?");
+                $stmt->execute([$b_id]);
+                $alert_message = 'Reservation marked as Cancelled.';
             }
         }
 
@@ -675,7 +685,7 @@ function build_tab_url($tab_name, $current_params = []) {
                             </td>
                             <td class="adm-col-actions">
                                 <div class="adm-actions-cell">
-                                    <!-- Dynamic Context-Aware Primary Stage Action & Revert Options -->
+                                    <!-- Dynamic Context-Aware Primary Stage Action & Direct Revert Buttons -->
                                     <?php if ($st === 'pending'): ?>
                                         <form method="POST" style="display:inline; margin:0;" title="Approve & Confirm Reservation">
                                             <input type="hidden" name="action" value="update_status">
@@ -698,10 +708,21 @@ function build_tab_url($tab_name, $current_params = []) {
                                             </button>
                                         </form>
                                     <?php elseif ($st === 'inhouse'): ?>
-                                        <!-- Check-Out Guest with Stay Audit & Verification Wizard -->
-                                        <button type="button" class="adm-btn-stage checkout" title="Audit Stay & Check-Out Guest" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
-                                            <i class="fa-solid fa-door-open"></i>
-                                            <span>Check-Out</span>
+                                        <!-- Direct Check-Out Guest Button -->
+                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Check-Out guest <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?>? Status will be updated to Checked-Out &amp; Completed.');" title="Check-Out Guest">
+                                            <input type="hidden" name="action" value="update_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="status" value="completed">
+                                            <button type="submit" class="adm-btn-stage checkout" title="Direct Check-Out (Mark Completed)">
+                                                <i class="fa-solid fa-door-open"></i>
+                                                <span>Check-Out</span>
+                                            </button>
+                                        </form>
+                                        <!-- Stay Audit & Verification Wizard -->
+                                        <button type="button" class="adm-btn-stage" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35); color: #c084fc;" title="Audit Room, Food &amp; Experiences before Check-Out" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
+                                            <i class="fa-solid fa-list-check"></i>
+                                            <span>Audit</span>
                                         </button>
                                         <!-- Revert Check-In back to Confirmed -->
                                         <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Revert Check-In for <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?>? Status will be restored to Confirmed Upcoming.');" title="Revert Check-In (Restore to Confirmed Upcoming)">
@@ -721,9 +742,20 @@ function build_tab_url($tab_name, $current_params = []) {
                                             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                                             <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
                                             <input type="hidden" name="target_status" value="inhouse">
-                                            <button type="submit" class="adm-btn-stage revert-checkout" title="Revert Check-Out (Undo departure)">
+                                            <button type="submit" class="adm-btn-stage revert-checkout" title="Revert Check-Out (Undo departure & resume stay)">
                                                 <i class="fa-solid fa-rotate-left"></i>
                                                 <span>Revert Out</span>
+                                            </button>
+                                        </form>
+                                        <!-- Revert direct to Confirmed -->
+                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Revert Check-Out and return <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?> back to Confirmed Upcoming?');" title="Revert to Confirmed (Reset stay to upcoming)">
+                                            <input type="hidden" name="action" value="revert_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="target_status" value="confirmed">
+                                            <button type="submit" class="adm-btn-stage revert-cancel" title="Revert completely to Confirmed Upcoming">
+                                                <i class="fa-solid fa-calendar-check"></i>
+                                                <span>To Confirmed</span>
                                             </button>
                                         </form>
                                     <?php elseif ($st === 'cancelled' || $st === 'rejected'): ?>
@@ -762,6 +794,16 @@ function build_tab_url($tab_name, $current_params = []) {
                                             </button>
                                         </form>
                                     <?php elseif ($st === 'waitlist'): ?>
+                                        <form method="POST" style="display:inline; margin:0;" title="Confirm Reservation">
+                                            <input type="hidden" name="action" value="revert_status">
+                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                            <input type="hidden" name="target_status" value="confirmed">
+                                            <button type="submit" class="adm-btn-stage approve" title="Confirm Reservation from Waitlist">
+                                                <i class="fa-solid fa-circle-check"></i>
+                                                <span>Confirm</span>
+                                            </button>
+                                        </form>
                                         <form method="POST" style="display:inline; margin:0;" title="Check-In Guest (Mark In-House)">
                                             <input type="hidden" name="action" value="update_status">
                                             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
@@ -772,17 +814,37 @@ function build_tab_url($tab_name, $current_params = []) {
                                                 <span>Check-In</span>
                                             </button>
                                         </form>
-                                        <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Reset waitlist reservation back to Pending Review?');" title="Reset to Pending Review">
-                                            <input type="hidden" name="action" value="revert_status">
-                                            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
-                                            <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
-                                            <input type="hidden" name="target_status" value="pending">
-                                            <button type="submit" class="adm-btn-stage revert-pending" title="Reset status to Pending Review">
-                                                <i class="fa-solid fa-clock-rotate-left"></i>
-                                                <span>To Pending</span>
-                                            </button>
-                                        </form>
                                     <?php endif; ?>
+
+                                    <!-- Universal Revert / Status Switcher Dropdown -->
+                                    <div class="adm-dropdown-wrap">
+                                        <button type="button" class="adm-btn-icon" style="color: #60a5fa; border-color: rgba(96, 165, 250, 0.35); background: rgba(96, 165, 250, 0.12);" title="Revert or Change Status to any Stage" onclick="toggleStatusDropdown(this, event);">
+                                            <i class="fa-solid fa-arrows-rotate"></i>
+                                        </button>
+                                        <div class="adm-dropdown-menu">
+                                            <div class="adm-dropdown-header">
+                                                <i class="fa-solid fa-sliders"></i> Revert / Change Status
+                                            </div>
+                                            <button type="button" class="adm-dropdown-item opt-pending" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'pending', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Pending Review');">
+                                                <i class="fa-solid fa-clock"></i> Revert to Pending Review
+                                            </button>
+                                            <button type="button" class="adm-dropdown-item opt-confirmed" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'confirmed', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Confirmed (Upcoming)');">
+                                                <i class="fa-solid fa-calendar-check"></i> Revert / Set Confirmed
+                                            </button>
+                                            <button type="button" class="adm-dropdown-item opt-inhouse" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'inhouse', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'In-House (Active Stay)');">
+                                                <i class="fa-solid fa-hotel"></i> Revert / Set In-House
+                                            </button>
+                                            <button type="button" class="adm-dropdown-item opt-checkout" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'completed', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Checked-Out & Completed');">
+                                                <i class="fa-solid fa-door-open"></i> Mark Checked-Out
+                                            </button>
+                                            <button type="button" class="adm-dropdown-item opt-waitlist" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'waitlist', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Waiting List');">
+                                                <i class="fa-solid fa-user-clock"></i> Move to Waiting List
+                                            </button>
+                                            <button type="button" class="adm-dropdown-item opt-cancel" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'cancelled', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Cancelled');">
+                                                <i class="fa-solid fa-ban"></i> Cancel Reservation
+                                            </button>
+                                        </div>
+                                    </div>
 
                                     <!-- WhatsApp Concierge Direct Action -->
                                     <button type="button" class="adm-btn-icon whatsapp" title="Send WhatsApp Concierge Message"
@@ -1042,29 +1104,33 @@ function build_tab_url($tab_name, $current_params = []) {
                     </div>
                 </div>
 
-                <!-- Fast 1-Click Concierge Stage Buttons -->
+                <!-- Fast 1-Click Concierge Stage & Revert Buttons -->
                 <div style="margin-bottom: 18px;">
-                    <label class="adm-label" style="margin-bottom: 8px;">1-Click Concierge Actions</label>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px;">
-                        <button type="button" class="adm-btn-action emerald" style="padding: 9px 10px; font-weight: 700; font-size: 11.5px; justify-content: center;" onclick="quickSetModalStatus('confirmed');" title="Approve & Confirm Reservation">
-                            <i class="fa-solid fa-circle-check"></i>
-                            <span>Approve</span>
+                    <label class="adm-label" style="margin-bottom: 8px;">1-Click Concierge & Revert Actions</label>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 8px;">
+                        <button type="button" class="adm-btn-action outline" style="padding: 9px 8px; font-weight: 700; font-size: 11.5px; justify-content: center; color: #cbd5e1; border-color: rgba(148, 163, 184, 0.4);" onclick="quickSetModalStatus('pending');" title="Revert to Pending Review">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <span>To Pending</span>
                         </button>
-                        <button type="button" class="adm-btn-action cyan" style="padding: 9px 10px; font-weight: 700; font-size: 11.5px; justify-content: center; background: rgba(6, 182, 212, 0.18); border: 1px solid rgba(6, 182, 212, 0.4); color: #22d3ee;" onclick="quickSetModalStatus('inhouse');" title="Guest Arrival / Check-In">
+                        <button type="button" class="adm-btn-action emerald" style="padding: 9px 8px; font-weight: 700; font-size: 11.5px; justify-content: center;" onclick="quickSetModalStatus('confirmed');" title="Confirm / Revert to Confirmed">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Confirm</span>
+                        </button>
+                        <button type="button" class="adm-btn-action cyan" style="padding: 9px 8px; font-weight: 700; font-size: 11.5px; justify-content: center; background: rgba(6, 182, 212, 0.18); border: 1px solid rgba(6, 182, 212, 0.4); color: #22d3ee;" onclick="quickSetModalStatus('inhouse');" title="Check-In / Revert to In-House">
                             <i class="fa-solid fa-hotel"></i>
                             <span>Check-In</span>
                         </button>
-                        <button type="button" class="adm-btn-action purple" style="padding: 9px 10px; font-weight: 700; font-size: 11.5px; justify-content: center; background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc;" onclick="quickSetModalStatus('completed');" title="Guest Departure / Check-Out">
+                        <button type="button" class="adm-btn-action purple" style="padding: 9px 8px; font-weight: 700; font-size: 11.5px; justify-content: center; background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.4); color: #c084fc;" onclick="quickSetModalStatus('completed');" title="Guest Departure / Check-Out">
                             <i class="fa-solid fa-door-open"></i>
                             <span>Check-Out</span>
                         </button>
-                        <button type="button" class="adm-btn-action amber" style="padding: 9px 10px; font-weight: 700; font-size: 11.5px; justify-content: center; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24;" onclick="quickSetModalStatus('waitlist');" title="Move to Waiting List">
+                        <button type="button" class="adm-btn-action amber" style="padding: 9px 8px; font-weight: 700; font-size: 11.5px; justify-content: center; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24;" onclick="quickSetModalStatus('waitlist');" title="Move to Waiting List">
                             <i class="fa-solid fa-user-clock"></i>
                             <span>Waitlist</span>
                         </button>
-                        <button type="button" class="adm-btn-action danger" style="padding: 9px 10px; font-weight: 700; font-size: 11.5px; justify-content: center;" onclick="quickSetModalStatus('cancelled');" title="Reject / Cancel Reservation">
+                        <button type="button" class="adm-btn-action danger" style="padding: 9px 8px; font-weight: 700; font-size: 11.5px; justify-content: center;" onclick="quickSetModalStatus('cancelled');" title="Reject / Cancel Reservation">
                             <i class="fa-solid fa-ban"></i>
-                            <span>Reject</span>
+                            <span>Cancel</span>
                         </button>
                     </div>
                 </div>
@@ -1107,12 +1173,45 @@ function build_tab_url($tab_name, $current_params = []) {
             <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
             <input type="hidden" name="booking_id" id="modal-delete-booking-id">
         </form>
+
+        <!-- Hidden global revert form for row dropdowns -->
+        <form method="POST" id="form-global-revert" style="display:none;">
+            <input type="hidden" name="action" value="revert_status">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+            <input type="hidden" name="booking_id" id="revert-booking-id" value="">
+            <input type="hidden" name="target_status" id="revert-target-status" value="">
+        </form>
     </div>
 </div>
 
 <?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
 
 <script>
+function submitRevertStatus(bookingId, targetStatus, guestName, label) {
+    if (confirm('Revert / Change status for ' + (guestName || 'this reservation') + ' to "' + label + '"?')) {
+        document.getElementById('revert-booking-id').value = bookingId;
+        document.getElementById('revert-target-status').value = targetStatus;
+        document.getElementById('form-global-revert').submit();
+    }
+}
+
+function toggleStatusDropdown(btn, ev) {
+    if (ev) ev.stopPropagation();
+    const wrap = btn.closest('.adm-dropdown-wrap');
+    if (!wrap) return;
+    const wasActive = wrap.classList.contains('active');
+    document.querySelectorAll('.adm-dropdown-wrap.active').forEach(w => w.classList.remove('active'));
+    if (!wasActive) {
+        wrap.classList.add('active');
+    }
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.adm-dropdown-wrap')) {
+        document.querySelectorAll('.adm-dropdown-wrap.active').forEach(w => w.classList.remove('active'));
+    }
+});
+
 function openCheckoutAuditFromViewModal() {
     const bId = document.getElementById('view-booking-id').value;
     closeAdmModal('modal-view-booking');
@@ -1120,14 +1219,13 @@ function openCheckoutAuditFromViewModal() {
 }
 
 function quickSetModalStatus(statusVal) {
-    if (statusVal === 'completed') {
-        const bId = document.getElementById('view-booking-id').value;
-        closeAdmModal('modal-view-booking');
-        openCheckoutAuditModal(bId);
-        return;
-    }
     if (statusVal === 'cancelled') {
         if (!confirm('Are you sure you want to reject/cancel this reservation?')) {
+            return;
+        }
+    }
+    if (statusVal === 'completed') {
+        if (!confirm('Check-Out this guest now and mark reservation as Completed?')) {
             return;
         }
     }
