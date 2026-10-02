@@ -210,10 +210,36 @@ try {
                     'inclusions' => is_array($fi['inclusions'] ?? null) ? $fi['inclusions'] : []
                 ];
             }
+    }
+
+    // Auto-detect and include signature dining experiences (e.g. Candlelight Orchard Dinner) from addons into verified food items
+    $has_candlelight = false;
+    foreach ($verified_food_items as $vfi) {
+        if (stripos($vfi['heading'] ?? '', 'candlelight') !== false) {
+            $has_candlelight = true;
+            break;
         }
-        if (empty($verified_food_items)) {
-            $food_status = 'skipped';
-        }
+    }
+    if (!$has_candlelight && (stripos($addons, 'candlelight') !== false || (is_array($addons_input) && in_array('dinner', $addons_input)))) {
+        $verified_food_items[] = [
+            'id' => 999,
+            'category' => 'dinner',
+            'category_title' => 'Curated Dining Experience',
+            'heading' => 'Candlelight Orchard Dinner',
+            'subtitle' => 'Private 4-course dinner set under blooming apple trees',
+            'price' => 3000.00,
+            'quantity' => 1,
+            'subtotal' => 3000.00,
+            'served' => true,
+            'inclusions' => ['Private 4-course dinner', 'Under blooming apple trees', 'Curated table setting'],
+            'special_notes' => $special_notes
+        ];
+        $food_total += 3000.00;
+        $food_status = 'selected';
+    }
+
+    if (empty($verified_food_items)) {
+        $food_status = 'skipped';
     }
 
     // Billing & GST Calculation

@@ -113,18 +113,32 @@
                         <!-- Dynamically populated from room's inventory checklist -->
                     </div>
 
-                    <!-- Missing Asset Penalty Card -->
-                    <div id="audit-damage-penalty-box" style="display: none; background: rgba(239, 68, 68, 0.08); border: 1px dashed rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 12px 14px; margin-top: 10px;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; color: #F87171; font-size: 12.5px; font-weight: 700;">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                            <span>Missing / Damaged Asset Incidentals</span>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
-                            <input type="text" id="audit-damage-notes" class="adm-input" placeholder="Notes (e.g. Missing LED Torch & Broken Ceramic Mug)" style="font-size: 12px; padding: 6px 10px;">
-                            <div style="position: relative;">
-                                <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #F87171; font-weight: 700;">₹</span>
-                                <input type="number" id="audit-damage-penalty-fee" class="adm-input" placeholder="Damage Fee" min="0" step="50" style="padding-left: 24px; font-size: 12px;" oninput="updateAuditFinalCalculations();">
+                    <!-- Missing & Damaged Asset Assessment: Individual Item Breakdown -->
+                    <div id="audit-damage-penalty-box" style="display: none; background: rgba(239, 68, 68, 0.06); border: 1px dashed rgba(239, 68, 68, 0.4); border-radius: 10px; padding: 16px; margin-top: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; color: #F87171; font-size: 13.5px; font-weight: 700;">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <span>Missing / Damaged Room Asset Penalties (Per-Item Assessment)</span>
+                                </div>
+                                <div style="font-size: 11.5px; color: var(--adm-text-muted); margin-top: 2px;">
+                                    Assign an individual replacement/repair fee for each missing item. Each will be billed as a separate line item on the invoice.
+                                </div>
                             </div>
+                            <button type="button" class="adm-btn-action" onclick="addCustomDamageItemRow();" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #F87171; font-size: 11.5px; padding: 5px 12px;">
+                                <i class="fa-solid fa-plus"></i> Add Other Damage / Cleaning Fee
+                            </button>
+                        </div>
+
+                        <!-- Itemized list container for each missing item -->
+                        <div id="audit-missing-items-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+                            <!-- Dynamically populated with individual cards per missing item -->
+                        </div>
+
+                        <!-- Summary footer with live total -->
+                        <div style="display: flex; justify-content: flex-end; align-items: center; border-top: 1px dashed rgba(239, 68, 68, 0.25); padding-top: 10px; gap: 10px;">
+                            <span style="font-size: 12.5px; color: var(--adm-text-secondary);">Total Asset Penalties:</span>
+                            <strong id="audit-damage-total-display" style="color: #F87171; font-size: 16px; font-family: monospace;">₹0.00</strong>
                         </div>
                     </div>
                 </div>
@@ -146,7 +160,7 @@
                     </div>
                     <div style="display: flex; gap: 6px;">
                         <button type="button" class="adm-btn-action outline" onclick="checkAllAuditFood(true);" style="font-size: 11.5px; padding: 5px 10px;">
-                            <i class="fa-solid fa-check-double"></i> Mark All as Served
+                            <i class="fa-solid fa-check-double"></i> Mark All Provided
                         </button>
                     </div>
                 </div>
@@ -156,24 +170,80 @@
                     <!-- Dynamically populated per-dish items -->
                 </div>
 
-                <!-- Fast Add Extra Food Item -->
-                <div style="background: var(--adm-bg-card); border: 1px dashed var(--adm-border-subtle); border-radius: 8px; padding: 14px; margin-top: 10px;">
-                    <span style="font-size: 12px; font-weight: 700; color: var(--adm-gold-light); display: block; margin-bottom: 8px;">
-                        <i class="fa-solid fa-plus-circle"></i> Add Additional On-Arrival Meal / Incidentals
-                    </span>
-                    <div style="display: grid; grid-template-columns: 1.5fr 1fr 80px 100px auto; gap: 8px; align-items: center;">
-                        <input type="text" id="extra-food-heading" class="adm-input" placeholder="Dish name (e.g. Bamboo Biryani)" style="padding: 6px 10px; font-size: 12.5px;">
-                        <select id="extra-food-category" class="adm-input" style="padding: 6px 8px; font-size: 12px;">
-                            <option value="lunch">Lunch</option>
-                            <option value="dinner">Dinner</option>
-                            <option value="snacks">Evening Snacks</option>
-                            <option value="breakfast">Breakfast</option>
-                        </select>
-                        <input type="number" id="extra-food-qty" class="adm-input" placeholder="Qty" value="1" min="1" max="20" style="padding: 6px 8px; font-size: 12.5px; text-align: center;">
-                        <input type="number" id="extra-food-price" class="adm-input" placeholder="Price (₹)" min="0" step="50" style="padding: 6px 8px; font-size: 12.5px;">
-                        <button type="button" class="adm-btn-action gold" onclick="addCustomAuditFoodItem();" style="padding: 7px 12px; font-size: 12px;">
-                            <i class="fa-solid fa-plus"></i> Add
-                        </button>
+                <!-- Add Meals to Folio: Dropdown from Restaurant Food Menu or Custom Entry -->
+                <div style="background: var(--adm-bg-card); border: 1px solid var(--adm-border-subtle); border-radius: 10px; padding: 16px; margin-top: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size: 13px; font-weight: 700; color: var(--adm-gold-light); display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-plus-circle"></i> Add Dining &amp; Meals to Guest Folio
+                        </span>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" id="btn-toggle-food-menu" class="adm-btn-action gold" onclick="switchFoodAddMode('menu');" style="padding: 4px 10px; font-size: 11.5px;">
+                                <i class="fa-solid fa-book-open"></i> From Food Menu
+                            </button>
+                            <button type="button" id="btn-toggle-food-custom" class="adm-btn-action outline" onclick="switchFoodAddMode('custom');" style="padding: 4px 10px; font-size: 11.5px;">
+                                <i class="fa-solid fa-pen-to-square"></i> Custom Off-Menu Item
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mode A: Pick from Restaurant Food Menu (Dropdown) -->
+                    <div id="food-add-mode-menu" style="display: block;">
+                        <div style="display: grid; grid-template-columns: 2fr 80px 100px auto; gap: 10px; align-items: center;">
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); display: block; margin-bottom: 4px;">Choose Dish from Food Menu:</label>
+                                <select id="extra-food-menu-picker" class="adm-input" style="padding: 8px 10px; font-size: 12.5px;" onchange="onFoodMenuPickerChanged(this.value);">
+                                    <!-- Populated dynamically with optgroups by category -->
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); display: block; margin-bottom: 4px;">Qty:</label>
+                                <input type="number" id="menu-food-qty" class="adm-input" value="1" min="1" max="50" style="padding: 8px; font-size: 12.5px; text-align: center;">
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); display: block; margin-bottom: 4px;">Rate / Set (₹):</label>
+                                <div style="position: relative;">
+                                    <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--adm-gold); font-weight: 700; font-size: 12px;">₹</span>
+                                    <input type="number" id="menu-food-price" class="adm-input" placeholder="0" min="0" step="10" style="padding-left: 20px; font-size: 12.5px;">
+                                </div>
+                            </div>
+                            <div style="padding-top: 18px;">
+                                <button type="button" class="adm-btn-action gold" onclick="addSelectedMenuDishItem();" style="padding: 8px 16px; font-size: 12.5px; font-weight: 700; height: 38px;">
+                                    <i class="fa-solid fa-plus"></i> Add Dish
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mode B: Enter Custom Off-Menu Meal / Beverage -->
+                    <div id="food-add-mode-custom" style="display: none;">
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr 80px 100px auto; gap: 8px; align-items: center;">
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); display: block; margin-bottom: 4px;">Custom Dish Name:</label>
+                                <input type="text" id="extra-food-heading" class="adm-input" placeholder="e.g. Traditional Herbal Soup" style="padding: 7px 10px; font-size: 12.5px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); display: block; margin-bottom: 4px;">Category:</label>
+                                <select id="extra-food-category" class="adm-input" style="padding: 7px 8px; font-size: 12px;">
+                                    <option value="lunch">Lunch</option>
+                                    <option value="dinner">Dinner</option>
+                                    <option value="snacks">Evening Snacks</option>
+                                    <option value="breakfast">Breakfast</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); display: block; margin-bottom: 4px;">Qty:</label>
+                                <input type="number" id="extra-food-qty" class="adm-input" value="1" min="1" max="50" style="padding: 7px 8px; font-size: 12.5px; text-align: center;">
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); display: block; margin-bottom: 4px;">Price (₹):</label>
+                                <input type="number" id="extra-food-price" class="adm-input" placeholder="Price" min="0" step="50" style="padding: 7px 8px; font-size: 12.5px;">
+                            </div>
+                            <div style="padding-top: 18px;">
+                                <button type="button" class="adm-btn-action gold" onclick="addCustomAuditFoodItem();" style="padding: 8px 14px; font-size: 12.5px; height: 38px;">
+                                    <i class="fa-solid fa-plus"></i> Add
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -238,9 +308,12 @@
                             <span style="color: var(--adm-text-secondary);"><i class="fa-solid fa-sparkles" style="color: #38BDF8; margin-right: 6px;"></i> Experiences &amp; Activities:</span>
                             <strong id="audit-summary-act-rate" style="color: #38BDF8;">₹0</strong>
                         </div>
-                        <div id="audit-summary-damage-row" style="display: none; justify-content: space-between;">
-                            <span style="color: #F87171;"><i class="fa-solid fa-triangle-exclamation" style="color: #F87171; margin-right: 6px;"></i> Missing Asset Penalty:</span>
-                            <strong id="audit-summary-damage-rate" style="color: #F87171;">₹0</strong>
+                        <div id="audit-summary-damage-row" style="display: none; flex-direction: column; gap: 4px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="color: #F87171;"><i class="fa-solid fa-triangle-exclamation" style="color: #F87171; margin-right: 6px;"></i> Missing / Damaged Asset Penalties:</span>
+                                <strong id="audit-summary-damage-rate" style="color: #F87171;">₹0</strong>
+                            </div>
+                            <div id="audit-summary-damage-breakdown" style="font-size: 11px; color: #FCA5A5; font-style: italic; padding-left: 20px;"></div>
                         </div>
                         <div style="display: flex; justify-content: space-between; border-top: 1px dashed var(--adm-border-subtle); padding-top: 8px; font-size: 15px;">
                             <span style="font-weight: 700; color: #FFFFFF;">Total Reconciled Bill Amount:</span>
@@ -405,6 +478,18 @@ let auditRoomInventory = [];
 let availableMenuItems = [];
 let availableExperiences = [];
 let availableRoomsList = [];
+let customDamageItems = [];
+let foodAddMode = 'menu';
+
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function openCheckoutAuditModal(bookingInput) {
     currentAuditStep = 1;
@@ -477,6 +562,15 @@ function populateCheckoutAuditModal(b, foodList, actList, invList) {
     auditFoodItems = JSON.parse(JSON.stringify(foodList || []));
     auditActivities = JSON.parse(JSON.stringify(actList || []));
     auditRoomInventory = JSON.parse(JSON.stringify(invList || []));
+    customDamageItems = [];
+
+    // Ensure inventory items have necessary penalty fields initialized
+    auditRoomInventory.forEach(item => {
+        if (item.intact === undefined) item.intact = true;
+        if (item.penalty_fee === undefined) item.penalty_fee = 0;
+        if (item.missing_qty === undefined) item.missing_qty = item.qty || 1;
+        if (item.damage_notes === undefined) item.damage_notes = '';
+    });
 
     document.getElementById('audit-booking-id').value = b.id;
     document.getElementById('audit-ref-code').value = b.reference_code;
@@ -498,7 +592,12 @@ function populateCheckoutAuditModal(b, foodList, actList, invList) {
         `).join('');
     }
 
+    // Populate Food Menu Dropdown and set default mode
+    populateFoodMenuPickerDropdown();
+    switchFoodAddMode('menu');
+
     renderRoomInventoryList();
+    renderMissingDamageList();
     renderAuditFoodList();
     renderAuditActivitiesList();
     updateAuditFinalCalculations();
@@ -519,7 +618,9 @@ function onAllocatedRoomChanged(newSlug) {
     }
 }
 
-// 1. ROOM INVENTORY CHECKLIST
+// -------------------------------------------------------------
+// 1. ROOM INVENTORY & ITEMIZED DAMAGE / MISSING PENALTIES
+// -------------------------------------------------------------
 function renderRoomInventoryList() {
     const container = document.getElementById('audit-inventory-container');
     if (!container) return;
@@ -531,61 +632,354 @@ function renderRoomInventoryList() {
             <label class="audit-checkbox-row ${!isIntact ? 'is-missing' : ''}">
                 <input type="checkbox" class="audit-inv-chk" ${isIntact ? 'checked' : ''} onchange="toggleInventoryItem(${idx}, this.checked)">
                 <div class="chk-content">
-                    <strong>${item.item}</strong>
-                    <span>${item.notes || 'Standard Item'} • Qty: ${item.qty || 1}</span>
+                    <strong>${escapeHtml(item.item)}</strong>
+                    <span>${escapeHtml(item.notes || 'Standard Item')} • Qty: ${item.qty || 1}</span>
                 </div>
             </label>
         `;
     });
 
     container.innerHTML = html;
-    checkMissingInventoryStatus();
+    renderMissingDamageList();
 }
 
 function toggleInventoryItem(idx, isChecked) {
     if (auditRoomInventory[idx]) {
         auditRoomInventory[idx].intact = isChecked;
+        if (!isChecked && !auditRoomInventory[idx].missing_qty) {
+            auditRoomInventory[idx].missing_qty = auditRoomInventory[idx].qty || 1;
+        }
+        if (isChecked) {
+            auditRoomInventory[idx].penalty_fee = 0;
+            auditRoomInventory[idx].damage_notes = '';
+        }
     }
     renderRoomInventoryList();
 }
 
 function checkAllRoomInventory(val) {
-    auditRoomInventory.forEach(it => it.intact = val);
+    auditRoomInventory.forEach(it => {
+        it.intact = val;
+        if (!val && !it.missing_qty) {
+            it.missing_qty = it.qty || 1;
+        }
+        if (val) {
+            it.penalty_fee = 0;
+            it.damage_notes = '';
+        }
+    });
     renderRoomInventoryList();
 }
 
-function checkMissingInventoryStatus() {
-    const missing = auditRoomInventory.filter(it => it.intact === false);
-    const penaltyBox = document.getElementById('audit-damage-penalty-box');
-    if (penaltyBox) {
-        if (missing.length > 0) {
-            penaltyBox.style.display = 'block';
-            const missingNames = missing.map(m => m.item).join(', ');
-            document.getElementById('audit-damage-notes').value = 'Missing/Damaged: ' + missingNames;
-        } else {
-            penaltyBox.style.display = 'none';
-            document.getElementById('audit-damage-notes').value = '';
-            document.getElementById('audit-damage-penalty-fee').value = '';
-        }
+function restoreInventoryItem(origIdx) {
+    if (auditRoomInventory[origIdx]) {
+        auditRoomInventory[origIdx].intact = true;
+        auditRoomInventory[origIdx].penalty_fee = 0;
+        auditRoomInventory[origIdx].damage_notes = '';
+    }
+    renderRoomInventoryList();
+}
+
+function updateMissingInvQty(origIdx, val) {
+    if (auditRoomInventory[origIdx]) {
+        auditRoomInventory[origIdx].missing_qty = Math.max(1, parseInt(val, 10) || 1);
+    }
+    updateAuditFinalCalculations();
+}
+
+function updateMissingInvFee(origIdx, val) {
+    if (auditRoomInventory[origIdx]) {
+        auditRoomInventory[origIdx].penalty_fee = Math.max(0, parseFloat(val) || 0);
+    }
+    updateAuditFinalCalculations();
+}
+
+function updateMissingInvNotes(origIdx, val) {
+    if (auditRoomInventory[origIdx]) {
+        auditRoomInventory[origIdx].damage_notes = val;
     }
 }
 
-// 2. GASTRONOMY & DISH SUBSTITUTIONS
+function addCustomDamageItemRow() {
+    customDamageItems.push({
+        item_name: 'Incidental Damage / Penalty',
+        quantity: 1,
+        price: 0,
+        notes: ''
+    });
+    renderMissingDamageList();
+}
+
+function removeCustomDamageItem(cIdx) {
+    customDamageItems.splice(cIdx, 1);
+    renderMissingDamageList();
+}
+
+function updateCustomDamageField(cIdx, field, val) {
+    if (customDamageItems[cIdx]) {
+        if (field === 'price') {
+            customDamageItems[cIdx].price = Math.max(0, parseFloat(val) || 0);
+        } else if (field === 'quantity') {
+            customDamageItems[cIdx].quantity = Math.max(1, parseInt(val, 10) || 1);
+        } else {
+            customDamageItems[cIdx][field] = val;
+        }
+    }
+    updateAuditFinalCalculations();
+}
+
+function renderMissingDamageList() {
+    const penaltyBox = document.getElementById('audit-damage-penalty-box');
+    const listContainer = document.getElementById('audit-missing-items-list');
+    if (!penaltyBox || !listContainer) return;
+
+    const missingInv = auditRoomInventory
+        .map((it, idx) => ({ ...it, origIdx: idx }))
+        .filter(it => it.intact === false);
+
+    if (missingInv.length === 0 && customDamageItems.length === 0) {
+        penaltyBox.style.display = 'none';
+        listContainer.innerHTML = '';
+        updateAuditFinalCalculations();
+        return;
+    }
+
+    penaltyBox.style.display = 'block';
+    let html = '';
+
+    // Render missing room checklist items
+    missingInv.forEach(item => {
+        const origIdx = item.origIdx;
+        const fee = parseFloat(item.penalty_fee || 0);
+        const qty = parseInt(item.missing_qty || item.qty || 1, 10);
+
+        html += `
+            <div style="background: rgba(20, 35, 25, 0.7); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="background: rgba(239, 68, 68, 0.2); color: #F87171; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;">Missing Asset</span>
+                        <strong style="color: #FFFFFF; font-size: 13.5px;">${escapeHtml(item.item)}</strong>
+                        <span style="color: var(--adm-text-muted); font-size: 11.5px;">(Stock Qty: ${item.qty || 1})</span>
+                    </div>
+                    <button type="button" class="adm-btn-action" onclick="restoreInventoryItem(${origIdx});" style="font-size: 11px; padding: 3px 8px; background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3);" title="Found / Restored to Intact">
+                        <i class="fa-solid fa-rotate-left"></i> Mark Intact
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 80px 140px 1fr; gap: 10px; align-items: center;">
+                    <div>
+                        <label style="font-size: 10.5px; color: var(--adm-text-muted); text-transform: uppercase; display: block; margin-bottom: 2px;">Missing Qty</label>
+                        <input type="number" class="adm-input" value="${qty}" min="1" max="${item.qty || 10}" style="padding: 5px 8px; font-size: 12px; text-align: center;" onchange="updateMissingInvQty(${origIdx}, this.value)">
+                    </div>
+                    <div>
+                        <label style="font-size: 10.5px; color: var(--adm-text-muted); text-transform: uppercase; display: block; margin-bottom: 2px;">Penalty Fee / Unit (₹)</label>
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #F87171; font-weight: 700; font-size: 11px;">₹</span>
+                            <input type="number" class="adm-input" value="${fee > 0 ? fee : ''}" placeholder="0" min="0" step="50" style="padding: 5px 8px 5px 20px; font-size: 12px; font-weight: 700; color: #F87171;" oninput="updateMissingInvFee(${origIdx}, this.value)">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size: 10.5px; color: var(--adm-text-muted); text-transform: uppercase; display: block; margin-bottom: 2px;">Damage / Incident Notes</label>
+                        <input type="text" class="adm-input" placeholder="e.g. Broken during stay / missing from room" value="${escapeHtml(item.damage_notes || '')}" style="padding: 5px 8px; font-size: 12px;" oninput="updateMissingInvNotes(${origIdx}, this.value)">
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    // Render ad-hoc custom damage / cleaning items
+    customDamageItems.forEach((cd, cIdx) => {
+        const fee = parseFloat(cd.price || 0);
+        const qty = parseInt(cd.quantity || 1, 10);
+
+        html += `
+            <div style="background: rgba(20, 35, 25, 0.7); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;">Incidental / Other</span>
+                        <input type="text" class="adm-input" value="${escapeHtml(cd.item_name || '')}" placeholder="Description (e.g. Linen Stains / Deep Cleaning)" style="padding: 4px 8px; font-size: 12.5px; font-weight: 700; width: 260px;" oninput="updateCustomDamageField(${cIdx}, 'item_name', this.value)">
+                    </div>
+                    <button type="button" class="adm-btn-action danger" onclick="removeCustomDamageItem(${cIdx});" style="font-size: 11px; padding: 3px 8px;" title="Remove this fee">
+                        <i class="fa-solid fa-trash-can"></i> Remove
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 80px 140px 1fr; gap: 10px; align-items: center;">
+                    <div>
+                        <label style="font-size: 10.5px; color: var(--adm-text-muted); text-transform: uppercase; display: block; margin-bottom: 2px;">Qty</label>
+                        <input type="number" class="adm-input" value="${qty}" min="1" max="50" style="padding: 5px 8px; font-size: 12px; text-align: center;" onchange="updateCustomDamageField(${cIdx}, 'quantity', this.value)">
+                    </div>
+                    <div>
+                        <label style="font-size: 10.5px; color: var(--adm-text-muted); text-transform: uppercase; display: block; margin-bottom: 2px;">Charge (₹)</label>
+                        <div style="position: relative;">
+                            <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #F87171; font-weight: 700; font-size: 11px;">₹</span>
+                            <input type="number" class="adm-input" value="${fee > 0 ? fee : ''}" placeholder="0" min="0" step="50" style="padding: 5px 8px 5px 20px; font-size: 12px; font-weight: 700; color: #F87171;" oninput="updateCustomDamageField(${cIdx}, 'price', this.value)">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-size: 10.5px; color: var(--adm-text-muted); text-transform: uppercase; display: block; margin-bottom: 2px;">Reason / Specifics</label>
+                        <input type="text" class="adm-input" placeholder="e.g. Excessive mud on upholstery" value="${escapeHtml(cd.notes || '')}" style="padding: 5px 8px; font-size: 12px;" oninput="updateCustomDamageField(${cIdx}, 'notes', this.value)">
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    listContainer.innerHTML = html;
+    updateAuditFinalCalculations();
+}
+
+function calculateTotalDamagePenalty() {
+    let total = 0;
+    auditRoomInventory.forEach(it => {
+        if (it.intact === false) {
+            const fee = parseFloat(it.penalty_fee || 0);
+            const qty = parseInt(it.missing_qty || it.qty || 1, 10);
+            total += (fee * qty);
+        }
+    });
+    customDamageItems.forEach(cd => {
+        const fee = parseFloat(cd.price || 0);
+        const qty = parseInt(cd.quantity || 1, 10);
+        total += (fee * qty);
+    });
+    return total;
+}
+
+// -------------------------------------------------------------
+// 2. GASTRONOMY, FOOD MENU DROPDOWN & MEAL FULFILLMENT
+// -------------------------------------------------------------
+function switchFoodAddMode(mode) {
+    foodAddMode = mode;
+    const modeMenu = document.getElementById('food-add-mode-menu');
+    const modeCustom = document.getElementById('food-add-mode-custom');
+    const btnMenu = document.getElementById('btn-toggle-food-menu');
+    const btnCustom = document.getElementById('btn-toggle-food-custom');
+
+    if (mode === 'menu') {
+        if (modeMenu) modeMenu.style.display = 'block';
+        if (modeCustom) modeCustom.style.display = 'none';
+        if (btnMenu) { btnMenu.className = 'adm-btn-action gold'; }
+        if (btnCustom) { btnCustom.className = 'adm-btn-action outline'; }
+    } else {
+        if (modeMenu) modeMenu.style.display = 'none';
+        if (modeCustom) modeCustom.style.display = 'block';
+        if (btnMenu) { btnMenu.className = 'adm-btn-action outline'; }
+        if (btnCustom) { btnCustom.className = 'adm-btn-action gold'; }
+    }
+}
+
+function populateFoodMenuPickerDropdown() {
+    const sel = document.getElementById('extra-food-menu-picker');
+    if (!sel) return;
+
+    if (!availableMenuItems || availableMenuItems.length === 0) {
+        sel.innerHTML = '<option value="">No dishes found in Estate Food Menu</option>';
+        return;
+    }
+
+    const categories = {};
+    availableMenuItems.forEach(dish => {
+        const cat = (dish.category || 'other').toLowerCase();
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push(dish);
+    });
+
+    let html = '<option value="">-- Choose Dish from Estate Food Menu --</option>';
+    const order = ['breakfast', 'lunch', 'dinner', 'snacks', 'beverages', 'dessert', 'other'];
+    const keys = Object.keys(categories).sort((a, b) => {
+        const ia = order.indexOf(a) !== -1 ? order.indexOf(a) : 99;
+        const ib = order.indexOf(b) !== -1 ? order.indexOf(b) : 99;
+        return ia - ib;
+    });
+
+    keys.forEach(cat => {
+        const catTitle = cat.charAt(0).toUpperCase() + cat.slice(1);
+        html += `<optgroup label="── ${catTitle} ──">`;
+        categories[cat].forEach(d => {
+            html += `<option value="${d.id}" data-name="${escapeHtml(d.name)}" data-price="${d.price}" data-category="${escapeHtml(d.category)}">${escapeHtml(d.name)} (₹${Number(d.price).toLocaleString('en-IN')})</option>`;
+        });
+        html += `</optgroup>`;
+    });
+
+    sel.innerHTML = html;
+}
+
+function onFoodMenuPickerChanged(val) {
+    const priceInput = document.getElementById('menu-food-price');
+    if (!priceInput) return;
+    if (!val) {
+        priceInput.value = '';
+        return;
+    }
+    const dish = availableMenuItems.find(d => String(d.id) === String(val));
+    if (dish) {
+        priceInput.value = dish.price || 0;
+    }
+}
+
+function addSelectedMenuDishItem() {
+    const sel = document.getElementById('extra-food-menu-picker');
+    if (!sel || !sel.value) {
+        alert('Please choose a dish from the food menu dropdown.');
+        return;
+    }
+
+    const dishId = sel.value;
+    const dish = availableMenuItems.find(d => String(d.id) === String(dishId));
+    if (!dish) return;
+
+    const qty = Math.max(1, parseInt(document.getElementById('menu-food-qty')?.value || "1", 10));
+    const priceInput = document.getElementById('menu-food-price');
+    const price = priceInput && priceInput.value !== '' ? Math.max(0, parseFloat(priceInput.value)) : parseFloat(dish.price || 0);
+
+    auditFoodItems.push({
+        heading: dish.name,
+        category: dish.category || 'Dining',
+        quantity: qty,
+        price: price,
+        subtotal: qty * price,
+        served: true,
+        is_substituted: false
+    });
+
+    sel.value = '';
+    if (priceInput) priceInput.value = '';
+    const qtyInput = document.getElementById('menu-food-qty');
+    if (qtyInput) qtyInput.value = '1';
+
+    renderAuditFoodList();
+}
+
 function renderAuditFoodList() {
     const container = document.getElementById('audit-food-list-container');
     if (!container) return;
 
+    let notesBanner = '';
+    if (currentAuditBooking && currentAuditBooking.special_notes && currentAuditBooking.special_notes.trim()) {
+        notesBanner = `
+            <div style="background: rgba(197, 160, 89, 0.14); border-left: 3.5px solid var(--adm-gold); padding: 11px 15px; border-radius: 6px; font-size: 12.5px; color: var(--adm-text-primary); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                <i class="fa-solid fa-leaf" style="color: var(--adm-gold); font-size: 15px; flex-shrink: 0;"></i>
+                <div>
+                    <strong style="color: var(--adm-gold-light); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; display: block;">Guest Dietary Preference / Special Request:</strong>
+                    <span style="color: #FFFFFF; font-weight: 700; font-size: 13px;">"${escapeHtml(currentAuditBooking.special_notes)}"</span>
+                </div>
+            </div>
+        `;
+    }
+
     if (auditFoodItems.length === 0) {
-        container.innerHTML = `
+        container.innerHTML = notesBanner + `
             <div style="background: var(--adm-bg-main); border: 1px dashed var(--adm-border-subtle); border-radius: 8px; padding: 14px; text-align: center; color: var(--adm-text-muted); font-size: 13px;">
                 <i class="fa-solid fa-seedling" style="color: var(--adm-gold); margin-right: 6px;"></i>
                 No pre-booked food dishes on initial reservation. Daily meals were ordered à la carte on arrival.
             </div>
         `;
+        updateAuditFinalCalculations();
         return;
     }
 
-    let html = '';
+    let html = notesBanner;
     auditFoodItems.forEach((item, idx) => {
         const isBfast = (item.category || '').toLowerCase() === 'breakfast';
         const price = parseFloat(item.price || 0);
@@ -599,18 +993,26 @@ function renderAuditFoodList() {
         html += `
             <div class="audit-dish-card font-sans ${isSubstituted ? 'is-substituted' : ''} ${!isServed ? 'is-cancelled' : ''}">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 220px;">
-                        <input type="checkbox" ${isServed ? 'checked' : ''} onchange="toggleAuditFoodServed(${idx}, this.checked)" style="accent-color: var(--adm-gold); width: 16px; height: 16px;" title="Delivered & Served">
+                    <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px;">
+                        <!-- Prominent Served / Not Served Toggle Button -->
+                        <button type="button" class="adm-btn-action" onclick="toggleAuditFoodServed(${idx}, ${!isServed})" 
+                            style="padding: 5px 10px; font-size: 11.5px; font-weight: 700; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease; ${isServed ? 'background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.35);' : 'background: rgba(239, 68, 68, 0.15); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.4);'}"
+                            title="${isServed ? 'Click to mark as Not Provided / Cancelled' : 'Click to mark as Provided / Served'}">
+                            <i class="fa-solid ${isServed ? 'fa-circle-check' : 'fa-circle-xmark'}"></i>
+                            <span>${isServed ? 'Provided' : 'Not Provided'}</span>
+                        </button>
+
                         <div>
-                            <strong style="color: var(--adm-text-primary); font-size: 13.5px; display: block;">
+                            <strong style="color: ${isServed ? 'var(--adm-text-primary)' : '#94A3B8'}; font-size: 13.5px; display: block; ${!isServed ? 'text-decoration: line-through;' : ''}">
                                 <i class="fa-solid ${catIcon}" style="color: var(--adm-gold); margin-right: 4px; font-size: 11px;"></i>
-                                ${item.heading}
+                                ${escapeHtml(item.heading)}
                                 ${isSubstituted ? '<span style="font-size: 10px; background: rgba(197,160,89,0.25); color: var(--adm-gold); padding: 1px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase;">Substituted</span>' : ''}
-                                ${!isServed ? '<span style="font-size: 10px; background: rgba(239,68,68,0.2); color: #F87171; padding: 1px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase;">Not Served / Cancelled</span>' : ''}
+                                ${!isServed ? '<span style="font-size: 10px; background: rgba(239,68,68,0.2); color: #F87171; padding: 1px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase;">Cancelled / ₹0</span>' : ''}
                             </strong>
                             <span style="font-size: 11px; color: var(--adm-text-muted); text-transform: uppercase;">
-                                ${item.category} • ${qty} Set${qty > 1 ? 's' : ''} ${isSubstituted && item.original_dish ? ' • (Originally: ' + item.original_dish + ')' : ''}
+                                ${escapeHtml(item.category)} • ${qty} Set${qty > 1 ? 's' : ''} ${isSubstituted && item.original_dish ? ' • (Originally: ' + escapeHtml(item.original_dish) + ')' : ''}
                             </span>
+                            ${item.special_notes ? `<div style="font-size: 11px; color: var(--adm-gold); font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-note-sticky"></i> Note: ${escapeHtml(item.special_notes)}</div>` : ''}
                         </div>
                     </div>
 
@@ -636,12 +1038,12 @@ function renderAuditFoodList() {
                 <!-- Inline Substitution Selector Drawer -->
                 <div id="substitute-drawer-${idx}" style="display: none; background: rgba(0,0,0,0.25); border: 1px dashed rgba(197, 160, 89, 0.4); border-radius: 6px; padding: 10px; margin-top: 6px;">
                     <div style="font-size: 11.5px; font-weight: 700; color: var(--adm-gold); margin-bottom: 6px;">
-                        <i class="fa-solid fa-utensils"></i> Substitute "${item.heading}" with actual served dish:
+                        <i class="fa-solid fa-utensils"></i> Substitute "${escapeHtml(item.heading)}" with actual served dish:
                     </div>
                     <div style="display: grid; grid-template-columns: 2fr 100px auto; gap: 8px; align-items: center;">
                         <select id="sub-select-${idx}" class="adm-input" style="font-size: 12px; padding: 6px 8px;" onchange="onSubstituteSelectChanged(${idx}, this.value)">
                             <option value="">-- Choose Replacement Dish from Menu --</option>
-                            ${availableMenuItems.map(d => `<option value="${d.id}" data-name="${d.name}" data-price="${d.price}" data-cat="${d.category}">[${d.category.toUpperCase()}] ${d.name} (₹${d.price})</option>`).join('')}
+                            ${availableMenuItems.map(d => `<option value="${d.id}">[${d.category.toUpperCase()}] ${escapeHtml(d.name)} (₹${d.price})</option>`).join('')}
                         </select>
                         <input type="number" id="sub-custom-price-${idx}" class="adm-input" placeholder="Price (₹)" value="${price}" min="0" step="50" style="font-size: 12px; padding: 6px 8px;">
                         <button type="button" class="adm-btn-action gold" onclick="applyDishSubstitution(${idx});" style="font-size: 11.5px; padding: 6px 12px;">
@@ -744,7 +1146,9 @@ function addCustomAuditFoodItem() {
     renderAuditFoodList();
 }
 
+// -------------------------------------------------------------
 // 3. EXPERIENCES AUDIT
+// -------------------------------------------------------------
 function renderAuditActivitiesList() {
     const container = document.getElementById('audit-activities-list-container');
     if (!container) return;
@@ -756,6 +1160,7 @@ function renderAuditActivitiesList() {
                 No add-on signature experiences requested on initial booking.
             </div>
         `;
+        updateAuditFinalCalculations();
         return;
     }
 
@@ -772,11 +1177,11 @@ function renderAuditActivitiesList() {
                         <div>
                             <strong style="color: var(--adm-text-primary); font-size: 13.5px; display: block;">
                                 <i class="fa-solid fa-sparkles" style="color: #0E7490; margin-right: 4px; font-size: 11px;"></i>
-                                ${item.title}
+                                ${escapeHtml(item.title)}
                                 ${!isDone ? '<span style="font-size: 10px; background: rgba(239,68,68,0.2); color: #F87171; padding: 1px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase;">Not Provided / Cancelled</span>' : ''}
                             </strong>
                             <span style="font-size: 11px; color: var(--adm-text-muted);">
-                                ${item.timing || 'Curated Schedule'} • Guided by Naturalist
+                                ${escapeHtml(item.timing || 'Curated Schedule')} • Guided by Naturalist
                             </span>
                         </div>
                     </label>
@@ -839,7 +1244,9 @@ function addCustomAuditActivity() {
     renderAuditActivitiesList();
 }
 
-// 4. STEP 4 LIVE CALCULATIONS
+// -------------------------------------------------------------
+// 4. STEP 4 LIVE CALCULATIONS & SUMMARY
+// -------------------------------------------------------------
 function updateAuditFinalCalculations() {
     if (!currentAuditBooking) return;
 
@@ -862,23 +1269,52 @@ function updateAuditFinalCalculations() {
         }
     });
 
-    const damageFee = parseFloat(document.getElementById('audit-damage-penalty-fee')?.value || "0");
+    const damageFee = calculateTotalDamagePenalty();
+
+    // Update Step 1 damage penalty total display
+    const damageDisplay = document.getElementById('audit-damage-total-display');
+    if (damageDisplay) {
+        damageDisplay.innerText = '₹' + damageFee.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Update Step 4 damage row & itemized breakdown
     const damageRow = document.getElementById('audit-summary-damage-row');
+    const damageBreakdown = document.getElementById('audit-summary-damage-breakdown');
     if (damageRow) {
         if (damageFee > 0) {
             damageRow.style.display = 'flex';
-            document.getElementById('audit-summary-damage-rate').innerText = '₹' + damageFee.toLocaleString('en-IN');
+            document.getElementById('audit-summary-damage-rate').innerText = '₹' + damageFee.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            
+            const itemsList = [];
+            auditRoomInventory.forEach(it => {
+                if (it.intact === false && parseFloat(it.penalty_fee || 0) > 0) {
+                    const q = parseInt(it.missing_qty || it.qty || 1, 10);
+                    const p = parseFloat(it.penalty_fee || 0);
+                    itemsList.push(`${it.item} (Qty: ${q} @ ₹${p.toLocaleString('en-IN')}) = ₹${(q * p).toLocaleString('en-IN')}`);
+                }
+            });
+            customDamageItems.forEach(cd => {
+                const p = parseFloat(cd.price || 0);
+                if (p > 0) {
+                    const q = parseInt(cd.quantity || 1, 10);
+                    itemsList.push(`${cd.item_name || 'Incidental Fee'} (Qty: ${q} @ ₹${p.toLocaleString('en-IN')}) = ₹${(q * p).toLocaleString('en-IN')}`);
+                }
+            });
+            if (damageBreakdown) {
+                damageBreakdown.innerHTML = itemsList.map(t => '• ' + escapeHtml(t)).join('<br>');
+            }
         } else {
             damageRow.style.display = 'none';
+            if (damageBreakdown) damageBreakdown.innerHTML = '';
         }
     }
 
     const netTotal = roomAmt + foodTotal + actTotal + damageFee;
 
-    document.getElementById('audit-summary-room-rate').innerText = '₹' + roomAmt.toLocaleString('en-IN');
-    document.getElementById('audit-summary-food-rate').innerText = '₹' + foodTotal.toLocaleString('en-IN');
-    document.getElementById('audit-summary-act-rate').innerText = '₹' + actTotal.toLocaleString('en-IN');
-    document.getElementById('audit-summary-total-rate').innerText = '₹' + netTotal.toLocaleString('en-IN');
+    document.getElementById('audit-summary-room-rate').innerText = '₹' + roomAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    document.getElementById('audit-summary-food-rate').innerText = '₹' + foodTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    document.getElementById('audit-summary-act-rate').innerText = '₹' + actTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    document.getElementById('audit-summary-total-rate').innerText = '₹' + netTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 });
 }
 
 function goToAuditStep(stepNum) {
@@ -938,16 +1374,45 @@ function submitStayAuditAndRedirect(destination) {
     const bookingId = document.getElementById('audit-booking-id').value;
     const markCheckout = document.getElementById('chk-mark-status-completed')?.checked || false;
     const roomNotes = document.getElementById('audit-room-notes')?.value || '';
-    const damageFee = parseFloat(document.getElementById('audit-damage-penalty-fee')?.value || "0");
-    const damageNotes = document.getElementById('audit-damage-notes')?.value || '';
+
+    // Collect individual missing damage items
+    const missingDamageItems = [];
+    auditRoomInventory.forEach(it => {
+        if (it.intact === false) {
+            const fee = parseFloat(it.penalty_fee || 0);
+            const qty = parseInt(it.missing_qty || it.qty || 1, 10);
+            missingDamageItems.push({
+                item_name: it.item,
+                quantity: qty,
+                price: fee,
+                notes: it.damage_notes || 'Missing / Damaged Room Asset',
+                category: 'asset_damage'
+            });
+        }
+    });
+
+    customDamageItems.forEach(cd => {
+        const fee = parseFloat(cd.price || 0);
+        const qty = parseInt(cd.quantity || 1, 10);
+        missingDamageItems.push({
+            item_name: cd.item_name || 'Incidental Damage / Penalty',
+            quantity: qty,
+            price: fee,
+            notes: cd.notes || '',
+            category: 'asset_damage'
+        });
+    });
+
+    const totalDamageFee = calculateTotalDamagePenalty();
 
     const payload = {
         action: 'save_audit_and_checkout',
         booking_id: bookingId,
         mark_checkout: markCheckout,
         room_notes: roomNotes,
-        missing_damage_penalty: damageFee,
-        missing_damage_notes: damageNotes,
+        missing_damage_penalty: totalDamageFee,
+        missing_damage_notes: missingDamageItems.map(m => m.item_name + (m.notes ? ' (' + m.notes + ')' : '')).join(', '),
+        missing_damage_items: missingDamageItems,
         food_items: auditFoodItems,
         activities: auditActivities,
         room_inventory: auditRoomInventory

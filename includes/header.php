@@ -128,7 +128,6 @@ $is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
                 <nav class="nav-links font-sans">
                     <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
                     <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
-                    <a href="<?php echo $nav_prefix; ?>#sanctuary-amenities" class="nav-item magnetic" data-strength="10">Amenities</a>
                     <a href="booking.php" class="nav-item magnetic <?php echo $is_booking_page ? 'active nav-item-booking' : ''; ?>" data-strength="10"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
                     <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
                     <a href="<?php echo $nav_prefix; ?>#dining" class="nav-item magnetic" data-strength="10">Food Menu</a>

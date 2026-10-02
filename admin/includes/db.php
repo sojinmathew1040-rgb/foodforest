@@ -433,6 +433,108 @@ function get_setting($key, $default = '') {
 }
 
 /**
+ * Retrieve dynamic stay categories (defaults to Wood House & Mud House)
+ * @return array
+ */
+function get_stay_categories() {
+    $default_categories = [
+        'woodhouse' => [
+            'key' => 'woodhouse',
+            'label' => 'Wood House',
+            'icon' => '🪵',
+            'description' => 'Alpine Timber & Mountain Log House'
+        ],
+        'mudhouse' => [
+            'key' => 'mudhouse',
+            'label' => 'Mud House',
+            'icon' => '🌿',
+            'description' => 'Handcrafted Earthen & Terracotta Sanctuary'
+        ]
+    ];
+
+    $raw = get_setting('stay_categories_json', '');
+    if (!empty($raw)) {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded) && !empty($decoded)) {
+            return $decoded;
+        }
+    }
+    return $default_categories;
+}
+
+/**
+ * Persist dynamic stay categories to database settings
+ * @param array $categories
+ * @return bool
+ */
+function save_stay_categories(array $categories) {
+    try {
+        $pdo = get_db();
+        $cleaned = [];
+        foreach ($categories as $cat) {
+            $key = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', $cat['key'] ?? '')));
+            if (empty($key)) {
+                $key = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', $cat['label'] ?? '')));
+            }
+            if (empty($key)) continue;
+
+            $cleaned[$key] = [
+                'key' => $key,
+                'label' => trim($cat['label'] ?? ucfirst($key)),
+                'icon' => trim($cat['icon'] ?? '🏡'),
+                'description' => trim($cat['description'] ?? '')
+            ];
+        }
+        if (empty($cleaned)) {
+            return false;
+        }
+        $json = json_encode($cleaned, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('stay_categories_json', ?)");
+        return $stmt->execute([$json]);
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
+ * Generate <option> tags for stay categories
+ * @param string $selected_key
+ * @param bool $show_desc
+ * @return string
+ */
+function render_stay_category_options($selected_key = '', $show_desc = false) {
+    $categories = get_stay_categories();
+    $html = '';
+    $found_selected = false;
+    $selected_key = strtolower(trim((string)$selected_key));
+
+    foreach ($categories as $key => $cat) {
+        $is_sel = ($key === $selected_key);
+        if ($is_sel) $found_selected = true;
+        $label = htmlspecialchars($cat['icon'] . ' ' . $cat['label']);
+        if ($show_desc && !empty($cat['description'])) {
+            $label .= ' (' . htmlspecialchars($cat['description']) . ')';
+        }
+        $html .= '<option value="' . htmlspecialchars($key) . '"' . ($is_sel ? ' selected' : '') . '>' . $label . '</option>' . "\n";
+    }
+
+    // Fallback if current room has a legacy key not in categories
+    if (!$found_selected && !empty($selected_key)) {
+        $legacy_labels = [
+            'treehouse' => '🌲 Treehouse Stay',
+            'cottage' => '🏡 Forest Cottage',
+            'villa' => '🏛️ Sanctuary Villa',
+            'glasshouse' => '🪟 Glass Cabin',
+            'suite' => '🏰 Luxury Suite'
+        ];
+        $fallback_label = $legacy_labels[$selected_key] ?? ('🏡 ' . ucfirst($selected_key));
+        $html = '<option value="' . htmlspecialchars($selected_key) . '" selected>' . htmlspecialchars($fallback_label) . ' (Legacy)</option>' . "\n" . $html;
+    }
+
+    return $html;
+}
+
+/**
  * Retrieve all rooms from database.
  */
 function get_all_rooms($only_available = false) {
@@ -2879,12 +2981,15 @@ function get_booking_billing_details($pdo, $identifier) {
         $food_items = !empty($b['food_items']) ? json_decode($b['food_items'], true) : [];
         if (!is_array($food_items)) $food_items = [];
         $food_total = 0.00;
-        foreach ($food_items as $fi) {
+        foreach ($food_items as &$fi) {
             $qty = max(1, (int)($fi['quantity'] ?? 1));
             $pr = (float)($fi['price'] ?? 0);
-            $sub = (float)($fi['subtotal'] ?? ($qty * $pr));
+            $is_served = !isset($fi['served']) || !empty($fi['served']);
+            $sub = $is_served ? (float)($fi['subtotal'] ?? ($qty * $pr)) : 0.00;
+            $fi['subtotal'] = $sub;
             $food_total += $sub;
         }
+        unset($fi);
 
         // Parse Activities & Experiences
         $activities = !empty($b['activities_json']) ? json_decode($b['activities_json'], true) : [];
@@ -2922,23 +3027,149 @@ function get_booking_billing_details($pdo, $identifier) {
                 }
             }
         }
-        $activities_total = 0.00;
+        // Detect and promote any dining/food experiences (e.g. Candlelight Orchard Dinner) into food_items
+        $is_dining_check = function($title) {
+            $t = strtolower(trim($title));
+            $kws = ['dinner', 'lunch', 'breakfast', 'meal', 'food', 'barbeque', 'bbq', 'dining', 'sadya', 'feast', 'hi-tea', 'tea ritual'];
+            foreach ($kws as $kw) {
+                if (stripos($t, $kw) !== false) return true;
+            }
+            return false;
+        };
+
+        $get_dining_addon_price = function($title, $existing_price = 0) {
+            if ($existing_price > 0) return (float)$existing_price;
+            $t = strtolower(trim($title));
+            if (stripos($t, 'candlelight') !== false || stripos($t, 'orchard dinner') !== false) {
+                return 3000.00;
+            }
+            if (stripos($t, 'barbeque') !== false || stripos($t, 'bbq') !== false) {
+                return 2500.00;
+            }
+            if (stripos($t, 'breakfast') !== false) {
+                return 0.00;
+            }
+            return 0.00;
+        };
+
+        $clean_activities = [];
         foreach ($activities as $act) {
-            $qty = max(1, (int)($act['quantity'] ?? 1));
-            $pr = (float)($act['price'] ?? 0);
-            $sub = (float)($act['subtotal'] ?? ($qty * $pr));
-            $activities_total += $sub;
+            $act_title = $act['title'] ?? '';
+            if ($is_dining_check($act_title)) {
+                $already_in_food = false;
+                foreach ($food_items as $fi) {
+                    if (strcasecmp(trim($fi['heading'] ?? ''), trim($act_title)) === 0) {
+                        $already_in_food = true;
+                        break;
+                    }
+                }
+                if (!$already_in_food) {
+                    $item_price = $get_dining_addon_price($act_title, $act['price'] ?? 0);
+                    $qty = max(1, (int)($act['quantity'] ?? 1));
+                    $is_served = isset($act['served']) ? !empty($act['served']) : true;
+                    $sub = $is_served ? ($item_price * $qty) : 0.00;
+                    $food_items[] = [
+                        'heading' => $act_title,
+                        'category' => (stripos($act_title, 'lunch') !== false ? 'lunch' : (stripos($act_title, 'breakfast') !== false ? 'breakfast' : 'dinner')),
+                        'category_title' => 'Curated Dining Experience',
+                        'quantity' => $qty,
+                        'price' => $item_price,
+                        'subtotal' => $sub,
+                        'served' => $is_served,
+                        'is_substituted' => !empty($act['is_substituted']),
+                        'original_dish' => $act['original_title'] ?? '',
+                        'special_notes' => $b['special_notes'] ?? ''
+                    ];
+                    $food_total += $sub;
+                }
+            } else {
+                $clean_activities[] = $act;
+            }
+        }
+        $activities = $clean_activities;
+
+        // Also check raw addons text directly in case activities_json missed it
+        if (!empty($b['addons']) && strtolower(trim($b['addons'])) !== 'none') {
+            $raw_parts = preg_split('/,(?![^(]*\))/', $b['addons']);
+            foreach ($raw_parts as $rp) {
+                $rp = trim($rp);
+                if (empty($rp)) continue;
+                if ($is_dining_check($rp)) {
+                    $clean_name = preg_replace('/\s*\([^)]*\)/', '', $rp);
+                    $clean_name = trim(preg_replace('/[?]+/', '', $clean_name), " \t\n\r\0\x0B,+");
+                    $already_in_food = false;
+                    foreach ($food_items as $fi) {
+                        if (strcasecmp(trim($fi['heading'] ?? ''), trim($clean_name)) === 0) {
+                            $already_in_food = true;
+                            break;
+                        }
+                    }
+                    if (!$already_in_food && !empty($clean_name)) {
+                        $item_price = $get_dining_addon_price($clean_name, 0);
+                        if (preg_match('/\(\s*\+?\s*[^0-9\(\)]*?([\d,]+)\s*\)/u', $rp, $m)) {
+                            $item_price = (float)str_replace(',', '', $m[1]);
+                        }
+                        $food_items[] = [
+                            'heading' => $clean_name,
+                            'category' => (stripos($clean_name, 'lunch') !== false ? 'lunch' : (stripos($clean_name, 'breakfast') !== false ? 'breakfast' : 'dinner')),
+                            'category_title' => 'Curated Dining Experience',
+                            'quantity' => 1,
+                            'price' => $item_price,
+                            'subtotal' => $item_price,
+                            'served' => true,
+                            'is_substituted' => false,
+                            'original_dish' => '',
+                            'special_notes' => $b['special_notes'] ?? ''
+                        ];
+                        $food_total += $item_price;
+                    }
+                }
+            }
         }
 
-        // Custom Billing Items (Services, Misc)
-        $custom_items = !empty($b['billing_items_json']) ? json_decode($b['billing_items_json'], true) : [];
-        if (!is_array($custom_items)) $custom_items = [];
+        $activities_total = 0.00;
+        foreach ($activities as &$act) {
+            $qty = max(1, (int)($act['quantity'] ?? 1));
+            $pr = (float)($act['price'] ?? 0);
+            $is_completed = !isset($act['completed']) || !empty($act['completed']);
+            $sub = $is_completed ? (float)($act['subtotal'] ?? ($qty * $pr)) : 0.00;
+            $act['subtotal'] = $sub;
+            $activities_total += $sub;
+        }
+        unset($act);
+
+        // Custom Billing Items (Services, Misc, Asset Damage Penalties)
+        $raw_custom = !empty($b['billing_items_json']) ? json_decode($b['billing_items_json'], true) : [];
+        $custom_items = [];
         $custom_total = 0.00;
-        foreach ($custom_items as $ci) {
-            $qty = max(1, (int)($ci['quantity'] ?? 1));
-            $pr = (float)($ci['price'] ?? 0);
-            $sub = (float)($ci['subtotal'] ?? ($qty * $pr));
-            $custom_total += $sub;
+        if (is_array($raw_custom)) {
+            if (isset($raw_custom['custom_items']) && is_array($raw_custom['custom_items'])) {
+                $raw_custom = $raw_custom['custom_items'];
+            }
+            foreach ($raw_custom as $k => $ci) {
+                // Skip non-array elements like booleans, or metadata keys
+                if (!is_array($ci) || $k === 'is_multi_room' || $k === 'rooms') continue;
+                // If it's a nested room array like [{'slug':'...'}], skip
+                if (isset($ci[0]) && is_array($ci[0]) && isset($ci[0]['slug'])) continue;
+
+                $title = trim($ci['title'] ?? ($ci['name'] ?? ''));
+                $qty = max(1, (int)($ci['quantity'] ?? 1));
+                $pr = max(0, (float)($ci['price'] ?? ($ci['amount'] ?? 0)));
+                $sub = (float)($ci['subtotal'] ?? ($qty * $pr));
+
+                // Skip corrupted phantom rows with empty title and 0 price
+                if (empty($title) && $pr <= 0) continue;
+
+                $item_title = $title ?: 'Custom Service';
+                $custom_items[] = [
+                    'title' => $item_title,
+                    'name' => $item_title,
+                    'quantity' => $qty,
+                    'price' => $pr,
+                    'subtotal' => $sub
+                ];
+                $custom_total += $sub;
+            }
         }
 
         $extra_charges = (float)($b['extra_charges'] ?? 0);

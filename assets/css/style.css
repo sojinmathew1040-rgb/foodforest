@@ -2376,32 +2376,36 @@ body.in-walkthrough .sticky-booking-pill {
 /* --- Map Console Grid (2-Column) --- */
 .sanctuary-console-grid {
     display: grid;
-    grid-template-columns: 1.32fr 1fr;
-    gap: 18px;
-    background: #FFFFFF;
-    border: 1px solid rgba(197, 160, 89, 0.3);
-    border-radius: 10px;
-    padding: 16px;
-    box-shadow: var(--shadow-luxury);
+    grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
+    gap: 28px;
+    align-items: start;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
 }
 
 @media (max-width: 1024px) {
     .sanctuary-console-grid {
         grid-template-columns: 1fr;
+        gap: 20px;
     }
 }
 
 /* --- Left: Topographic Map Board --- */
 .sanctuary-map-board {
     position: relative;
-    border-radius: 8px;
+    background: #0d1e14;
+    border: 1.5px solid rgba(197, 160, 89, 0.45);
+    border-radius: 18px;
     overflow: hidden;
     width: 100%;
+    min-width: 0;
     aspect-ratio: 800 / 520;
-    min-height: 420px;
-    max-height: none;
-    background: #112318;
-    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+    box-sizing: border-box;
     user-select: none;
 }
 
@@ -2822,6 +2826,18 @@ body.in-walkthrough .sticky-booking-pill {
     letter-spacing: 0.05em;
 }
 
+.pin-price {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #56c2c9;
+}
+
+.pin-stay-tag {
+    font-size: 0.60rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
 .sanctuary-pin:hover .pin-tooltip,
 .sanctuary-pin.active .pin-tooltip {
     opacity: 1;
@@ -2834,12 +2850,13 @@ body.in-walkthrough .sticky-booking-pill {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    background: #FAF8F5;
-    border: 1px solid rgba(197, 160, 89, 0.25);
-    border-radius: 8px;
-    padding: 16px 18px;
-    box-shadow: var(--shadow-subtle);
+    background: #FFFFFF;
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 14px 40px rgba(16, 31, 21, 0.08);
     transition: all 0.35s ease;
+    box-sizing: border-box;
 }
 
 .inspector-header {
@@ -7672,7 +7689,8 @@ body.page-booking #sticky-booking-pill {
 }
 
 .bms-chalet-node:hover .node-halo,
-.bms-chalet-node.is-selected .node-halo {
+.bms-chalet-node.is-selected .node-halo,
+.sanctuary-pin.active .node-halo {
     opacity: 1;
     animation: haloPulse 1.8s infinite ease-out;
 }
@@ -7797,7 +7815,8 @@ body.page-booking #sticky-booking-pill {
 }
 
 .bms-chalet-node:hover .node-box,
-.bms-chalet-node.is-selected .node-box {
+.bms-chalet-node.is-selected .node-box,
+.sanctuary-pin.active .node-box {
     background: #C5A059;
     border-color: #FFFFFF;
     transform: scale(1.15);
@@ -7821,7 +7840,9 @@ body.page-booking #sticky-booking-pill {
 .bms-chalet-node:hover .node-code,
 .bms-chalet-node:hover .node-icon,
 .bms-chalet-node.is-selected .node-code,
-.bms-chalet-node.is-selected .node-icon {
+.bms-chalet-node.is-selected .node-icon,
+.sanctuary-pin.active .node-code,
+.sanctuary-pin.active .node-icon {
     color: #101F15;
 }
 
@@ -7867,7 +7888,10 @@ body.page-booking #sticky-booking-pill {
 /* Edge-Safe Tooltip Directions: Top Half Spots Pop DOWNWARDS */
 .bms-chalet-node.pos-bottom .node-hover-card,
 .bms-chalet-node.pos-bottom.pos-left .node-hover-card,
-.bms-chalet-node.pos-bottom.pos-right .node-hover-card {
+.bms-chalet-node.pos-bottom.pos-right .node-hover-card,
+.sanctuary-pin.pos-bottom .node-hover-card,
+.sanctuary-pin.pos-bottom.pos-left .node-hover-card,
+.sanctuary-pin.pos-bottom.pos-right .node-hover-card {
     bottom: auto !important;
     top: calc(100% + 14px) !important;
     transform: translateX(-50%) translateY(-8px);
@@ -7875,46 +7899,57 @@ body.page-booking #sticky-booking-pill {
 
 .bms-chalet-node.pos-bottom .node-hover-card::after,
 .bms-chalet-node.pos-bottom.pos-left .node-hover-card::after,
-.bms-chalet-node.pos-bottom.pos-right .node-hover-card::after {
+.bms-chalet-node.pos-bottom.pos-right .node-hover-card::after,
+.sanctuary-pin.pos-bottom .node-hover-card::after,
+.sanctuary-pin.pos-bottom.pos-left .node-hover-card::after,
+.sanctuary-pin.pos-bottom.pos-right .node-hover-card::after {
     top: auto !important;
     bottom: 100% !important;
     border-color: transparent transparent rgba(10, 22, 15, 0.98) transparent !important;
 }
 
 /* Left & Right Alignment Adjustments */
-.bms-chalet-node.pos-left .node-hover-card {
+.bms-chalet-node.pos-left .node-hover-card,
+.sanctuary-pin.pos-left .node-hover-card {
     left: 0 !important;
     right: auto !important;
     transform: translateX(0) translateY(8px);
 }
 
-.bms-chalet-node.pos-left.pos-bottom .node-hover-card {
+.bms-chalet-node.pos-left.pos-bottom .node-hover-card,
+.sanctuary-pin.pos-left.pos-bottom .node-hover-card {
     left: 0 !important;
     right: auto !important;
     transform: translateX(0) translateY(-8px) !important;
 }
 
 .bms-chalet-node.pos-left .node-hover-card::after,
-.bms-chalet-node.pos-left.pos-bottom .node-hover-card::after {
+.bms-chalet-node.pos-left.pos-bottom .node-hover-card::after,
+.sanctuary-pin.pos-left .node-hover-card::after,
+.sanctuary-pin.pos-left.pos-bottom .node-hover-card::after {
     left: 24px !important;
     right: auto !important;
     transform: none !important;
 }
 
-.bms-chalet-node.pos-right .node-hover-card {
+.bms-chalet-node.pos-right .node-hover-card,
+.sanctuary-pin.pos-right .node-hover-card {
     left: auto !important;
     right: 0 !important;
     transform: translateX(0) translateY(8px);
 }
 
-.bms-chalet-node.pos-right.pos-bottom .node-hover-card {
+.bms-chalet-node.pos-right.pos-bottom .node-hover-card,
+.sanctuary-pin.pos-right.pos-bottom .node-hover-card {
     left: auto !important;
     right: 0 !important;
     transform: translateX(0) translateY(-8px) !important;
 }
 
 .bms-chalet-node.pos-right .node-hover-card::after,
-.bms-chalet-node.pos-right.pos-bottom .node-hover-card::after {
+.bms-chalet-node.pos-right.pos-bottom .node-hover-card::after,
+.sanctuary-pin.pos-right .node-hover-card::after,
+.sanctuary-pin.pos-right.pos-bottom .node-hover-card::after {
     left: auto !important;
     right: 24px !important;
     transform: none !important;
@@ -7958,27 +7993,37 @@ body.page-booking #sticky-booking-pill {
 }
 
 /* Hover Visibility State Triggers */
-.bms-chalet-node:hover .node-hover-card {
+.sanctuary-pin:hover {
+    z-index: 100;
+}
+
+.bms-chalet-node:hover .node-hover-card,
+.sanctuary-pin:hover .node-hover-card {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0) !important;
 }
 
-.bms-chalet-node.pos-bottom:hover .node-hover-card {
+.bms-chalet-node.pos-bottom:hover .node-hover-card,
+.sanctuary-pin.pos-bottom:hover .node-hover-card {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0) !important;
 }
 
 .bms-chalet-node.pos-left:hover .node-hover-card,
-.bms-chalet-node.pos-left.pos-bottom:hover .node-hover-card {
+.bms-chalet-node.pos-left.pos-bottom:hover .node-hover-card,
+.sanctuary-pin.pos-left:hover .node-hover-card,
+.sanctuary-pin.pos-left.pos-bottom:hover .node-hover-card {
     opacity: 1;
     visibility: visible;
     transform: translateX(0) translateY(0) !important;
 }
 
 .bms-chalet-node.pos-right:hover .node-hover-card,
-.bms-chalet-node.pos-right.pos-bottom:hover .node-hover-card {
+.bms-chalet-node.pos-right.pos-bottom:hover .node-hover-card,
+.sanctuary-pin.pos-right:hover .node-hover-card,
+.sanctuary-pin.pos-right.pos-bottom:hover .node-hover-card {
     opacity: 1;
     visibility: visible;
     transform: translateX(0) translateY(0) !important;

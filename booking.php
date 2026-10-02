@@ -104,15 +104,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <?php
                 // Dynamic Stay Category Definitions & Active Types Extraction
-                $category_definitions = [
-                    'treehouse'  => ['label' => 'Canopy Treehouse',  'icon' => '🌲'],
-                    'mudhouse'   => ['label' => 'Earthen Mudhouse',   'icon' => '🌿'],
-                    'woodhouse'  => ['label' => 'Alpine Woodhouse',   'icon' => '🪵'],
-                    'cottage'    => ['label' => 'Forest Cottage',     'icon' => '🏡'],
-                    'villa'      => ['label' => 'Sanctuary Villa',    'icon' => '🏛️'],
-                    'glasshouse' => ['label' => 'Glass Cabin',        'icon' => '🪟'],
-                    'suite'      => ['label' => 'Luxury Suite',       'icon' => '🏰']
-                ];
+                $category_definitions = get_stay_categories();
 
                 $active_stay_types = [];
                 $has_duplex = false;
@@ -282,23 +274,39 @@ require_once __DIR__ . '/includes/header.php';
                 color: #C5A059;
             }
             .btn-rec-action-dismiss {
-                background: rgba(255, 255, 255, 0.08);
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                color: #E2E8F0;
-                font-size: 12.5px;
-                font-weight: 600;
-                padding: 8px 14px;
-                border-radius: 8px;
+                background: linear-gradient(135deg, rgba(197, 160, 89, 0.22) 0%, rgba(197, 160, 89, 0.10) 100%);
+                border: 1.5px solid #C5A059;
+                color: #FFFFFF;
+                font-size: 13px;
+                font-weight: 700;
+                letter-spacing: 0.2px;
+                padding: 9px 18px;
+                border-radius: 50px;
                 cursor: pointer;
                 display: inline-flex;
                 align-items: center;
-                gap: 8px;
-                transition: all 0.2s ease;
+                gap: 9px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), 0 0 16px rgba(197, 160, 89, 0.3);
+                transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .btn-rec-action-dismiss i {
+                color: #C5A059;
+                font-size: 14px;
+                transition: transform 0.25s ease, color 0.25s ease;
             }
             .btn-rec-action-dismiss:hover {
-                background: rgba(220, 38, 38, 0.2);
-                border-color: #EF4444;
-                color: #FCA5A5;
+                background: #C5A059;
+                border-color: #D4AF37;
+                color: #0A1C12;
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(197, 160, 89, 0.55);
+            }
+            .btn-rec-action-dismiss:hover i {
+                color: #0A1C12;
+                transform: scale(1.15);
+            }
+            .btn-rec-action-dismiss:active {
+                transform: translateY(0);
             }
             .bms-rec-options-grid {
                 display: grid;

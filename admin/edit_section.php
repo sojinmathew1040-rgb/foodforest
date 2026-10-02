@@ -832,7 +832,77 @@ ensure_experiences_details_columns($pdo);
             ensure_rooms_360_column($pdo);
             ensure_rooms_pricing_columns($pdo);
 
-            if (!empty($_POST['delete_room_id'])) {
+            if (($_POST['action'] ?? '') === 'save_stay_categories') {
+                $submitted_cats = [];
+                if (isset($_POST['cat_key']) && is_array($_POST['cat_key'])) {
+                    foreach ($_POST['cat_key'] as $k_idx => $c_key) {
+                        $k = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', $c_key)));
+                        $l = trim($_POST['cat_label'][$k_idx] ?? '');
+                        $i = trim($_POST['cat_icon'][$k_idx] ?? '🏡');
+                        $d = trim($_POST['cat_description'][$k_idx] ?? '');
+                        if (!empty($k) && !empty($l)) {
+                            $submitted_cats[$k] = [
+                                'key' => $k,
+                                'label' => $l,
+                                'icon' => $i,
+                                'description' => $d
+                            ];
+                        }
+                    }
+                }
+                // Handle optional new category input in the same form
+                if (!empty($_POST['new_cat_label'])) {
+                    $new_label = trim($_POST['new_cat_label']);
+                    $new_key = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', $_POST['new_cat_key'] ?? '')));
+                    if (empty($new_key)) {
+                        $new_key = strtolower(trim(preg_replace('/[^a-zA-Z0-9_-]/', '', $new_label)));
+                    }
+                    $new_icon = trim($_POST['new_cat_icon'] ?? '🏡');
+                    $new_desc = trim($_POST['new_cat_description'] ?? '');
+                    if (!empty($new_key) && !empty($new_label)) {
+                        $submitted_cats[$new_key] = [
+                            'key' => $new_key,
+                            'label' => $new_label,
+                            'icon' => $new_icon,
+                            'description' => $new_desc
+                        ];
+                    }
+                }
+
+                if (!empty($submitted_cats)) {
+                    save_stay_categories($submitted_cats);
+                    $alert_message = 'Stay categories and options successfully updated!';
+                } else {
+                    $alert_message = 'At least one stay category must be defined.';
+                    $alert_type = 'error';
+                }
+            } elseif (($_POST['action'] ?? '') === 'delete_stay_category') {
+                $del_key = strtolower(trim($_POST['delete_category_key'] ?? ''));
+                $current_cats = get_stay_categories();
+                if (isset($current_cats[$del_key])) {
+                    if (count($current_cats) <= 1) {
+                        $alert_message = 'Cannot delete the only remaining stay category.';
+                        $alert_type = 'error';
+                    } else {
+                        // Check if any rooms are assigned to this category
+                        $count_chk = $pdo->prepare("SELECT COUNT(*) FROM rooms WHERE stay_type = ?");
+                        $count_chk->execute([$del_key]);
+                        $assigned_count = (int)$count_chk->fetchColumn();
+
+                        unset($current_cats[$del_key]);
+                        save_stay_categories($current_cats);
+
+                        if ($assigned_count > 0) {
+                            $reassign_to = array_key_first($current_cats);
+                            $reassign_stmt = $pdo->prepare("UPDATE rooms SET stay_type = ? WHERE stay_type = ?");
+                            $reassign_stmt->execute([$reassign_to, $del_key]);
+                            $alert_message = "Category deleted. {$assigned_count} villa(s) reassigned to '{$current_cats[$reassign_to]['label']}'.";
+                        } else {
+                            $alert_message = 'Stay category successfully deleted.';
+                        }
+                    }
+                }
+            } elseif (!empty($_POST['delete_room_id'])) {
                 $del_id = (int)$_POST['delete_room_id'];
                 $del = $pdo->prepare("DELETE FROM rooms WHERE id = ?");
                 $del->execute([$del_id]);
@@ -4488,6 +4558,9 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 </div>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="adm-btn-action" onclick="toggleAddNewDrawer('drawer-stay-categories');" style="background: rgba(197, 160, 89, 0.15); border: 1px solid var(--adm-gold); color: var(--adm-gold); padding: 8px 16px; border-radius: 20px; font-weight: 700; font-size: 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s;">
+                    <i class="fa-solid fa-layer-group"></i> <span>MANAGE STAY CATEGORIES</span>
+                </button>
                 <button type="button" class="adm-btn-add-pill" onclick="toggleAddNewDrawer('drawer-add-room');">
                     <i class="fa-solid fa-plus-circle"></i> + ADD NEW VILLA
                 </button>
@@ -4499,6 +4572,125 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
         </div>
 
         <div style="padding: 24px;">
+            <!-- Stay Categories Configuration Drawer -->
+            <div id="drawer-stay-categories" class="adm-add-new-drawer" style="display: none; margin-bottom: 24px; border: 1.5px solid rgba(197, 160, 89, 0.45); background: linear-gradient(180deg, #0c1c14 0%, #07150e 100%); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.5);">
+                <?php
+                $stay_categories_list = get_stay_categories();
+                $room_counts_by_cat = [];
+                try {
+                    $cat_cnt_stmt = $pdo->query("SELECT stay_type, COUNT(*) as cnt FROM rooms GROUP BY stay_type");
+                    while ($c_row = $cat_cnt_stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $room_counts_by_cat[strtolower(trim($c_row['stay_type']))] = (int)$c_row['cnt'];
+                    }
+                } catch (Exception $e) {}
+                ?>
+                <form action="edit_section.php?section=rooms" method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                    <input type="hidden" name="form_type" value="rooms_settings">
+                    <input type="hidden" name="action" value="save_stay_categories">
+                    <input type="hidden" name="active_tab" value="rooms">
+
+                    <div class="adm-drawer-header" style="border-bottom: 1px solid rgba(197, 160, 89, 0.25); padding-bottom: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="width: 32px; height: 32px; border-radius: 8px; background: rgba(197, 160, 89, 0.2); display: flex; align-items: center; justify-content: center; color: var(--adm-gold); font-size: 16px;">
+                                <i class="fa-solid fa-layer-group"></i>
+                            </span>
+                            <div>
+                                <h4 style="color: #FFFFFF; margin: 0; font-size: 15px; font-family: var(--adm-font-title); letter-spacing: 0.8px;">STAY CATEGORIES &amp; OPTIONS MANAGER</h4>
+                                <p style="margin: 2px 0 0; font-size: 11.5px; color: var(--adm-text-secondary);">Currently featuring <strong>Wood House</strong> &amp; <strong>Mud House</strong>. Edit labels, emojis, or add/remove categories dynamically.</p>
+                            </div>
+                        </div>
+                        <button type="button" class="adm-drawer-close" onclick="toggleAddNewDrawer('drawer-stay-categories');" title="Close Drawer">✕</button>
+                    </div>
+
+                    <div style="padding: 18px 20px;">
+                        <!-- Existing Categories List -->
+                        <div style="margin-bottom: 20px;">
+                            <label class="adm-form-label" style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                                <span><i class="fa-solid fa-list-check" style="color: var(--adm-gold);"></i> CONFIGURED STAY CATEGORIES (<?php echo count($stay_categories_list); ?>)</span>
+                                <span style="font-size: 10.5px; color: var(--adm-text-secondary); text-transform: none; font-weight: normal;">Changes update dropdowns across Admin and Booking filters</span>
+                            </label>
+
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <?php foreach ($stay_categories_list as $ckey => $cat): 
+                                    $v_cnt = $room_counts_by_cat[$ckey] ?? 0;
+                                ?>
+                                <div style="display: grid; grid-template-columns: 60px 1.4fr 1.2fr 2fr auto auto; gap: 10px; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 10px 14px; border-radius: 8px;">
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 9.5px; margin-bottom: 2px;">Icon</label>
+                                        <input type="text" name="cat_icon[]" value="<?php echo htmlspecialchars($cat['icon']); ?>" style="width: 100%; text-align: center; font-size: 20px; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 6px; color: #FFFFFF; padding: 6px;" title="Emoji icon for this category">
+                                    </div>
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 9.5px; margin-bottom: 2px;">Category Title</label>
+                                        <input type="text" name="cat_label[]" value="<?php echo htmlspecialchars($cat['label']); ?>" class="adm-form-control" style="font-weight: 700; color: #FFFFFF;" required>
+                                    </div>
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 9.5px; margin-bottom: 2px;">Key Identifier</label>
+                                        <input type="hidden" name="cat_key[]" value="<?php echo htmlspecialchars($cat['key']); ?>">
+                                        <div style="padding: 9px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; font-family: monospace; font-size: 12px; color: var(--adm-gold);">
+                                            <?php echo htmlspecialchars($cat['key']); ?>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 9.5px; margin-bottom: 2px;">Description / Subtitle</label>
+                                        <input type="text" name="cat_description[]" value="<?php echo htmlspecialchars($cat['description'] ?? ''); ?>" class="adm-form-control" placeholder="Short description" style="font-size: 12px; color: #E2E8F0;">
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <label class="adm-form-label" style="font-size: 9.5px; margin-bottom: 2px;">Assigned</label>
+                                        <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); padding: 5px 10px; border-radius: 12px; font-size: 11px; white-space: nowrap;">
+                                            <i class="fa-solid fa-house-chimney"></i> <?php echo $v_cnt; ?> Villa<?php echo $v_cnt === 1 ? '' : 's'; ?>
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <label class="adm-form-label" style="font-size: 9.5px; margin-bottom: 2px;">Action</label>
+                                        <button type="button" class="adm-btn-danger-outline" onclick="deleteStayCategory('<?php echo htmlspecialchars($cat['key']); ?>', '<?php echo htmlspecialchars(addslashes($cat['label'])); ?>', <?php echo $v_cnt; ?>);" title="Delete this stay category" style="padding: 7px 12px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <!-- Add New Category Section -->
+                        <div style="background: rgba(197, 160, 89, 0.05); border: 1.5px dashed rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 16px 18px; margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <i class="fa-solid fa-circle-plus" style="color: var(--adm-gold); font-size: 14px;"></i>
+                                <span style="font-size: 12px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.8px;">Add New Stay Category (Optional)</span>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 70px 1.4fr 1.2fr 2fr; gap: 12px; align-items: center;">
+                                <div>
+                                    <label class="adm-form-label" style="font-size: 10px;">Emoji</label>
+                                    <input type="text" name="new_cat_icon" placeholder="🪵" style="width: 100%; text-align: center; font-size: 20px; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 6px; color: #FFFFFF; padding: 6px;">
+                                </div>
+                                <div>
+                                    <label class="adm-form-label" style="font-size: 10px;">Category Title</label>
+                                    <input type="text" name="new_cat_label" placeholder="e.g. Glasshouse Suite" class="adm-form-control">
+                                </div>
+                                <div>
+                                    <label class="adm-form-label" style="font-size: 10px;">Slug Key (Optional)</label>
+                                    <input type="text" name="new_cat_key" placeholder="e.g. glasshouse" class="adm-form-control" style="font-family: monospace;">
+                                </div>
+                                <div>
+                                    <label class="adm-form-label" style="font-size: 10px;">Description</label>
+                                    <input type="text" name="new_cat_description" placeholder="e.g. 360 Panoramic Valley Glass Cabin" class="adm-form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Footer -->
+                        <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08);">
+                            <button type="button" class="adm-btn-action" onclick="toggleAddNewDrawer('drawer-stay-categories');" style="background: rgba(255,255,255,0.08); color: #CBD5E1; padding: 9px 18px; border-radius: 8px;">
+                                Cancel
+                            </button>
+                            <button type="submit" class="adm-btn-action gold" style="padding: 10px 24px; font-weight: 700; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                                <i class="fa-solid fa-floppy-disk"></i> SAVE STAY CATEGORIES
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
             <!-- Expandable Add New Villa Drawer -->
             <div id="drawer-add-room" class="adm-add-new-drawer" style="display: none;">
                 <form action="edit_section.php?section=rooms" method="POST" enctype="multipart/form-data">
@@ -4519,13 +4711,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <div class="adm-form-group">
                             <label class="adm-form-label">Stay Category *</label>
                             <select name="new_room_stay_type" class="adm-form-control" style="font-weight: 700; color: #2ecc71;" required>
-                                <option value="treehouse" selected>🌲 Treehouse Stay (Timber Canopy & High Ridge)</option>
-                                <option value="mudhouse">🌿 Mudhouse Stay (Handcrafted Earth & Terracotta)</option>
-                                <option value="woodhouse">🪵 Alpine Woodhouse (Pine & Mountain Log)</option>
-                                <option value="cottage">🏡 Forest Cottage (Private Garden Retreat)</option>
-                                <option value="villa">🏛️ Sanctuary Villa (Exclusive Forest Estate)</option>
-                                <option value="glasshouse">🪟 Glass Cabin (Panoramic View)</option>
-                                <option value="suite">🏰 Luxury Suite (Private Suite)</option>
+                                <?php echo render_stay_category_options('woodhouse', true); ?>
                             </select>
                         </div>
                         <div class="adm-form-group">
@@ -4832,13 +5018,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                     <div class="adm-form-group">
                                         <label class="adm-form-label">Stay Category</label>
                                         <select name="room_stay_type[]" class="adm-form-control" style="font-weight: 700; color: #2ecc71;">
-                                            <option value="treehouse" <?php echo $stay_type === 'treehouse' ? 'selected' : ''; ?>>🌲 Treehouse Stay</option>
-                                            <option value="mudhouse" <?php echo $stay_type === 'mudhouse' ? 'selected' : ''; ?>>🌿 Mudhouse Stay</option>
-                                            <option value="woodhouse" <?php echo $stay_type === 'woodhouse' ? 'selected' : ''; ?>>🪵 Alpine Woodhouse</option>
-                                            <option value="cottage" <?php echo $stay_type === 'cottage' ? 'selected' : ''; ?>>🏡 Forest Cottage</option>
-                                            <option value="villa" <?php echo $stay_type === 'villa' ? 'selected' : ''; ?>>🏛️ Sanctuary Villa</option>
-                                            <option value="glasshouse" <?php echo $stay_type === 'glasshouse' ? 'selected' : ''; ?>>🪟 Glass Cabin</option>
-                                            <option value="suite" <?php echo $stay_type === 'suite' ? 'selected' : ''; ?>>🏰 Luxury Suite</option>
+                                            <?php echo render_stay_category_options($stay_type, false); ?>
                                         </select>
                                     </div>
                                     <div class="adm-form-group">
@@ -7324,5 +7504,52 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
         </div>
     </div>
 </div>
+
+<script>
+function deleteStayCategory(catKey, catLabel, villaCount) {
+    var msg = "Are you sure you want to delete the stay category '" + catLabel + "'?";
+    if (villaCount > 0) {
+        msg += "\n\nWarning: " + villaCount + " villa(s) are currently assigned to this category. If deleted, they will be automatically reassigned to an active category.";
+    }
+    if (confirm(msg)) {
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'edit_section.php?section=rooms';
+        
+        var fToken = document.createElement('input');
+        fToken.type = 'hidden';
+        fToken.name = 'csrf_token';
+        fToken.value = '<?php echo csrf_token(); ?>';
+        form.appendChild(fToken);
+        
+        var fType = document.createElement('input');
+        fType.type = 'hidden';
+        fType.name = 'form_type';
+        fType.value = 'rooms_settings';
+        form.appendChild(fType);
+        
+        var fAct = document.createElement('input');
+        fAct.type = 'hidden';
+        fAct.name = 'action';
+        fAct.value = 'delete_stay_category';
+        form.appendChild(fAct);
+        
+        var fTab = document.createElement('input');
+        fTab.type = 'hidden';
+        fTab.name = 'active_tab';
+        fTab.value = 'rooms';
+        form.appendChild(fTab);
+        
+        var fKey = document.createElement('input');
+        fKey.type = 'hidden';
+        fKey.name = 'delete_category_key';
+        fKey.value = catKey;
+        form.appendChild(fKey);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

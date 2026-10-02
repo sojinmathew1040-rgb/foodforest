@@ -98,6 +98,9 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
         </p>
     </div>
     <div style="display: flex; gap: 10px;">
+        <a href="edit_section.php?section=rooms" class="adm-btn-action" style="background: rgba(197, 160, 89, 0.2); color: var(--adm-gold); border: 1px solid var(--adm-gold); text-decoration: none;">
+            <i class="fa-solid fa-layer-group"></i> Manage Stay Categories
+        </a>
         <a href="../booking.php" target="_blank" class="adm-btn-action" style="background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.4); text-decoration: none;">
             <i class="fa-solid fa-arrow-up-right-from-square"></i> View Live Booking Page
         </a>
@@ -236,13 +239,7 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
                     <div class="adm-form-group">
                         <label class="adm-label" style="font-size: 11.5px; color: #E2E8F0; font-weight: 700; display: block; margin-bottom: 4px;">Stay Category</label>
                         <select name="stay_type" class="adm-input" style="padding: 8px 12px; font-size: 12.5px; width: 100%; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.3); color: #FFFFFF; border-radius: 6px;">
-                            <option value="treehouse" <?php echo (($room['stay_type'] ?? '') === 'treehouse') ? 'selected' : ''; ?>>🌲 Canopy Treehouse</option>
-                            <option value="mudhouse" <?php echo (($room['stay_type'] ?? '') === 'mudhouse') ? 'selected' : ''; ?>>🌿 Earthen Mudhouse</option>
-                            <option value="woodhouse" <?php echo (($room['stay_type'] ?? '') === 'woodhouse') ? 'selected' : ''; ?>>🪵 Alpine Woodhouse</option>
-                            <option value="cottage" <?php echo (($room['stay_type'] ?? '') === 'cottage') ? 'selected' : ''; ?>>🏡 Forest Cottage</option>
-                            <option value="villa" <?php echo (($room['stay_type'] ?? '') === 'villa') ? 'selected' : ''; ?>>🏛️ Sanctuary Villa</option>
-                            <option value="glasshouse" <?php echo (($room['stay_type'] ?? '') === 'glasshouse') ? 'selected' : ''; ?>>🪟 Glass Cabin</option>
-                            <option value="suite" <?php echo (($room['stay_type'] ?? '') === 'suite') ? 'selected' : ''; ?>>🏰 Luxury Suite</option>
+                            <?php echo render_stay_category_options($room['stay_type'] ?? 'woodhouse', false); ?>
                         </select>
                     </div>
                 </div>

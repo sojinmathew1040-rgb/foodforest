@@ -159,15 +159,10 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                             <div class="select-wrapper" style="position: relative; width: 100%;">
                                 <select id="modal-villa" class="form-input font-sans" style="color: #0F172A !important; background-color: #FFFFFF !important; font-size: 13.5px !important; font-weight: 600 !important; border: 1.5px solid rgba(28, 56, 38, 0.25) !important; border-radius: 6px !important; padding: 12px 40px 12px 14px !important; width: 100% !important; min-height: 48px !important; cursor: pointer !important; -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231C3826' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E&quot;) !important; background-repeat: no-repeat !important; background-position: right 14px center !important; background-size: 16px !important;" required>
                                     <?php
-                                    $cat_icons_map = [
-                                        'treehouse'  => '🌲 Treehouse',
-                                        'mudhouse'   => '🌿 Mudhouse',
-                                        'woodhouse'  => '🪵 Woodhouse',
-                                        'cottage'    => '🏡 Cottage',
-                                        'villa'      => '🏛️ Villa',
-                                        'glasshouse' => '🪟 Glasshouse',
-                                        'suite'      => '🏰 Suite'
-                                    ];
+                                    $cat_icons_map = [];
+                                    foreach (get_stay_categories() as $ck => $cv) {
+                                        $cat_icons_map[$ck] = $cv['icon'] . ' ' . $cv['label'];
+                                    }
                                     if (!empty($modal_villas)):
                                         $v_idx = 0;
                                         foreach ($modal_villas as $mv):

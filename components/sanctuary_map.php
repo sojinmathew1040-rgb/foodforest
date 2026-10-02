@@ -56,10 +56,10 @@ $spots_count = count($sanctuary_spots);
         <div class="sanctuary-explorer-wrapper scroll-reveal">
 
             <!-- Two-Column Interactive Console -->
-            <div class="sanctuary-console-grid">
+            <div class="sanctuary-console-grid booking-map-layout">
                 
                 <!-- Left: Topographic Map Canvas -->
-                <div class="sanctuary-map-board" id="sanctuary-map-board">
+                <div class="sanctuary-map-board bms-map-canvas-card" id="sanctuary-map-board">
                     <!-- Topographic Background SVG -->
                     <svg class="topo-svg-canvas" viewBox="0 0 800 520" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
                         <defs>
@@ -213,47 +213,75 @@ $spots_count = count($sanctuary_spots);
                     </div>
 
                     <!-- Dynamic Hotspot Pins on the Map -->
-                    <div class="sanctuary-pins-container">
+                    <div class="sanctuary-pins-container bms-chalets-container" id="bms-chalets-container">
                         <?php foreach ($sanctuary_spots as $idx => $sp): 
-                            $is_stay = !empty($sp['is_stay']) || $sp['category'] === 'stays';
+                            $is_stay = !empty($sp['is_stay']) || ($sp['category'] ?? '') === 'stays';
+                            $slug = $sp['linked_room_slug'] ?? 'treehouse';
+                            $rate = (float)($sp['room_rate'] ?? $sp['stay_price'] ?? 0);
                             $struct = $sp['structure_type'] ?? 'single_hut';
                             $is_duplex = ($is_stay && ($struct === 'duplex_hut' || stripos($sp['title'], 'duplex') !== false));
                             $pin_col = !empty($sp['pin_color']) ? $sp['pin_color'] : ($is_stay ? ($is_duplex ? '#06B6D4' : '#10B981') : '#F59E0B');
                             $custom_icon = !empty($sp['icon_class']) ? $sp['icon_class'] : ($is_duplex ? 'fa-solid fa-layer-group' : ($is_stay ? 'fa-solid fa-house-chimney' : ($sp['category'] === 'dining' ? 'fa-solid fa-utensils' : 'fa-solid fa-tree')));
 
                             if ($is_duplex) {
-                                $stay_class = 'is-stay-pin is-duplex-pin';
                                 $stay_tag = '🏰 DUPLEX CHALET (2 SUITES)';
                             } elseif ($is_stay) {
-                                $stay_class = 'is-stay-pin is-single-pin';
                                 $stay_tag = '🏡 SINGLE COTTAGE';
                             } else {
-                                $stay_class = 'is-facility-pin';
                                 $stay_tag = '🌿 ESTATE HUB';
                             }
+                            $y_pos = (float)$sp['y_coord'];
+                            $x_pos = (float)$sp['x_coord'];
+                            $pos_classes = [];
+                            if ($y_pos <= 45.0) {
+                                $pos_classes[] = 'pos-bottom';
+                            }
+                            if ($x_pos <= 25.0) {
+                                $pos_classes[] = 'pos-left';
+                            } elseif ($x_pos >= 75.0) {
+                                $pos_classes[] = 'pos-right';
+                            }
+                            $pos_class_str = implode(' ', $pos_classes);
                         ?>
-                            <div class="sanctuary-pin <?php echo $idx === 0 ? 'active' : ''; ?> <?php echo $stay_class; ?>" 
+                            <div class="sanctuary-pin bms-chalet-node <?php echo $is_stay ? ($is_duplex ? 'node-stay node-duplex' : 'node-stay node-single') : 'node-facility'; ?> status-available <?php echo $pos_class_str; ?> <?php echo $idx === 0 ? 'active is-selected' : ''; ?>" 
+                                 id="chalet-node-<?php echo (int)$sp['id']; ?>"
                                  data-zone="<?php echo (int)$sp['id']; ?>" 
+                                 data-spot-id="<?php echo (int)$sp['id']; ?>"
                                  data-spot-num="<?php echo (int)$sp['spot_number']; ?>"
                                  data-category="<?php echo htmlspecialchars($sp['category'] ?? 'nature'); ?>"
                                  data-is-stay="<?php echo $is_stay ? '1' : '0'; ?>"
                                  data-is-duplex="<?php echo $is_duplex ? '1' : '0'; ?>"
                                  data-structure="<?php echo htmlspecialchars($struct); ?>"
-                                 style="top: <?php echo (float)$sp['y_coord']; ?>%; left: <?php echo (float)$sp['x_coord']; ?>%; --pin-accent: <?php echo $pin_col; ?>;">
-                                <div class="pin-beacon" style="background: <?php echo $pin_col; ?>; opacity: 0.35;"></div>
-                                <div class="pin-marker" style="border-color: <?php echo $pin_col; ?>; box-shadow: 0 0 14px <?php echo $pin_col; ?>66;">
-                                    <span class="pin-stay-icon" style="color: <?php echo $pin_col; ?>;"><i class="<?php echo htmlspecialchars($custom_icon); ?>"></i></span>
-                                    <span class="pin-index" style="color: #FFFFFF;"><?php echo sprintf('%02d', $sp['spot_number']); ?></span>
+                                 data-slug="<?php echo htmlspecialchars($slug); ?>"
+                                 data-rate="<?php echo $rate; ?>"
+                                 data-status="available"
+                                 style="top: <?php echo $y_pos; ?>%; left: <?php echo $x_pos; ?>%; --pin-accent: <?php echo $pin_col; ?>; --node-accent: <?php echo $pin_col; ?>;">
+                                
+                                <div class="node-halo" style="background: <?php echo $pin_col; ?>; opacity: 0.35;"></div>
+                                <div class="node-box" style="border-color: <?php echo $pin_col; ?>; box-shadow: 0 0 14px <?php echo $pin_col; ?>55;">
+                                    <div class="node-icon" style="color: <?php echo $pin_col; ?>;" title="<?php echo htmlspecialchars($sp['title']); ?>">
+                                        <i class="<?php echo htmlspecialchars($custom_icon); ?>"></i>
+                                    </div>
+                                    <div class="node-code font-serif"><?php echo sprintf('%02d', $sp['spot_number']); ?></div>
                                     <?php if ($is_duplex): ?>
-                                        <span class="pin-duplex-indicator" title="2-Suite Duplex">2S</span>
+                                        <span class="node-duplex-pill" style="background: <?php echo $pin_col; ?>; color: #fff;">2S</span>
+                                    <?php endif; ?>
+                                    <?php if ($is_stay): ?>
+                                        <span class="node-status-dot status-dot-available"></span>
                                     <?php endif; ?>
                                 </div>
-                                <div class="pin-tooltip" style="border-left: 3px solid <?php echo $pin_col; ?>;">
-                                    <span class="pin-stay-tag" style="color: <?php echo $pin_col; ?>;"><?php echo $stay_tag; ?></span>
-                                    <span class="pin-title"><?php echo htmlspecialchars($sp['title']); ?></span>
+
+                                <!-- Floating Mini Badge -->
+                                <div class="node-hover-card font-sans">
+                                    <span class="nhc-type"><?php echo $stay_tag; ?></span>
+                                    <span class="nhc-title"><?php echo htmlspecialchars($sp['title']); ?></span>
                                     <?php if ($is_stay && !empty($sp['room_rate'])): ?>
-                                        <span class="pin-price font-sans">From ₹<?php echo number_format($sp['room_rate'], 0, '.', ','); ?>/nt</span>
+                                        <span class="nhc-rate">From ₹<?php echo number_format($sp['room_rate'], 0, '.', ','); ?>/night</span>
+                                        <span class="nhc-status status-label-available">
+                                            <i class="fa-solid fa-circle-check"></i> Available for Reservation
+                                        </span>
                                     <?php endif; ?>
+                                    <span class="nhc-cta">Click Spot on Map to Inspect &rarr;</span>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -261,7 +289,7 @@ $spots_count = count($sanctuary_spots);
                 </div>
 
                 <!-- Right: Dynamic Interactive Zone Inspector Card -->
-                <div class="sanctuary-inspector-card" id="sanctuary-inspector">
+                <div class="sanctuary-inspector-card sidebar-active-card" id="sanctuary-inspector">
                     
                     <!-- Zone Card Header -->
                     <div class="inspector-header">

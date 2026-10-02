@@ -1153,7 +1153,7 @@ function openBillEditModal(booking) {
     custContainer.innerHTML = '';
     if (p.custom_items && p.custom_items.length > 0) {
         p.custom_items.forEach(function(ci) {
-            appendCustomRow(ci.title, ci.quantity || 1, ci.price || 0);
+            appendCustomRow(ci.title || ci.name || 'Custom Service', ci.quantity || 1, ci.price || ci.amount || 0);
         });
     }
 

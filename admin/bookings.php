@@ -1072,6 +1072,7 @@ function build_tab_url($tab_name, $current_params = []) {
                         <div>
                             <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Dates & Duration</span>
                             <div style="color: var(--adm-text-primary);" id="view-dates-duration">-</div>
+                        </div>
                     </div>
 
                     <!-- Party Size & Chalet Capacity Allotment Check -->

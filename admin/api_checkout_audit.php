@@ -124,7 +124,7 @@ if ($method === 'GET' || (isset($_GET['action']) && $_GET['action'] === 'get_aud
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     if (!$input) {
-        $input = $_POST;
+        $input = $GLOBALS['TEST_INPUT'] ?? $_POST;
     }
 
     $action = $input['action'] ?? 'save_audit_and_checkout';
@@ -205,30 +205,87 @@ if ($method === 'POST') {
             $activities_json = json_encode($clean_act, JSON_UNESCAPED_UNICODE);
         }
 
-        // Process missing item damage penalties into billing_items_json
-        $missing_penalties = (float)($input['missing_damage_penalty'] ?? 0);
-        $penalty_notes = trim($input['missing_damage_notes'] ?? '');
-        $custom_items_json = $booking['billing_items_json'] ?? '[]';
+        // Process missing item damage penalties into individual custom billing items
+        $missing_items_input = $input['missing_damage_items'] ?? null;
+        $total_damage_penalty = (float)($input['missing_damage_penalty'] ?? 0);
 
-        if ($missing_penalties > 0) {
-            $custom_items = [];
-            if (!empty($booking['billing_items_json'])) {
-                $custom_items = json_decode($booking['billing_items_json'], true) ?: [];
+        // Sanitize and read existing billing items
+        $raw_custom = !empty($booking['billing_items_json']) ? json_decode($booking['billing_items_json'], true) : [];
+        $clean_custom = [];
+        if (is_array($raw_custom)) {
+            if (isset($raw_custom['custom_items']) && is_array($raw_custom['custom_items'])) {
+                $raw_custom = $raw_custom['custom_items'];
             }
-            // Remove previous inventory damage fee if re-auditing
-            $custom_items = array_filter($custom_items, function($ci) {
-                $itemName = $ci['name'] ?? ($ci['item_name'] ?? '');
-                return stripos($itemName, 'Inventory') === false && stripos($itemName, 'Damage') === false;
-            });
-            $custom_items[] = [
-                'name' => 'Room Asset Damage / Replacement Fee (' . ($penalty_notes ?: 'Missing Items') . ')',
-                'amount' => $missing_penalties,
-                'price' => $missing_penalties,
-                'quantity' => 1,
-                'subtotal' => $missing_penalties
-            ];
-            $custom_items_json = json_encode(array_values($custom_items), JSON_UNESCAPED_UNICODE);
+            foreach ($raw_custom as $k => $ci) {
+                if (!is_array($ci) || $k === 'is_multi_room' || $k === 'rooms') continue;
+                if (isset($ci[0]) && is_array($ci[0])) continue;
+
+                $t = $ci['title'] ?? ($ci['name'] ?? '');
+                $cat = $ci['category'] ?? '';
+
+                // Remove previous asset damage entries so re-auditing doesn't accumulate duplicates
+                if ($cat === 'asset_damage' || stripos($t, 'Missing Asset') !== false || stripos($t, 'Room Asset Damage') !== false || stripos($t, 'Room Damage:') !== false) {
+                    continue;
+                }
+
+                $qty = max(1, (int)($ci['quantity'] ?? 1));
+                $price = max(0, (float)($ci['price'] ?? ($ci['amount'] ?? 0)));
+                if (empty($t) && $price <= 0) continue;
+
+                $clean_custom[] = [
+                    'title' => $t ?: 'Custom Service',
+                    'name' => $t ?: 'Custom Service',
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'subtotal' => (float)($ci['subtotal'] ?? ($qty * $price))
+                ];
+            }
         }
+
+        // Now append each individual missing asset item
+        $damage_total = 0.00;
+        if (is_array($missing_items_input) && !empty($missing_items_input)) {
+            foreach ($missing_items_input as $di) {
+                $name = trim($di['item_name'] ?? ($di['title'] ?? ''));
+                if (empty($name)) continue;
+                $qty = max(1, (int)($di['quantity'] ?? 1));
+                $price = max(0, (float)($di['price'] ?? 0));
+                $subtotal = $qty * $price;
+                $damage_total += $subtotal;
+                $notes = trim($di['notes'] ?? '');
+
+                $clean_title = (stripos($name, 'missing') === false && stripos($name, 'damage') === false && stripos($name, 'penalty') === false && stripos($name, 'fee') === false)
+                    ? ('Missing / Damaged Asset: ' . $name)
+                    : $name;
+                if (!empty($notes)) {
+                    $clean_title .= ' (' . $notes . ')';
+                }
+
+                $clean_custom[] = [
+                    'title' => $clean_title,
+                    'name' => $clean_title,
+                    'item_name' => $name,
+                    'quantity' => $qty,
+                    'price' => $price,
+                    'subtotal' => $subtotal,
+                    'notes' => $notes,
+                    'category' => 'asset_damage'
+                ];
+            }
+        } elseif ($total_damage_penalty > 0) {
+            $notes = trim($input['missing_damage_notes'] ?? 'Missing/Damaged Items');
+            $clean_custom[] = [
+                'title' => 'Room Asset Damage: ' . $notes,
+                'name' => 'Room Asset Damage: ' . $notes,
+                'quantity' => 1,
+                'price' => $total_damage_penalty,
+                'subtotal' => $total_damage_penalty,
+                'category' => 'asset_damage'
+            ];
+            $damage_total = $total_damage_penalty;
+        }
+
+        $custom_items_json = !empty($clean_custom) ? json_encode(array_values($clean_custom), JSON_UNESCAPED_UNICODE) : null;
 
         // Check if status should be marked completed
         $mark_checkout = !empty($input['mark_checkout']);
@@ -240,13 +297,31 @@ if ($method === 'POST') {
         if ($room_amt <= 0) {
             $room_amt = (float)($booking['total_amount'] ?? 0) - (float)($booking['food_amount'] ?? 0);
         }
-        $new_total = $room_amt + $food_total + $missing_penalties;
+
+        // Calculate activities total
+        $act_total = 0.00;
+        if (is_array($verified_activities)) {
+            foreach ($verified_activities as $va) {
+                if (!empty($va['completed'])) {
+                    $act_total += max(0, (float)($va['price'] ?? 0)) * max(1, (int)($va['quantity'] ?? 1));
+                }
+            }
+        }
+
+        // Calculate total custom items
+        $custom_total = 0.00;
+        foreach ($clean_custom as $ci) {
+            $custom_total += (float)($ci['subtotal'] ?? (($ci['quantity'] ?? 1) * ($ci['price'] ?? 0)));
+        }
+
+        $new_total = $room_amt + $food_total + $act_total + $custom_total;
 
         $upd = $pdo->prepare("UPDATE bookings SET 
             food_items = ?, 
             food_amount = ?, 
             activities_json = ?, 
             billing_items_json = ?, 
+            total_amount = ?,
             status = ?, 
             checked_out_at = COALESCE(?, checked_out_at) 
             WHERE id = ?");
@@ -255,6 +330,7 @@ if ($method === 'POST') {
             $food_total,
             $activities_json,
             $custom_items_json,
+            $new_total,
             $new_status,
             $checkout_timestamp,
             $booking_id

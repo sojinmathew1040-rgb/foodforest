@@ -357,7 +357,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         /* Printable A4 Paper Container */
         .bill-sheet {
-            max-width: 900px;
+            max-width: 860px;
             margin: 0 auto;
             background: var(--bg-paper);
             border-radius: 8px;
@@ -374,62 +374,62 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
             top: 0;
             left: 0;
             right: 0;
-            height: 6px;
+            height: 5px;
             background: linear-gradient(90deg, #101F15 0%, #C5A059 35%, #C26D4D 70%, #101F15 100%);
         }
 
         .bill-header {
-            padding: 36px 44px 24px;
+            padding: 20px 32px 14px;
             border-bottom: 2px solid var(--border-light);
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 24px;
+            gap: 20px;
         }
 
         .brand-emblem-wrap {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 8px;
+            gap: 10px;
+            margin-bottom: 4px;
         }
 
         .brand-emblem {
-            width: 36px;
-            height: 36px;
+            width: 32px;
+            height: 32px;
             background: #101F15;
             color: var(--accent);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 14px;
             border: 1px solid var(--accent);
         }
 
         .brand-name {
             font-family: 'Cinzel', serif;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 700;
             color: var(--primary);
-            letter-spacing: 2px;
+            letter-spacing: 1.5px;
             line-height: 1.1;
         }
 
         .brand-sub {
-            font-size: 10.5px;
+            font-size: 9.5px;
             font-weight: 700;
-            letter-spacing: 2.5px;
+            letter-spacing: 2px;
             color: var(--accent-terra);
             text-transform: uppercase;
             display: block;
         }
 
         .brand-address {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-muted);
-            line-height: 1.5;
-            margin-top: 6px;
+            line-height: 1.4;
+            margin-top: 4px;
         }
 
         .invoice-badge-box {
@@ -438,22 +438,22 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         .invoice-type-title {
             font-family: 'Cormorant Garamond', Georgia, serif;
-            font-size: 28px;
+            font-size: 22px;
             font-weight: 700;
             color: var(--primary);
-            line-height: 1;
-            margin-bottom: 6px;
-            letter-spacing: 1px;
+            line-height: 1.1;
+            margin-bottom: 4px;
+            letter-spacing: 0.8px;
         }
 
         .status-pill {
             display: inline-block;
-            padding: 3px 12px;
+            padding: 2px 10px;
             border-radius: 20px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.8px;
         }
 
         .status-paid {
@@ -481,46 +481,46 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         }
 
         .invoice-meta-table {
-            margin-top: 10px;
-            font-size: 12.5px;
+            margin-top: 6px;
+            font-size: 11.5px;
             color: var(--text-muted);
             margin-left: auto;
         }
 
         .invoice-meta-table td {
-            padding: 2px 4px;
+            padding: 1.5px 3px;
         }
 
         .invoice-meta-table .meta-val {
             font-weight: 700;
             color: var(--text-dark);
             font-family: monospace;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         /* Details Grid: Guest & Stay Itinerary */
         .bill-details-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 24px;
-            padding: 24px 44px;
+            gap: 20px;
+            padding: 12px 32px;
             background: #F8FAF9;
             border-bottom: 1px solid var(--border-light);
         }
 
         .details-panel-title {
             font-family: 'Cormorant Garamond', Georgia, serif;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
             color: var(--primary);
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 10px;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             border-bottom: 1px solid #E2E8F0;
-            padding-bottom: 4px;
+            padding-bottom: 3px;
         }
 
         .details-panel-title i {
@@ -530,37 +530,39 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         .detail-row {
             display: flex;
             justify-content: space-between;
-            padding: 4px 0;
-            font-size: 13px;
+            padding: 2.5px 0;
+            font-size: 11.5px;
         }
 
         .detail-row .label {
             color: var(--text-muted);
+            white-space: nowrap;
         }
 
         .detail-row .val {
             font-weight: 600;
             color: var(--text-dark);
             text-align: right;
+            padding-left: 8px;
         }
 
         /* Itemized Billing Sections */
         .bill-body {
-            padding: 28px 44px;
+            padding: 14px 32px;
         }
 
         .section-heading {
             font-family: 'Cormorant Garamond', Georgia, serif;
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--primary);
             letter-spacing: 0.5px;
-            margin: 20px 0 10px;
+            margin: 12px 0 6px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             border-bottom: 1.5px solid #CBD5E1;
-            padding-bottom: 6px;
+            padding-bottom: 4px;
         }
 
         .section-heading:first-child {
@@ -569,37 +571,37 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         .section-heading .sec-tag {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 700;
             color: #8C6615;
             background: rgba(197, 160, 89, 0.15);
-            padding: 2px 8px;
+            padding: 1px 6px;
             border-radius: 4px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.8px;
         }
 
         .bill-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 16px;
-            font-size: 13px;
+            margin-bottom: 10px;
+            font-size: 11.5px;
         }
 
         .bill-table th {
             background-color: #F1F5F3;
             color: var(--primary);
-            font-size: 11.5px;
+            font-size: 10.5px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
-            padding: 8px 12px;
+            letter-spacing: 0.6px;
+            padding: 5px 8px;
             text-align: left;
             border-bottom: 1px solid var(--border-light);
         }
 
         .bill-table td {
-            padding: 9px 12px;
+            padding: 5px 8px;
             border-bottom: 1px solid #F1F5F9;
             vertical-align: top;
         }
@@ -610,28 +612,28 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         .table-dish-title strong {
             display: block;
-            font-size: 13.5px;
+            font-size: 12px;
             color: var(--primary);
         }
 
         .table-dish-sub {
-            font-size: 11.5px;
+            font-size: 10.5px;
             color: var(--text-muted);
-            margin-top: 2px;
+            margin-top: 1px;
         }
 
         .table-inclusions {
             display: flex;
             flex-wrap: wrap;
-            gap: 4px;
-            margin-top: 4px;
+            gap: 3px;
+            margin-top: 3px;
         }
 
         .inc-pill {
-            font-size: 10.5px;
+            font-size: 9.5px;
             background: #F8FAFC;
             color: #475569;
-            padding: 1px 6px;
+            padding: 1px 5px;
             border-radius: 3px;
             border: 1px solid #E2E8F0;
         }
@@ -639,39 +641,39 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         /* Financial Calculation Footer Summary */
         .bill-footer-grid {
             display: grid;
-            grid-template-columns: 1.1fr 1fr;
-            gap: 28px;
-            margin-top: 24px;
-            padding-top: 20px;
-            border-top: 2px solid var(--border-light);
+            grid-template-columns: 1.15fr 1fr;
+            gap: 18px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1.5px solid var(--border-light);
         }
 
         .payment-instructions-card {
             background: #F8FAF9;
-            border: 1.5px solid #CBD5E1;
-            border-radius: 8px;
-            padding: 16px 18px;
-            font-size: 12.5px;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 11px;
         }
 
         .payment-card-title {
             font-weight: 700;
             color: var(--primary);
-            font-size: 13px;
+            font-size: 11.5px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 12px;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             border-bottom: 1px solid #E2E8F0;
-            padding-bottom: 6px;
+            padding-bottom: 4px;
         }
 
         .payment-card-title span {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
         }
 
         .payment-card-title i {
@@ -681,7 +683,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         .payment-card-grid {
             display: grid;
             grid-template-columns: auto 1fr;
-            gap: 16px;
+            gap: 10px;
             align-items: start;
         }
 
@@ -692,54 +694,54 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         .payment-qr-col {
             background: #FFFFFF;
             border: 1px solid #CBD5E1;
-            border-radius: 8px;
-            padding: 10px;
+            border-radius: 6px;
+            padding: 6px;
             text-align: center;
-            width: 130px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            width: 90px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
         }
 
         .payment-qr-col img {
-            width: 100px;
-            height: 100px;
+            width: 72px;
+            height: 72px;
             object-fit: contain;
             display: block;
             margin: 0 auto;
         }
 
         .payment-qr-upi-label {
-            font-size: 10px;
+            font-size: 8.5px;
             font-weight: 700;
             color: var(--primary);
             font-family: monospace;
-            margin-top: 6px;
+            margin-top: 4px;
             background: #F1F5F9;
-            padding: 2px 4px;
-            border-radius: 4px;
+            padding: 1px 3px;
+            border-radius: 3px;
             word-break: break-all;
         }
 
         .payment-qr-sub {
-            font-size: 9px;
+            font-size: 8px;
             color: var(--text-muted);
-            margin-top: 4px;
-            line-height: 1.2;
+            margin-top: 2px;
+            line-height: 1.1;
         }
 
         .bank-info-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
+            font-size: 10.5px;
         }
 
         .bank-info-table td {
-            padding: 3.5px 0;
+            padding: 2px 0;
             vertical-align: top;
         }
 
         .bank-info-table .b-lbl {
             color: var(--text-muted);
-            width: 95px;
+            width: 80px;
             font-weight: 500;
         }
 
@@ -750,7 +752,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         .bank-info-table .b-val.mono {
             font-family: monospace;
-            font-size: 12.5px;
+            font-size: 11px;
             font-weight: 700;
             color: var(--primary);
         }
@@ -758,11 +760,11 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         .charges-summary-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13px;
+            font-size: 11.5px;
         }
 
         .charges-summary-table td {
-            padding: 6px 0;
+            padding: 3.5px 0;
             border-bottom: 1px dashed #E2E8F0;
         }
 
@@ -770,25 +772,26 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
             text-align: right;
             font-weight: 600;
             font-family: monospace;
-            font-size: 13.5px;
+            font-size: 12px;
         }
 
         .grand-total-row td {
-            padding-top: 10px;
+            padding-top: 6px;
+            padding-bottom: 4px;
             border-bottom: none;
-            border-top: 2px solid var(--primary);
+            border-top: 1.5px solid var(--primary);
         }
 
         .grand-total-label {
             font-family: 'Cormorant Garamond', Georgia, serif;
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 700;
             color: var(--primary);
         }
 
         .grand-total-val {
             font-family: 'Cinzel', serif;
-            font-size: 22px;
+            font-size: 17px;
             font-weight: 700;
             color: var(--primary);
             text-align: right;
@@ -796,9 +799,9 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         .balance-due-row {
             background: #FEF2F2;
-            padding: 8px 12px;
-            border-radius: 6px;
-            margin-top: 8px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            margin-top: 6px;
             border: 1px solid #FECACA;
             display: flex;
             justify-content: space-between;
@@ -812,10 +815,10 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         .balance-due-label {
             font-weight: 700;
-            font-size: 13px;
+            font-size: 11px;
             color: #991B1B;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.6px;
         }
 
         .balance-due-row.settled .balance-due-label {
@@ -824,7 +827,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         .balance-due-val {
             font-family: 'Cinzel', serif;
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 700;
             color: #991B1B;
         }
@@ -837,9 +840,9 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         .bill-signatures {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            margin-top: 36px;
-            padding-top: 24px;
+            gap: 24px;
+            margin-top: 14px;
+            padding-top: 10px;
             border-top: 1px solid var(--border-light);
         }
 
@@ -848,36 +851,42 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         }
 
         .sig-line {
-            width: 80%;
-            margin: 40px auto 6px;
+            width: 70%;
+            margin: 20px auto 4px;
             border-top: 1px solid #94A3B8;
         }
 
         .sig-label {
-            font-size: 11.5px;
+            font-size: 10px;
             font-weight: 600;
             color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.8px;
         }
 
         .bill-footer-notes {
-            background: #F8FAF9;
+            background: transparent;
             border-top: 1px solid var(--border-light);
-            padding: 20px 44px;
-            font-size: 11.5px;
+            padding: 8px 32px;
+            font-size: 10px;
             color: var(--text-muted);
-            line-height: 1.5;
             text-align: center;
+        }
+
+        @page {
+            size: A4 portrait;
+            margin: 8mm 8mm 8mm 8mm;
         }
 
         /* PRINT MEDIA QUERIES (OPTIMIZED FOR A4) */
         @media print {
-            body {
+            html, body {
                 background: #FFFFFF !important;
                 padding: 0 !important;
                 margin: 0 !important;
                 color: #000000 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
 
             .bill-toolbar {
@@ -888,50 +897,112 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                 box-shadow: none !important;
                 border: none !important;
                 max-width: 100% !important;
+                width: 100% !important;
+                margin: 0 !important;
                 border-radius: 0 !important;
             }
 
-            .bill-header, .bill-body, .bill-footer-notes {
-                padding-left: 20px !important;
-                padding-right: 20px !important;
+            .bill-sheet::before {
+                height: 4px !important;
+            }
+
+            .bill-header {
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: space-between !important;
+                align-items: flex-start !important;
+                padding: 12px 16px 8px !important;
+            }
+
+            .invoice-badge-box {
+                text-align: right !important;
             }
 
             .bill-details-grid {
-                padding-left: 20px !important;
-                padding-right: 20px !important;
-                background: #FAFAFA !important;
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 16px !important;
+                padding: 8px 16px !important;
+                background: #F8FAF9 !important;
+            }
+
+            .bill-body {
+                padding: 10px 16px !important;
+            }
+
+            .bill-footer-grid {
+                display: grid !important;
+                grid-template-columns: 1.15fr 1fr !important;
+                gap: 16px !important;
+                margin-top: 10px !important;
+                padding-top: 8px !important;
             }
 
             .payment-instructions-card {
-                background: #FAFAFA !important;
+                background: #F8FAF9 !important;
+                padding: 8px 10px !important;
+            }
+
+            .bill-signatures {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 20px !important;
+                margin-top: 10px !important;
+                padding-top: 8px !important;
+            }
+
+            .sig-line {
+                margin: 16px auto 3px !important;
+            }
+
+            .bill-footer-notes {
+                padding: 6px 16px !important;
+                background: transparent !important;
+            }
+
+            /* Prevent awkward breaks across pages */
+            .bill-header, 
+            .bill-details-grid, 
+            .bill-footer-grid, 
+            .bill-signatures, 
+            .bill-table tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .section-heading {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
             }
         }
 
-        @media (max-width: 768px) {
+        /* Screen only for mobile devices - NEVER applied in print */
+        @media screen and (max-width: 768px) {
             .bill-header {
                 flex-direction: column;
                 align-items: flex-start;
-                padding: 24px 20px;
+                padding: 16px 16px;
             }
             .invoice-badge-box {
                 text-align: left;
+                margin-top: 10px;
             }
             .invoice-meta-table {
                 margin-left: 0;
             }
             .bill-details-grid {
                 grid-template-columns: 1fr;
-                padding: 20px;
+                padding: 14px 16px;
             }
             .bill-body {
-                padding: 20px;
+                padding: 14px 16px;
             }
             .bill-footer-grid {
                 grid-template-columns: 1fr;
             }
             .bill-signatures {
                 grid-template-columns: 1fr;
-                gap: 20px;
+                gap: 16px;
             }
         }
     </style>
@@ -1190,13 +1261,29 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($p['food_items'] as $fi): ?>
-                            <tr>
+                        <?php foreach ($p['food_items'] as $fi): 
+                            $is_served = !isset($fi['served']) || !empty($fi['served']);
+                            $is_sub = !empty($fi['is_substituted']);
+                        ?>
+                            <tr style="<?php echo !$is_served ? 'opacity: 0.65; background: #FFFBFB;' : ''; ?>">
                                 <td class="table-dish-title">
-                                    <strong><?php echo htmlspecialchars($fi['heading'] ?? 'Custom Meal Set'); ?></strong>
-                                    <?php if (!empty($fi['subtitle'])): ?>
+                                    <strong style="<?php echo !$is_served ? 'text-decoration: line-through; color: #94A3B8;' : ''; ?>">
+                                        <?php echo htmlspecialchars($fi['heading'] ?? 'Custom Meal Set'); ?>
+                                    </strong>
+                                    <?php if (!$is_served): ?>
+                                        <span style="font-size: 10px; background: #FEE2E2; color: #DC2626; padding: 2px 7px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase;">Not Served / Cancelled</span>
+                                    <?php elseif ($is_sub): ?>
+                                        <span style="font-size: 10px; background: #FEF3C7; color: #D97706; padding: 2px 7px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase;">Substituted</span>
+                                    <?php endif; ?>
+
+                                    <?php if ($is_sub && !empty($fi['original_dish'])): ?>
+                                        <div style="font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 2px;">
+                                            Original Order: <?php echo htmlspecialchars($fi['original_dish']); ?>
+                                        </div>
+                                    <?php elseif (!empty($fi['subtitle'])): ?>
                                         <div class="table-dish-sub"><?php echo htmlspecialchars($fi['subtitle']); ?></div>
                                     <?php endif; ?>
+
                                     <?php if (!empty($fi['inclusions']) && is_array($fi['inclusions'])): ?>
                                         <div class="table-inclusions">
                                             <?php foreach ($fi['inclusions'] as $inc): ?>
@@ -1216,8 +1303,8 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                 <td style="text-align: right; color: var(--text-muted);">
                                     <?php echo $currency . number_format((float)($fi['price'] ?? 0), 2); ?>
                                 </td>
-                                <td style="text-align: right; font-weight: 700; color: var(--primary);">
-                                    <?php echo $currency . number_format((float)($fi['subtotal'] ?? (($fi['price'] ?? 0) * ($fi['quantity'] ?? 1))), 2); ?>
+                                <td style="text-align: right; font-weight: 700; color: <?php echo !$is_served ? '#DC2626' : 'var(--primary)'; ?>;">
+                                    <?php echo $is_served ? ($currency . number_format((float)($fi['subtotal'] ?? (($fi['price'] ?? 0) * ($fi['quantity'] ?? 1))), 2)) : ($currency . '0.00'); ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -1247,10 +1334,18 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($p['activities'] as $act): ?>
-                            <tr>
+                        <?php foreach ($p['activities'] as $act): 
+                            $is_done = !isset($act['completed']) || !empty($act['completed']);
+                        ?>
+                            <tr style="<?php echo !$is_done ? 'opacity: 0.65; background: #FFFBFB;' : ''; ?>">
                                 <td class="table-dish-title">
-                                    <strong><i class="fa-solid fa-feather" style="color: var(--accent); font-size: 11px; margin-right: 4px;"></i> <?php echo htmlspecialchars($act['title'] ?? 'Sanctuary Experience'); ?></strong>
+                                    <strong style="<?php echo !$is_done ? 'text-decoration: line-through; color: #94A3B8;' : ''; ?>">
+                                        <i class="fa-solid fa-feather" style="color: var(--accent); font-size: 11px; margin-right: 4px;"></i> 
+                                        <?php echo htmlspecialchars($act['title'] ?? 'Sanctuary Experience'); ?>
+                                    </strong>
+                                    <?php if (!$is_done): ?>
+                                        <span style="font-size: 10px; background: #FEE2E2; color: #DC2626; padding: 2px 7px; border-radius: 4px; font-weight: 700; margin-left: 6px; text-transform: uppercase;">Not Attended / Cancelled</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td style="color: var(--text-muted); font-size: 12px;">
                                     <?php echo htmlspecialchars($act['timing'] ?? 'Curated Schedule'); ?>
@@ -1261,8 +1356,8 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                 <td style="text-align: right; color: var(--text-muted);">
                                     <?php echo ((float)($act['price'] ?? 0) > 0) ? $currency . number_format((float)$act['price'], 2) : '<span style="color: #059669; font-weight: 600;">Included</span>'; ?>
                                 </td>
-                                <td style="text-align: right; font-weight: 700; color: var(--primary);">
-                                    <?php echo ((float)($act['subtotal'] ?? 0) > 0) ? $currency . number_format((float)$act['subtotal'], 2) : '<span style="color: #059669; font-weight: 600;">₹0.00</span>'; ?>
+                                <td style="text-align: right; font-weight: 700; color: <?php echo !$is_done ? '#DC2626' : 'var(--primary)'; ?>;">
+                                    <?php echo $is_done ? (((float)($act['subtotal'] ?? 0) > 0) ? $currency . number_format((float)$act['subtotal'], 2) : '<span style="color: #059669; font-weight: 600;">₹0.00</span>') : ($currency . '0.00'); ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -1293,7 +1388,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                     <tbody>
                         <?php foreach ($p['custom_items'] as $ci): ?>
                             <tr>
-                                <td><strong><?php echo htmlspecialchars($ci['title'] ?? 'Custom Service'); ?></strong></td>
+                                <td><strong><?php echo htmlspecialchars($ci['title'] ?? ($ci['name'] ?? 'Custom Service')); ?></strong></td>
                                 <td style="text-align: center; font-weight: 600;"><?php echo (int)($ci['quantity'] ?? 1); ?></td>
                                 <td style="text-align: right; color: var(--text-muted);"><?php echo $currency . number_format((float)($ci['price'] ?? 0), 2); ?></td>
                                 <td style="text-align: right; font-weight: 700; color: var(--primary);"><?php echo $currency . number_format((float)($ci['subtotal'] ?? 0), 2); ?></td>
@@ -1474,10 +1569,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         <!-- Footer Etiquette & Policy -->
         <footer class="bill-footer-notes">
-            <p><strong>Food Forest Sanctuary Kanthalloor</strong> • An organic, high-altitude regenerative sanctuary rooted in earth, reverence and unhurried time.</p>
-            <p style="margin-top: 4px; font-size: 11px; color: #94A3B8;">
-                Check-Out Time: 11:00 AM • This is a computer-generated luxury guest invoice and stay folio.
-            </p>
+            <span><strong>Food Forest Sanctuary Kanthalloor</strong> • Check-Out Time: 11:00 AM • Computer-Generated Luxury Stay Folio</span>
         </footer>
 
     </div>
@@ -1586,7 +1678,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
     // PDF Export Configuration
     function getPdfOptions(fileName) {
         return {
-            margin: [8, 8, 8, 8],
+            margin: [6, 6, 6, 6],
             filename: fileName,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
