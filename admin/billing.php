@@ -679,21 +679,34 @@ $currency = get_setting('currency_symbol', '₹');
                                     </div>
                                 </td>
 
-                                <!-- Bill & Dues -->
-                                <td style="text-align: right;">
+                                <!-- Bill & Dues (Stay vs Other Breakdown) -->
+                                <td style="text-align: right; min-width: 140px;">
                                     <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; font-family: monospace;">
                                         <?php echo $currency . number_format($bp['net_total'], 2); ?>
                                     </div>
-                                    <div style="font-size: 11.5px; color: var(--adm-text-muted); margin-top: 2px;">
+
+                                    <!-- Stay vs Other Separation Breakdown -->
+                                    <div style="display: flex; flex-direction: column; gap: 3px; margin: 4px 0; font-size: 11px;">
+                                        <div style="display: flex; justify-content: space-between; gap: 8px; background: rgba(34, 197, 94, 0.08); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(34, 197, 94, 0.2);">
+                                            <span style="color: #4ade80;"><i class="fa-solid fa-hotel"></i> Stay:</span>
+                                            <strong style="color: #86efac;"><?php echo $currency . number_format($bp['stay_total'], 0); ?></strong>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; gap: 8px; background: rgba(14, 116, 144, 0.12); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(14, 116, 144, 0.25);">
+                                            <span style="color: #38bdf8;"><i class="fa-solid fa-utensils"></i> Other:</span>
+                                            <strong style="color: #7dd3fc;"><?php echo $currency . number_format($bp['other_total'], 0); ?></strong>
+                                        </div>
+                                    </div>
+
+                                    <div style="font-size: 11px; color: var(--adm-text-muted);">
                                         Adv: <?php echo $currency . number_format($bp['advance_paid'], 2); ?>
                                     </div>
-                                    <div style="margin-top: 4px;">
+                                    <div style="margin-top: 3px;">
                                         <?php if ($bp['balance_due'] <= 0): ?>
-                                            <span style="font-size: 11.5px; font-weight: 700; color: #34D399; background: rgba(16, 185, 129, 0.15); padding: 2px 8px; border-radius: 4px; display: inline-block;">
+                                            <span style="font-size: 11px; font-weight: 700; color: #34D399; background: rgba(16, 185, 129, 0.15); padding: 2px 8px; border-radius: 4px; display: inline-block;">
                                                 <i class="fa-solid fa-check"></i> SETTLED
                                             </span>
                                         <?php else: ?>
-                                            <span style="font-size: 11.5px; font-weight: 700; color: #F87171; background: rgba(239, 68, 68, 0.15); padding: 2px 8px; border-radius: 4px; display: inline-block;" title="Balance Due">
+                                            <span style="font-size: 11px; font-weight: 700; color: #F87171; background: rgba(239, 68, 68, 0.15); padding: 2px 8px; border-radius: 4px; display: inline-block;" title="Net Balance Due (Stay: <?php echo $currency . number_format($bp['stay_balance_due'], 0); ?> | Other: <?php echo $currency . number_format($bp['other_balance_due'], 0); ?>)">
                                                 Due: <?php echo $currency . number_format($bp['balance_due'], 2); ?>
                                             </span>
                                         <?php endif; ?>
@@ -701,24 +714,44 @@ $currency = get_setting('currency_symbol', '₹');
                                 </td>
 
                                 <!-- Print & Action Buttons -->
-                                <td style="text-align: center;">
-                                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: stretch;">
+                                <td style="text-align: center; min-width: 170px;">
+                                    <div style="display: flex; flex-direction: column; gap: 5px; align-items: stretch;">
                                         
-                                        <!-- Primary Print Button -->
-                                        <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>" 
+                                        <!-- Split Print Action Buttons: Stay Bill & Other Bill -->
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=stay" 
+                                               target="_blank" 
+                                               class="adm-btn adm-btn-primary" 
+                                               style="padding: 5px 6px; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;"
+                                               title="Open Printable Property Stay Bill (Villa Tariff only)">
+                                                <i class="fa-solid fa-hotel"></i>
+                                                <span>Stay Bill</span>
+                                            </a>
+                                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=other" 
+                                               target="_blank" 
+                                               class="adm-btn" 
+                                               style="padding: 5px 6px; font-size: 11px; background: rgba(14, 116, 144, 0.25); color: #38bdf8; border: 1px solid rgba(14, 116, 144, 0.5); display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;"
+                                               title="Open Printable Other Bill (Food/Gastronomy, Activities & Services)">
+                                                <i class="fa-solid fa-utensils"></i>
+                                                <span>Other Bill</span>
+                                            </a>
+                                        </div>
+
+                                        <!-- Combined Master Folio Link -->
+                                        <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=combined" 
                                            target="_blank" 
-                                           class="adm-btn adm-btn-primary" 
-                                           style="padding: 6px 12px; font-size: 12.5px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;"
-                                           title="Open printable luxury guest folio & invoice">
-                                            <i class="fa-solid fa-print"></i>
-                                            <span>Print Bill</span>
+                                           class="adm-btn" 
+                                           style="padding: 3px 6px; font-size: 10.5px; background: rgba(255, 255, 255, 0.05); color: var(--adm-text-secondary); border: 1px solid rgba(255, 255, 255, 0.12); display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;"
+                                           title="Consolidated Master Folio (All Charges)">
+                                            <i class="fa-solid fa-file-lines"></i>
+                                            <span>Combined Master Folio</span>
                                         </a>
 
                                         <!-- Edit / Customize Modal Trigger -->
                                         <button type="button" 
                                                 onclick="openBillEditModal(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES, 'UTF-8'); ?>)"
                                                 class="adm-btn adm-btn-secondary" 
-                                                style="padding: 5px 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 5px;"
+                                                style="padding: 4px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px;"
                                                 title="Add food items, extra activities, discounts, or record payment">
                                             <i class="fa-solid fa-pen-to-square"></i>
                                             <span>Customize / Edit</span>
@@ -728,29 +761,36 @@ $currency = get_setting('currency_symbol', '₹');
                                         <button type="button" 
                                                 onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>)"
                                                 class="adm-btn" 
-                                                style="padding: 5px 10px; font-size: 11.5px; background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); display: flex; align-items: center; justify-content: center; gap: 5px;"
+                                                style="padding: 4px 8px; font-size: 11px; background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); display: flex; align-items: center; justify-content: center; gap: 4px;"
                                                 title="Step-by-Step Guest Stay Audit (Room, Meals & Experiences Verification)">
                                             <i class="fa-solid fa-list-check"></i>
-                                            <span>Stay Audit & Check-Out</span>
+                                            <span>Stay Audit &amp; Check-Out</span>
                                         </button>
 
                                         <!-- Quick WhatsApp Share & Digital Receipt -->
-                                        <div style="display: flex; gap: 4px;">
+                                        <div style="display: flex; gap: 3px;">
                                             <?php if (!empty($b['guest_phone'])): ?>
-                                                <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>" 
+                                                <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=stay" 
                                                    target="_blank" 
                                                    class="adm-btn" 
-                                                   style="flex: 1; padding: 4px 6px; font-size: 11px; background: rgba(37, 211, 102, 0.15); color: #25D366; border: 1px solid rgba(37, 211, 102, 0.3); text-decoration: none; text-align: center;"
-                                                   title="View & Share via WhatsApp">
-                                                    <i class="fa-brands fa-whatsapp"></i> WA
+                                                   style="flex: 1; padding: 3px 4px; font-size: 10px; background: rgba(37, 211, 102, 0.12); color: #25D366; border: 1px solid rgba(37, 211, 102, 0.25); text-decoration: none; text-align: center;"
+                                                   title="View & Share Stay Bill via WhatsApp">
+                                                    <i class="fa-brands fa-whatsapp"></i> Stay
+                                                </a>
+                                                <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=other" 
+                                                   target="_blank" 
+                                                   class="adm-btn" 
+                                                   style="flex: 1; padding: 3px 4px; font-size: 10px; background: rgba(37, 211, 102, 0.12); color: #25D366; border: 1px solid rgba(37, 211, 102, 0.25); text-decoration: none; text-align: center;"
+                                                   title="View & Share Other Bill via WhatsApp">
+                                                    <i class="fa-brands fa-whatsapp"></i> Other
                                                 </a>
                                             <?php endif; ?>
                                             <a href="../receipt.php?ref=<?php echo urlencode($b['reference_code']); ?>" 
                                                target="_blank" 
                                                class="adm-btn" 
-                                               style="flex: 1; padding: 4px 6px; font-size: 11px; background: rgba(255,255,255,0.08); color: var(--adm-text-secondary); text-decoration: none; text-align: center;"
+                                               style="flex: 1; padding: 3px 4px; font-size: 10px; background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); text-decoration: none; text-align: center;"
                                                title="View guest web receipt">
-                                                <i class="fa-solid fa-eye"></i> View
+                                                <i class="fa-solid fa-eye"></i> Receipt
                                             </a>
                                         </div>
 

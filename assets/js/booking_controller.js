@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPhotoIdx = 0;
     let currentPhotos = [];
     let currentTier = 'full'; // 'full' or 'single_room'
+    let currentDuplexUnit = 'left'; // 'left', 'right', or 'full'
     let currentAvailabilityData = null;
     let availAbortController = null;
 
@@ -117,6 +118,41 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sacGalIndicator) {
             sacGalIndicator.innerText = `${currentPhotoIdx + 1} / ${currentPhotos.length}`;
         }
+    }
+
+    // Dynamic Photo Set Switcher for Duplex Wings & Chalets
+    function syncPhotosForSelection() {
+        if (!currentSpot) return;
+        const isDuplex = (currentSpot.structure_type === 'duplex_hut' || (currentRoom && currentRoom.structure_type === 'duplex_hut'));
+        if (isDuplex && currentTier === 'single_room') {
+            if (currentDuplexUnit === 'left' && currentSpot.photos_left_list && currentSpot.photos_left_list.length > 0) {
+                currentPhotos = currentSpot.photos_left_list;
+            } else if (currentDuplexUnit === 'right' && currentSpot.photos_right_list && currentSpot.photos_right_list.length > 0) {
+                currentPhotos = currentSpot.photos_right_list;
+            } else if (currentRoom && currentDuplexUnit === 'left' && currentRoom.photos_left_list && currentRoom.photos_left_list.length > 0) {
+                currentPhotos = currentRoom.photos_left_list;
+            } else if (currentRoom && currentDuplexUnit === 'right' && currentRoom.photos_right_list && currentRoom.photos_right_list.length > 0) {
+                currentPhotos = currentRoom.photos_right_list;
+            } else if (currentSpot.photos_list && currentSpot.photos_list.length > 0) {
+                currentPhotos = currentSpot.photos_list;
+            } else {
+                currentPhotos = [currentSpot.image_url || 'assets/images/01 (25).jpeg'];
+            }
+        } else {
+            if (currentSpot.photos_list && currentSpot.photos_list.length > 0) {
+                currentPhotos = currentSpot.photos_list;
+            } else if (currentRoom && currentRoom.photos_list && currentRoom.photos_list.length > 0) {
+                currentPhotos = currentRoom.photos_list;
+            } else if (currentSpot.image_url) {
+                currentPhotos = [currentSpot.image_url];
+            } else if (currentRoom && currentRoom.image_url) {
+                currentPhotos = [currentRoom.image_url];
+            } else {
+                currentPhotos = ['assets/images/01 (25).jpeg'];
+            }
+        }
+        currentPhotoIdx = 0;
+        updateSidebarPhoto();
     }
 
     // 4. Recalculate and render pricing
@@ -195,21 +231,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Setup photos
-        currentPhotos = [];
-        if (spot.photos_list && spot.photos_list.length > 0) {
-            currentPhotos = spot.photos_list;
-        } else if (currentRoom && currentRoom.photos_list && currentRoom.photos_list.length > 0) {
-            currentPhotos = currentRoom.photos_list;
-        } else if (spot.image_url) {
-            currentPhotos = [spot.image_url];
-        } else if (currentRoom && currentRoom.image_url) {
-            currentPhotos = [currentRoom.image_url];
-        } else {
-            currentPhotos = ['assets/images/01 (25).jpeg'];
+        // Check availability status from latest fetched data
+        let spotAvail = true;
+        let spotPartiallyBooked = false;
+        let leftAvail = true;
+        let rightAvail = true;
+        let fullAvail = true;
+        let spotMessage = '';
+        if (isStay && currentAvailabilityData && currentAvailabilityData.spots_status) {
+            const spStatus = currentAvailabilityData.spots_status[spot.id];
+            if (spStatus) {
+                spotAvail = spStatus.available;
+                spotPartiallyBooked = !!spStatus.partially_booked;
+                leftAvail = (spStatus.left_available !== undefined) ? spStatus.left_available : true;
+                rightAvail = (spStatus.right_available !== undefined) ? spStatus.right_available : true;
+                fullAvail = (spStatus.full_available !== undefined) ? spStatus.full_available : true;
+                spotMessage = spStatus.message;
+            }
         }
-        currentPhotoIdx = 0;
-        updateSidebarPhoto();
+
+        // Setup photos based on selection
+        syncPhotosForSelection();
 
         // Update titles & descriptions
         if (sacTitle) sacTitle.innerText = spot.title;
@@ -219,21 +261,13 @@ document.addEventListener('DOMContentLoaded', () => {
             sacTypePill.innerHTML = isStay ? '<i class="fa-solid fa-house-chimney"></i> BOOKABLE CHALET' : '<i class="fa-solid fa-water"></i> ESTATE FACILITY';
         }
 
-        // Check availability status from latest fetched data
-        let spotAvail = true;
-        let spotMessage = '';
-        if (isStay && currentAvailabilityData && currentAvailabilityData.spots_status) {
-            const spStatus = currentAvailabilityData.spots_status[spot.id];
-            if (spStatus) {
-                spotAvail = spStatus.available;
-                spotMessage = spStatus.message;
-            }
-        }
-
         if (sacAvailPill) {
             if (!isStay) {
                 sacAvailPill.innerHTML = '<i class="fa-solid fa-sparkles" style="color: #56c2c9;"></i> Open for Guests';
                 sacAvailPill.className = 'sac-avail-pill font-sans';
+            } else if (spotPartiallyBooked) {
+                sacAvailPill.innerHTML = '<i class="fa-solid fa-bolt" style="color: #D97706;"></i> 1 Suite Available (Partially Booked)';
+                sacAvailPill.className = 'sac-avail-pill sac-partially-booked font-sans';
             } else if (spotAvail) {
                 sacAvailPill.innerHTML = '<i class="fa-solid fa-circle-check"></i> Available for Selected Dates';
                 sacAvailPill.className = 'sac-avail-pill sac-available font-sans';
@@ -243,13 +277,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Booked Warning in Sidebar
+        // Booked or Partially Booked Warning in Sidebar
         if (sacBookedWarning) {
-            if (isStay && !spotAvail) {
+            if (isStay && spotPartiallyBooked) {
+                sacBookedWarning.className = 'sac-partially-booked-box font-sans';
                 sacBookedWarning.style.display = 'flex';
-                if (sacBookedWarningMsg) {
-                    sacBookedWarningMsg.innerText = spotMessage || `We apologize, but ${spot.title} has already been reserved for your selected stay dates. Please choose alternative dates or pick another available chalet on the map.`;
-                }
+                const note = !leftAvail ? 'Left Suite (Wing A) is reserved. Right Suite (Wing B) is available!' : 'Right Suite (Wing B) is reserved. Left Suite (Wing A) is available!';
+                sacBookedWarning.innerHTML = `
+                    <i class="fa-solid fa-circle-info"></i>
+                    <div>
+                        <strong style="color: #92400E; font-size: 13px; display: block;">1 Suite Available (Partially Booked)</strong>
+                        <p id="sac-booked-warning-msg" style="margin: 3px 0 0; font-size: 12px; color: #B45309; line-height: 1.45;">
+                            ${spotMessage || note}
+                        </p>
+                    </div>
+                `;
+            } else if (isStay && !spotAvail) {
+                sacBookedWarning.className = 'sac-booked-warning-box font-sans';
+                sacBookedWarning.style.display = 'flex';
+                sacBookedWarning.innerHTML = `
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div>
+                        <strong style="color: #991B1B; font-size: 13.5px; display: block;">Chalet Already Reserved</strong>
+                        <p id="sac-booked-warning-msg" style="margin: 3px 0 6px; font-size: 12px; color: #B91C1C; line-height: 1.45;">
+                            ${spotMessage || `We apologize, but ${spot.title} has already been reserved for your selected stay dates.`}
+                        </p>
+                        <span style="font-size: 11.5px; color: #7F1D1D; font-weight: 600;">Please select alternative dates above or pick another available chalet on the map.</span>
+                    </div>
+                `;
             } else {
                 sacBookedWarning.style.display = 'none';
             }
@@ -261,6 +316,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnSacOpenCheckout.disabled = true;
                 btnSacOpenCheckout.classList.add('btn-disabled-booked');
                 btnSacOpenCheckout.innerHTML = '<i class="fa-solid fa-calendar-xmark"></i> <span>Chalet Reserved for Selected Dates</span>';
+            } else if (isStay && spotPartiallyBooked) {
+                btnSacOpenCheckout.disabled = false;
+                btnSacOpenCheckout.classList.remove('btn-disabled-booked');
+                btnSacOpenCheckout.innerHTML = '<span>Book Available Suite</span> <i class="fa-solid fa-arrow-right"></i>';
             } else {
                 btnSacOpenCheckout.disabled = false;
                 btnSacOpenCheckout.classList.remove('btn-disabled-booked');
@@ -270,6 +329,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Duplex Tier Controls
         const isDuplex = (spot.structure_type === 'duplex_hut' || (currentRoom && currentRoom.structure_type === 'duplex_hut'));
+        const sacDuplexWingBox = document.getElementById('sac-duplex-wing-box');
+        const sacWingCardLeft = document.getElementById('sac-wing-card-left');
+        const sacWingCardRight = document.getElementById('sac-wing-card-right');
+        const sacWingBadgeLeft = document.getElementById('sac-wing-badge-left');
+        const sacWingBadgeRight = document.getElementById('sac-wing-badge-right');
+        const sacWingStatusHint = document.getElementById('sac-wing-status-hint');
+        const tierRadioFull = document.querySelector('input[name="sac_tier_choice"][value="full"]');
+        const tierRadioSingle = document.querySelector('input[name="sac_tier_choice"][value="single_room"]');
+        const tierLabelFull = document.getElementById('tier-label-full');
+
         if (sacTierBox) {
             if (isDuplex && isStay) {
                 sacTierBox.style.display = 'block';
@@ -277,12 +346,131 @@ document.addEventListener('DOMContentLoaded', () => {
                 const singleRate = parseFloat(spot.single_room_rate || 4000);
                 if (tocRateFull) tocRateFull.innerText = `₹${fullRate.toLocaleString('en-IN')}/nt`;
                 if (tocRateSingle) tocRateSingle.innerText = `₹${singleRate.toLocaleString('en-IN')}/nt`;
+
+                // If partially booked or full villa not available, disable Entire Duplex choice
+                if (spotPartiallyBooked || !fullAvail) {
+                    if (tierRadioFull) {
+                        tierRadioFull.disabled = true;
+                        tierRadioFull.checked = false;
+                    }
+                    if (tierLabelFull) {
+                        tierLabelFull.style.opacity = '0.45';
+                        tierLabelFull.style.cursor = 'not-allowed';
+                    }
+                    if (tierRadioSingle) {
+                        tierRadioSingle.checked = true;
+                        currentTier = 'single_room';
+                    }
+                } else {
+                    if (tierRadioFull) tierRadioFull.disabled = false;
+                    if (tierLabelFull) {
+                        tierLabelFull.style.opacity = '1';
+                        tierLabelFull.style.cursor = 'pointer';
+                    }
+                }
+
+                // Show wing selector if single_room is selected
+                if (sacDuplexWingBox) {
+                    sacDuplexWingBox.style.display = (currentTier === 'single_room' || spotPartiallyBooked) ? 'block' : 'none';
+                }
+
+                // Update wing cards state (Left vs Right)
+                if (sacWingCardLeft && sacWingCardRight) {
+                    const wingRadioLeft = sacWingCardLeft.querySelector('input[value="left"]');
+                    const wingRadioRight = sacWingCardRight.querySelector('input[value="right"]');
+
+                    if (!leftAvail) {
+                        sacWingCardLeft.classList.add('disabled');
+                        sacWingCardLeft.classList.remove('is-selected');
+                        if (wingRadioLeft) wingRadioLeft.disabled = true;
+                        if (sacWingBadgeLeft) {
+                            sacWingBadgeLeft.className = 'wing-badge booked';
+                            sacWingBadgeLeft.innerText = 'Booked';
+                        }
+                    } else {
+                        sacWingCardLeft.classList.remove('disabled');
+                        if (wingRadioLeft) wingRadioLeft.disabled = false;
+                        if (sacWingBadgeLeft) {
+                            sacWingBadgeLeft.className = 'wing-badge available';
+                            sacWingBadgeLeft.innerText = 'Available';
+                        }
+                    }
+
+                    if (!rightAvail) {
+                        sacWingCardRight.classList.add('disabled');
+                        sacWingCardRight.classList.remove('is-selected');
+                        if (wingRadioRight) wingRadioRight.disabled = true;
+                        if (sacWingBadgeRight) {
+                            sacWingBadgeRight.className = 'wing-badge booked';
+                            sacWingBadgeRight.innerText = 'Booked';
+                        }
+                    } else {
+                        sacWingCardRight.classList.remove('disabled');
+                        if (wingRadioRight) wingRadioRight.disabled = false;
+                        if (sacWingBadgeRight) {
+                            sacWingBadgeRight.className = 'wing-badge available';
+                            sacWingBadgeRight.innerText = 'Available';
+                        }
+                    }
+
+                    // Auto-select the available wing if one is booked
+                    if (!leftAvail && rightAvail) {
+                        if (wingRadioRight) wingRadioRight.checked = true;
+                        sacWingCardRight.classList.add('is-selected');
+                        sacWingCardLeft.classList.remove('is-selected');
+                        currentDuplexUnit = 'right';
+                        if (sacWingStatusHint) {
+                            sacWingStatusHint.innerText = 'Right Suite Available';
+                            sacWingStatusHint.style.background = '#FEF3C7';
+                            sacWingStatusHint.style.color = '#92400E';
+                            sacWingStatusHint.style.border = '1px solid #FCD34D';
+                        }
+                    } else if (leftAvail && !rightAvail) {
+                        if (wingRadioLeft) wingRadioLeft.checked = true;
+                        sacWingCardLeft.classList.add('is-selected');
+                        sacWingCardRight.classList.remove('is-selected');
+                        currentDuplexUnit = 'left';
+                        if (sacWingStatusHint) {
+                            sacWingStatusHint.innerText = 'Left Suite Available';
+                            sacWingStatusHint.style.background = '#FEF3C7';
+                            sacWingStatusHint.style.color = '#92400E';
+                            sacWingStatusHint.style.border = '1px solid #FCD34D';
+                        }
+                    } else if (leftAvail && rightAvail) {
+                        if (sacWingStatusHint) {
+                            sacWingStatusHint.innerText = 'Both Wings Available';
+                            sacWingStatusHint.style.background = '#DCFCE7';
+                            sacWingStatusHint.style.color = '#166534';
+                            sacWingStatusHint.style.border = '1px solid #86EFAC';
+                        }
+                        if (currentDuplexUnit === 'right') {
+                            if (wingRadioRight) wingRadioRight.checked = true;
+                            sacWingCardRight.classList.add('is-selected');
+                            sacWingCardLeft.classList.remove('is-selected');
+                        } else {
+                            if (wingRadioLeft) wingRadioLeft.checked = true;
+                            sacWingCardLeft.classList.add('is-selected');
+                            sacWingCardRight.classList.remove('is-selected');
+                            currentDuplexUnit = 'left';
+                        }
+                    } else {
+                        if (sacWingStatusHint) {
+                            sacWingStatusHint.innerText = 'Both Suites Reserved';
+                            sacWingStatusHint.style.background = '#FEE2E2';
+                            sacWingStatusHint.style.color = '#991B1B';
+                            sacWingStatusHint.style.border = '1px solid #FCA5A5';
+                        }
+                    }
+                }
             } else {
                 sacTierBox.style.display = 'none';
                 currentTier = 'full';
+                currentDuplexUnit = 'full';
             }
         }
 
+        // Re-sync photos to reflect wing
+        syncPhotosForSelection();
         recalculateSidebarPricing();
 
         // Trigger real-time conflict popup modal if user specifically clicked an unavailable chalet
@@ -350,9 +538,54 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[name="sac_tier_choice"]').forEach(radio => {
         radio.addEventListener('change', function() {
             currentTier = this.value;
+            const sacDuplexWingBox = document.getElementById('sac-duplex-wing-box');
+            if (sacDuplexWingBox) {
+                sacDuplexWingBox.style.display = (currentTier === 'single_room') ? 'block' : 'none';
+            }
+            syncPhotosForSelection();
             recalculateSidebarPricing();
         });
     });
+
+    // Duplex Wing Choice Radio & Card Click Handlers
+    document.querySelectorAll('input[name="sac_duplex_wing"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            currentDuplexUnit = this.value;
+            const cardLeft = document.getElementById('sac-wing-card-left');
+            const cardRight = document.getElementById('sac-wing-card-right');
+            if (currentDuplexUnit === 'left') {
+                if (cardLeft) cardLeft.classList.add('is-selected');
+                if (cardRight) cardRight.classList.remove('is-selected');
+            } else {
+                if (cardRight) cardRight.classList.add('is-selected');
+                if (cardLeft) cardLeft.classList.remove('is-selected');
+            }
+            syncPhotosForSelection();
+        });
+    });
+
+    const sacWingCardLeftEl = document.getElementById('sac-wing-card-left');
+    const sacWingCardRightEl = document.getElementById('sac-wing-card-right');
+    if (sacWingCardLeftEl) {
+        sacWingCardLeftEl.addEventListener('click', function(e) {
+            if (this.classList.contains('disabled')) return;
+            const r = this.querySelector('input[type="radio"]');
+            if (r && !r.checked) {
+                r.checked = true;
+                r.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    }
+    if (sacWingCardRightEl) {
+        sacWingCardRightEl.addEventListener('click', function(e) {
+            if (this.classList.contains('disabled')) return;
+            const r = this.querySelector('input[type="radio"]');
+            if (r && !r.checked) {
+                r.checked = true;
+                r.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    }
 
     // -------------------------------------------------------------
     // 9. Real-Time Dynamic Date Availability Fetcher (BookMyShow Style)
@@ -402,15 +635,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hoverCta = node.querySelector('.nhc-cta');
                 let bookedPill = node.querySelector('.node-booked-pill');
 
-                if (spotStatus && !spotStatus.available) {
+                let partiallyPill = node.querySelector('.node-partially-booked-pill');
+
+                if (spotStatus && spotStatus.partially_booked) {
+                    // Partially Booked Duplex (1 Suite Booked, 1 Suite Free)
+                    node.classList.remove('status-available', 'status-fast_filling', 'status-booked');
+                    node.classList.add('status-partially-booked');
+                    node.setAttribute('data-status', 'partially_booked');
+
+                    if (statusDot) {
+                        statusDot.className = 'node-status-dot status-dot-partially-booked';
+                    }
+
+                    if (bookedPill) bookedPill.remove();
+
+                    if (!partiallyPill && nodeBox) {
+                        partiallyPill = document.createElement('span');
+                        partiallyPill.className = 'node-partially-booked-pill';
+                        partiallyPill.innerHTML = '<i class="fa-solid fa-bolt"></i> 1 SUITE LEFT';
+                        nodeBox.appendChild(partiallyPill);
+                    }
+
+                    if (hoverStatus) {
+                        hoverStatus.className = 'nhc-status';
+                        hoverStatus.style.color = '#F59E0B';
+                        const availNote = spotStatus.partially_booked_note ? ` (${spotStatus.partially_booked_note})` : '';
+                        hoverStatus.innerHTML = `<i class="fa-solid fa-bolt"></i> 1 Suite Available${availNote}`;
+                    }
+                    if (hoverCta) {
+                        hoverCta.innerHTML = 'Click to Reserve Available Suite &rarr;';
+                    }
+                } else if (spotStatus && !spotStatus.available) {
                     // Marked as Booked
-                    node.classList.remove('status-available', 'status-fast_filling');
+                    node.classList.remove('status-available', 'status-fast_filling', 'status-partially-booked');
                     node.classList.add('status-booked');
                     node.setAttribute('data-status', 'booked');
 
                     if (statusDot) {
                         statusDot.className = 'node-status-dot status-dot-booked';
                     }
+
+                    if (partiallyPill) partiallyPill.remove();
 
                     if (!bookedPill && nodeBox) {
                         bookedPill = document.createElement('span');
@@ -421,6 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (hoverStatus) {
                         hoverStatus.className = 'nhc-status status-label-booked';
+                        hoverStatus.style.color = '';
                         hoverStatus.innerHTML = '<i class="fa-solid fa-ban"></i> Reserved for Dates';
                     }
                     if (hoverCta) {
@@ -428,7 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else {
                     // Marked as Available
-                    node.classList.remove('status-booked');
+                    node.classList.remove('status-booked', 'status-partially-booked');
                     node.classList.add('status-available');
                     node.setAttribute('data-status', 'available');
 
@@ -439,9 +705,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (bookedPill) {
                         bookedPill.remove();
                     }
+                    if (partiallyPill) {
+                        partiallyPill.remove();
+                    }
 
                     if (hoverStatus) {
                         hoverStatus.className = 'nhc-status status-label-available';
+                        hoverStatus.style.color = '';
                         hoverStatus.innerHTML = '<i class="fa-solid fa-circle-check"></i> Available for Dates';
                     }
                     if (hoverCta) {
@@ -467,14 +737,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const btn = card.querySelector('.select-from-grid-btn');
-                if (roomMatch && !roomMatch.available) {
+                if (roomMatch && roomMatch.partially_booked) {
+                    card.classList.remove('is-booked-card');
+                    card.classList.add('is-partially-booked-card');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Book Available Suite';
+                    }
+                } else if (roomMatch && !roomMatch.available) {
+                    card.classList.remove('is-partially-booked-card');
                     card.classList.add('is-booked-card');
                     if (btn) {
                         btn.disabled = true;
                         btn.innerHTML = '<i class="fa-solid fa-ban"></i> Reserved for Dates';
                     }
                 } else {
-                    card.classList.remove('is-booked-card');
+                    card.classList.remove('is-booked-card', 'is-partially-booked-card');
                     if (btn) {
                         btn.disabled = false;
                         btn.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Book Chalet';
@@ -1055,6 +1333,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Open Modal
+        if (typeof window.resetBookingModalState === 'function') {
+            window.resetBookingModalState();
+        }
         modal.classList.add('active');
         modal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -1357,6 +1638,13 @@ document.addEventListener('DOMContentLoaded', () => {
             modalTierRadio.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
+        // Sync Duplex suite wing if applicable
+        const modalWingRadio = document.querySelector(`input[name="modal_duplex_wing"][value="${currentDuplexUnit}"]`);
+        if (modalWingRadio) {
+            modalWingRadio.checked = true;
+            modalWingRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
         const modalCin = document.getElementById('modal-checkin');
         if (modalCin && checkinInput && checkinInput.value) {
             modalCin.value = checkinInput.value;
@@ -1388,6 +1676,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Open Modal
+        if (typeof window.resetBookingModalState === 'function') {
+            window.resetBookingModalState();
+        }
         modal.classList.add('active');
         modal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';

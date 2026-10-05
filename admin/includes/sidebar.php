@@ -11,6 +11,10 @@ $inhouse_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings WHERE status =
 $unread_inquiries = (int) $pdo->query("SELECT COUNT(*) FROM inquiries WHERE status = 'unread'")->fetchColumn();
 ensure_testimonials_columns($pdo);
 $pending_reviews_count = (int) $pdo->query("SELECT COUNT(*) FROM testimonials WHERE status = 'pending'")->fetchColumn();
+$today_kitchen_orders_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings 
+    WHERE status != 'cancelled' 
+    AND checkin_date <= CURDATE() AND checkout_date >= CURDATE()
+    AND food_items IS NOT NULL AND food_items != '' AND food_items != '[]'")->fetchColumn();
 ?>
 
 <aside class="adm-sidebar" id="adm-sidebar">
@@ -57,6 +61,16 @@ $pending_reviews_count = (int) $pdo->query("SELECT COUNT(*) FROM testimonials WH
                 <span>Billing & Invoices</span>
                 <?php if ($inhouse_count > 0): ?>
                     <span class="adm-nav-badge" style="background: rgba(16, 185, 129, 0.25); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4);" title="<?php echo $inhouse_count; ?> in-house guests"><?php echo $inhouse_count; ?> Live</span>
+                <?php endif; ?>
+            </a>
+        </li>
+
+        <li class="adm-nav-item">
+            <a href="kitchen.php" class="adm-nav-link <?php echo ($current_script === 'kitchen.php') ? 'active' : ''; ?>" title="Kitchen & Chef Orders">
+                <i class="fa-solid fa-kitchen-set"></i>
+                <span>Kitchen</span>
+                <?php if ($today_kitchen_orders_count > 0): ?>
+                    <span class="adm-nav-badge" style="background: rgba(245, 158, 11, 0.25); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.4);" title="<?php echo $today_kitchen_orders_count; ?> food orders active today"><?php echo $today_kitchen_orders_count; ?></span>
                 <?php endif; ?>
             </a>
         </li>

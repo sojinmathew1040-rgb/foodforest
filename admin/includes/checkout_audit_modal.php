@@ -331,16 +331,34 @@
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button type="button" class="adm-btn-action gold" onclick="submitStayAuditAndRedirect('billing');" style="width: 100%; justify-content: center; padding: 13px; font-size: 14px; font-weight: 700;">
+                    <!-- Billing Hub Folio -->
+                    <button type="button" class="adm-btn-action gold" onclick="submitStayAuditAndRedirect('billing');" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px; font-weight: 700;">
                         <i class="fa-solid fa-receipt"></i>
-                        <span>Save Audit &amp; Open Billing Folio (Generate Invoice)</span>
-                    </button>
-                    
-                    <button type="button" class="adm-btn-action outline" onclick="submitStayAuditAndRedirect('print');" style="width: 100%; justify-content: center; padding: 11px; font-size: 13.5px;">
-                        <i class="fa-solid fa-print"></i>
-                        <span>Save Audit &amp; View / Print Official Tax Bill</span>
+                        <span>Save Audit &amp; Open Billing Hub (Review Invoices)</span>
                     </button>
 
+                    <!-- Save & Print Options: Stay Bill vs Other Bill vs Master Folio -->
+                    <div style="background: rgba(255,255,255,0.03); border: 1px dashed var(--adm-border-subtle); border-radius: 8px; padding: 10px 12px;">
+                        <div style="font-size: 11px; font-weight: 700; color: var(--adm-text-secondary); text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-print"></i> Save Audit &amp; Directly Print Invoice / Folio:
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                            <button type="button" class="adm-btn-action outline" onclick="submitStayAuditAndRedirect('print_stay');" style="justify-content: center; padding: 9px 6px; font-size: 12px; border-color: rgba(34, 197, 94, 0.4); color: #4ade80;" title="Print Accommodation Stay Bill only">
+                                <i class="fa-solid fa-hotel"></i>
+                                <span>1. Stay Bill</span>
+                            </button>
+                            <button type="button" class="adm-btn-action outline" onclick="submitStayAuditAndRedirect('print_other');" style="justify-content: center; padding: 9px 6px; font-size: 12px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;" title="Print Food, Gastronomy, Experiences & Incidentals Bill">
+                                <i class="fa-solid fa-utensils"></i>
+                                <span>2. Other Bill</span>
+                            </button>
+                            <button type="button" class="adm-btn-action outline" onclick="submitStayAuditAndRedirect('print_combined');" style="justify-content: center; padding: 9px 6px; font-size: 12px;" title="Print Combined Master Folio covering all charges">
+                                <i class="fa-solid fa-file-invoice"></i>
+                                <span>3. Master Folio</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Finish & Close -->
                     <button type="button" class="adm-btn-action emerald" onclick="submitStayAuditAndRedirect('close');" style="width: 100%; justify-content: center; padding: 11px; font-size: 13.5px;">
                         <i class="fa-solid fa-floppy-disk"></i>
                         <span>Save Audit &amp; Finish Check-Out</span>
@@ -1436,8 +1454,14 @@ function submitStayAuditAndRedirect(destination) {
             closeCheckoutAuditModal();
             if (destination === 'billing') {
                 window.location.href = data.billing_url;
-            } else if (destination === 'print') {
-                window.open(data.print_bill_url, '_blank');
+            } else if (destination === 'print_stay') {
+                window.open(data.print_stay_url || (data.print_bill_url + '&type=stay'), '_blank');
+                window.location.reload();
+            } else if (destination === 'print_other') {
+                window.open(data.print_other_url || (data.print_bill_url + '&type=other'), '_blank');
+                window.location.reload();
+            } else if (destination === 'print_combined' || destination === 'print') {
+                window.open(data.print_combined_url || (data.print_bill_url + '&type=combined'), '_blank');
                 window.location.reload();
             } else {
                 window.location.reload();

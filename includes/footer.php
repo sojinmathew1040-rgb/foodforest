@@ -34,7 +34,7 @@ $b4_desc = get_setting('footer_badge4_desc', 'Crafted & staffed by native artisa
 
 // Column 2 Navigation Links
 $f_nav_title = get_setting('footer_nav_title', 'The Sanctuary');
-$raw_nav_links = get_setting('footer_nav_links', "Our Story & Ethos|#welcome\nCanopy Treehouse|#rooms-experience\nEarthen Mudhouse|#rooms-experience\nActivities|#experiences\nFood Menu & Hearth|#dining\nGuest Portal & Receipts|guest_portal.php|fa-solid fa-key|1\nVisual Gallery|#gallery\nEstate Landscape|#sanctuary\nGuest Stories|#testimonials");
+$raw_nav_links = get_setting('footer_nav_links', "Our Story & Ethos|#welcome\nCanopy Treehouse|#rooms-experience\nEarthen Mudhouse|#rooms-experience\nActivities|#experiences\nOur Menu|menu.php\nGuest Portal & Receipts|guest_portal.php|fa-solid fa-key|1\nVisual Gallery|#gallery\nEstate Landscape|#sanctuary\nGuest Stories|#testimonials");
 
 $nav_lines = array_filter(array_map('trim', explode("\n", $raw_nav_links)));
 $parsed_links = [];

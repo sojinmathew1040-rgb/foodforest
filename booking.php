@@ -768,7 +768,7 @@ require_once __DIR__ . '/includes/header.php';
                             <!-- Dynamic Tier / Duplex Option Switcher (if duplex) -->
                             <div class="sac-tier-box" id="sac-tier-box" style="display: none;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 4px;">
-                                    <label class="tier-box-label font-sans" style="margin-bottom: 0;"><i class="fa-solid fa-layer-group"></i> Configuration & Rate Option:</label>
+                                    <label class="tier-box-label font-sans" style="margin-bottom: 0;"><i class="fa-solid fa-layer-group"></i> Configuration &amp; Rate Option:</label>
                                     <button type="button" class="btn-open-duplex-guide font-sans" onclick="openDuplexExplainer();" style="background: transparent; border: none; color: #56c2c9; font-size: 11px; cursor: pointer; text-decoration: underline; display: flex; align-items: center; gap: 4px; padding: 0;">
                                         <i class="fa-solid fa-circle-question"></i> View Duplex Architecture Guide
                                     </button>
@@ -790,6 +790,46 @@ require_once __DIR__ . '/includes/header.php';
                                             <small class="toc-note font-sans">1 Master Room in Chalet (Base 2 Guests)</small>
                                         </div>
                                     </label>
+                                </div>
+
+                                <!-- Duplex Wing Selector (Left Suite vs Right Suite) -->
+                                <div id="sac-duplex-wing-box" class="sac-duplex-wing-container font-sans" style="display: none;">
+                                    <div class="sac-wing-header">
+                                        <label class="sac-wing-title">
+                                            <i class="fa-solid fa-door-open"></i> Choose Suite Wing:
+                                        </label>
+                                        <span id="sac-wing-status-hint" class="sac-wing-status-badge">Both Wings Available</span>
+                                    </div>
+                                    <div class="duplex-wing-selector-grid">
+                                        <label class="duplex-wing-card is-selected" id="sac-wing-card-left" title="Click to select Left Suite (Wing A)">
+                                            <input type="radio" name="sac_duplex_wing" value="left" checked class="sac-wing-radio-native">
+                                            <div class="wing-card-top">
+                                                <div class="wing-card-title-group">
+                                                    <span class="wing-radio-indicator"><i class="fa-solid fa-check"></i></span>
+                                                    <span class="wing-title-text"><i class="fa-solid fa-door-open" style="color: #059669;"></i> Left (Wing A)</span>
+                                                </div>
+                                                <div class="wing-badge-group">
+                                                    <span class="wing-selected-pill">SELECTED</span>
+                                                    <span class="wing-badge available" id="sac-wing-badge-left">Available</span>
+                                                </div>
+                                            </div>
+                                            <p class="wing-desc-text">Garden-facing master suite with private balcony</p>
+                                        </label>
+                                        <label class="duplex-wing-card" id="sac-wing-card-right" title="Click to select Right Suite (Wing B)">
+                                            <input type="radio" name="sac_duplex_wing" value="right" class="sac-wing-radio-native">
+                                            <div class="wing-card-top">
+                                                <div class="wing-card-title-group">
+                                                    <span class="wing-radio-indicator"><i class="fa-solid fa-check"></i></span>
+                                                    <span class="wing-title-text"><i class="fa-solid fa-door-open" style="color: #2563EB;"></i> Right (Wing B)</span>
+                                                </div>
+                                                <div class="wing-badge-group">
+                                                    <span class="wing-selected-pill">SELECTED</span>
+                                                    <span class="wing-badge available" id="sac-wing-badge-right">Available</span>
+                                                </div>
+                                            </div>
+                                            <p class="wing-desc-text">Valley view master suite with sunset deck</p>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 

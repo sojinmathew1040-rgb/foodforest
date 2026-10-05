@@ -7784,6 +7784,7 @@ body.page-booking #sticky-booking-pill {
 .status-dot-available { background: #27ae60; box-shadow: 0 0 5px #27ae60; }
 .status-dot-fast_filling { background: #e67e22; box-shadow: 0 0 5px #e67e22; }
 .status-dot-booked { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+.status-dot-partially-booked { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
 
 /* Booked Chalet Node Styles (BookMyShow Style Reserved Seat indicator) */
 .bms-chalet-node.status-booked .node-box {
@@ -7812,6 +7813,49 @@ body.page-booking #sticky-booking-pill {
     text-transform: uppercase;
     letter-spacing: 0.3px;
     margin-left: -2px;
+}
+
+/* Partially Booked Duplex Node Styles (1 Suite Booked, 1 Suite Free) */
+.bms-chalet-node.status-partially-booked .node-box {
+    border-color: #f59e0b !important;
+    background: linear-gradient(135deg, #2e1d05 0%, #1c1102 100%) !important;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.45), 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.bms-chalet-node.status-partially-booked .node-icon {
+    color: #fbbf24 !important;
+}
+
+.bms-chalet-node.status-partially-booked .node-code {
+    color: #fde68a !important;
+}
+
+.node-partially-booked-pill {
+    font-size: 0.52rem;
+    font-weight: 800;
+    background: rgba(245, 158, 11, 0.28);
+    color: #fef08a;
+    border: 1px solid rgba(245, 158, 11, 0.7);
+    border-radius: 4px;
+    padding: 1px 4px;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-left: -2px;
+}
+
+.bms-chalet-node.status-partially-booked:hover .node-box,
+.bms-chalet-node.status-partially-booked.is-selected .node-box {
+    background: #d97706 !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.85) !important;
+}
+
+.bms-chalet-node.status-partially-booked:hover .node-code,
+.bms-chalet-node.status-partially-booked:hover .node-icon,
+.bms-chalet-node.status-partially-booked.is-selected .node-code,
+.bms-chalet-node.status-partially-booked.is-selected .node-icon {
+    color: #ffffff !important;
 }
 
 .bms-chalet-node:hover .node-box,
@@ -9431,6 +9475,15 @@ html, body {
     border: 1px solid rgba(220, 38, 38, 0.35);
 }
 
+.sac-avail-pill.sac-partially-booked {
+    color: #d97706 !important;
+    background: rgba(245, 158, 11, 0.14) !important;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    font-weight: 700;
+}
+
 .sac-avail-pill.sac-available {
     color: #059669 !important;
     background: rgba(16, 185, 129, 0.12) !important;
@@ -9452,6 +9505,24 @@ html, body {
 
 .sac-booked-warning-box i {
     color: #DC2626;
+    font-size: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.sac-partially-booked-box {
+    background: #FFFBEB;
+    border: 1.5px solid #F59E0B;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.sac-partially-booked-box i {
+    color: #D97706;
     font-size: 18px;
     margin-top: 2px;
     flex-shrink: 0;
@@ -9496,6 +9567,426 @@ html, body {
     background: #94A3B8 !important;
     cursor: not-allowed !important;
     box-shadow: none !important;
+}
+
+.chalet-card.is-partially-booked-card {
+    border-color: rgba(245, 158, 11, 0.55) !important;
+    position: relative;
+}
+
+.chalet-card.is-partially-booked-card .chalet-card-media::after {
+    content: '⚡ 1 SUITE AVAILABLE';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #D97706;
+    color: #FFFFFF;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    z-index: 5;
+}
+
+/* ==========================================================================
+   Food Forest — High-Contrast, Crystal-Clear Duplex Suite Wing Selector UI
+   ========================================================================== */
+
+.sac-duplex-wing-container {
+    margin-top: 14px;
+    background: #F4F8F5 !important;
+    border: 1.5px solid rgba(28, 56, 38, 0.22) !important;
+    border-radius: 10px !important;
+    padding: 13px 14px !important;
+    box-shadow: 0 2px 8px rgba(28, 56, 38, 0.06);
+}
+
+.sac-wing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.sac-wing-title {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #103820;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sac-wing-title i {
+    color: #059669;
+    font-size: 13px;
+}
+
+.sac-wing-status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: #166534;
+    background: #DCFCE7;
+    border: 1px solid #86EFAC;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.2px;
+}
+
+.duplex-wing-selector-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.duplex-wing-card {
+    border: 2px solid #CBD5E1 !important;
+    border-radius: 9px !important;
+    padding: 11px 12px !important;
+    cursor: pointer !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    background: #FFFFFF !important;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    user-select: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.duplex-wing-card:hover:not(.disabled) {
+    border-color: #059669 !important;
+    background: #F8FAF8 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.duplex-wing-card input[type="radio"],
+.duplex-wing-card input.sac-wing-radio-native {
+    display: none;
+}
+
+.wing-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+
+.wing-card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wing-radio-indicator {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid #94A3B8;
+    background: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    color: transparent;
+    font-size: 10px;
+}
+
+.wing-title-text {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0F172A;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    line-height: 1.2;
+}
+
+.wing-badge-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.wing-selected-pill {
+    display: none;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #059669;
+    color: #FFFFFF;
+    padding: 2px 7px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(5, 150, 105, 0.35);
+}
+
+.wing-desc-text {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #475569;
+    padding-left: 26px;
+}
+
+/* SELECTED STATE */
+.duplex-wing-card.is-selected {
+    border: 2.5px solid #059669 !important;
+    background: #F0FDF4 !important;
+    box-shadow: 0 0 0 1px #059669, 0 4px 14px rgba(5, 150, 105, 0.18) !important;
+}
+
+.duplex-wing-card.is-selected .wing-radio-indicator {
+    border-color: #059669;
+    background: #059669;
+    color: #FFFFFF;
+}
+
+.duplex-wing-card.is-selected .wing-title-text {
+    color: #064E3B !important;
+    font-weight: 800;
+}
+
+.duplex-wing-card.is-selected .wing-selected-pill {
+    display: inline-flex;
+}
+
+.duplex-wing-card.is-selected .wing-desc-text {
+    color: #166534 !important;
+    font-weight: 600;
+}
+
+/* DISABLED / BOOKED STATE */
+.duplex-wing-card.disabled {
+    opacity: 0.6;
+    cursor: not-allowed !important;
+    background: #F1F5F9 !important;
+    border: 1.5px dashed #CBD5E1 !important;
+    box-shadow: none !important;
+}
+
+.duplex-wing-card.disabled .wing-title-text {
+    color: #64748B !important;
+}
+
+.duplex-wing-card.disabled .wing-desc-text {
+    color: #94A3B8 !important;
+}
+
+.duplex-wing-card.disabled .wing-selected-pill {
+    display: none !important;
+}
+
+/* Badges */
+.duplex-wing-card .wing-badge,
+.modal-wing-card .wing-badge {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2.5px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.duplex-wing-card .wing-badge.available,
+.modal-wing-card .wing-badge.available {
+    background: #DCFCE7 !important;
+    color: #15803D !important;
+    border: 1px solid #BBF7D0;
+}
+
+.duplex-wing-card .wing-badge.booked,
+.modal-wing-card .wing-badge.booked {
+    background: #FEE2E2 !important;
+    color: #DC2626 !important;
+    border: 1px solid #FECACA;
+}
+
+/* Modal Wing Card High-Contrast Styling */
+.modal-duplex-wing-container {
+    margin-top: 12px;
+    background: #F4F8F5 !important;
+    border: 1.5px solid rgba(28, 56, 38, 0.22) !important;
+    border-radius: 10px !important;
+    padding: 12px 14px !important;
+}
+
+.modal-wing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.modal-wing-title {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #103820;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.modal-wing-title i {
+    color: #059669;
+}
+
+.modal-wing-status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: #166534;
+    background: #DCFCE7;
+    border: 1px solid #86EFAC;
+    padding: 2.5px 8px;
+    border-radius: 15px;
+}
+
+.modal-wing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.modal-wing-card {
+    border: 2px solid #CBD5E1 !important;
+    border-radius: 8px !important;
+    padding: 10px 12px !important;
+    background: #FFFFFF !important;
+    cursor: pointer !important;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    transition: all 0.2s ease;
+    user-select: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.modal-wing-card:hover:not(.disabled) {
+    border-color: #059669 !important;
+    background: #F8FAF8 !important;
+}
+
+.modal-wing-card input.modal-wing-radio-native {
+    display: none;
+}
+
+.modal-wing-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+}
+
+.modal-wing-title-group {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.modal-wing-radio-indicator {
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    border: 2px solid #94A3B8;
+    background: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    color: transparent;
+    font-size: 9.5px;
+}
+
+.modal-wing-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0F172A;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.modal-wing-badge-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.modal-wing-selected-pill {
+    display: none;
+    font-size: 8.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #059669;
+    color: #FFFFFF;
+    padding: 1.5px 6px;
+    border-radius: 8px;
+}
+
+.modal-wing-desc {
+    margin: 0;
+    font-size: 10.5px;
+    color: #475569;
+    padding-left: 24px;
+}
+
+/* MODAL WING SELECTED STATE */
+.modal-wing-card.is-selected {
+    border: 2.5px solid #059669 !important;
+    background: #F0FDF4 !important;
+    box-shadow: 0 0 0 1px #059669, 0 3px 10px rgba(5, 150, 105, 0.15) !important;
+}
+
+.modal-wing-card.is-selected .modal-wing-radio-indicator {
+    border-color: #059669;
+    background: #059669;
+    color: #FFFFFF;
+}
+
+.modal-wing-card.is-selected .modal-wing-name {
+    color: #064E3B !important;
+    font-weight: 800;
+}
+
+.modal-wing-card.is-selected .modal-wing-selected-pill {
+    display: inline-flex;
+}
+
+.modal-wing-card.is-selected .modal-wing-desc {
+    color: #166534 !important;
+    font-weight: 600;
+}
+
+.modal-wing-card.disabled {
+    opacity: 0.55;
+    cursor: not-allowed !important;
+    background: #F1F5F9 !important;
+    border: 1.5px dashed #CBD5E1 !important;
+    box-shadow: none !important;
+}
+
+.modal-wing-card.disabled .modal-wing-name {
+    color: #64748B !important;
+}
+
+.modal-wing-card.disabled .modal-wing-desc {
+    color: #94A3B8 !important;
 }
 
 /* Modal Availability Dynamic Box */

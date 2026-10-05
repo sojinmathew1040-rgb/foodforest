@@ -343,7 +343,10 @@ if ($method === 'POST') {
             'reference_code' => $booking['reference_code'],
             'status' => $new_status,
             'billing_url' => 'billing.php?booking_id=' . $booking_id . '&audited=1',
-            'print_bill_url' => 'print_bill.php?ref=' . urlencode($booking['reference_code'])
+            'print_bill_url' => 'print_bill.php?ref=' . urlencode($booking['reference_code']) . '&type=stay',
+            'print_stay_url' => 'print_bill.php?ref=' . urlencode($booking['reference_code']) . '&type=stay',
+            'print_other_url' => 'print_bill.php?ref=' . urlencode($booking['reference_code']) . '&type=other',
+            'print_combined_url' => 'print_bill.php?ref=' . urlencode($booking['reference_code']) . '&type=combined'
         ]);
         exit;
     } catch (Exception $e) {

@@ -14,6 +14,25 @@ $page_subtitle = 'Card-by-card control of estate parameters, frontend copy, medi
 
 $pdo = get_db();
 
+// Handle instant AJAX toggle for menu images or highlights ON/OFF
+if (isset($_POST['action']) && in_array($_POST['action'], ['toggle_menu_images', 'toggle_menu_highlights'])) {
+    header('Content-Type: application/json');
+    $action = $_POST['action'];
+    $setting_key = ($action === 'toggle_menu_highlights') ? 'menu_show_highlights' : 'menu_show_images';
+    $val = '0';
+    if (isset($_POST['value'])) {
+        $val = (!empty($_POST['value']) && ($_POST['value'] === '1' || $_POST['value'] == 1)) ? '1' : '0';
+    } elseif (isset($_POST['show_images'])) {
+        $val = (!empty($_POST['show_images']) && ($_POST['show_images'] === '1' || $_POST['show_images'] == 1)) ? '1' : '0';
+    } elseif (isset($_POST['show_highlights'])) {
+        $val = (!empty($_POST['show_highlights']) && ($_POST['show_highlights'] === '1' || $_POST['show_highlights'] == 1)) ? '1' : '0';
+    }
+    $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+    $stmt->execute([$setting_key, $val]);
+    echo json_encode(['success' => true, 'key' => $setting_key, 'value' => $val]);
+    exit;
+}
+
 // Handle SQL Backup Export (One-Click phpMyAdmin-Style Live MySQL Dump)
 if (isset($_GET['action']) && $_GET['action'] === 'download_backup') {
     try {
@@ -560,8 +579,12 @@ ensure_experiences_details_columns($pdo);
                     'menu_time_breakfast', 'menu_desc_breakfast',
                     'menu_time_lunch', 'menu_desc_lunch',
                     'menu_time_snacks', 'menu_desc_snacks',
-                    'menu_time_dinner', 'menu_desc_dinner'
+                    'menu_time_dinner', 'menu_desc_dinner',
+                    'menu_show_images',
+                    'menu_show_highlights'
                 ];
+                $_POST['menu_show_images'] = !empty($_POST['menu_show_images']) ? '1' : '0';
+                $_POST['menu_show_highlights'] = !empty($_POST['menu_show_highlights']) ? '1' : '0';
                 $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
                 foreach ($keys as $k) {
                     if (isset($_POST[$k])) {
@@ -1731,6 +1754,70 @@ window.filterAdminMenu = function(filter, btn) {
         } else {
             card.style.display = 'none';
         }
+    });
+};
+
+window.instantToggleMenuImages = function(isOn) {
+    var label = document.getElementById('adm-menu-show-images-label');
+    var quickBtn = document.getElementById('adm-quick-toggle-images-btn');
+    if (label) {
+        label.innerHTML = isOn ? '🟢 IMAGES DISPLAYED (ON)' : '🔴 IMAGES HIDDEN (OFF)';
+        label.style.color = isOn ? '#2ecc71' : '#e74c3c';
+    }
+    if (quickBtn) {
+        if (isOn) {
+            quickBtn.innerHTML = '<i class="fa-solid fa-camera"></i> Photos: <strong style="color: #2ecc71;">ON</strong>';
+            quickBtn.classList.add('active');
+        } else {
+            quickBtn.innerHTML = '<i class="fa-solid fa-camera-slash"></i> Photos: <strong style="color: #e74c3c;">OFF</strong>';
+            quickBtn.classList.remove('active');
+        }
+    }
+    var formData = new FormData();
+    formData.append('action', 'toggle_menu_images');
+    formData.append('show_images', isOn ? '1' : '0');
+    formData.append('csrf_token', '<?php echo csrf_token(); ?>');
+    fetch('edit_section.php?section=menu', {
+        method: 'POST',
+        body: formData
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (window.showToast) {
+            window.showToast(isOn ? 'Menu images enabled (Photos visible)' : 'Menu images disabled (Text-only view)', 'success');
+        }
+    }).catch(function(err) {
+        console.error('Error toggling menu images:', err);
+    });
+};
+
+window.instantToggleMenuHighlights = function(isOn) {
+    var label = document.getElementById('adm-menu-show-highlights-label');
+    var quickBtn = document.getElementById('adm-quick-toggle-highlights-btn');
+    if (label) {
+        label.innerHTML = isOn ? '🟢 HIGHLIGHTS DISPLAYED (ON)' : '🔴 HIGHLIGHTS HIDDEN (OFF)';
+        label.style.color = isOn ? '#2ecc71' : '#e74c3c';
+    }
+    if (quickBtn) {
+        if (isOn) {
+            quickBtn.innerHTML = '<i class="fa-solid fa-camera-retro"></i> Highlights: <strong style="color: #2ecc71;">ON</strong>';
+            quickBtn.classList.add('active');
+        } else {
+            quickBtn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Highlights: <strong style="color: #e74c3c;">OFF</strong>';
+            quickBtn.classList.remove('active');
+        }
+    }
+    var formData = new FormData();
+    formData.append('action', 'toggle_menu_highlights');
+    formData.append('value', isOn ? '1' : '0');
+    formData.append('csrf_token', '<?php echo csrf_token(); ?>');
+    fetch('edit_section.php?section=menu', {
+        method: 'POST',
+        body: formData
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (window.showToast) {
+            window.showToast(isOn ? 'Culinary highlights enabled (Carousel visible)' : 'Culinary highlights disabled (Carousel hidden)', 'success');
+        }
+    }).catch(function(err) {
+        console.error('Error toggling menu highlights:', err);
     });
 };
 
@@ -3147,6 +3234,36 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <i class="fa-solid fa-angles-up"></i> Collapse All
                     </button>
                 </div>
+
+                <?php 
+                $current_show_images = get_setting('menu_show_images', '1'); 
+                $current_show_highlights = get_setting('menu_show_highlights', '1');
+                ?>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" 
+                            id="adm-quick-toggle-images-btn" 
+                            class="adm-dish-ctrl-btn <?php echo ($current_show_images === '1' ? 'active' : ''); ?>" 
+                            onclick="var chk = document.getElementById('adm-menu-show-images-toggle'); if(chk){ chk.checked = !chk.checked; instantToggleMenuImages(chk.checked); }" 
+                            title="Toggle dish photos on/off across website">
+                        <?php if ($current_show_images === '1'): ?>
+                            <i class="fa-solid fa-camera"></i> Photos: <strong style="color: #2ecc71;">ON</strong>
+                        <?php else: ?>
+                            <i class="fa-solid fa-camera-slash"></i> Photos: <strong style="color: #e74c3c;">OFF</strong>
+                        <?php endif; ?>
+                    </button>
+
+                    <button type="button" 
+                            id="adm-quick-toggle-highlights-btn" 
+                            class="adm-dish-ctrl-btn <?php echo ($current_show_highlights === '1' ? 'active' : ''); ?>" 
+                            onclick="var chk = document.getElementById('adm-menu-show-highlights-toggle'); if(chk){ chk.checked = !chk.checked; instantToggleMenuHighlights(chk.checked); }" 
+                            title="Toggle culinary highlights slider on/off across website">
+                        <?php if ($current_show_highlights === '1'): ?>
+                            <i class="fa-solid fa-camera-retro"></i> Highlights: <strong style="color: #2ecc71;">ON</strong>
+                        <?php else: ?>
+                            <i class="fa-solid fa-eye-slash"></i> Highlights: <strong style="color: #e74c3c;">OFF</strong>
+                        <?php endif; ?>
+                    </button>
+                </div>
             </div>
 
             <!-- Main Edit Form for All Dishes & Section Settings -->
@@ -3171,6 +3288,48 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                     </div>
 
                     <div class="adm-dish-card-body" style="padding: 20px;">
+                        <!-- Master On/Off Switch for Menu Dish Photos -->
+                        <div style="background: rgba(0,0,0,0.35); padding: 14px 18px; border-radius: 8px; border: 1.5px solid rgba(197, 160, 89, 0.4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 12px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-camera" style="color: var(--adm-gold); font-size: 16px;"></i>
+                                    <strong style="color: #FFFFFF; font-size: 13.5px; letter-spacing: 0.5px;">COMMON DISH PHOTOS ON/OFF MASTER BUTTON</strong>
+                                </div>
+                                <p style="font-size: 11.5px; color: var(--adm-text-secondary); margin: 4px 0 0 0;">
+                                    Turn dish photos ON or OFF across the public menu. When OFF, dishes are displayed in clean typography without images.
+                                </p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <label style="display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" name="menu_show_images" value="1" id="adm-menu-show-images-toggle" <?php echo ($current_show_images === '1' ? 'checked' : ''); ?> onchange="instantToggleMenuImages(this.checked);" style="width: 20px; height: 20px; accent-color: #10B981; cursor: pointer;">
+                                    <span id="adm-menu-show-images-label" style="font-size: 13px; font-weight: 700; color: <?php echo ($current_show_images === '1' ? '#2ecc71' : '#e74c3c'); ?>;">
+                                        <?php echo ($current_show_images === '1' ? '🟢 IMAGES DISPLAYED (ON)' : '🔴 IMAGES HIDDEN (OFF)'); ?>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Master On/Off Switch for Culinary Highlights Carousel -->
+                        <div style="background: rgba(0,0,0,0.35); padding: 14px 18px; border-radius: 8px; border: 1.5px solid rgba(197, 160, 89, 0.4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 16px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-camera-retro" style="color: var(--adm-gold); font-size: 16px;"></i>
+                                    <strong style="color: #FFFFFF; font-size: 13.5px; letter-spacing: 0.5px;">COMMON CULINARY HIGHLIGHTS ON/OFF MASTER BUTTON</strong>
+                                </div>
+                                <p style="font-size: 11.5px; color: var(--adm-text-secondary); margin: 4px 0 0 0;">
+                                    Turn the sliding photo highlights showcase ON or OFF across all meal categories.
+                                </p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <label style="display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" name="menu_show_highlights" value="1" id="adm-menu-show-highlights-toggle" <?php echo ($current_show_highlights === '1' ? 'checked' : ''); ?> onchange="instantToggleMenuHighlights(this.checked);" style="width: 20px; height: 20px; accent-color: #10B981; cursor: pointer;">
+                                    <span id="adm-menu-show-highlights-label" style="font-size: 13px; font-weight: 700; color: <?php echo ($current_show_highlights === '1' ? '#2ecc71' : '#e74c3c'); ?>;">
+                                        <?php echo ($current_show_highlights === '1' ? '🟢 HIGHLIGHTS DISPLAYED (ON)' : '🔴 HIGHLIGHTS HIDDEN (OFF)'); ?>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="adm-form-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 14px; margin-bottom: 14px;">
                             <div class="adm-form-group">
                                 <label class="adm-form-label">Section Eyebrow Badge</label>

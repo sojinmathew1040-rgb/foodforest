@@ -77,10 +77,30 @@ try {
             }
         }
         
+        $requested_unit = strtolower(trim($input['duplex_unit'] ?? ($input['unit'] ?? '')));
         if ($matched_status) {
-            $is_requested_available = $matched_status['available'];
-            $requested_message = $matched_status['message'];
             $requested_room_title = $matched_status['title'];
+            if (!empty($matched_status['is_duplex'])) {
+                if ($requested_unit === 'left') {
+                    $is_requested_available = !empty($matched_status['left_available']);
+                    $requested_room_title .= ' (Left Suite - Wing A)';
+                    $requested_message = $is_requested_available ? "Left Suite of {$matched_status['title']} is available." : "Left Suite of {$matched_status['title']} is reserved for these dates.";
+                } elseif ($requested_unit === 'right') {
+                    $is_requested_available = !empty($matched_status['right_available']);
+                    $requested_room_title .= ' (Right Suite - Wing B)';
+                    $requested_message = $is_requested_available ? "Right Suite of {$matched_status['title']} is available." : "Right Suite of {$matched_status['title']} is reserved for these dates.";
+                } elseif ($requested_unit === 'full') {
+                    $is_requested_available = !empty($matched_status['full_available']);
+                    $requested_room_title .= ' (Full Duplex - Both Suites)';
+                    $requested_message = $is_requested_available ? "Entire {$matched_status['title']} is available." : "Entire {$matched_status['title']} is unavailable because one or both suites are already reserved.";
+                } else {
+                    $is_requested_available = !empty($matched_status['available']);
+                    $requested_message = $matched_status['message'];
+                }
+            } else {
+                $is_requested_available = !empty($matched_status['available']);
+                $requested_message = $matched_status['message'];
+            }
         }
     }
     

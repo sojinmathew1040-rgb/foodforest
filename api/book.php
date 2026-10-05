@@ -112,12 +112,33 @@ try {
             ];
         }
 
+        $requested_unit = null;
+        if (($r_data['structure_type'] ?? '') === 'duplex_hut') {
+            if ($booking_tier === 'single_room') {
+                $requested_unit = strtolower(trim($input['duplex_unit'] ?? ($input['unit'] ?? 'left')));
+                if (!in_array($requested_unit, ['left', 'right'])) {
+                    $requested_unit = 'left';
+                }
+            } else {
+                $requested_unit = 'full';
+            }
+        }
+
         // Double-Booking & Multi-Channel Availability Check for each chalet
-        if (!check_room_availability($pdo, $r_data['slug'], $checkin_date, $checkout_date)) {
+        if (!check_room_availability($pdo, $r_data['slug'], $checkin_date, $checkout_date, null, $requested_unit)) {
             http_response_code(409);
+            $conflict_msg = 'We apologize, but ' . ($r_data['title'] ?? 'the selected chalet');
+            if ($requested_unit === 'left') {
+                $conflict_msg .= ' (Left Suite - Wing A)';
+            } elseif ($requested_unit === 'right') {
+                $conflict_msg .= ' (Right Suite - Wing B)';
+            } elseif ($requested_unit === 'full') {
+                $conflict_msg .= ' (Entire Duplex)';
+            }
+            $conflict_msg .= ' has already been reserved for the selected dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates or suites.';
             echo json_encode([
                 'success' => false,
-                'message' => 'We apologize, but ' . ($r_data['title'] ?? 'one of the selected chalets') . ' has already been reserved for the selected dates (via Direct Website, MakeMyTrip, or Airbnb). Please select alternative dates or chalets.'
+                'message' => $conflict_msg
             ]);
             exit;
         }
@@ -149,8 +170,16 @@ try {
 
     $villa_type = implode(', ', array_map(function($r) { return $r['slug']; }, $matched_rooms));
     $villa_title = implode(' & ', $room_titles);
-    if (!$is_multi_room && $booking_tier === 'single_room' && !empty($matched_rooms[0]['structure_type']) && $matched_rooms[0]['structure_type'] === 'duplex_hut') {
-        $villa_title .= ' (Single Room)';
+    $booking_duplex_unit = null;
+    if (!$is_multi_room && !empty($matched_rooms[0]['structure_type']) && $matched_rooms[0]['structure_type'] === 'duplex_hut') {
+        if ($booking_tier === 'single_room') {
+            $booking_duplex_unit = $requested_unit ?? 'left';
+            $wing_label = ($booking_duplex_unit === 'left') ? 'Left Suite (Wing A)' : 'Right Suite (Wing B)';
+            $villa_title .= " ({$wing_label})";
+        } else {
+            $booking_duplex_unit = 'full';
+            $villa_title .= ' (Full Duplex - Both Suites)';
+        }
     }
 
     $rate_per_night = $total_rate_per_night;
@@ -193,8 +222,20 @@ try {
         foreach ($food_items_array as $fi) {
             $qty = max(0, (int)($fi['quantity'] ?? ($fi['sets'] ?? 0)));
             $cat = trim($fi['category'] ?? 'general');
-            // Breakfast is complimentary (price = 0)
-            $price = ($cat === 'breakfast') ? 0.00 : max(0, (float)($fi['price'] ?? 0));
+            $price = max(0, (float)($fi['price'] ?? 0));
+            $meal_time = strtolower(trim($fi['meal_time'] ?? $cat));
+            if (strpos($meal_time, 'snack') !== false || strpos($meal_time, 'evening') !== false || strpos($meal_time, 'tea') !== false) {
+                $meal_time = 'snacks';
+            } elseif (strpos($meal_time, 'break') !== false || strpos($meal_time, 'morn') !== false) {
+                $meal_time = 'breakfast';
+            } elseif (strpos($meal_time, 'din') !== false || strpos($meal_time, 'night') !== false) {
+                $meal_time = 'dinner';
+            } elseif (strpos($meal_time, 'lunch') !== false || strpos($meal_time, 'noon') !== false) {
+                $meal_time = 'lunch';
+            }
+            if (!in_array($meal_time, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+                $meal_time = 'lunch';
+            }
             if ($qty > 0 && !empty($fi['heading'])) {
                 $subtotal = $qty * $price;
                 $food_total += $subtotal;
@@ -207,9 +248,11 @@ try {
                     'price' => $price,
                     'quantity' => $qty,
                     'subtotal' => $subtotal,
+                    'meal_time' => $meal_time,
                     'inclusions' => is_array($fi['inclusions'] ?? null) ? $fi['inclusions'] : []
                 ];
             }
+        }
     }
 
     // Auto-detect and include signature dining experiences (e.g. Candlelight Orchard Dinner) from addons into verified food items
@@ -527,14 +570,17 @@ try {
 
     $billing_items_json = json_encode([
         'is_multi_room' => $is_multi_room,
-        'rooms' => array_map(function($rm) {
+        'duplex_unit' => $booking_duplex_unit,
+        'tier' => $booking_tier,
+        'rooms' => array_map(function($rm) use ($booking_duplex_unit) {
             return [
                 'slug' => $rm['slug'],
                 'title' => $rm['title'],
                 'rate_per_night' => (float)$rm['rate_per_night'],
                 'base_guests' => (int)($rm['base_guests'] ?? 2),
                 'max_guests' => (int)($rm['max_guests'] ?? 4),
-                'structure_type' => $rm['structure_type'] ?? 'single_hut'
+                'structure_type' => $rm['structure_type'] ?? 'single_hut',
+                'duplex_unit' => $booking_duplex_unit
             ];
         }, $matched_rooms)
     ]);
@@ -542,7 +588,7 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO bookings (
             reference_code, user_id, is_guest, guest_access_token, expires_at,
-            villa_type, booking_source, billing_type, gst_number, billing_name, billing_address,
+            villa_type, duplex_unit, booking_source, billing_type, gst_number, billing_name, billing_address,
             gst_percentage, gst_amount, tax_amount,
             guest_name, guest_phone, guest_email,
             id_proof_type, id_proof_number, id_proof_file, city_state, country,
@@ -552,7 +598,7 @@ try {
             special_notes, total_amount, status
         ) VALUES (
             ?, ?, ?, ?, ?,
-            ?, 'direct_website', ?, ?, ?, ?,
+            ?, ?, 'direct_website', ?, ?, ?, ?,
             ?, ?, ?,
             ?, ?, ?,
             ?, ?, ?, ?, ?,
@@ -570,6 +616,7 @@ try {
         $guest_access_token,
         $expires_at,
         $villa_type,
+        $booking_duplex_unit,
         $billing_type,
         $guest_gst_number,
         $billing_name,

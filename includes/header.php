@@ -80,6 +80,7 @@ if (!empty($all_header_rooms)) {
 $is_home = (basename($_SERVER['PHP_SELF']) == 'index.php' || basename($_SERVER['PHP_SELF']) == '');
 $nav_prefix = $is_home ? '' : 'index.php';
 $is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
+$is_menu_page = (basename($_SERVER['PHP_SELF']) == 'menu.php');
 ?>
     <!-- Luxury Header Wrapper (Coordinates Top Announcement & Main Navigation) -->
     <div class="site-header-wrapper <?php echo !$is_home ? 'solid-header' : ''; ?>" id="site-header-wrapper">
@@ -130,7 +131,7 @@ $is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
                     <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
                     <a href="booking.php" class="nav-item magnetic <?php echo $is_booking_page ? 'active nav-item-booking' : ''; ?>" data-strength="10"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
                     <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
-                    <a href="<?php echo $nav_prefix; ?>#dining" class="nav-item magnetic" data-strength="10">Food Menu</a>
+                    <a href="menu.php" class="nav-item magnetic <?php echo $is_menu_page ? 'active nav-item-booking' : ''; ?>" data-strength="10">Our Menu</a>
                     <a href="<?php echo $nav_prefix; ?>#sanctuary" class="nav-item magnetic" data-strength="10">Landscape</a>
                     <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
                     <a href="<?php echo $nav_prefix; ?>#testimonials" class="nav-item magnetic" data-strength="10">Guest Stories</a>
@@ -159,7 +160,7 @@ $is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
             <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="mobile-link">Villas & Stays</a>
             <a href="booking.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-map-location-dot"></i> Interactive Map Booking</a>
             <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Activities</a>
-            <a href="<?php echo $nav_prefix; ?>#dining" class="mobile-link">Food Menu</a>
+            <a href="menu.php" class="mobile-link" <?php echo $is_menu_page ? 'style="color: #C5A059;"' : ''; ?>>Our Menu</a>
             <a href="<?php echo $nav_prefix; ?>#sanctuary" class="mobile-link">Landscape</a>
             <a href="<?php echo $nav_prefix; ?>#gallery" class="mobile-link">Gallery</a>
             <a href="<?php echo $nav_prefix; ?>#testimonials" class="mobile-link">Guest Stories</a>
@@ -171,6 +172,7 @@ $is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
         </div>
     </div>
 
+    <?php if (!$is_menu_page && !$is_booking_page): ?>
     <!-- Floating Sticky Quick-Booking Pill (appears on scroll) -->
     <div class="sticky-booking-pill font-sans" id="sticky-booking-pill">
         <div class="pill-info">
@@ -182,6 +184,7 @@ $is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
             <i class="fa-solid fa-arrow-right"></i>
         </button>
     </div>
+    <?php endif; ?>
 
     <!-- Scroll Wrapper for Lenis -->
     <div class="smooth-scroll-wrapper">

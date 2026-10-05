@@ -40,6 +40,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $image_url = $up['path'];
             }
         }
+
+        // Fetch existing photos to handle deletions and additions
+        $existing_stmt = $pdo->prepare("SELECT photos, photos_left, photos_right, image_url FROM rooms WHERE id = ?");
+        $existing_stmt->execute([$villa_id]);
+        $current_room_data = $existing_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $current_photos = [];
+        if (!empty($current_room_data['photos'])) {
+            $dec = json_decode($current_room_data['photos'], true);
+            if (is_array($dec)) $current_photos = array_values(array_filter($dec));
+        }
+        $current_photos_left = [];
+        if (!empty($current_room_data['photos_left'])) {
+            $dec = json_decode($current_room_data['photos_left'], true);
+            if (is_array($dec)) $current_photos_left = array_values(array_filter($dec));
+        }
+        $current_photos_right = [];
+        if (!empty($current_room_data['photos_right'])) {
+            $dec = json_decode($current_room_data['photos_right'], true);
+            if (is_array($dec)) $current_photos_right = array_values(array_filter($dec));
+        }
+
+        // Handle deletions
+        $del_gen = (array)($_POST['delete_photos_' . $villa_id] ?? []);
+        $del_left = (array)($_POST['delete_photos_left_' . $villa_id] ?? []);
+        $del_right = (array)($_POST['delete_photos_right_' . $villa_id] ?? []);
+
+        if (!empty($del_gen)) {
+            $current_photos = array_values(array_filter($current_photos, fn($p) => !in_array($p, $del_gen)));
+        }
+        if (!empty($del_left)) {
+            $current_photos_left = array_values(array_filter($current_photos_left, fn($p) => !in_array($p, $del_left)));
+        }
+        if (!empty($del_right)) {
+            $current_photos_right = array_values(array_filter($current_photos_right, fn($p) => !in_array($p, $del_right)));
+        }
+
+        // Handle multi uploads for gallery photos
+        $gal_key = 'gallery_photos_' . $villa_id;
+        if (!empty($_FILES[$gal_key]['name']) && !empty($_FILES[$gal_key]['name'][0])) {
+            $up_gen = handle_multi_image_upload($_FILES[$gal_key], 'chalet');
+            foreach ($up_gen as $np) {
+                if (!in_array($np, $current_photos)) $current_photos[] = $np;
+            }
+        }
+
+        // Handle multi uploads for Left Suite photos
+        $left_key = 'left_photos_' . $villa_id;
+        if (!empty($_FILES[$left_key]['name']) && !empty($_FILES[$left_key]['name'][0])) {
+            $up_left = handle_multi_image_upload($_FILES[$left_key], 'duplex_left');
+            foreach ($up_left as $np) {
+                if (!in_array($np, $current_photos_left)) $current_photos_left[] = $np;
+            }
+        }
+
+        // Handle multi uploads for Right Suite photos
+        $right_key = 'right_photos_' . $villa_id;
+        if (!empty($_FILES[$right_key]['name']) && !empty($_FILES[$right_key]['name'][0])) {
+            $up_right = handle_multi_image_upload($_FILES[$right_key], 'duplex_right');
+            foreach ($up_right as $np) {
+                if (!in_array($np, $current_photos_right)) $current_photos_right[] = $np;
+            }
+        }
+
+        if (!empty($image_url) && !in_array($image_url, $current_photos)) {
+            array_unshift($current_photos, $image_url);
+        }
+
         $is_available = isset($_POST['is_available']) ? 1 : 0;
 
         $stmt = $pdo->prepare("UPDATE rooms SET 
@@ -58,6 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             amenities = ?, 
             inventory_checklist = ?, 
             image_url = ?, 
+            photos = ?, 
+            photos_left = ?, 
+            photos_right = ?, 
             is_available = ? 
             WHERE id = ?");
             
@@ -77,6 +148,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $amenities, 
             $inventory_checklist, 
             $image_url, 
+            !empty($current_photos) ? json_encode(array_values($current_photos)) : null,
+            !empty($current_photos_left) ? json_encode(array_values($current_photos_left)) : null,
+            !empty($current_photos_right) ? json_encode(array_values($current_photos_right)) : null,
             $is_available, 
             $villa_id
         ]);
@@ -145,16 +219,39 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
             $rm_photos = [];
             if (!empty($room['photos'])) {
                 $dec = json_decode($room['photos'], true);
-                if (is_array($dec)) $rm_photos = array_filter($dec);
+                if (is_array($dec)) $rm_photos = array_values(array_filter($dec));
             }
-            if (!empty($rm_photos)): 
+            $rm_photos_left = [];
+            if (!empty($room['photos_left'])) {
+                $dec = json_decode($room['photos_left'], true);
+                if (is_array($dec)) $rm_photos_left = array_values(array_filter($dec));
+            }
+            $rm_photos_right = [];
+            if (!empty($room['photos_right'])) {
+                $dec = json_decode($room['photos_right'], true);
+                if (is_array($dec)) $rm_photos_right = array_values(array_filter($dec));
+            }
+            
+            $has_any_photos = !empty($rm_photos) || !empty($rm_photos_left) || !empty($rm_photos_right);
+            if ($has_any_photos): 
             ?>
-            <div style="display: flex; gap: 6px; padding: 8px 14px; background: rgba(0,0,0,0.35); overflow-x: auto; border-bottom: 1px solid rgba(197, 160, 89, 0.2); align-items: center;">
-                <span style="font-size: 10.5px; color: var(--adm-gold); font-weight: 700; text-transform: uppercase; white-space: nowrap; margin-right: 4px;">
-                    <i class="fa-solid fa-images"></i> Photos (<?php echo count($rm_photos); ?>):
+            <div style="display: flex; gap: 8px; padding: 8px 14px; background: rgba(0,0,0,0.35); overflow-x: auto; border-bottom: 1px solid rgba(197, 160, 89, 0.2); align-items: center;">
+                <span style="font-size: 10px; color: var(--adm-gold); font-weight: 700; text-transform: uppercase; white-space: nowrap; margin-right: 4px;">
+                    <i class="fa-solid fa-images"></i> Photos:
                 </span>
+                <?php if ($is_duplex): ?>
+                    <span style="font-size: 10px; color: #4ADE80; background: rgba(34,197,94,0.15); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">L: <?php echo count($rm_photos_left); ?></span>
+                    <span style="font-size: 10px; color: #60A5FA; background: rgba(96,165,250,0.15); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">R: <?php echo count($rm_photos_right); ?></span>
+                    <span style="font-size: 10px; color: var(--adm-gold); background: rgba(197,160,89,0.15); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">Ext: <?php echo count($rm_photos); ?></span>
+                <?php endif; ?>
                 <?php foreach ($rm_photos as $p_idx => $p_url): ?>
-                    <img src="../<?php echo e($p_url); ?>" alt="Photo <?php echo $p_idx + 1; ?>" style="width: 52px; height: 36px; object-fit: cover; border-radius: 4px; border: 1.5px solid <?php echo ($p_url === $room['image_url']) ? 'var(--adm-gold)' : 'rgba(255,255,255,0.2)'; ?>; cursor: pointer; flex-shrink: 0;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Click to preview">
+                    <img src="../<?php echo e($p_url); ?>" alt="Chalet Photo <?php echo $p_idx + 1; ?>" style="width: 52px; height: 36px; object-fit: cover; border-radius: 4px; border: 1.5px solid <?php echo ($p_url === $room['image_url']) ? 'var(--adm-gold)' : 'rgba(255,255,255,0.2)'; ?>; cursor: pointer; flex-shrink: 0;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Exterior Photo - Click to preview">
+                <?php endforeach; ?>
+                <?php foreach ($rm_photos_left as $p_idx => $p_url): ?>
+                    <img src="../<?php echo e($p_url); ?>" alt="Left Suite Photo <?php echo $p_idx + 1; ?>" style="width: 52px; height: 36px; object-fit: cover; border-radius: 4px; border: 1.5px solid rgba(74, 222, 128, 0.6); cursor: pointer; flex-shrink: 0;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Left Suite Photo - Click to preview">
+                <?php endforeach; ?>
+                <?php foreach ($rm_photos_right as $p_idx => $p_url): ?>
+                    <img src="../<?php echo e($p_url); ?>" alt="Right Suite Photo <?php echo $p_idx + 1; ?>" style="width: 52px; height: 36px; object-fit: cover; border-radius: 4px; border: 1.5px solid rgba(96, 165, 250, 0.6); cursor: pointer; flex-shrink: 0;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Right Suite Photo - Click to preview">
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
@@ -244,21 +341,154 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
                     </div>
                 </div>
 
-                <div class="adm-form-group" style="margin-bottom: 12px;">
-                    <label class="adm-label" style="font-size: 11.5px; color: #E2E8F0; font-weight: 700; display: block; margin-bottom: 4px;">Villa Photograph</label>
-                    <div class="adm-uploader-card adm-uploader-compact" style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border: 1px dashed rgba(197, 160, 89, 0.3);">
-                        <div class="adm-uploader-controls">
-                            <div class="adm-uploader-btn-wrap" style="margin-bottom: 6px;">
-                                <label class="adm-uploader-btn" for="image_file_<?php echo $room['id']; ?>" style="display: inline-block; background: rgba(197, 160, 89, 0.2); color: var(--adm-gold); padding: 6px 12px; border-radius: 4px; font-size: 11.5px; cursor: pointer;">
-                                    <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
-                                </label>
-                                <input type="file" name="image_file_<?php echo $room['id']; ?>" id="image_file_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" style="display: none;" onchange="previewUploadImage(this, 'preview-img-<?php echo $room['id']; ?>', 'info_<?php echo $room['id']; ?>');">
-                                <span id="info_<?php echo $room['id']; ?>" class="adm-file-info-badge" style="font-size: 11px; color: #4ADE80; margin-left: 8px;"></span>
+                <!-- Photo Management Section -->
+                <?php if ($is_duplex): ?>
+                    <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 8px;">
+                            <span style="font-size: 12px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-camera-retro"></i> Duplex Multi-Wing Photo Galleries
+                            </span>
+                            <span style="font-size: 11px; color: #94A3B8;">Separate photos for Left &amp; Right Suites</span>
+                        </div>
+
+                        <!-- 2-column Wing Photos -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                            <!-- Left Suite (Wing A) -->
+                            <div style="background: rgba(7, 21, 14, 0.6); border: 1px dashed rgba(74, 222, 128, 0.35); border-radius: 6px; padding: 10px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <strong style="font-size: 11.5px; color: #4ADE80;">
+                                        <i class="fa-solid fa-door-open"></i> Left Suite (Wing A)
+                                    </strong>
+                                    <span style="font-size: 10.5px; color: var(--adm-text-muted);"><?php echo count($rm_photos_left); ?> photo(s)</span>
+                                </div>
+                                <?php if (!empty($rm_photos_left)): ?>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                                        <?php foreach ($rm_photos_left as $p_url): ?>
+                                            <div style="position: relative; width: 68px; background: #000; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15);">
+                                                <img src="../<?php echo e($p_url); ?>" alt="Left Suite" style="width: 100%; height: 46px; object-fit: cover; display: block; cursor: pointer;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Click to preview">
+                                                <label style="display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 9.5px; color: #F87171; background: rgba(0,0,0,0.8); padding: 2px 0; cursor: pointer; margin: 0;">
+                                                    <input type="checkbox" name="delete_photos_left_<?php echo $room['id']; ?>[]" value="<?php echo e($p_url); ?>" style="width: 11px; height: 11px;"> Del
+                                                </label>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p style="font-size: 11px; color: #64748B; margin: 0 0 8px; font-style: italic;">No specific Left Suite photos yet.</p>
+                                <?php endif; ?>
+                                <div>
+                                    <label class="adm-uploader-btn" for="left_photos_<?php echo $room['id']; ?>" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(34, 197, 94, 0.15); color: #4ADE80; border: 1px solid rgba(34, 197, 94, 0.35); padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                        <i class="fa-solid fa-plus"></i> Add Left Suite Photos
+                                    </label>
+                                    <input type="file" name="left_photos_<?php echo $room['id']; ?>[]" id="left_photos_<?php echo $room['id']; ?>" multiple accept="image/*" style="display: none;" onchange="showMultiFileInfo(this, 'left_info_<?php echo $room['id']; ?>');">
+                                    <span id="left_info_<?php echo $room['id']; ?>" style="font-size: 10.5px; color: #4ADE80; margin-left: 6px; font-weight: 600;"></span>
+                                </div>
                             </div>
-                            <input type="text" name="image_url" class="adm-input" value="<?php echo e($room['image_url'] ?? ''); ?>" style="padding: 6px 10px; font-size: 11.5px; width: 100%; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.3); color: #FFFFFF; border-radius: 4px;" placeholder="Or image path / fallback">
+
+                            <!-- Right Suite (Wing B) -->
+                            <div style="background: rgba(7, 21, 14, 0.6); border: 1px dashed rgba(96, 165, 250, 0.35); border-radius: 6px; padding: 10px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <strong style="font-size: 11.5px; color: #60A5FA;">
+                                        <i class="fa-solid fa-door-open"></i> Right Suite (Wing B)
+                                    </strong>
+                                    <span style="font-size: 10.5px; color: var(--adm-text-muted);"><?php echo count($rm_photos_right); ?> photo(s)</span>
+                                </div>
+                                <?php if (!empty($rm_photos_right)): ?>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                                        <?php foreach ($rm_photos_right as $p_url): ?>
+                                            <div style="position: relative; width: 68px; background: #000; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15);">
+                                                <img src="../<?php echo e($p_url); ?>" alt="Right Suite" style="width: 100%; height: 46px; object-fit: cover; display: block; cursor: pointer;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Click to preview">
+                                                <label style="display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 9.5px; color: #F87171; background: rgba(0,0,0,0.8); padding: 2px 0; cursor: pointer; margin: 0;">
+                                                    <input type="checkbox" name="delete_photos_right_<?php echo $room['id']; ?>[]" value="<?php echo e($p_url); ?>" style="width: 11px; height: 11px;"> Del
+                                                </label>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p style="font-size: 11px; color: #64748B; margin: 0 0 8px; font-style: italic;">No specific Right Suite photos yet.</p>
+                                <?php endif; ?>
+                                <div>
+                                    <label class="adm-uploader-btn" for="right_photos_<?php echo $room['id']; ?>" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(96, 165, 250, 0.15); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.35); padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                        <i class="fa-solid fa-plus"></i> Add Right Suite Photos
+                                    </label>
+                                    <input type="file" name="right_photos_<?php echo $room['id']; ?>[]" id="right_photos_<?php echo $room['id']; ?>" multiple accept="image/*" style="display: none;" onchange="showMultiFileInfo(this, 'right_info_<?php echo $room['id']; ?>');">
+                                    <span id="right_info_<?php echo $room['id']; ?>" style="font-size: 10.5px; color: #60A5FA; margin-left: 6px; font-weight: 600;"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exterior / Chalet Common Photos -->
+                        <div style="background: rgba(7, 21, 14, 0.4); border-top: 1px solid rgba(197, 160, 89, 0.2); padding-top: 10px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                <strong style="font-size: 11.5px; color: var(--adm-gold);">
+                                    <i class="fa-solid fa-mountain-sun"></i> Chalet Exterior &amp; General Gallery
+                                </strong>
+                                <span style="font-size: 10.5px; color: var(--adm-text-muted);"><?php echo count($rm_photos); ?> photo(s)</span>
+                            </div>
+                            <?php if (!empty($rm_photos)): ?>
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                                    <?php foreach ($rm_photos as $p_url): ?>
+                                        <div style="position: relative; width: 68px; background: #000; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15);">
+                                            <img src="../<?php echo e($p_url); ?>" alt="Exterior Photo" style="width: 100%; height: 46px; object-fit: cover; display: block; cursor: pointer;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Click to preview">
+                                            <label style="display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 9.5px; color: #F87171; background: rgba(0,0,0,0.8); padding: 2px 0; cursor: pointer; margin: 0;">
+                                                <input type="checkbox" name="delete_photos_<?php echo $room['id']; ?>[]" value="<?php echo e($p_url); ?>" style="width: 11px; height: 11px;"> Del
+                                            </label>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <label class="adm-uploader-btn" for="gallery_photos_<?php echo $room['id']; ?>" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(197, 160, 89, 0.2); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.4); padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                    <i class="fa-solid fa-plus"></i> Add Exterior Photos
+                                </label>
+                                <input type="file" name="gallery_photos_<?php echo $room['id']; ?>[]" id="gallery_photos_<?php echo $room['id']; ?>" multiple accept="image/*" style="display: none;" onchange="showMultiFileInfo(this, 'gal_info_<?php echo $room['id']; ?>');">
+                                <span id="gal_info_<?php echo $room['id']; ?>" style="font-size: 10.5px; color: var(--adm-gold); font-weight: 600;"></span>
+                                
+                                <label class="adm-uploader-btn" for="image_file_<?php echo $room['id']; ?>" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.1); color: #FFF; border: 1px solid rgba(255,255,255,0.25); padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                    <i class="fa-solid fa-image"></i> Replace Banner
+                                </label>
+                                <input type="file" name="image_file_<?php echo $room['id']; ?>" id="image_file_<?php echo $room['id']; ?>" accept="image/*" style="display: none;" onchange="previewUploadImage(this, 'preview-img-<?php echo $room['id']; ?>', 'info_<?php echo $room['id']; ?>');">
+                                <span id="info_<?php echo $room['id']; ?>" style="font-size: 10.5px; color: #4ADE80;"></span>
+                            </div>
+                            <input type="text" name="image_url" class="adm-input" value="<?php echo e($room['image_url'] ?? ''); ?>" style="margin-top: 8px; padding: 5px 8px; font-size: 11px; width: 100%; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.3); color: #FFFFFF; border-radius: 4px;" placeholder="Or image path / fallback">
                         </div>
                     </div>
-                </div>
+                <?php else: ?>
+                    <!-- Single Cottage Photo Management -->
+                    <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                            <label class="adm-label" style="font-size: 11.5px; color: #E2E8F0; font-weight: 700; margin: 0;">
+                                <i class="fa-solid fa-images" style="color: var(--adm-gold);"></i> Cottage Photos &amp; Banner
+                            </label>
+                            <span style="font-size: 10.5px; color: var(--adm-text-muted);"><?php echo count($rm_photos); ?> photo(s)</span>
+                        </div>
+                        <?php if (!empty($rm_photos)): ?>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                                <?php foreach ($rm_photos as $p_url): ?>
+                                    <div style="position: relative; width: 68px; background: #000; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15);">
+                                        <img src="../<?php echo e($p_url); ?>" alt="Photo" style="width: 100%; height: 46px; object-fit: cover; display: block; cursor: pointer;" onclick="document.getElementById('preview-img-<?php echo $room['id']; ?>').src = this.src;" title="Click to preview">
+                                        <label style="display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 9.5px; color: #F87171; background: rgba(0,0,0,0.8); padding: 2px 0; cursor: pointer; margin: 0;">
+                                            <input type="checkbox" name="delete_photos_<?php echo $room['id']; ?>[]" value="<?php echo e($p_url); ?>" style="width: 11px; height: 11px;"> Del
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <label class="adm-uploader-btn" for="image_file_<?php echo $room['id']; ?>" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(197, 160, 89, 0.2); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.4); padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i> Replace Banner
+                            </label>
+                            <input type="file" name="image_file_<?php echo $room['id']; ?>" id="image_file_<?php echo $room['id']; ?>" accept="image/*" style="display: none;" onchange="previewUploadImage(this, 'preview-img-<?php echo $room['id']; ?>', 'info_<?php echo $room['id']; ?>');">
+                            <span id="info_<?php echo $room['id']; ?>" style="font-size: 10.5px; color: #4ADE80;"></span>
+
+                            <label class="adm-uploader-btn" for="gallery_photos_<?php echo $room['id']; ?>" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.1); color: #FFF; border: 1px solid rgba(255,255,255,0.25); padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                <i class="fa-solid fa-plus"></i> Add Gallery Photos
+                            </label>
+                            <input type="file" name="gallery_photos_<?php echo $room['id']; ?>[]" id="gallery_photos_<?php echo $room['id']; ?>" multiple accept="image/*" style="display: none;" onchange="showMultiFileInfo(this, 'gal_info_<?php echo $room['id']; ?>');">
+                            <span id="gal_info_<?php echo $room['id']; ?>" style="font-size: 10.5px; color: var(--adm-gold); font-weight: 600;"></span>
+                        </div>
+                        <input type="text" name="image_url" class="adm-input" value="<?php echo e($room['image_url'] ?? ''); ?>" style="margin-top: 8px; padding: 5px 8px; font-size: 11px; width: 100%; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.3); color: #FFFFFF; border-radius: 4px;" placeholder="Or image path / fallback">
+                    </div>
+                <?php endif; ?>
 
                 <div class="adm-form-group" style="margin-bottom: 12px;">
                     <label class="adm-label" style="font-size: 11.5px; color: #E2E8F0; font-weight: 700; display: block; margin-bottom: 4px;">Architectural Narrative</label>
@@ -314,6 +544,14 @@ function previewUploadImage(input, previewId, infoId) {
         if (infoId) {
             document.getElementById(infoId).innerText = input.files[0].name + ' (' + Math.round(input.files[0].size/1024) + ' KB)';
         }
+    }
+}
+
+function showMultiFileInfo(input, infoId) {
+    if (input.files && input.files.length > 0) {
+        document.getElementById(infoId).innerText = input.files.length + ' file(s) selected';
+    } else {
+        document.getElementById(infoId).innerText = '';
     }
 }
 </script>

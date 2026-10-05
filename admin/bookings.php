@@ -855,13 +855,22 @@ function build_tab_url($tab_name, $current_params = []) {
                                         <i class="fa-brands fa-whatsapp"></i>
                                     </button>
 
-                                    <!-- Direct Print Bill Action -->
-                                    <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>" 
+                                    <!-- Direct Print Stay Bill Action -->
+                                    <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=stay" 
                                        target="_blank" 
                                        class="adm-btn-icon" 
-                                       style="color: var(--adm-gold); background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3);" 
-                                       title="Print Luxury Bill & Guest Folio">
-                                        <i class="fa-solid fa-print"></i>
+                                       style="color: #4ade80; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3);" 
+                                       title="Print Stay Bill (Villa Accommodation)">
+                                        <i class="fa-solid fa-hotel"></i>
+                                    </a>
+
+                                    <!-- Direct Print Other Bill Action (Food & Incidentals) -->
+                                    <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=other" 
+                                       target="_blank" 
+                                       class="adm-btn-icon" 
+                                       style="color: #38bdf8; background: rgba(14, 116, 144, 0.2); border: 1px solid rgba(14, 116, 144, 0.4);" 
+                                       title="Print Other Bill (Gastronomy, Food & Incidentals)">
+                                        <i class="fa-solid fa-utensils"></i>
                                     </a>
 
                                     <!-- View / Manage Modal Trigger -->
@@ -1171,8 +1180,14 @@ function build_tab_url($tab_name, $current_params = []) {
                 <button type="button" class="adm-btn-action outline" id="btn-modal-whatsapp" style="margin-right: auto;">
                     <i class="fa-brands fa-whatsapp" style="color: #25D366;"></i> WhatsApp
                 </button>
-                <a href="#" target="_blank" class="adm-btn-action gold" id="btn-modal-print-bill" style="text-decoration: none; padding: 9px 14px; display: inline-flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-print"></i> Print Bill
+                <a href="#" target="_blank" class="adm-btn-action outline" id="btn-modal-print-stay" style="text-decoration: none; padding: 9px 12px; display: inline-flex; align-items: center; gap: 5px; color: #4ade80; border-color: rgba(34, 197, 94, 0.4);" title="Print Property Stay Bill">
+                    <i class="fa-solid fa-hotel"></i> Stay Bill
+                </a>
+                <a href="#" target="_blank" class="adm-btn-action outline" id="btn-modal-print-other" style="text-decoration: none; padding: 9px 12px; display: inline-flex; align-items: center; gap: 5px; color: #38bdf8; border-color: rgba(56, 189, 248, 0.4);" title="Print Other Bill (Food & Incidentals)">
+                    <i class="fa-solid fa-utensils"></i> Other Bill
+                </a>
+                <a href="#" target="_blank" class="adm-btn-action gold" id="btn-modal-print-bill" style="text-decoration: none; padding: 9px 12px; display: inline-flex; align-items: center; gap: 5px;" title="Print Consolidated Master Bill">
+                    <i class="fa-solid fa-file-invoice"></i> Master Bill
                 </a>
                 <button type="button" class="adm-btn-action danger" id="btn-modal-delete" style="padding: 9px 12px;" onclick="deleteCurrentModalBooking();" title="Delete Reservation Record">
                     <i class="fa-solid fa-trash-can"></i> Delete
@@ -1409,10 +1424,18 @@ function viewBookingDetails(b) {
 
     document.getElementById('view-status-select').value = b.status;
 
-    // Attach Print Bill URL
+    // Attach Print Bill URLs (Stay, Other & Master)
+    var printStayBtn = document.getElementById('btn-modal-print-stay');
+    if (printStayBtn) {
+        printStayBtn.href = 'print_bill.php?ref=' + encodeURIComponent(b.reference_code) + '&type=stay';
+    }
+    var printOtherBtn = document.getElementById('btn-modal-print-other');
+    if (printOtherBtn) {
+        printOtherBtn.href = 'print_bill.php?ref=' + encodeURIComponent(b.reference_code) + '&type=other';
+    }
     var printBtn = document.getElementById('btn-modal-print-bill');
     if (printBtn) {
-        printBtn.href = 'print_bill.php?ref=' + encodeURIComponent(b.reference_code);
+        printBtn.href = 'print_bill.php?ref=' + encodeURIComponent(b.reference_code) + '&type=combined';
     }
 
     // Attach WhatsApp Concierge trigger

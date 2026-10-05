@@ -4,7 +4,16 @@
 // Engine: MySQL / MariaDB via PHP PDO
 // =========================================================================
 
-// Database Connection Configuration (XAMPP Defaults)
+// Load Database Connection Configuration from config.php
+if (file_exists(dirname(__DIR__, 2) . '/config.php')) {
+    require_once dirname(__DIR__, 2) . '/config.php';
+} elseif (file_exists(__DIR__ . '/config.php')) {
+    require_once __DIR__ . '/config.php';
+} elseif (file_exists(dirname(__DIR__) . '/config.php')) {
+    require_once dirname(__DIR__) . '/config.php';
+}
+
+// Fallback defaults if not defined in config.php
 defined('DB_HOST') or define('DB_HOST', '127.0.0.1');
 defined('DB_PORT') or define('DB_PORT', '3306');
 defined('DB_NAME') or define('DB_NAME', 'foodforest_db');
@@ -558,6 +567,26 @@ function get_all_rooms($only_available = false) {
                 $photos_arr = [$rm['image_url']];
             }
             $rm['photos_list'] = $photos_arr;
+
+            // Photos for Left Suite / Cottage
+            $left_arr = [];
+            if (!empty($rm['photos_left'])) {
+                $dec = json_decode($rm['photos_left'], true);
+                if (is_array($dec)) {
+                    $left_arr = array_values(array_filter($dec));
+                }
+            }
+            $rm['photos_left_list'] = $left_arr;
+
+            // Photos for Right Suite / Cottage
+            $right_arr = [];
+            if (!empty($rm['photos_right'])) {
+                $dec = json_decode($rm['photos_right'], true);
+                if (is_array($dec)) {
+                    $right_arr = array_values(array_filter($dec));
+                }
+            }
+            $rm['photos_right_list'] = $right_arr;
         }
         return $rooms;
     } catch (Exception $e) {
@@ -1164,19 +1193,31 @@ function ensure_rooms_pricing_columns(PDO $pdo) {
             $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `inventory_checklist` TEXT NULL AFTER `amenities`");
         }
 
-        // 9. Check & Add photos to rooms table
+        // 9. Check & Add photos, photos_left, photos_right to rooms table
         $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'photos'")->fetchAll();
         if (empty($cols)) {
             $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `photos` TEXT NULL AFTER `image_url`");
         }
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'photos_left'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `photos_left` TEXT NULL AFTER `photos`");
+        }
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'photos_right'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `photos_right` TEXT NULL AFTER `photos_left`");
+        }
 
-        // 9. Check & Add adults_count, kids_count, extra_adults, extra_kids to bookings table
+        // 10. Check & Add adults_count, kids_count, extra_adults, extra_kids, duplex_unit to bookings table
         $b_cols = $pdo->query("SHOW COLUMNS FROM `bookings` LIKE 'adults_count'")->fetchAll();
         if (empty($b_cols)) {
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `adults_count` INT DEFAULT 2 AFTER `guest_email`");
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `kids_count` INT DEFAULT 0 AFTER `adults_count`");
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `extra_adults` INT DEFAULT 0 AFTER `kids_count`");
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `extra_kids` INT DEFAULT 0 AFTER `extra_adults`");
+        }
+        $b_unit_cols = $pdo->query("SHOW COLUMNS FROM `bookings` LIKE 'duplex_unit'")->fetchAll();
+        if (empty($b_unit_cols)) {
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `duplex_unit` VARCHAR(20) DEFAULT 'full' AFTER `villa_type`");
         }
 
         // Migration updates for existing rooms (if present)
@@ -1471,7 +1512,7 @@ function get_all_sanctuary_spots($only_active = false) {
     try {
         $pdo = get_db();
         ensure_sanctuary_spots_table_exists($pdo);
-        $sql = "SELECT s.*, r.rate_per_night AS room_rate, r.single_room_rate, COALESCE(s.structure_type, r.structure_type, 'single_hut') AS structure_type, r.max_guests AS room_max_guests, r.base_guests AS room_base_guests, r.image_url AS room_image_url, r.photos AS room_photos 
+        $sql = "SELECT s.*, r.rate_per_night AS room_rate, r.single_room_rate, COALESCE(s.structure_type, r.structure_type, 'single_hut') AS structure_type, r.max_guests AS room_max_guests, r.base_guests AS room_base_guests, r.image_url AS room_image_url, r.photos AS room_photos, r.photos_left AS room_photos_left, r.photos_right AS room_photos_right 
                 FROM `sanctuary_spots` s
                 LEFT JOIN `rooms` r ON s.linked_room_slug = r.slug";
         if ($only_active) {
@@ -1503,6 +1544,26 @@ function get_all_sanctuary_spots($only_active = false) {
                 $sp['image_url'] = $sp['room_image_url'];
             }
             $sp['photos_list'] = $photos_arr;
+
+            // Photos for Left Suite / Cottage
+            $left_arr = [];
+            if (!empty($sp['room_photos_left'])) {
+                $dec = json_decode($sp['room_photos_left'], true);
+                if (is_array($dec)) {
+                    $left_arr = array_values(array_filter($dec));
+                }
+            }
+            $sp['photos_left_list'] = $left_arr;
+
+            // Photos for Right Suite / Cottage
+            $right_arr = [];
+            if (!empty($sp['room_photos_right'])) {
+                $dec = json_decode($sp['room_photos_right'], true);
+                if (is_array($dec)) {
+                    $right_arr = array_values(array_filter($dec));
+                }
+            }
+            $sp['photos_right_list'] = $right_arr;
         }
         return $spots;
     } catch (Exception $e) {
@@ -2024,9 +2085,18 @@ function ensure_food_menu_table_exists(?PDO $pdo = null) {
         `image_url` VARCHAR(255) NULL,
         `gallery_images` TEXT NULL,
         `display_order` INT DEFAULT 0,
+        `default_meal_time` VARCHAR(50) DEFAULT 'breakfast',
         `is_active` TINYINT(1) DEFAULT 1,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+    // Add default_meal_time column if missing
+    try {
+        $cols = $pdo->query("SHOW COLUMNS FROM `food_menu`")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('default_meal_time', $cols)) {
+            $pdo->exec("ALTER TABLE `food_menu` ADD COLUMN `default_meal_time` VARCHAR(50) DEFAULT 'breakfast' AFTER `category`");
+        }
+    } catch (Exception $e) {}
 
     // Copy generated images if available
     $images_dir = __DIR__ . '/../../assets/images';
@@ -2618,13 +2688,21 @@ function ensure_ical_and_channel_schema($pdo) {
 
 /**
  * Check if a room is available for given checkin/checkout dates
+ * Supports duplex units ('left', 'right', 'full', or null for general availability)
  * Returns true if available, false if overlapping reservation exists
  */
-function check_room_availability($pdo, $room_slug, $checkin_date, $checkout_date, $exclude_booking_id = null) {
+function check_room_availability($pdo, $room_slug, $checkin_date, $checkout_date, $exclude_booking_id = null, $requested_unit = null) {
     try {
         ensure_ical_and_channel_schema($pdo);
+        ensure_rooms_pricing_columns($pdo);
         
-        $sql = "SELECT id, reference_code, guest_name, checkin_date, checkout_date, booking_source 
+        // Find if this room is a duplex
+        $stmt_r = $pdo->prepare("SELECT structure_type FROM rooms WHERE slug = ?");
+        $stmt_r->execute([$room_slug]);
+        $r_struct = $stmt_r->fetchColumn();
+        $is_duplex = ($r_struct === 'duplex_hut');
+        
+        $sql = "SELECT id, reference_code, guest_name, checkin_date, checkout_date, booking_source, duplex_unit 
                 FROM bookings 
                 WHERE (villa_type = ? OR FIND_IN_SET(?, REPLACE(villa_type, ' ', '')) OR villa_type LIKE ?) 
                   AND status NOT IN ('cancelled', 'rejected') 
@@ -2639,9 +2717,46 @@ function check_room_availability($pdo, $room_slug, $checkin_date, $checkout_date
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        $overlap = $stmt->fetch(PDO::FETCH_ASSOC);
+        $overlaps = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        return $overlap ? false : true;
+        if (empty($overlaps)) {
+            return true;
+        }
+        
+        if (!$is_duplex) {
+            // For a single hut / regular room, any overlap means unavailable
+            return false;
+        }
+        
+        // It is a duplex! Track which units are booked
+        $left_booked = false;
+        $right_booked = false;
+        
+        foreach ($overlaps as $ov) {
+            $unit = strtolower(trim($ov['duplex_unit'] ?? ''));
+            if ($unit === 'left') {
+                $left_booked = true;
+            } elseif ($unit === 'right') {
+                $right_booked = true;
+            } else {
+                // 'full' or legacy null/empty -> covers both units!
+                $left_booked = true;
+                $right_booked = true;
+            }
+        }
+        
+        $unit_req = strtolower(trim((string)$requested_unit));
+        if ($unit_req === 'left') {
+            return !$left_booked;
+        } elseif ($unit_req === 'right') {
+            return !$right_booked;
+        } elseif ($unit_req === 'full') {
+            return (!$left_booked && !$right_booked);
+        } else {
+            // General query: is any part of this duplex bookable?
+            // If at least one room is available, return true!
+            return (!$left_booked || !$right_booked);
+        }
     } catch (Exception $e) {
         return false;
     }
@@ -2649,6 +2764,7 @@ function check_room_availability($pdo, $room_slug, $checkin_date, $checkout_date
 
 /**
  * Get all rooms & sanctuary spots availability for specific date range
+ * Correctly handles duplex rooms (Left Suite vs Right Suite vs Full Duplex)
  */
 function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_date) {
     try {
@@ -2660,7 +2776,7 @@ function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_dat
         $spots = get_all_sanctuary_spots(true);
         
         // Find overlapping bookings for the given date range
-        $sql = "SELECT id, reference_code, villa_type, guest_name, checkin_date, checkout_date, booking_source, status 
+        $sql = "SELECT id, reference_code, villa_type, duplex_unit, guest_name, checkin_date, checkout_date, booking_source, status 
                 FROM bookings 
                 WHERE status NOT IN ('cancelled', 'rejected') 
                   AND (checkin_date < ? AND checkout_date > ?)";
@@ -2668,21 +2784,15 @@ function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_dat
         $stmt->execute([$checkout_date, $checkin_date]);
         $overlaps = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        $overlaps_by_room = [];
-        foreach ($overlaps as $ov) {
-            $vt = strtolower(trim($ov['villa_type']));
-            if (!isset($overlaps_by_room[$vt])) {
-                $overlaps_by_room[$vt] = [];
-            }
-            $overlaps_by_room[$vt][] = $ov;
-        }
-        
         $rooms_status = [];
         $booked_count = 0;
+        $partially_booked_count = 0;
         $avail_count = 0;
         
         foreach ($rooms as $r) {
             $slug = strtolower(trim($r['slug']));
+            $is_duplex = (($r['structure_type'] ?? '') === 'duplex_hut');
+
             // Match overlapping bookings for this room slug or fuzzy alias
             $room_overlaps = [];
             foreach ($overlaps as $ov) {
@@ -2697,40 +2807,151 @@ function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_dat
                 }
             }
             
-            $is_booked = count($room_overlaps) > 0;
-            if ($is_booked) {
-                $booked_count++;
-                $first_overlap = $room_overlaps[0];
-                $raw_src = strtolower($first_overlap['booking_source'] ?? 'direct');
-                $src = 'Direct Website';
-                if (stripos($raw_src, 'airbnb') !== false) {
-                    $src = 'Airbnb';
-                } elseif (stripos($raw_src, 'makemytrip') !== false || stripos($raw_src, 'mmt') !== false) {
-                    $src = 'MakeMyTrip';
-                } elseif (stripos($raw_src, 'booking') !== false) {
-                    $src = 'Booking.com';
+            if ($is_duplex) {
+                $left_booked = false;
+                $right_booked = false;
+                $first_src = 'Direct Website';
+
+                foreach ($room_overlaps as $ov) {
+                    $raw_src = strtolower($ov['booking_source'] ?? 'direct');
+                    $src = 'Direct Website';
+                    if (stripos($raw_src, 'airbnb') !== false) {
+                        $src = 'Airbnb';
+                    } elseif (stripos($raw_src, 'makemytrip') !== false || stripos($raw_src, 'mmt') !== false) {
+                        $src = 'MakeMyTrip';
+                    } elseif (stripos($raw_src, 'booking') !== false) {
+                        $src = 'Booking.com';
+                    }
+                    $first_src = $src;
+
+                    $u = strtolower(trim($ov['duplex_unit'] ?? ''));
+                    if ($u === 'left') {
+                        $left_booked = true;
+                    } elseif ($u === 'right') {
+                        $right_booked = true;
+                    } else {
+                        $left_booked = true;
+                        $right_booked = true;
+                    }
                 }
-                
-                $rooms_status[$slug] = [
-                    'slug' => $slug,
-                    'title' => $r['title'],
-                    'available' => false,
-                    'status' => 'booked',
-                    'overlap_source' => $src,
-                    'overlap_count' => count($room_overlaps),
-                    'message' => "We apologize, but {$r['title']} has already been reserved for the selected dates (via {$src}). Please select alternative dates."
-                ];
+
+                if ($left_booked && $right_booked) {
+                    // Both units booked -> Fully booked
+                    $booked_count++;
+                    $rooms_status[$slug] = [
+                        'slug' => $slug,
+                        'title' => $r['title'],
+                        'is_duplex' => true,
+                        'structure_type' => 'duplex_hut',
+                        'available' => false,
+                        'status' => 'booked',
+                        'left_available' => false,
+                        'right_available' => false,
+                        'full_available' => false,
+                        'left_booked' => true,
+                        'right_booked' => true,
+                        'overlap_source' => $first_src,
+                        'overlap_count' => count($room_overlaps),
+                        'message' => "Both suites of {$r['title']} have already been reserved for the selected dates (via {$first_src}). Please select alternative dates.",
+                        'partially_booked_note' => 'Fully Booked (Both Left & Right Suites Reserved)'
+                    ];
+                } elseif ($left_booked || $right_booked) {
+                    // Exactly one unit is booked -> Partially booked! Still bookable!
+                    $avail_count++;
+                    $partially_booked_count++;
+                    $avail_unit = $left_booked ? 'Right Suite (Wing B)' : 'Left Suite (Wing A)';
+                    $booked_unit = $left_booked ? 'Left Suite (Wing A)' : 'Right Suite (Wing B)';
+                    $rooms_status[$slug] = [
+                        'slug' => $slug,
+                        'title' => $r['title'],
+                        'is_duplex' => true,
+                        'structure_type' => 'duplex_hut',
+                        'available' => true,
+                        'status' => 'partially_booked',
+                        'left_available' => !$left_booked,
+                        'right_available' => !$right_booked,
+                        'full_available' => false,
+                        'left_booked' => $left_booked,
+                        'right_booked' => $right_booked,
+                        'overlap_source' => $first_src,
+                        'overlap_count' => count($room_overlaps),
+                        'message' => "{$booked_unit} is reserved. {$avail_unit} is currently available for your stay.",
+                        'partially_booked_note' => "{$booked_unit} Reserved • {$avail_unit} Available"
+                    ];
+                } else {
+                    // Neither unit booked -> Fully available!
+                    $avail_count++;
+                    $rooms_status[$slug] = [
+                        'slug' => $slug,
+                        'title' => $r['title'],
+                        'is_duplex' => true,
+                        'structure_type' => 'duplex_hut',
+                        'available' => true,
+                        'status' => 'available',
+                        'left_available' => true,
+                        'right_available' => true,
+                        'full_available' => true,
+                        'left_booked' => false,
+                        'right_booked' => false,
+                        'overlap_source' => null,
+                        'overlap_count' => 0,
+                        'message' => "{$r['title']} is available for your stay.",
+                        'partially_booked_note' => null
+                    ];
+                }
             } else {
-                $avail_count++;
-                $rooms_status[$slug] = [
-                    'slug' => $slug,
-                    'title' => $r['title'],
-                    'available' => true,
-                    'status' => 'available',
-                    'overlap_source' => null,
-                    'overlap_count' => 0,
-                    'message' => "{$r['title']} is available for your stay."
-                ];
+                // Regular single hut room
+                $is_booked = count($room_overlaps) > 0;
+                if ($is_booked) {
+                    $booked_count++;
+                    $first_overlap = $room_overlaps[0];
+                    $raw_src = strtolower($first_overlap['booking_source'] ?? 'direct');
+                    $src = 'Direct Website';
+                    if (stripos($raw_src, 'airbnb') !== false) {
+                        $src = 'Airbnb';
+                    } elseif (stripos($raw_src, 'makemytrip') !== false || stripos($raw_src, 'mmt') !== false) {
+                        $src = 'MakeMyTrip';
+                    } elseif (stripos($raw_src, 'booking') !== false) {
+                        $src = 'Booking.com';
+                    }
+                    
+                    $rooms_status[$slug] = [
+                        'slug' => $slug,
+                        'title' => $r['title'],
+                        'is_duplex' => false,
+                        'structure_type' => $r['structure_type'] ?? 'single_hut',
+                        'available' => false,
+                        'status' => 'booked',
+                        'left_available' => false,
+                        'right_available' => false,
+                        'full_available' => false,
+                        'left_booked' => true,
+                        'right_booked' => true,
+                        'overlap_source' => $src,
+                        'overlap_count' => count($room_overlaps),
+                        'message' => "We apologize, but {$r['title']} has already been reserved for the selected dates (via {$src}). Please select alternative dates.",
+                        'partially_booked_note' => null
+                    ];
+                } else {
+                    $avail_count++;
+                    $rooms_status[$slug] = [
+                        'slug' => $slug,
+                        'title' => $r['title'],
+                        'is_duplex' => false,
+                        'structure_type' => $r['structure_type'] ?? 'single_hut',
+                        'available' => true,
+                        'status' => 'available',
+                        'left_available' => true,
+                        'right_available' => true,
+                        'full_available' => true,
+                        'left_booked' => false,
+                        'right_booked' => false,
+                        'overlap_source' => null,
+                        'overlap_count' => 0,
+                        'message' => "{$r['title']} is available for your stay.",
+                        'partially_booked_note' => null
+                    ];
+                }
             }
         }
         
@@ -2769,10 +2990,17 @@ function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_dat
                     'title' => $sp['title'],
                     'slug' => $matched_room['slug'],
                     'is_stay' => true,
+                    'is_duplex' => !empty($matched_room['is_duplex']),
                     'available' => $matched_room['available'],
                     'status' => $st,
+                    'left_available' => $matched_room['left_available'] ?? true,
+                    'right_available' => $matched_room['right_available'] ?? true,
+                    'full_available' => $matched_room['full_available'] ?? true,
+                    'left_booked' => $matched_room['left_booked'] ?? false,
+                    'right_booked' => $matched_room['right_booked'] ?? false,
                     'overlap_source' => $matched_room['overlap_source'],
-                    'message' => $matched_room['message']
+                    'message' => $matched_room['message'],
+                    'partially_booked_note' => $matched_room['partially_booked_note'] ?? null
                 ];
             } else {
                 $spots_status[$sp['id']] = [
@@ -2781,10 +3009,17 @@ function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_dat
                     'title' => $sp['title'],
                     'slug' => $r_slug,
                     'is_stay' => $is_stay,
+                    'is_duplex' => false,
                     'available' => true,
                     'status' => $is_stay ? 'available' : 'facility',
+                    'left_available' => true,
+                    'right_available' => true,
+                    'full_available' => true,
+                    'left_booked' => false,
+                    'right_booked' => false,
                     'overlap_source' => null,
-                    'message' => $is_stay ? 'Chalet is available for your stay.' : 'Estate facility open for guests.'
+                    'message' => $is_stay ? 'Chalet is available for your stay.' : 'Estate facility open for guests.',
+                    'partially_booked_note' => null
                 ];
             }
         }
@@ -2798,7 +3033,8 @@ function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_dat
             'summary' => [
                 'total_rooms' => count($rooms),
                 'available_count' => $avail_count,
-                'booked_count' => $booked_count
+                'booked_count' => $booked_count,
+                'partially_booked_count' => $partially_booked_count
             ],
             'overlapping_bookings' => $overlaps
         ];
@@ -2954,6 +3190,15 @@ function get_booking_billing_details($pdo, $identifier) {
         }
         if (empty($b['room_image'])) {
             $b['room_image'] = ($b['villa_type'] === 'treehouse' ? 'assets/images/treehouse_exterior.png' : 'assets/images/mudhouse_exterior.png');
+        }
+
+        $duplex_unit = strtolower(trim($b['duplex_unit'] ?? ''));
+        if ($duplex_unit === 'left') {
+            $b['room_title'] .= ' (Left Suite - Wing A)';
+        } elseif ($duplex_unit === 'right') {
+            $b['room_title'] .= ' (Right Suite - Wing B)';
+        } elseif ($duplex_unit === 'full' && (stripos($b['villa_type'], 'duplex') !== false || stripos($b['room_title'], 'duplex') !== false)) {
+            $b['room_title'] .= ' (Full Duplex - Both Suites)';
         }
 
         // Room calculation
@@ -3216,7 +3461,55 @@ function get_booking_billing_details($pdo, $identifier) {
             $payment_status = 'partial';
         }
 
+        // Separate Stay Bill (Accommodation only) vs Other Bill (Food & Incidentals)
+        $stay_gross = $room_amount;
+        $other_food_total = $food_total;
+        $other_activities_total = $activities_total;
+        $other_custom_total = $custom_total + $extra_charges;
+        $other_gross = $other_food_total + $other_activities_total + $other_custom_total;
+
+        $stay_discount = min($discount_amount, $stay_gross);
+        $other_discount = max(0, $discount_amount - $stay_discount);
+
+        $stay_taxable = max(0, $stay_gross - $stay_discount);
+        $other_taxable = max(0, $other_gross - $other_discount);
+
+        if ($is_gst_bill) {
+            $stay_gst = round($stay_taxable * ($gst_percentage / 100), 2);
+            $other_gst = round($other_taxable * ($gst_percentage / 100), 2);
+        } else {
+            $stay_gst = 0.00;
+            $other_gst = 0.00;
+        }
+
+        $stay_total = $stay_taxable + $stay_gst;
+        $other_total = $other_taxable + $other_gst;
+
+        $stay_advance_paid = min($stay_total, $advance_paid);
+        $other_advance_paid = max(0, $advance_paid - $stay_advance_paid);
+
+        $stay_balance_due = max(0, $stay_total - $stay_advance_paid);
+        $other_balance_due = max(0, $other_total - $other_advance_paid);
+
         $b['parsed'] = [
+            'stay_gross' => $stay_gross,
+            'stay_discount' => $stay_discount,
+            'stay_taxable' => $stay_taxable,
+            'stay_gst' => $stay_gst,
+            'stay_total' => $stay_total,
+            'stay_advance_paid' => $stay_advance_paid,
+            'stay_balance_due' => $stay_balance_due,
+            'other_food_total' => $other_food_total,
+            'other_activities_total' => $other_activities_total,
+            'other_custom_total' => $other_custom_total,
+            'other_gross' => $other_gross,
+            'other_discount' => $other_discount,
+            'other_taxable' => $other_taxable,
+            'other_gst' => $other_gst,
+            'other_total' => $other_total,
+            'other_advance_paid' => $other_advance_paid,
+            'other_balance_due' => $other_balance_due,
+            'other_items_count' => count($food_items) + count($activities) + count($custom_items),
             'nights' => $nights,
             'rate_per_night' => $rate_per_night,
             'adults_count' => $adults_count,

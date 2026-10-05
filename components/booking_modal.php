@@ -13,10 +13,13 @@ $currency = get_setting('currency_symbol', '₹');
 $gst_rate_percent = (float)get_setting('gst_rate_percentage', '12');
 
 $modal_food_cats = [
-    'breakfast' => ['name' => 'Breakfast', 'title' => 'Morning in the Orchards', 'time' => '07:30 AM — 10:00 AM', 'icon' => 'fa-solid fa-mug-saucer', 'items' => []],
-    'lunch' => ['name' => 'Lunch', 'title' => 'Claypot Hearth Feast', 'time' => '12:30 PM — 02:30 PM', 'icon' => 'fa-solid fa-bowl-rice', 'items' => []],
-    'snacks' => ['name' => 'Evening Snacks', 'title' => 'Plantation Tea Ritual', 'time' => '04:30 PM — 06:30 PM', 'icon' => 'fa-solid fa-cookie-bite', 'items' => []],
-    'dinner' => ['name' => 'Dinner', 'title' => 'Twilight Campfire Dining', 'time' => '07:30 PM — 10:00 PM', 'icon' => 'fa-solid fa-fire-burner', 'items' => []]
+    'breakfast' => ['name' => 'Breakfast', 'title' => 'Morning Breakfast Service', 'time' => '09:00 AM — 10:00 AM', 'icon' => 'fa-solid fa-mug-saucer', 'items' => []],
+    'lunch' => ['name' => 'Lunch', 'title' => 'Lunch Service', 'time' => '12:30 PM — 02:30 PM', 'icon' => 'fa-solid fa-bowl-rice', 'items' => []],
+    'snacks' => ['name' => 'Evening Specials & Snacks', 'title' => 'Teas, Coffees & Hot Fritters', 'time' => '04:30 PM — 06:30 PM', 'icon' => 'fa-solid fa-cookie-bite', 'items' => []],
+    'dinner' => ['name' => 'Dinner', 'title' => 'Dinner Service', 'time' => '07:00 PM — 09:00 PM', 'icon' => 'fa-solid fa-fire-burner', 'items' => []],
+    'millet' => ['name' => 'Millet Specials', 'title' => 'Ancient Grain Healthy Delicacies', 'time' => 'Available on Order', 'icon' => 'fa-solid fa-seedling', 'items' => []],
+    'curries' => ['name' => 'Curries & Sides', 'title' => 'Authentic Kerala Curries & Roasts', 'time' => 'Lunch & Dinner', 'icon' => 'fa-solid fa-utensils', 'items' => []],
+    'juices' => ['name' => 'Healthy Juices', 'title' => 'Cold-Pressed Sugarcane & Farm Juices', 'time' => 'Fresh on Order', 'icon' => 'fa-solid fa-glass-water', 'items' => []]
 ];
 
 foreach ($modal_all_food as $mf) {
@@ -177,6 +180,9 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                                 data-single-rate="<?php echo htmlspecialchars($mv['single_room_rate'] ?? $mv['rate_per_night']); ?>"
                                                 data-name="<?php echo htmlspecialchars($mv['title']); ?>"
                                                 data-image="<?php echo htmlspecialchars($mv['image_url']); ?>"
+                                                data-photos-left='<?php echo htmlspecialchars(json_encode($mv['photos_left_list'] ?? [])); ?>'
+                                                data-photos-right='<?php echo htmlspecialchars(json_encode($mv['photos_right_list'] ?? [])); ?>'
+                                                data-photos='<?php echo htmlspecialchars(json_encode($mv['photos_list'] ?? [])); ?>'
                                                 data-min-guests="<?php echo (int)($mv['min_guests'] ?? 2); ?>"
                                                 data-base-guests="<?php echo (int)($mv['base_guests'] ?? 2); ?>"
                                                 data-max-guests="<?php echo (int)($mv['max_guests'] ?? 4); ?>"
@@ -229,6 +235,46 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                         <small style="font-size: 10px; color: #64748B; display: block;">Base 2 Guests • Max 4</small>
                                     </div>
                                 </label>
+                            </div>
+
+                            <!-- Duplex Suite Wing Selection (Left vs Right) -->
+                            <div id="modal-duplex-wing-box" class="modal-duplex-wing-container font-sans" style="display: none;">
+                                <div class="modal-wing-header">
+                                    <span class="modal-wing-title font-sans">
+                                        <i class="fa-solid fa-door-open"></i> Choose Suite Wing:
+                                    </span>
+                                    <span id="modal-wing-status-hint" class="modal-wing-status-badge">Both Wings Available</span>
+                                </div>
+                                <div class="modal-wing-grid">
+                                    <label class="modal-wing-card is-selected" id="modal-wing-label-left" title="Click to select Left Suite (Wing A)">
+                                        <input type="radio" name="modal_duplex_wing" value="left" checked class="modal-wing-radio-native">
+                                        <div class="modal-wing-card-top">
+                                            <div class="modal-wing-title-group">
+                                                <span class="modal-wing-radio-indicator"><i class="fa-solid fa-check"></i></span>
+                                                <strong class="modal-wing-name"><i class="fa-solid fa-door-open" style="color: #059669;"></i> Left (Wing A)</strong>
+                                            </div>
+                                            <div class="modal-wing-badge-group">
+                                                <span class="modal-wing-selected-pill">SELECTED</span>
+                                                <span class="wing-badge available" id="modal-wing-badge-left">Available</span>
+                                            </div>
+                                        </div>
+                                        <p class="modal-wing-desc">Garden balcony master suite</p>
+                                    </label>
+                                    <label class="modal-wing-card" id="modal-wing-label-right" title="Click to select Right Suite (Wing B)">
+                                        <input type="radio" name="modal_duplex_wing" value="right" class="modal-wing-radio-native">
+                                        <div class="modal-wing-card-top">
+                                            <div class="modal-wing-title-group">
+                                                <span class="modal-wing-radio-indicator"><i class="fa-solid fa-check"></i></span>
+                                                <strong class="modal-wing-name"><i class="fa-solid fa-door-open" style="color: #2563EB;"></i> Right (Wing B)</strong>
+                                            </div>
+                                            <div class="modal-wing-badge-group">
+                                                <span class="modal-wing-selected-pill">SELECTED</span>
+                                                <span class="wing-badge available" id="modal-wing-badge-right">Available</span>
+                                            </div>
+                                        </div>
+                                        <p class="modal-wing-desc">Sunset valley view master suite</p>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -337,114 +383,136 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     </div>
                 </div>
 
-                <!-- Step 2: Curated Estate Gastronomy (Food Menu Selection) -->
-                <div class="booking-section-group" id="booking-gastronomy-section">
-                    <div class="section-heading-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+                <!-- Step                <div class="booking-section-group" id="booking-gastronomy-section">
+                    <div class="section-heading-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
                         <div>
-                            <h4 class="group-title font-serif" style="margin-bottom: 2px;">2. Curate Your Estate Dining Rituals</h4>
-                            <span class="optional-tag font-sans" style="font-size: 12px; color: #8C6D28; font-weight: 500;">Optional • Select your preferred sets or skip anytime</span>
+                            <h4 class="group-title font-serif" style="margin-bottom: 2px;">2. Curate Your Dining & Kitchen Orders</h4>
+                            <span class="optional-tag font-sans" style="font-size: 12px; color: #8C6D28; font-weight: 500;">Select dishes and choose your preferred serving meal time (Breakfast, Lunch, Snacks, Dinner)</span>
                         </div>
                         <!-- Global Skip Toggle -->
                         <label class="food-global-skip-toggle font-sans" style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; color: var(--accent-green); background: #FFFFFF; padding: 6px 14px; border-radius: 20px; border: 1.5px solid rgba(28,56,38,0.2);">
                             <input type="checkbox" id="toggle-skip-all-food" style="cursor: pointer; accent-color: var(--accent-gold);">
-                            <span style="font-weight: 600;">Skip meal pre-selection (Decide on arrival)</span>
+                            <span style="font-weight: 600;">Skip advance ordering (Order on-site)</span>
                         </label>
+                    </div>
+
+                    <!-- Category Filter Tabs -->
+                    <div class="modal-food-tabs-bar font-sans" style="display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 12px 2px; margin-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: thin;">
+                        <button type="button" class="btn-food-filter-tab active" data-cat="all" style="padding: 6px 12px; border-radius: 18px; border: 1.5px solid var(--accent-green); background: var(--accent-green); color: #fff; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">
+                            🍽️ All (<?php echo count($modal_all_food); ?>)
+                        </button>
+                        <?php foreach ($modal_food_cats as $ck => $cd): ?>
+                            <button type="button" class="btn-food-filter-tab" data-cat="<?php echo $ck; ?>" style="padding: 6px 12px; border-radius: 18px; border: 1.5px solid rgba(28,56,38,0.2); background: #fff; color: var(--accent-green); font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">
+                                <i class="<?php echo $cd['icon']; ?>"></i> <?php echo htmlspecialchars($cd['name']); ?> (<?php echo count($cd['items']); ?>)
+                            </button>
+                        <?php endforeach; ?>
                     </div>
 
                     <div id="food-selection-container" class="food-selection-wrapper">
                         <?php foreach ($modal_food_cats as $cat_key => $cat_data): ?>
-                            <div class="modal-meal-category-block" id="modal-cat-block-<?php echo $cat_key; ?>" data-category="<?php echo $cat_key; ?>" style="margin-bottom: 20px; background: #F8FAF8; border: 1.5px solid rgba(28, 56, 38, 0.12); border-radius: 10px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                            <div class="modal-meal-category-block" id="modal-cat-block-<?php echo $cat_key; ?>" data-category="<?php echo $cat_key; ?>" style="margin-bottom: 20px; background: #F8FAF8; border: 1.5px solid rgba(28, 56, 38, 0.12); border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
                                 
                                 <div class="meal-cat-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px dashed rgba(28, 56, 38, 0.15);">
                                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                        <span class="font-serif" style="font-size: 18px; color: var(--accent-green); font-weight: 700; letter-spacing: 0.3px;">
+                                        <span class="font-serif" style="font-size: 17px; color: var(--accent-green); font-weight: 700; letter-spacing: 0.3px;">
                                             <i class="<?php echo htmlspecialchars($cat_data['icon']); ?>" style="margin-right: 6px; color: var(--accent-gold);"></i>
                                             <?php echo htmlspecialchars($cat_data['name']); ?>
                                         </span>
-                                        <span class="font-sans" style="font-size: 12px; color: var(--text-muted); background: rgba(28,56,38,0.06); padding: 2px 8px; border-radius: 4px; font-weight: 500;">
+                                        <span class="font-sans" style="font-size: 11.5px; color: var(--text-muted); background: rgba(28,56,38,0.06); padding: 2px 8px; border-radius: 4px; font-weight: 500;">
                                             <?php echo htmlspecialchars($cat_data['time']); ?>
                                         </span>
-                                        <?php if ($cat_key === 'breakfast'): ?>
-                                            <span class="font-sans" style="font-size: 11px; background: rgba(16, 185, 129, 0.12); color: #065F46; border: 1px solid #10B981; padding: 2px 8px; border-radius: 12px; font-weight: 700;">
-                                                <i class="fa-solid fa-gift" style="color: #10B981;"></i> Complimentary
-                                            </span>
-                                        <?php endif; ?>
                                     </div>
-                                    <label class="meal-skip-btn font-sans" style="font-size: 12px; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 6px; background: #FFFFFF; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(28,56,38,0.15); font-weight: 500;">
+                                    <label class="meal-skip-btn font-sans" style="font-size: 11.5px; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 6px; background: #FFFFFF; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(28,56,38,0.15); font-weight: 500;">
                                         <input type="checkbox" class="cat-skip-checkbox" data-target-cat="<?php echo $cat_key; ?>" style="accent-color: var(--accent-gold);">
                                         <span>Skip <?php echo htmlspecialchars($cat_data['name']); ?></span>
                                     </label>
                                 </div>
 
-                                <?php if ($cat_key === 'breakfast'): ?>
-                                    <!-- Breakfast Stay Duration Notice Banner -->
-                                    <div id="breakfast-stay-notice" style="background: rgba(197, 160, 89, 0.12); border: 1px solid rgba(197, 160, 89, 0.45); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px;">
-                                        <i class="fa-solid fa-mug-hot" style="color: #8C6D28; font-size: 18px;"></i>
-                                        <div class="font-sans" style="font-size: 12.5px; color: #1E293B; line-height: 1.45;">
-                                            <strong style="color: #8C6D28;">Complimentary Breakfast Policy:</strong>
-                                            <span id="breakfast-nights-dynamic-msg">For reservations of <strong>2 or more nights</strong>, select your customized breakfast dishes below. (Single-night stays receive Chef's Daily Organic Orchard Breakfast complimentary on departure morning).</span>
-                                        </div>
-                                    </div>
-
-                                    <!-- 1-Night Single Stay Placeholder State (Shown when stay is 1 night) -->
-                                    <div id="breakfast-1night-placeholder" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px dashed rgba(16, 185, 129, 0.4); border-radius: 8px; padding: 14px 16px; text-align: center; color: #065F46; font-size: 13px; font-weight: 600;">
-                                        <i class="fa-solid fa-circle-check" style="color: #10B981; font-size: 16px; margin-right: 6px;"></i>
-                                        Chef's Signature Farm Breakfast is automatically included complimentary on departure morning for your 1-night sanctuary stay.
-                                    </div>
-                                <?php endif; ?>
-
-                                <div class="modal-dishes-grid" id="dishes-grid-<?php echo $cat_key; ?>" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px;">
+                                <div class="modal-dishes-grid" id="dishes-grid-<?php echo $cat_key; ?>" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">
                                     <?php if (!empty($cat_data['items'])): ?>
                                         <?php foreach ($cat_data['items'] as $d_item): 
                                              $is_veg = ($d_item['dietary_type'] ?? 'veg') === 'veg';
                                              $d_price = (float)$d_item['price'];
+                                             $def_meal = !empty($d_item['default_meal_time']) ? $d_item['default_meal_time'] : (in_array($cat_key, ['breakfast', 'lunch', 'snacks', 'dinner']) ? $cat_key : 'lunch');
                                         ?>
                                             <div class="modal-dish-card" 
+                                                 id="dish-card-<?php echo $d_item['id']; ?>"
                                                  data-dish-id="<?php echo $d_item['id']; ?>"
                                                  data-dish-category="<?php echo $cat_key; ?>"
                                                  data-dish-name="<?php echo htmlspecialchars($d_item['heading']); ?>"
                                                  data-dish-subtitle="<?php echo htmlspecialchars($d_item['subtitle'] ?? ''); ?>"
                                                  data-dish-price="<?php echo $d_price; ?>"
+                                                 data-default-meal="<?php echo htmlspecialchars($def_meal); ?>"
                                                  style="background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.14); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
                                                 
                                                 <div>
-                                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
-                                                        <strong class="font-serif" style="font-size: 15px; color: var(--accent-green); line-height: 1.35; font-weight: 700;">
+                                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+                                                        <strong class="font-serif" style="font-size: 14.5px; color: var(--accent-green); line-height: 1.35; font-weight: 700;">
                                                             <?php echo htmlspecialchars($d_item['heading']); ?>
                                                         </strong>
-                                                        <span style="font-size: 10.5px; padding: 2px 6px; border: 1.5px solid <?php echo $is_veg ? '#059669' : '#DC2626'; ?>; color: <?php echo $is_veg ? '#059669' : '#DC2626'; ?>; border-radius: 3px; background: <?php echo $is_veg ? 'rgba(5, 150, 105, 0.08)' : 'rgba(220, 38, 38, 0.08)'; ?>; font-weight: 700;">
+                                                        <span style="font-size: 10px; padding: 2px 5px; border: 1.5px solid <?php echo $is_veg ? '#059669' : '#DC2626'; ?>; color: <?php echo $is_veg ? '#059669' : '#DC2626'; ?>; border-radius: 3px; background: <?php echo $is_veg ? 'rgba(5, 150, 105, 0.08)' : 'rgba(220, 38, 38, 0.08)'; ?>; font-weight: 700; white-space: nowrap;">
                                                             ● <?php echo $is_veg ? 'VEG' : 'NON-VEG'; ?>
                                                         </span>
                                                     </div>
 
                                                     <?php if (!empty($d_item['subtitle'])): ?>
-                                                        <p class="font-sans" style="font-size: 12.5px; color: #4B5563; margin-bottom: 8px; line-height: 1.4;">
+                                                        <p class="font-sans" style="font-size: 12px; color: #4B5563; margin-bottom: 8px; line-height: 1.4;">
                                                             <?php echo htmlspecialchars($d_item['subtitle']); ?>
                                                         </p>
                                                     <?php endif; ?>
 
-                                                    <?php if (!empty($d_item['inclusions_list'])): ?>
-                                                        <div style="font-size: 11.5px; color: #374151; margin-bottom: 12px; line-height: 1.4; background: #F4F6F4; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(28,56,38,0.06);">
-                                                            <strong style="color: var(--accent-green);">Includes:</strong> <?php echo htmlspecialchars(implode(', ', array_slice($d_item['inclusions_list'], 0, 3))); ?><?php echo count($d_item['inclusions_list']) > 3 ? '...' : ''; ?>
-                                                        </div>
+                                                    <?php if (!empty($d_item['badge'])): ?>
+                                                        <span style="display: inline-block; font-size: 10px; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 1px 6px; border-radius: 3px; font-weight: 600; margin-bottom: 6px;">
+                                                            <?php echo htmlspecialchars($d_item['badge']); ?>
+                                                        </span>
                                                     <?php endif; ?>
                                                 </div>
 
-                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 10px; border-top: 1px dashed rgba(28, 56, 38, 0.15);">
-                                                    <span class="font-sans" style="font-size: 14px; font-weight: 700; color: #935B28;">
-                                                        <?php if ($cat_key === 'breakfast'): ?>
-                                                            <span style="color: #059669; font-weight: 700;"><i class="fa-solid fa-gift"></i> Included</span>
-                                                        <?php else: ?>
-                                                            <?php echo $currency . number_format($d_price, 0); ?>
-                                                            <span style="font-size: 11px; font-weight: normal; color: #64748B;">/set</span>
-                                                        <?php endif; ?>
-                                                    </span>
+                                                <div>
+                                                    <!-- Price & Stepper Row -->
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(28, 56, 38, 0.15);">
+                                                        <div class="font-sans">
+                                                            <strong style="font-size: 14.5px; color: #935B28; font-weight: 700;">
+                                                                <?php echo $currency . number_format($d_price, 0); ?>
+                                                            </strong>
+                                                            <?php if (!empty($d_item['price_note'])): ?>
+                                                                <small style="font-size: 10.5px; color: #64748B; font-weight: normal; margin-left: 2px;">(<?php echo htmlspecialchars($d_item['price_note']); ?>)</small>
+                                                            <?php endif; ?>
+                                                        </div>
 
-                                                    <!-- Quantity Stepper -->
-                                                    <div class="food-dish-stepper" style="display: inline-flex; align-items: center; gap: 4px; background: #F3F4F6; border: 1px solid rgba(28, 56, 38, 0.2); border-radius: 6px; padding: 2px 6px;">
-                                                        <button type="button" class="btn-dish-qty minus" data-target-input="dish-qty-<?php echo $d_item['id']; ?>" style="background: #FFFFFF; border: 1px solid rgba(28, 56, 38, 0.2); color: var(--accent-green); font-weight: bold; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">−</button>
-                                                        <input type="number" id="dish-qty-<?php echo $d_item['id']; ?>" class="dish-qty-input font-sans" value="0" min="0" max="10" readonly style="width: 30px; text-align: center; background: transparent; border: none; color: var(--accent-green); font-size: 13px; font-weight: 700;">
-                                                        <button type="button" class="btn-dish-qty plus" data-target-input="dish-qty-<?php echo $d_item['id']; ?>" style="background: #FFFFFF; border: 1px solid rgba(28, 56, 38, 0.2); color: var(--accent-green); font-weight: bold; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">+</button>
+                                                        <!-- Quantity Stepper -->
+                                                        <div class="food-dish-stepper" style="display: inline-flex; align-items: center; gap: 4px; background: #F3F4F6; border: 1px solid rgba(28, 56, 38, 0.2); border-radius: 6px; padding: 2px 6px;">
+                                                            <button type="button" class="btn-dish-qty minus" data-target-input="dish-qty-<?php echo $d_item['id']; ?>" style="background: #FFFFFF; border: 1px solid rgba(28, 56, 38, 0.2); color: var(--accent-green); font-weight: bold; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">−</button>
+                                                            <input type="number" id="dish-qty-<?php echo $d_item['id']; ?>" class="dish-qty-input font-sans" value="0" min="0" max="25" readonly style="width: 30px; text-align: center; background: transparent; border: none; color: var(--accent-green); font-size: 13px; font-weight: 700;">
+                                                            <button type="button" class="btn-dish-qty plus" data-target-input="dish-qty-<?php echo $d_item['id']; ?>" style="background: #FFFFFF; border: 1px solid rgba(28, 56, 38, 0.2); color: var(--accent-green); font-weight: bold; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;">+</button>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Meal Serving Time Slot Selection Pills (Requested in Malayalam Audio) -->
+                                                    <div class="dish-meal-time-selector" style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgba(28, 56, 38, 0.1);">
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                                            <span style="font-size: 10.5px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 4px;">
+                                                                <i class="fa-regular fa-clock" style="color: var(--accent-gold); font-size: 10px;"></i> Serve For:
+                                                            </span>
+                                                            <span class="dish-selected-meal-badge" id="dish-badge-meal-<?php echo $d_item['id']; ?>" style="font-size: 10px; font-weight: 700; color: #166534; background: #DCFCE7; padding: 1px 6px; border-radius: 3px; text-transform: uppercase;">
+                                                                <?php echo htmlspecialchars($def_meal); ?>
+                                                            </span>
+                                                        </div>
+                                                        <div class="meal-pills-row font-sans" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;">
+                                                            <button type="button" class="btn-meal-pill <?php echo ($def_meal === 'breakfast') ? 'active' : ''; ?>" data-dish-id="<?php echo $d_item['id']; ?>" data-meal="breakfast" title="Breakfast (09:00 AM - 10:00 AM)">
+                                                                B'fast
+                                                            </button>
+                                                            <button type="button" class="btn-meal-pill <?php echo ($def_meal === 'lunch') ? 'active' : ''; ?>" data-dish-id="<?php echo $d_item['id']; ?>" data-meal="lunch" title="Lunch (12:30 PM - 02:30 PM)">
+                                                                Lunch
+                                                            </button>
+                                                            <button type="button" class="btn-meal-pill <?php echo ($def_meal === 'snacks') ? 'active' : ''; ?>" data-dish-id="<?php echo $d_item['id']; ?>" data-meal="snacks" title="Evening Snacks (04:30 PM - 06:30 PM)">
+                                                                Snacks
+                                                            </button>
+                                                            <button type="button" class="btn-meal-pill <?php echo ($def_meal === 'dinner') ? 'active' : ''; ?>" data-dish-id="<?php echo $d_item['id']; ?>" data-meal="dinner" title="Dinner (07:00 PM - 09:00 PM)">
+                                                                Dinner
+                                                            </button>
+                                                        </div>
+                                                        <input type="hidden" class="dish-meal-time-val" id="dish-meal-<?php echo $d_item['id']; ?>" value="<?php echo htmlspecialchars($def_meal); ?>">
                                                     </div>
                                                 </div>
 
@@ -859,6 +927,9 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     <a href="#" id="confirm-wa-btn" target="_blank" class="font-sans" style="color: #25D366; text-decoration: none; font-size: 13.5px; margin-top: 6px; font-weight: 600;">
                         <i class="fa-brands fa-whatsapp"></i> Chat with Master Concierge
                     </a>
+                    <button type="button" class="btn-secondary font-sans" onclick="closeBookingModal();" style="background: transparent; border: 1.5px dashed rgba(28,56,38,0.3); color: #475569; padding: 10px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 4px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                        <i class="fa-solid fa-check-double" style="color: #10B981;"></i> Done • Close &amp; Return to Sanctuary
+                    </button>
                 </div>
             </div>
 
@@ -884,7 +955,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     </div>
                 </div>
                 <div class="mscb-actions">
-                    <button type="button" class="btn-mscb-reserve font-sans" id="btn-mscb-submit" onclick="document.getElementById('btn-submit-booking-direct').click();">
+                    <button type="button" class="btn-mscb-reserve font-sans" id="btn-mscb-submit">
                         <span>Confirm &amp; Reserve</span>
                         <i class="fa-solid fa-arrow-right"></i>
                     </button>

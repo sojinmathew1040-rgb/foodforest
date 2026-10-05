@@ -51,8 +51,8 @@ $duplex_single_rate = $duplex_room ? (float)($duplex_room['single_room_rate'] ??
                 <div class="arch-wings-container">
                     
                     <!-- Wing A: Left Master Suite -->
-                    <div class="arch-wing wing-left" id="arch-wing-a">
-                        <div class="arch-wing-tag font-sans">SUITE WING 01</div>
+                    <div class="arch-wing wing-left" id="arch-wing-a" style="cursor: pointer;" onclick="applyDuplexChoice('single_room', 'left');" title="Click to book Left Suite Wing A">
+                        <div class="arch-wing-tag font-sans">SUITE WING 01 (LEFT)</div>
                         <div class="arch-wing-title font-serif">Master Suite A</div>
                         <div class="arch-wing-features font-sans">
                             <span><i class="fa-solid fa-door-closed"></i> Independent Private Entry</span>
@@ -63,6 +63,9 @@ $duplex_single_rate = $duplex_room ? (float)($duplex_room['single_room_rate'] ??
                         <div class="arch-wing-cap font-sans">
                             <i class="fa-solid fa-users"></i> Base: 2 Guests • Max: 4
                         </div>
+                        <button type="button" class="btn-select-choice font-sans" style="margin-top: 10px; padding: 6px 12px; font-size: 11px; width: 100%; justify-content: center; background: rgba(28, 56, 38, 0.08); color: var(--accent-green); border: 1px solid rgba(28, 56, 38, 0.2);" onclick="event.stopPropagation(); applyDuplexChoice('single_room', 'left');">
+                            <span><i class="fa-solid fa-door-open"></i> Choose Left Wing (A)</span>
+                        </button>
                     </div>
 
                     <!-- Center Acoustic Partition Barrier -->
@@ -77,8 +80,8 @@ $duplex_single_rate = $duplex_room ? (float)($duplex_room['single_room_rate'] ??
                     </div>
 
                     <!-- Wing B: Right Master Suite -->
-                    <div class="arch-wing wing-right" id="arch-wing-b">
-                        <div class="arch-wing-tag font-sans">SUITE WING 02</div>
+                    <div class="arch-wing wing-right" id="arch-wing-b" style="cursor: pointer;" onclick="applyDuplexChoice('single_room', 'right');" title="Click to book Right Suite Wing B">
+                        <div class="arch-wing-tag font-sans">SUITE WING 02 (RIGHT)</div>
                         <div class="arch-wing-title font-serif">Master Suite B</div>
                         <div class="arch-wing-features font-sans">
                             <span><i class="fa-solid fa-door-closed"></i> Independent Private Entry</span>
@@ -89,6 +92,9 @@ $duplex_single_rate = $duplex_room ? (float)($duplex_room['single_room_rate'] ??
                         <div class="arch-wing-cap font-sans">
                             <i class="fa-solid fa-users"></i> Base: 2 Guests • Max: 4
                         </div>
+                        <button type="button" class="btn-select-choice font-sans" style="margin-top: 10px; padding: 6px 12px; font-size: 11px; width: 100%; justify-content: center; background: rgba(37, 99, 235, 0.08); color: #1D4ED8; border: 1px solid rgba(37, 99, 235, 0.25);" onclick="event.stopPropagation(); applyDuplexChoice('single_room', 'right');">
+                            <span><i class="fa-solid fa-door-open"></i> Choose Right Wing (B)</span>
+                        </button>
                     </div>
 
                 </div>
@@ -237,7 +243,7 @@ function selectDuplexOption(tier) {
 }
 window.selectDuplexOption = selectDuplexOption;
 
-function applyDuplexChoice(tier) {
+function applyDuplexChoice(tier, unit) {
     var modalRadio = document.querySelector('input[name="modal_tier"][value="' + tier + '"]');
     if (modalRadio) {
         modalRadio.checked = true;
@@ -248,6 +254,20 @@ function applyDuplexChoice(tier) {
     if (sacRadio) {
         sacRadio.checked = true;
         sacRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    if (unit) {
+        var modalWingRadio = document.querySelector('input[name="modal_duplex_wing"][value="' + unit + '"]');
+        if (modalWingRadio) {
+            modalWingRadio.checked = true;
+            modalWingRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        var sacWingRadio = document.querySelector('input[name="sac_duplex_wing"][value="' + unit + '"]');
+        if (sacWingRadio) {
+            sacWingRadio.checked = true;
+            sacWingRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
     }
 
     closeDuplexExplainer();

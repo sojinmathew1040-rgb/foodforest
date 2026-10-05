@@ -32,7 +32,7 @@ function is_admin_logged_in() {
  */
 function require_admin_auth() {
     if (!is_admin_logged_in()) {
-        $current_url = $_SERVER['REQUEST_URI'];
+        $current_url = $_SERVER['REQUEST_URI'] ?? '';
         header("Location: login.php?return=" . urlencode($current_url));
         exit;
     }
@@ -123,6 +123,10 @@ function csrf_token() {
 
 function generate_csrf_token() {
     return csrf_token();
+}
+
+function csrf_field() {
+    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
 }
 
 function verify_csrf_token($token) {

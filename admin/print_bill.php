@@ -8,7 +8,7 @@ require_once __DIR__ . '/includes/db.php';
 
 $pdo = get_db();
 $ref_code = trim($_GET['ref'] ?? '');
-$booking_id = (int)($_GET['id'] ?? 0);
+$booking_id = (int)($_GET['id'] ?? ($_GET['booking_id'] ?? 0));
 $token = trim($_GET['token'] ?? '');
 
 if (empty($ref_code) && empty($booking_id)) {
@@ -53,66 +53,154 @@ $default_show_qr = (get_setting('bill_show_qr_code', '1') === '1');
 $show_bank = isset($_GET['show_bank']) ? ($_GET['show_bank'] == '1') : $default_show_bank;
 $show_qr = isset($_GET['show_qr']) ? ($_GET['show_qr'] == '1') : $default_show_qr;
 
-// Invoice Serial
-$invoice_no = 'FF-INV-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
+// Bill Type Selection: 'stay' (Room stay only), 'other' (Food, Activities & Extras), 'combined' (All)
+$bill_type = strtolower(trim($_GET['type'] ?? 'stay'));
+if (!in_array($bill_type, ['stay', 'other', 'combined'])) {
+    $bill_type = 'stay';
+}
+
+$is_gst = !empty($p['is_gst_bill']);
 $bill_date = date('d M Y, h:i A');
+
+// Generate Specific Invoice Number & Title
+if ($bill_type === 'stay') {
+    $invoice_no = 'FF-STAY-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
+    $bill_title_text = $is_gst ? "TAX INVOICE — ACCOMMODATION & STAY" : "PROPERTY STAY FOLIO";
+    $bill_category_badge = "🏡 PROPERTY STAY BILL";
+} elseif ($bill_type === 'other') {
+    $invoice_no = 'FF-OTHER-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
+    $bill_title_text = $is_gst ? "TAX INVOICE — GASTRONOMY & INCIDENTALS" : "GASTRONOMY & INCIDENTALS FOLIO (\"OTHER BILL\")";
+    $bill_category_badge = "🍽️ OTHER BILL (FOOD & SERVICES)";
+} else {
+    $invoice_no = 'FF-INV-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
+    $bill_title_text = $is_gst ? "TAX INVOICE (GST) — CONSOLIDATED" : "ESTIMATE MASTER STAY FOLIO";
+    $bill_category_badge = "📑 CONSOLIDATED MASTER FOLIO";
+}
 
 // Generate Public Digital Folio URL
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $base_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
 $guest_folio_token = substr(hash('sha256', (string)$booking['reference_code'] . 'ff_sanctuary_folio_secret'), 0, 16);
-$public_folio_url = $protocol . $host . $base_dir . '/print_bill.php?ref=' . urlencode($booking['reference_code']) . '&token=' . $guest_folio_token;
+$public_folio_url = $protocol . $host . $base_dir . '/print_bill.php?ref=' . urlencode($booking['reference_code']) . '&token=' . $guest_folio_token . '&type=' . $bill_type;
 
-// Generate WhatsApp message text
+// Generate WhatsApp message text tailored to active bill type
 $guest_clean_phone = preg_replace('/[^0-9]/', '', $booking['guest_phone']);
 $wa_phone_clean = str_starts_with($guest_clean_phone, '91') ? $guest_clean_phone : ('91' . $guest_clean_phone);
 
-$is_gst = !empty($p['is_gst_bill']);
-$bill_title_text = $is_gst ? "TAX INVOICE (GST)" : "ESTIMATE STAY FOLIO";
-
-$wa_msg = "🌿 *FOOD FOREST SANCTUARY — {$bill_title_text}*\n";
-$wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
-$wa_msg .= "• *Invoice No*: {$invoice_no}\n";
-$wa_msg .= "• *Booking Ref*: #{$booking['reference_code']}\n";
-$wa_msg .= "• *Guest*: {$booking['guest_name']}\n";
-if ($is_gst && !empty($p['billing_name'])) {
-    $wa_msg .= "• *Billed To*: {$p['billing_name']}\n";
+if ($bill_type === 'stay') {
+    $wa_msg = "🌿 *FOOD FOREST SANCTUARY — {$bill_title_text}*\n";
+    $wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
+    $wa_msg .= "• *Invoice No*: {$invoice_no}\n";
+    $wa_msg .= "• *Booking Ref*: #{$booking['reference_code']}\n";
+    $wa_msg .= "• *Guest*: {$booking['guest_name']}\n";
+    if ($is_gst && !empty($p['billing_name'])) {
+        $wa_msg .= "• *Billed To*: {$p['billing_name']}\n";
+    }
+    if ($is_gst && !empty($p['guest_gst_number'])) {
+        $wa_msg .= "• *Buyer GSTIN*: {$p['guest_gst_number']}\n";
+    }
+    $wa_msg .= "• *Property*: {$booking['room_title']}\n";
+    $wa_msg .= "• *Stay*: " . date('d M Y', strtotime($booking['checkin_date'])) . " to " . date('d M Y', strtotime($booking['checkout_date'])) . " ({$p['nights']} Night" . ($p['nights'] > 1 ? 's' : '') . ")\n";
+    $wa_msg .= "• *Occupancy*: {$p['adults_count']} Adults" . ($p['kids_count'] > 0 ? ", {$p['kids_count']} Kids" : '') . "\n";
+    $wa_msg .= "─────────────────────\n";
+    $wa_msg .= "• Villa Stay Tariff: {$currency}" . number_format($p['stay_gross'], 2) . "\n";
+    if ($p['stay_discount'] > 0) {
+        $wa_msg .= "• Concession / Discount: -{$currency}" . number_format($p['stay_discount'], 2) . "\n";
+    }
+    if ($is_gst && $p['stay_gst'] > 0) {
+        $wa_msg .= "• Stay GST ({$p['gst_percentage']}%): +{$currency}" . number_format($p['stay_gst'], 2) . "\n";
+    }
+    $wa_msg .= "─────────────────────\n";
+    $wa_msg .= "*PROPERTY STAY TOTAL*: {$currency}" . number_format($p['stay_total'], 2) . "\n";
+    $wa_msg .= "• Advance Paid: {$currency}" . number_format($p['stay_advance_paid'], 2) . "\n";
+    $wa_msg .= "*STAY BALANCE DUE*: {$currency}" . number_format($p['stay_balance_due'], 2) . "\n";
+    $wa_msg .= "• Status: " . ($p['stay_balance_due'] <= 0 ? "PAID / SETTLED" : "PAYMENT PENDING") . "\n";
+    $wa_msg .= "─────────────────────\n";
+    $wa_msg .= "ℹ️ _Note: Covers Villa Accommodation only. Food & incidentals are billed on the Other Bill._\n";
+    $wa_msg .= "📄 *Official PDF & Digital Stay Bill*:\n{$public_folio_url}\n";
+    $wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
+    $wa_msg .= "Thank you for staying at Food Forest Sanctuary, Kanthalloor!";
+} elseif ($bill_type === 'other') {
+    $wa_msg = "🌿 *FOOD FOREST SANCTUARY — {$bill_title_text}*\n";
+    $wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
+    $wa_msg .= "• *Invoice No*: {$invoice_no}\n";
+    $wa_msg .= "• *Booking Ref*: #{$booking['reference_code']}\n";
+    $wa_msg .= "• *Guest*: {$booking['guest_name']}\n";
+    $wa_msg .= "• *Property*: {$booking['room_title']}\n";
+    $wa_msg .= "─────────────────────\n";
+    if ($p['other_food_total'] > 0) {
+        $wa_msg .= "• Gastronomy / Meals: {$currency}" . number_format($p['other_food_total'], 2) . " (" . count($p['food_items']) . " dishes)\n";
+    }
+    if ($p['other_activities_total'] > 0) {
+        $wa_msg .= "• Sanctuary Experiences: {$currency}" . number_format($p['other_activities_total'], 2) . "\n";
+    }
+    if ($p['other_custom_total'] > 0) {
+        $wa_msg .= "• Extra Services / Amenities: {$currency}" . number_format($p['other_custom_total'], 2) . "\n";
+    }
+    if ($p['other_discount'] > 0) {
+        $wa_msg .= "• Concession / Discount: -{$currency}" . number_format($p['other_discount'], 2) . "\n";
+    }
+    if ($is_gst && $p['other_gst'] > 0) {
+        $wa_msg .= "• GST ({$p['gst_percentage']}%): +{$currency}" . number_format($p['other_gst'], 2) . "\n";
+    }
+    $wa_msg .= "─────────────────────\n";
+    $wa_msg .= "*OTHER BILL GRAND TOTAL*: {$currency}" . number_format($p['other_total'], 2) . "\n";
+    $wa_msg .= "• Advance / Paid: {$currency}" . number_format($p['other_advance_paid'], 2) . "\n";
+    $wa_msg .= "*OTHER BILL BALANCE DUE*: {$currency}" . number_format($p['other_balance_due'], 2) . "\n";
+    $wa_msg .= "• Status: " . ($p['other_balance_due'] <= 0 ? "PAID / SETTLED" : "PAYMENT PENDING") . "\n";
+    $wa_msg .= "─────────────────────\n";
+    $wa_msg .= "ℹ️ _Note: Covers Food Menu orders & Incidentals only. Villa stay is billed on Property Stay Folio._\n";
+    $wa_msg .= "📄 *Official PDF & Digital Other Bill*:\n{$public_folio_url}\n";
+    $wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
+    $wa_msg .= "Thank you for dining at Food Forest Sanctuary!";
+} else {
+    // Consolidated Master Folio
+    $wa_msg = "🌿 *FOOD FOREST SANCTUARY — {$bill_title_text}*\n";
+    $wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
+    $wa_msg .= "• *Invoice No*: {$invoice_no}\n";
+    $wa_msg .= "• *Booking Ref*: #{$booking['reference_code']}\n";
+    $wa_msg .= "• *Guest*: {$booking['guest_name']}\n";
+    if ($is_gst && !empty($p['billing_name'])) {
+        $wa_msg .= "• *Billed To*: {$p['billing_name']}\n";
+    }
+    if ($is_gst && !empty($p['guest_gst_number'])) {
+        $wa_msg .= "• *Buyer GSTIN*: {$p['guest_gst_number']}\n";
+    }
+    $wa_msg .= "• *Property*: {$booking['room_title']}\n";
+    $wa_msg .= "• *Stay*: " . date('d M Y', strtotime($booking['checkin_date'])) . " to " . date('d M Y', strtotime($booking['checkout_date'])) . " ({$p['nights']} Night" . ($p['nights'] > 1 ? 's' : '') . ")\n";
+    $wa_msg .= "• *Occupancy*: {$p['adults_count']} Adults" . ($p['kids_count'] > 0 ? ", {$p['kids_count']} Kids" : '') . "\n";
+    $wa_msg .= "─────────────────────\n";
+    $wa_msg .= "• Room Stay Tariff: {$currency}" . number_format($p['room_amount'], 2) . "\n";
+    if ($p['food_total'] > 0) {
+        $wa_msg .= "• Gastronomy / Meals: {$currency}" . number_format($p['food_total'], 2) . "\n";
+    }
+    if ($p['activities_total'] > 0) {
+        $wa_msg .= "• Sanctuary Experiences: {$currency}" . number_format($p['activities_total'], 2) . "\n";
+    }
+    if ($p['custom_total'] > 0 || $p['extra_charges'] > 0) {
+        $wa_msg .= "• Extra Services / Amenities: {$currency}" . number_format($p['custom_total'] + $p['extra_charges'], 2) . "\n";
+    }
+    if ($p['discount_amount'] > 0) {
+        $wa_msg .= "• Concession / Discount: -{$currency}" . number_format($p['discount_amount'], 2) . "\n";
+    }
+    if ($is_gst) {
+        $wa_msg .= "• Taxable Subtotal: {$currency}" . number_format($p['taxable_subtotal'], 2) . "\n";
+        $wa_msg .= "• CGST ({$p['cgst_percentage']}%): {$currency}" . number_format($p['cgst_amount'], 2) . "\n";
+        $wa_msg .= "• SGST ({$p['sgst_percentage']}%): {$currency}" . number_format($p['sgst_amount'], 2) . "\n";
+    }
+    $wa_msg .= "─────────────────────\n";
+    $wa_msg .= "*CONSOLIDATED GRAND TOTAL*: {$currency}" . number_format($p['net_total'], 2) . "\n";
+    $wa_msg .= "• Advance Paid: {$currency}" . number_format($p['advance_paid'], 2) . "\n";
+    $wa_msg .= "*BALANCE DUE*: {$currency}" . number_format($p['balance_due'], 2) . "\n";
+    $wa_msg .= "• Status: " . strtoupper($p['payment_status']) . "\n";
+    $wa_msg .= "─────────────────────\n";
+    $wa_msg .= "📄 *Official PDF & Digital Master Folio*:\n{$public_folio_url}\n";
+    $wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
+    $wa_msg .= "Thank you for staying at Food Forest Sanctuary, Kanthalloor!";
 }
-if ($is_gst && !empty($p['guest_gst_number'])) {
-    $wa_msg .= "• *Buyer GSTIN*: {$p['guest_gst_number']}\n";
-}
-$wa_msg .= "• *Property*: {$booking['room_title']}\n";
-$wa_msg .= "• *Stay*: " . date('d M Y', strtotime($booking['checkin_date'])) . " to " . date('d M Y', strtotime($booking['checkout_date'])) . " ({$p['nights']} Night" . ($p['nights'] > 1 ? 's' : '') . ")\n";
-$wa_msg .= "• *Occupancy*: {$p['adults_count']} Adults" . ($p['kids_count'] > 0 ? ", {$p['kids_count']} Kids" : '') . "\n";
-$wa_msg .= "─────────────────────\n";
-$wa_msg .= "• Room Tariff: {$currency}" . number_format($p['room_amount'], 2) . "\n";
-if ($p['food_total'] > 0) {
-    $wa_msg .= "• Gastronomy / Meals: {$currency}" . number_format($p['food_total'], 2) . "\n";
-}
-if ($p['activities_total'] > 0) {
-    $wa_msg .= "• Sanctuary Experiences: {$currency}" . number_format($p['activities_total'], 2) . "\n";
-}
-if ($p['custom_total'] > 0 || $p['extra_charges'] > 0) {
-    $wa_msg .= "• Extra Services / Amenities: {$currency}" . number_format($p['custom_total'] + $p['extra_charges'], 2) . "\n";
-}
-if ($p['discount_amount'] > 0) {
-    $wa_msg .= "• Concession / Discount: -{$currency}" . number_format($p['discount_amount'], 2) . "\n";
-}
-if ($is_gst) {
-    $wa_msg .= "• Taxable Subtotal: {$currency}" . number_format($p['taxable_subtotal'], 2) . "\n";
-    $wa_msg .= "• CGST ({$p['cgst_percentage']}%): {$currency}" . number_format($p['cgst_amount'], 2) . "\n";
-    $wa_msg .= "• SGST ({$p['sgst_percentage']}%): {$currency}" . number_format($p['sgst_amount'], 2) . "\n";
-}
-$wa_msg .= "─────────────────────\n";
-$wa_msg .= "*GRAND TOTAL*: {$currency}" . number_format($p['net_total'], 2) . "\n";
-$wa_msg .= "• Advance Paid: {$currency}" . number_format($p['advance_paid'], 2) . "\n";
-$wa_msg .= "*BALANCE DUE*: {$currency}" . number_format($p['balance_due'], 2) . "\n";
-$wa_msg .= "• Status: " . strtoupper($p['payment_status']) . "\n";
-$wa_msg .= "─────────────────────\n";
-$wa_msg .= "📄 *Official PDF & Digital Folio*:\n{$public_folio_url}\n";
-$wa_msg .= "━━━━━━━━━━━━━━━━━━━━━\n";
-$wa_msg .= "Thank you for staying at Food Forest Sanctuary, Kanthalloor!";
+$pdf_prefix = ($bill_type === 'stay') ? 'StayBill_' : (($bill_type === 'other') ? 'OtherBill_' : 'MasterFolio_');
+$pdf_file_name = 'FoodForest_' . $pdf_prefix . $booking['reference_code'] . '.pdf';
 $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 ?>
 <!DOCTYPE html>
@@ -120,7 +208,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guest Folio & Invoice #<?php echo htmlspecialchars($booking['reference_code']); ?> — Food Forest Sanctuary</title>
+    <title><?php echo htmlspecialchars($bill_title_text); ?> #<?php echo htmlspecialchars($booking['reference_code']); ?> — Food Forest Sanctuary</title>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -253,6 +341,59 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         .btn-back:hover {
             background: rgba(255,255,255,0.2);
+        }
+
+        /* Bill Type Switcher Tabs (Toolbar) */
+        .bill-type-tabs {
+            display: inline-flex;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(197, 160, 89, 0.35);
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .bill-tab-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #CBD5E1;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .bill-tab-link:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFF;
+        }
+
+        .bill-tab-link.active {
+            background: linear-gradient(135deg, #1A3824 0%, #101F15 100%);
+            color: #DFC289;
+            border-color: rgba(197, 160, 89, 0.7);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        .bill-tab-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #CBD5E1;
+            font-family: monospace;
+            font-weight: 700;
+        }
+
+        .bill-tab-link.active .bill-tab-badge {
+            background: rgba(197, 160, 89, 0.25);
+            color: #F5DC9B;
+            border: 1px solid rgba(197, 160, 89, 0.4);
         }
 
         /* Desktop WhatsApp PDF Attachment Helper Modal */
@@ -1016,6 +1157,37 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
             <span>Guest Folio & Tax Invoice Preview — #<?php echo htmlspecialchars($booking['reference_code']); ?></span>
         </div>
 
+        <!-- Bill Type Switcher (Stay Bill vs Other Bill vs Consolidated) -->
+        <?php
+        $base_tab_url = 'print_bill.php?ref=' . urlencode($booking['reference_code']);
+        if (!empty($_GET['token'])) {
+            $base_tab_url .= '&token=' . urlencode($_GET['token']);
+        }
+        if (isset($_GET['show_bank'])) {
+            $base_tab_url .= '&show_bank=' . (int)$show_bank;
+        }
+        if (isset($_GET['show_qr'])) {
+            $base_tab_url .= '&show_qr=' . (int)$show_qr;
+        }
+        ?>
+        <div class="bill-type-tabs" role="tablist" style="margin: 4px 0;">
+            <a href="<?php echo $base_tab_url . '&type=stay'; ?>" class="bill-tab-link <?php echo $bill_type === 'stay' ? 'active' : ''; ?>" title="View & Print Property Stay Bill (Villa Accommodation only)">
+                <i class="fa-solid fa-hotel"></i>
+                <span>1. Property Stay Bill</span>
+                <span class="bill-tab-badge"><?php echo $currency . number_format($p['stay_total'], 0); ?></span>
+            </a>
+            <a href="<?php echo $base_tab_url . '&type=other'; ?>" class="bill-tab-link <?php echo $bill_type === 'other' ? 'active' : ''; ?>" title="View & Print Other Bill (Food/Gastronomy, Activities, Incidentals)">
+                <i class="fa-solid fa-utensils"></i>
+                <span>2. Other Bill (Food & Extras)</span>
+                <span class="bill-tab-badge"><?php echo $currency . number_format($p['other_total'], 0); ?></span>
+            </a>
+            <a href="<?php echo $base_tab_url . '&type=combined'; ?>" class="bill-tab-link <?php echo $bill_type === 'combined' ? 'active' : ''; ?>" title="View Consolidated Master Bill (All-in-one)">
+                <i class="fa-solid fa-file-lines"></i>
+                <span>3. Combined Folio</span>
+                <span class="bill-tab-badge"><?php echo $currency . number_format($p['net_total'], 0); ?></span>
+            </a>
+        </div>
+
         <!-- Live Toggle Controls & Copy Actions -->
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.08); padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(197,160,89,0.35);">
@@ -1083,17 +1255,23 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
             </div>
 
             <div class="invoice-badge-box">
+                <div style="margin-bottom: 5px;">
+                    <span style="display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; background: <?php echo $bill_type === 'stay' ? '#ECFDF5; color: #065F46; border: 1px solid #A7F3D0;' : ($bill_type === 'other' ? '#EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE;' : '#F8FAFC; color: #334155; border: 1px solid #CBD5E1;'); ?>">
+                        <?php echo $bill_category_badge; ?>
+                    </span>
+                </div>
                 <div class="invoice-type-title">
-                    <?php if ($p['is_gst_bill']): ?>
-                        <i class="fa-solid fa-file-invoice" style="margin-right: 4px; color: var(--gold-primary);"></i> TAX INVOICE (GST)
-                    <?php else: ?>
-                        <i class="fa-solid fa-file-lines" style="margin-right: 4px;"></i> ESTIMATE STAY FOLIO
-                    <?php endif; ?>
+                    <i class="fa-solid <?php echo $p['is_gst_bill'] ? 'fa-file-invoice' : 'fa-file-lines'; ?>" style="margin-right: 4px; color: var(--gold-primary);"></i>
+                    <?php echo htmlspecialchars($bill_title_text); ?>
                 </div>
                 <div style="margin-bottom: 6px;">
-                    <?php if ($p['balance_due'] <= 0): ?>
+                    <?php 
+                    $cur_bal = ($bill_type === 'stay') ? $p['stay_balance_due'] : (($bill_type === 'other') ? $p['other_balance_due'] : $p['balance_due']);
+                    $cur_adv = ($bill_type === 'stay') ? $p['stay_advance_paid'] : (($bill_type === 'other') ? $p['other_advance_paid'] : $p['advance_paid']);
+                    ?>
+                    <?php if ($cur_bal <= 0): ?>
                         <span class="status-pill status-paid"><i class="fa-solid fa-circle-check"></i> FULLY SETTLED</span>
-                    <?php elseif ($p['advance_paid'] > 0): ?>
+                    <?php elseif ($cur_adv > 0): ?>
                         <span class="status-pill status-partial"><i class="fa-solid fa-circle-half-stroke"></i> PARTIALLY PAID</span>
                     <?php else: ?>
                         <span class="status-pill status-unpaid"><i class="fa-solid fa-circle-exclamation"></i> PAYMENT PENDING</span>
@@ -1108,6 +1286,12 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                     <tr>
                         <td>Booking Ref:</td>
                         <td class="meta-val">#<?php echo htmlspecialchars($booking['reference_code']); ?></td>
+                    </tr>
+                    <tr>
+                        <td>Folio Category:</td>
+                        <td style="font-weight: 700; color: var(--primary);">
+                            <?php echo $bill_type === 'stay' ? 'Villa Accommodation Only' : ($bill_type === 'other' ? 'Gastronomy & Services' : 'Consolidated Stay & Food'); ?>
+                        </td>
                     </tr>
                     <tr>
                         <td>Billing Type:</td>
@@ -1189,9 +1373,10 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         <!-- Itemized Body Sections -->
         <div class="bill-body">
 
+            <?php if ($bill_type === 'stay' || $bill_type === 'combined'): ?>
             <!-- 1. Accommodation / Room Tariff -->
             <div class="section-heading">
-                <span>1. Accommodation & Villa Tariff</span>
+                <span>1. Accommodation &amp; Villa Tariff</span>
                 <span class="sec-tag"><?php echo $p['nights']; ?> Night<?php echo $p['nights'] > 1 ? 's' : ''; ?> Stay</span>
             </div>
             <table class="bill-table">
@@ -1243,10 +1428,12 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                     <?php endif; ?>
                 </tbody>
             </table>
+            <?php endif; ?>
 
+            <?php if ($bill_type === 'other' || $bill_type === 'combined'): ?>
             <!-- 2. What They Ate (Curated Gastronomy) -->
             <div class="section-heading">
-                <span>2. Gastronomy & Curated Estate Meals</span>
+                <span><?php echo ($bill_type === 'other') ? '1. Gastronomy &amp; Curated Estate Meals' : '2. Gastronomy &amp; Curated Estate Meals'; ?></span>
                 <span class="sec-tag"><?php echo count($p['food_items']); ?> Set(s) Ordered</span>
             </div>
             <?php if (!empty($p['food_items'])): ?>
@@ -1319,7 +1506,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
             <!-- 3. What They Did (Sanctuary Experiences & Activities) -->
             <div class="section-heading">
-                <span>3. Sanctuary Experiences & Curated Activities</span>
+                <span><?php echo ($bill_type === 'other') ? '2. Sanctuary Experiences &amp; Curated Activities' : '3. Sanctuary Experiences &amp; Curated Activities'; ?></span>
                 <span class="sec-tag"><?php echo count($p['activities']); ?> Activity(s)</span>
             </div>
             <?php if (!empty($p['activities'])): ?>
@@ -1373,7 +1560,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
             <!-- 4. Additional Services / Custom Items (if any) -->
             <?php if (!empty($p['custom_items']) || $p['extra_charges'] > 0): ?>
                 <div class="section-heading">
-                    <span>4. Extra Bespoke Services & Incidentals</span>
+                    <span><?php echo ($bill_type === 'other') ? '3. Extra Bespoke Services &amp; Incidentals' : '4. Extra Bespoke Services &amp; Incidentals'; ?></span>
                     <span class="sec-tag">Custom Charges</span>
                 </div>
                 <table class="bill-table">
@@ -1404,6 +1591,14 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                         <?php endif; ?>
                     </tbody>
                 </table>
+            <?php endif; ?>
+
+            <?php if ($bill_type === 'other' && empty($p['food_items']) && empty($p['activities']) && empty($p['custom_items']) && $p['extra_charges'] <= 0): ?>
+                <div style="background: #F8FAF9; border: 1px dashed #CBD5E1; padding: 24px; border-radius: 8px; font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 16px;">
+                    <i class="fa-solid fa-utensils" style="color: var(--accent); font-size: 24px; margin-bottom: 8px; display: block;"></i>
+                    No gastronomy dishes, dining orders, or incidental activities billed for this booking.
+                </div>
+            <?php endif; ?>
             <?php endif; ?>
 
             <!-- Financial Calculation & Bank Instructions -->
@@ -1470,6 +1665,151 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
                 <!-- Right: Financial Itemization Totals -->
                 <div>
+                    <?php if ($bill_type === 'stay'): ?>
+                    <table class="charges-summary-table">
+                        <tr>
+                            <td style="color: var(--text-muted);">Villa Tariff Total (<?php echo $p['nights']; ?> Night<?php echo $p['nights'] > 1 ? 's' : ''; ?>):</td>
+                            <td class="amount-cell"><?php echo $currency . number_format($p['room_base_total'], 2); ?></td>
+                        </tr>
+                        <?php if ($p['extra_guest_total'] > 0): ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">Extra Guest Occupancy Charges:</td>
+                                <td class="amount-cell"><?php echo $currency . number_format($p['extra_guest_total'], 2); ?></td>
+                            </tr>
+                        <?php endif; ?>
+                        <?php if ($p['stay_discount'] > 0): ?>
+                            <tr>
+                                <td style="color: #DC2626;">Stay Concession / Discount:</td>
+                                <td class="amount-cell" style="color: #DC2626;">-<?php echo $currency . number_format($p['stay_discount'], 2); ?></td>
+                            </tr>
+                        <?php endif; ?>
+                        <?php if ($p['is_gst_bill']): ?>
+                            <tr style="border-top: 1px dashed #CBD5E1;">
+                                <td style="font-weight: 600; color: var(--text-dark); padding-top: 6px;">Stay Taxable Subtotal:</td>
+                                <td class="amount-cell" style="font-weight: 700; color: var(--text-dark); padding-top: 6px;">
+                                    <?php echo $currency . number_format($p['stay_taxable'], 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo $p['cgst_percentage']; ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['stay_gst'] / 2, 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">State GST (SGST <?php echo $p['sgst_percentage']; ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['stay_gst'] / 2, 2); ?>
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">GST / Tax Assessment:</td>
+                                <td class="amount-cell" style="color: var(--text-muted); font-size: 12px;">
+                                    Estimate Folio (0% GST)
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                        <tr class="grand-total-row">
+                            <td class="grand-total-label">Stay Grand Total:</td>
+                            <td class="grand-total-val"><?php echo $currency . number_format($p['stay_total'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td style="color: var(--text-muted); padding-top: 8px;">Advance / Deposit Paid:</td>
+                            <td class="amount-cell" style="padding-top: 8px; color: #059669;">
+                                <?php echo $currency . number_format($p['stay_advance_paid'], 2); ?>
+                                <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(<?php echo htmlspecialchars(ucfirst($p['payment_method'])); ?>)</span>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- Balance Due Highlight Banner -->
+                    <div class="balance-due-row <?php echo ($p['stay_balance_due'] <= 0) ? 'settled' : ''; ?>">
+                        <span class="balance-due-label">
+                            <i class="fa-solid <?php echo ($p['stay_balance_due'] <= 0) ? 'fa-circle-check' : 'fa-hand-holding-dollar'; ?>"></i>
+                            <?php echo ($p['stay_balance_due'] <= 0) ? 'Stay Balance Settled (Nil)' : 'Stay Balance Payable:'; ?>
+                        </span>
+                        <span class="balance-due-val">
+                            <?php echo $currency . number_format($p['stay_balance_due'], 2); ?>
+                        </span>
+                    </div>
+
+                    <?php elseif ($bill_type === 'other'): ?>
+                    <table class="charges-summary-table">
+                        <tr>
+                            <td style="color: var(--text-muted);">Gastronomy &amp; Meals Subtotal:</td>
+                            <td class="amount-cell"><?php echo $currency . number_format($p['other_food_total'], 2); ?></td>
+                        </tr>
+                        <?php if ($p['other_activities_total'] > 0): ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">Sanctuary Experiences Subtotal:</td>
+                                <td class="amount-cell"><?php echo $currency . number_format($p['other_activities_total'], 2); ?></td>
+                            </tr>
+                        <?php endif; ?>
+                        <?php if ($p['other_custom_total'] > 0): ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">Extra Services &amp; Incidentals:</td>
+                                <td class="amount-cell"><?php echo $currency . number_format($p['other_custom_total'], 2); ?></td>
+                            </tr>
+                        <?php endif; ?>
+                        <?php if ($p['other_discount'] > 0): ?>
+                            <tr>
+                                <td style="color: #DC2626;">Concession / Courtesy Discount:</td>
+                                <td class="amount-cell" style="color: #DC2626;">-<?php echo $currency . number_format($p['other_discount'], 2); ?></td>
+                            </tr>
+                        <?php endif; ?>
+                        <?php if ($p['is_gst_bill']): ?>
+                            <tr style="border-top: 1px dashed #CBD5E1;">
+                                <td style="font-weight: 600; color: var(--text-dark); padding-top: 6px;">Taxable Subtotal:</td>
+                                <td class="amount-cell" style="font-weight: 700; color: var(--text-dark); padding-top: 6px;">
+                                    <?php echo $currency . number_format($p['other_taxable'], 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo $p['cgst_percentage']; ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['other_gst'] / 2, 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">State GST (SGST <?php echo $p['sgst_percentage']; ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['other_gst'] / 2, 2); ?>
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">GST / Tax Assessment:</td>
+                                <td class="amount-cell" style="color: var(--text-muted); font-size: 12px;">
+                                    Estimate Folio (0% GST)
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                        <tr class="grand-total-row">
+                            <td class="grand-total-label">Other Bill Grand Total:</td>
+                            <td class="grand-total-val"><?php echo $currency . number_format($p['other_total'], 2); ?></td>
+                        </tr>
+                        <tr>
+                            <td style="color: var(--text-muted); padding-top: 8px;">Advance / Paid Towards Extras:</td>
+                            <td class="amount-cell" style="padding-top: 8px; color: #059669;">
+                                <?php echo $currency . number_format($p['other_advance_paid'], 2); ?>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!-- Balance Due Highlight Banner -->
+                    <div class="balance-due-row <?php echo ($p['other_balance_due'] <= 0) ? 'settled' : ''; ?>">
+                        <span class="balance-due-label">
+                            <i class="fa-solid <?php echo ($p['other_balance_due'] <= 0) ? 'fa-circle-check' : 'fa-hand-holding-dollar'; ?>"></i>
+                            <?php echo ($p['other_balance_due'] <= 0) ? 'Other Bill Settled (Nil)' : 'Other Bill Balance Payable:'; ?>
+                        </span>
+                        <span class="balance-due-val">
+                            <?php echo $currency . number_format($p['other_balance_due'], 2); ?>
+                        </span>
+                    </div>
+
+                    <?php else: ?>
+                    <!-- Consolidated Master Totals -->
                     <table class="charges-summary-table">
                         <tr>
                             <td style="color: var(--text-muted);">Villa Tariff Total:</td>
@@ -1477,7 +1817,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                         </tr>
                         <?php if ($p['food_total'] > 0): ?>
                             <tr>
-                                <td style="color: var(--text-muted);">Gastronomy & Meals Subtotal:</td>
+                                <td style="color: var(--text-muted);">Gastronomy &amp; Meals Subtotal:</td>
                                 <td class="amount-cell"><?php echo $currency . number_format($p['food_total'], 2); ?></td>
                             </tr>
                         <?php endif; ?>
@@ -1489,7 +1829,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                         <?php endif; ?>
                         <?php if ($p['custom_total'] > 0 || $p['extra_charges'] > 0): ?>
                             <tr>
-                                <td style="color: var(--text-muted);">Extra Services & Charges:</td>
+                                <td style="color: var(--text-muted);">Extra Services &amp; Charges:</td>
                                 <td class="amount-cell"><?php echo $currency . number_format($p['custom_total'] + $p['extra_charges'], 2); ?></td>
                             </tr>
                         <?php endif; ?>
@@ -1549,6 +1889,17 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                             <?php echo $currency . number_format($p['balance_due'], 2); ?>
                         </span>
                     </div>
+                    <?php endif; ?>
+
+                    <div style="margin-top: 8px; font-size: 10.5px; color: var(--text-muted); text-align: right;">
+                        <?php if ($bill_type === 'stay'): ?>
+                            <i class="fa-solid fa-circle-info"></i> Accommodation only. Food &amp; incidentals billed on <strong>Other Bill</strong>.
+                        <?php elseif ($bill_type === 'other'): ?>
+                            <i class="fa-solid fa-circle-info"></i> Food &amp; services only. Villa accommodation billed on <strong>Property Stay Bill</strong>.
+                        <?php else: ?>
+                            <i class="fa-solid fa-circle-info"></i> Consolidated Master Folio covering all Stay, Dining, and Services.
+                        <?php endif; ?>
+                    </div>
                 </div>
 
             </div>
@@ -1557,7 +1908,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
             <div class="bill-signatures">
                 <div class="sig-block">
                     <div class="sig-line"></div>
-                    <div class="sig-label">Guest Signature & Date</div>
+                    <div class="sig-label">Guest Signature &amp; Date</div>
                 </div>
                 <div class="sig-block">
                     <div class="sig-line"></div>
@@ -1569,7 +1920,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         <!-- Footer Etiquette & Policy -->
         <footer class="bill-footer-notes">
-            <span><strong>Food Forest Sanctuary Kanthalloor</strong> • Check-Out Time: 11:00 AM • Computer-Generated Luxury Stay Folio</span>
+            <span><strong>Food Forest Sanctuary Kanthalloor</strong> • Check-Out Time: 11:00 AM • Computer-Generated Luxury <?php echo htmlspecialchars($bill_category_badge); ?></span>
         </footer>
 
     </div>
@@ -1592,7 +1943,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                     <div class="wa-step-num">1</div>
                     <div style="flex: 1;">
                         <strong style="color: #FFFFFF; font-size: 13.5px; display: block;">PDF Downloaded to Device</strong>
-                        <span style="font-size: 12px; color: #CBD5E1;" id="wa-modal-filename">FoodForest_Folio_<?php echo htmlspecialchars($booking['reference_code']); ?>.pdf</span>
+                        <span style="font-size: 12px; color: #CBD5E1;" id="wa-modal-filename"><?php echo htmlspecialchars($pdf_file_name); ?></span>
                     </div>
                     <i class="fa-solid fa-circle-check" style="color: #2ecc71; font-size: 20px; flex-shrink: 0;"></i>
                 </div>
@@ -1709,7 +2060,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
 
         try {
             var refCode = <?php echo json_encode($booking['reference_code']); ?>;
-            var fileName = 'FoodForest_Folio_' + refCode + '.pdf';
+            var fileName = <?php echo json_encode($pdf_file_name); ?>;
             var element = document.querySelector('.bill-sheet');
             var opt = getPdfOptions(fileName);
 
@@ -1737,7 +2088,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         var refCode = <?php echo json_encode($booking['reference_code']); ?>;
         var guestName = <?php echo json_encode($booking['guest_name']); ?>;
         var waUrl = <?php echo json_encode($wa_url); ?>;
-        var fileName = 'FoodForest_Folio_' + refCode + '.pdf';
+        var fileName = <?php echo json_encode($pdf_file_name); ?>;
         var element = document.querySelector('.bill-sheet');
         var opt = getPdfOptions(fileName);
 

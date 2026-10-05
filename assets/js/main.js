@@ -1433,6 +1433,9 @@ document.addEventListener("DOMContentLoaded", () => {
             recalculateBookingSummary();
             checkLiveModalAvailability(false);
         }
+        if (typeof resetBookingModalState === 'function') {
+            resetBookingModalState();
+        }
         bookingModal.classList.add('active');
         document.body.style.overflow = 'hidden';
         if (lenis) lenis.stop();
@@ -1444,6 +1447,13 @@ document.addEventListener("DOMContentLoaded", () => {
         bookingModal.classList.remove('active');
         document.body.style.overflow = '';
         if (lenis) lenis.start();
+
+        const confirmBox = document.getElementById('booking-confirmation-state');
+        if (confirmBox && confirmBox.style.display !== 'none') {
+            if (typeof resetBookingModalState === 'function') {
+                resetBookingModalState();
+            }
+        }
     }
     window.closeBookingModal = closeBookingModal;
 
@@ -1490,7 +1500,15 @@ document.addEventListener("DOMContentLoaded", () => {
         liveAvailAbortController = new AbortController();
 
         try {
-            const url = `api/check_availability.php?checkin=${encodeURIComponent(cin)}&checkout=${encodeURIComponent(cout)}&villa=${encodeURIComponent(villa)}`;
+            const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
+            const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
+            let duplexUnit = 'full';
+            if (modalTier === 'single_room') {
+                const wingRadio = document.querySelector('input[name="modal_duplex_wing"]:checked');
+                duplexUnit = wingRadio ? wingRadio.value : 'left';
+            }
+
+            const url = `api/check_availability.php?checkin=${encodeURIComponent(cin)}&checkout=${encodeURIComponent(cout)}&villa=${encodeURIComponent(villa)}&duplex_unit=${encodeURIComponent(duplexUnit)}`;
             const res = await fetch(url, { signal: liveAvailAbortController.signal });
             const data = await res.json();
 
@@ -1500,6 +1518,122 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             if (loadingEl) loadingEl.style.display = 'none';
+
+            // Handle Duplex Partial Booking state in Modal
+            const labelFull = document.getElementById('modal-tier-label-full');
+            const radioFull = document.querySelector('input[name="modal_tier"][value="full"]');
+            const radioSingle = document.querySelector('input[name="modal_tier"][value="single_room"]');
+            const duplexWingBox = document.getElementById('modal-duplex-wing-box');
+            const wingLabelLeft = document.getElementById('modal-wing-label-left');
+            const wingLabelRight = document.getElementById('modal-wing-label-right');
+            const wingRadioLeft = document.querySelector('input[name="modal_duplex_wing"][value="left"]');
+            const wingRadioRight = document.querySelector('input[name="modal_duplex_wing"][value="right"]');
+            const wingBadgeLeft = document.getElementById('modal-wing-badge-left');
+            const wingBadgeRight = document.getElementById('modal-wing-badge-right');
+            const wingHint = document.getElementById('modal-wing-status-hint');
+
+            if (data.partially_booked) {
+                if (labelFull) {
+                    labelFull.style.opacity = '0.45';
+                    labelFull.style.cursor = 'not-allowed';
+                }
+                if (radioFull) radioFull.disabled = true;
+
+                // Auto switch to single suite if on full
+                if (radioFull && radioFull.checked) {
+                    if (radioSingle) {
+                        radioSingle.checked = true;
+                        radioSingle.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+
+                if (duplexWingBox) duplexWingBox.style.display = 'block';
+
+                if (data.left_available === false) {
+                    if (wingLabelLeft) {
+                        wingLabelLeft.classList.add('disabled');
+                        wingLabelLeft.classList.remove('is-selected');
+                    }
+                    if (wingRadioLeft) wingRadioLeft.disabled = true;
+                    if (wingBadgeLeft) {
+                        wingBadgeLeft.className = 'wing-badge booked';
+                        wingBadgeLeft.innerText = 'Booked';
+                    }
+                    if (wingRadioLeft && wingRadioLeft.checked && wingRadioRight && !wingRadioRight.disabled) {
+                        wingRadioRight.checked = true;
+                        wingRadioRight.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                } else {
+                    if (wingLabelLeft) {
+                        wingLabelLeft.classList.remove('disabled');
+                    }
+                    if (wingRadioLeft) wingRadioLeft.disabled = false;
+                    if (wingBadgeLeft) {
+                        wingBadgeLeft.className = 'wing-badge available';
+                        wingBadgeLeft.innerText = 'Available';
+                    }
+                }
+
+                if (data.right_available === false) {
+                    if (wingLabelRight) {
+                        wingLabelRight.classList.add('disabled');
+                        wingLabelRight.classList.remove('is-selected');
+                    }
+                    if (wingRadioRight) wingRadioRight.disabled = true;
+                    if (wingBadgeRight) {
+                        wingBadgeRight.className = 'wing-badge booked';
+                        wingBadgeRight.innerText = 'Booked';
+                    }
+                    if (wingRadioRight && wingRadioRight.checked && wingRadioLeft && !wingRadioLeft.disabled) {
+                        wingRadioLeft.checked = true;
+                        wingRadioLeft.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                } else {
+                    if (wingLabelRight) {
+                        wingLabelRight.classList.remove('disabled');
+                    }
+                    if (wingRadioRight) wingRadioRight.disabled = false;
+                    if (wingBadgeRight) {
+                        wingBadgeRight.className = 'wing-badge available';
+                        wingBadgeRight.innerText = 'Available';
+                    }
+                }
+
+                if (wingHint) {
+                    wingHint.innerText = !data.left_available ? 'Right Suite Available' : 'Left Suite Available';
+                    wingHint.style.background = '#FEF3C7';
+                    wingHint.style.color = '#92400E';
+                    wingHint.style.border = '1px solid #FCD34D';
+                }
+            } else if (data.is_available) {
+                if (labelFull) {
+                    labelFull.style.opacity = '1';
+                    labelFull.style.cursor = 'pointer';
+                }
+                if (radioFull) radioFull.disabled = false;
+                if (wingLabelLeft) {
+                    wingLabelLeft.classList.remove('disabled');
+                }
+                if (wingRadioLeft) wingRadioLeft.disabled = false;
+                if (wingBadgeLeft) {
+                    wingBadgeLeft.className = 'wing-badge available';
+                    wingBadgeLeft.innerText = 'Available';
+                }
+                if (wingLabelRight) {
+                    wingLabelRight.classList.remove('disabled');
+                }
+                if (wingRadioRight) wingRadioRight.disabled = false;
+                if (wingBadgeRight) {
+                    wingBadgeRight.className = 'wing-badge available';
+                    wingBadgeRight.innerText = 'Available';
+                }
+                if (wingHint) {
+                    wingHint.innerText = 'Both Wings Available';
+                    wingHint.style.background = '#DCFCE7';
+                    wingHint.style.color = '#166534';
+                    wingHint.style.border = '1px solid #86EFAC';
+                }
+            }
 
             // 1. Update dropdown options visual status
             if (modalVillaSelect && data.rooms_status) {
@@ -1735,6 +1869,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const isDuplex = (structureType === 'duplex_hut');
         
         const duplexTierBox = document.getElementById('modal-duplex-tier-box');
+        const duplexWingBox = document.getElementById('modal-duplex-wing-box');
         if (duplexTierBox) {
             if (isDuplex) {
                 duplexTierBox.style.display = 'block';
@@ -1746,6 +1881,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (singleTxt) singleTxt.innerText = `₹${singlePrice.toLocaleString('en-IN')}/nt`;
             } else {
                 duplexTierBox.style.display = 'none';
+                if (duplexWingBox) duplexWingBox.style.display = 'none';
                 const fullRadio = document.querySelector('input[name="modal_tier"][value="full"]');
                 if (fullRadio) fullRadio.checked = true;
             }
@@ -1760,13 +1896,37 @@ document.addEventListener("DOMContentLoaded", () => {
         const mscRatePill = document.getElementById('msc-rate-pill');
 
         if (selectedOption) {
-            const villaTitle = selectedOption.getAttribute('data-name') || selectedOption.text.split('(')[0].replace(/^.*]:\s*/, '').trim();
-            const villaImg = selectedOption.getAttribute('data-image');
+            let villaTitle = selectedOption.getAttribute('data-name') || selectedOption.text.split('(')[0].replace(/^.*]:\s*/, '').trim();
+            let villaImg = selectedOption.getAttribute('data-image');
             const stayType = selectedOption.getAttribute('data-stay-type') || 'treehouse';
             const baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
             const rate = parseFloat(selectedOption.getAttribute('data-price') || "5000");
             const singleRate = parseFloat(selectedOption.getAttribute('data-single-rate') || rate);
             
+            const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
+            const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
+
+            if (isDuplex && modalTier === 'single_room') {
+                if (duplexWingBox) duplexWingBox.style.display = 'block';
+                const wingRadio = document.querySelector('input[name="modal_duplex_wing"]:checked');
+                const wingVal = wingRadio ? wingRadio.value : 'left';
+                let wingPhotos = [];
+                try {
+                    const photosAttr = (wingVal === 'left') ? selectedOption.getAttribute('data-photos-left') : selectedOption.getAttribute('data-photos-right');
+                    if (photosAttr) wingPhotos = JSON.parse(photosAttr);
+                } catch(e) {}
+                if (wingPhotos && wingPhotos.length > 0) {
+                    villaImg = wingPhotos[0];
+                }
+                villaTitle += (wingVal === 'left') ? ' (Left Suite - Wing A)' : ' (Right Suite - Wing B)';
+            } else if (isDuplex) {
+                if (duplexWingBox && !duplexWingBox.hasAttribute('data-force-show')) {
+                    duplexWingBox.style.display = 'none';
+                }
+            } else {
+                if (duplexWingBox) duplexWingBox.style.display = 'none';
+            }
+
             if (chaletTitleEl) chaletTitleEl.innerText = villaTitle;
             if (chaletThumbEl && villaImg) chaletThumbEl.src = villaImg;
             if (mscTypePill) {
@@ -1780,19 +1940,17 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (mscStructPill) {
                 if (isDuplex) {
-                    const selectedTierRadio = document.querySelector('input[name="modal_tier"]:checked');
-                    const modalTier = selectedTierRadio ? selectedTierRadio.value : 'full';
                     mscStructPill.innerText = (modalTier === 'single_room') ? 'Duplex (Single Suite)' : 'Duplex (Entire 2-Room Suite)';
                 } else {
                     mscStructPill.innerText = 'Single Cottage';
                 }
             }
             if (mscBaseGuestsPill) {
-                const effectiveBase = isDuplex && (document.querySelector('input[name="modal_tier"]:checked')?.value === 'single_room') ? 2 : baseGuests;
+                const effectiveBase = isDuplex && (modalTier === 'single_room') ? 2 : baseGuests;
                 mscBaseGuestsPill.innerHTML = `<i class="fa-solid fa-users"></i> Base: ${effectiveBase} Guests Included`;
             }
             if (mscRatePill) {
-                const effectiveRate = isDuplex && (document.querySelector('input[name="modal_tier"]:checked')?.value === 'single_room') ? singleRate : rate;
+                const effectiveRate = isDuplex && (modalTier === 'single_room') ? singleRate : rate;
                 mscRatePill.innerHTML = `<i class="fa-solid fa-tag"></i> <strong>₹${effectiveRate.toLocaleString('en-IN')}</strong> / nt`;
             }
         }
@@ -1807,17 +1965,22 @@ document.addEventListener("DOMContentLoaded", () => {
         radio.addEventListener('change', () => {
             const labelFull = document.getElementById('modal-tier-label-full');
             const labelSingle = document.getElementById('modal-tier-label-single');
+            const duplexWingBox = document.getElementById('modal-duplex-wing-box');
             if (radio.value === 'full') {
                 if (labelFull) { labelFull.style.borderColor = 'var(--accent-gold)'; labelFull.style.background = 'rgba(197, 160, 89, 0.15)'; }
                 if (labelSingle) { labelSingle.style.borderColor = 'rgba(255,255,255,0.15)'; labelSingle.style.background = 'rgba(0,0,0,0.3)'; }
+                if (duplexWingBox) duplexWingBox.style.display = 'none';
             } else {
                 if (labelSingle) { labelSingle.style.borderColor = '#56c2c9'; labelSingle.style.background = 'rgba(86, 194, 201, 0.15)'; }
                 if (labelFull) { labelFull.style.borderColor = 'rgba(255,255,255,0.15)'; labelFull.style.background = 'rgba(0,0,0,0.3)'; }
+                if (duplexWingBox) duplexWingBox.style.display = 'block';
             }
-            // Update struct pill and base guests in card (only for duplex stays)
+            // Update struct pill, image and base guests in card (only for duplex stays)
             const mscStructPill = document.getElementById('msc-struct-pill');
             const mscBaseGuestsPill = document.getElementById('msc-base-guests-pill');
             const mscRatePill = document.getElementById('msc-rate-pill');
+            const chaletTitleEl = document.getElementById('modal-chalet-card-title');
+            const chaletThumbEl = document.getElementById('modal-chalet-card-thumb');
             const selectedOption = modalVillaSelect ? modalVillaSelect.options[modalVillaSelect.selectedIndex] : null;
             if (selectedOption) {
                 const structType = selectedOption.getAttribute('data-structure-type') || 'single_hut';
@@ -1825,6 +1988,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const rate = parseFloat(selectedOption.getAttribute('data-price') || "8000");
                 const singleRate = parseFloat(selectedOption.getAttribute('data-single-rate') || "4000");
                 const baseGuests = parseInt(selectedOption.getAttribute('data-base-guests') || "2", 10);
+                const rawTitle = selectedOption.getAttribute('data-name') || selectedOption.text.split('(')[0].replace(/^.*]:\s*/, '').trim();
                 
                 if (isDuplexStay) {
                     if (mscStructPill) {
@@ -1837,6 +2001,25 @@ document.addEventListener("DOMContentLoaded", () => {
                         const effectiveRate = (radio.value === 'single_room') ? singleRate : rate;
                         mscRatePill.innerHTML = `<i class="fa-solid fa-tag"></i> <strong>₹${effectiveRate.toLocaleString('en-IN')}</strong> / nt`;
                     }
+                    if (radio.value === 'single_room') {
+                        const wingRadio = document.querySelector('input[name="modal_duplex_wing"]:checked');
+                        const wingVal = wingRadio ? wingRadio.value : 'left';
+                        let wingPhotos = [];
+                        try {
+                            const photosAttr = (wingVal === 'left') ? selectedOption.getAttribute('data-photos-left') : selectedOption.getAttribute('data-photos-right');
+                            if (photosAttr) wingPhotos = JSON.parse(photosAttr);
+                        } catch(e) {}
+                        if (chaletThumbEl && wingPhotos && wingPhotos.length > 0) {
+                            chaletThumbEl.src = wingPhotos[0];
+                        }
+                        if (chaletTitleEl) {
+                            chaletTitleEl.innerText = rawTitle + (wingVal === 'left' ? ' (Left Suite - Wing A)' : ' (Right Suite - Wing B)');
+                        }
+                    } else {
+                        const defaultImg = selectedOption.getAttribute('data-image');
+                        if (chaletThumbEl && defaultImg) chaletThumbEl.src = defaultImg;
+                        if (chaletTitleEl) chaletTitleEl.innerText = rawTitle;
+                    }
                 } else {
                     if (mscStructPill) mscStructPill.innerText = 'Single Cottage';
                     if (mscBaseGuestsPill) mscBaseGuestsPill.innerHTML = `<i class="fa-solid fa-users"></i> Base: ${baseGuests} Guests Included`;
@@ -1845,6 +2028,43 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             updateStepperButtons();
             recalculateBookingSummary();
+            checkLiveModalAvailability(false);
+        });
+    });
+
+    // Modal Duplex Suite Wing Selection Listener (Left vs Right)
+    document.querySelectorAll('input[name="modal_duplex_wing"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const wingVal = radio.value;
+            const wingLabelLeft = document.getElementById('modal-wing-label-left');
+            const wingLabelRight = document.getElementById('modal-wing-label-right');
+            if (wingVal === 'left') {
+                if (wingLabelLeft) wingLabelLeft.classList.add('is-selected');
+                if (wingLabelRight) wingLabelRight.classList.remove('is-selected');
+            } else {
+                if (wingLabelRight) wingLabelRight.classList.add('is-selected');
+                if (wingLabelLeft) wingLabelLeft.classList.remove('is-selected');
+            }
+
+            const selectedOption = modalVillaSelect ? modalVillaSelect.options[modalVillaSelect.selectedIndex] : null;
+            const chaletTitleEl = document.getElementById('modal-chalet-card-title');
+            const chaletThumbEl = document.getElementById('modal-chalet-card-thumb');
+            if (selectedOption) {
+                const rawTitle = selectedOption.getAttribute('data-name') || selectedOption.text.split('(')[0].replace(/^.*]:\s*/, '').trim();
+                let wingPhotos = [];
+                try {
+                    const photosAttr = (wingVal === 'left') ? selectedOption.getAttribute('data-photos-left') : selectedOption.getAttribute('data-photos-right');
+                    if (photosAttr) wingPhotos = JSON.parse(photosAttr);
+                } catch(e) {}
+                if (chaletThumbEl && wingPhotos && wingPhotos.length > 0) {
+                    chaletThumbEl.src = wingPhotos[0];
+                }
+                if (chaletTitleEl) {
+                    chaletTitleEl.innerText = rawTitle + (wingVal === 'left' ? ' (Left Suite - Wing A)' : ' (Right Suite - Wing B)');
+                }
+            }
+
+            checkLiveModalAvailability(false);
         });
     });
 
@@ -1953,28 +2173,10 @@ document.addEventListener("DOMContentLoaded", () => {
         let nights = Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24));
         if (isNaN(nights) || nights < 1) nights = 1;
 
-        // Dynamic Breakfast Selection Rule:
-        // Breakfast is complimentary. Custom dish pre-selection is available for stays of 2+ nights.
-        // For 1-night stays, chef's signature farm breakfast is served automatically on departure morning.
+        // All menu items are available for selection regardless of stay duration
         const breakfastGrid = document.getElementById('dishes-grid-breakfast');
-        const breakfastNoticeMsg = document.getElementById('breakfast-nights-dynamic-msg');
-        const breakfast1NightPlaceholder = document.getElementById('breakfast-1night-placeholder');
-        if (breakfastGrid && breakfast1NightPlaceholder) {
-            if (nights >= 2) {
-                breakfastGrid.style.display = 'grid';
-                breakfast1NightPlaceholder.style.display = 'none';
-                if (breakfastNoticeMsg) {
-                    breakfastNoticeMsg.innerHTML = `For your <strong>${nights}-night stay</strong>, select your tailored breakfast morning sets below (Complimentary).`;
-                }
-            } else {
-                breakfastGrid.style.display = 'none';
-                breakfast1NightPlaceholder.style.display = 'block';
-                // Reset any selected breakfast quantities for single night stay
-                breakfastGrid.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
-                if (breakfastNoticeMsg) {
-                    breakfastNoticeMsg.innerHTML = `Chef's Daily Organic Orchard Breakfast is included complimentary on departure morning for single-night stays. (Custom dish selection is unlocked for stays of 2+ nights).`;
-                }
-            }
+        if (breakfastGrid) {
+            breakfastGrid.style.display = 'grid';
         }
 
         let villaPrice = 5000;
@@ -2060,8 +2262,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const qty = parseInt(qtyInput?.value || "0", 10);
                 const category = card.getAttribute('data-dish-category');
                 const name = card.getAttribute('data-dish-name') || 'Signature Dish';
-                // Breakfast is complimentary (price = 0)
-                const price = (category === 'breakfast') ? 0 : parseFloat(card.getAttribute('data-dish-price') || "0");
+                const price = parseFloat(card.getAttribute('data-dish-price') || "0");
+                const mealTimeInp = card.querySelector('.dish-meal-time-val');
+                const mealTime = mealTimeInp ? mealTimeInp.value : (card.getAttribute('data-default-meal') || category || 'breakfast');
+
                 if (qty > 0) {
                     const subtotal = qty * price;
                     foodTotal += subtotal;
@@ -2069,10 +2273,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     selectedFoodList.push({
                         name: name,
                         category: category,
+                        meal_time: mealTime,
                         qty: qty,
                         price: price,
                         subtotal: subtotal
                     });
+                    card.style.borderColor = '#059669';
+                    card.style.background = '#F0FDF4';
+                } else {
+                    card.style.borderColor = 'rgba(28, 56, 38, 0.14)';
+                    card.style.background = '#FFFFFF';
                 }
             });
         }
@@ -2160,12 +2370,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 let foodHtml = '';
                 selectedFoodList.forEach(item => {
-                    const isBfast = item.category === 'breakfast';
-                    const rateBadge = isBfast || item.price === 0
+                    const mealLabel = (item.meal_time || item.category || 'meal').toUpperCase();
+                    const rateBadge = item.price === 0
                         ? '<span style="color: #059669; font-weight: 700; font-size: 11.5px;">Included (₹0.00)</span>'
                         : `<span style="color: #92400E; font-weight: 700; font-size: 12px;">+₹${item.subtotal.toLocaleString('en-IN')} <small style="font-weight: normal; color: #78716C; font-size: 10px;">(${item.qty} × ₹${item.price.toLocaleString('en-IN')})</small></span>`;
                     
-                    const catIcon = isBfast ? 'fa-mug-saucer' : (item.category === 'lunch' ? 'fa-bowl-rice' : (item.category === 'snacks' ? 'fa-cookie-bite' : 'fa-fire-burner'));
+                    const catIcon = item.meal_time === 'breakfast' ? 'fa-mug-saucer' : (item.meal_time === 'lunch' ? 'fa-bowl-rice' : (item.meal_time === 'snacks' ? 'fa-cookie-bite' : 'fa-fire-burner'));
 
                     foodHtml += `
                         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #374151; padding: 3px 0;">
@@ -2173,6 +2383,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <i class="fa-solid ${catIcon}" style="font-size: 10px; color: var(--accent-gold); flex-shrink: 0;"></i>
                                 <span style="font-weight: 600; color: #1F2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</span>
                                 <span style="background: rgba(28,56,38,0.08); color: #15803D; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; flex-shrink: 0;">× ${item.qty}</span>
+                                <span style="background: #FEF3C7; color: #92400E; font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; text-transform: uppercase;">${mealLabel}</span>
                             </span>
                             <span style="margin-left: 8px; white-space: nowrap; text-align: right;">
                                 ${rateBadge}
@@ -2342,7 +2553,78 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (val > 0) val--;
             }
             input.value = val;
+            const card = input.closest('.modal-dish-card');
+            if (card) {
+                if (val > 0) {
+                    card.style.borderColor = '#059669';
+                    card.style.background = '#F0FDF4';
+                } else {
+                    card.style.borderColor = 'rgba(28, 56, 38, 0.14)';
+                    card.style.background = '#FFFFFF';
+                }
+            }
             recalculateBookingSummary();
+        });
+    });
+
+    // Meal Serving Time Selector Pills (Breakfast, Lunch, Snacks, Dinner)
+    document.querySelectorAll('.btn-meal-pill').forEach(pill => {
+        pill.addEventListener('click', function(e) {
+            e.preventDefault();
+            const dishId = this.getAttribute('data-dish-id');
+            const meal = this.getAttribute('data-meal');
+            const card = document.getElementById('dish-card-' + dishId) || this.closest('.modal-dish-card');
+            if (!card) return;
+
+            // Update active pill in this dish card
+            card.querySelectorAll('.btn-meal-pill').forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+
+            // Update hidden input
+            const hiddenInp = document.getElementById('dish-meal-' + dishId) || card.querySelector('.dish-meal-time-val');
+            if (hiddenInp) hiddenInp.value = meal;
+
+            // Update badge display
+            const badge = document.getElementById('dish-badge-meal-' + dishId) || card.querySelector('.dish-selected-meal-badge');
+            if (badge) badge.innerText = meal.toUpperCase();
+
+            // If quantity is 0, automatically select 1 portion
+            const qtyInp = document.getElementById('dish-qty-' + dishId) || card.querySelector('.dish-qty-input');
+            if (qtyInp && parseInt(qtyInp.value || '0', 10) === 0) {
+                qtyInp.value = 1;
+                card.style.borderColor = '#059669';
+                card.style.background = '#F0FDF4';
+            }
+
+            recalculateBookingSummary();
+        });
+    });
+
+    // Category Filter Tabs (All, Breakfast, Lunch, Snacks, Dinner, Millets, Curries, Juices)
+    document.querySelectorAll('.btn-food-filter-tab').forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetCat = this.getAttribute('data-cat');
+
+            document.querySelectorAll('.btn-food-filter-tab').forEach(t => {
+                t.classList.remove('active');
+                t.style.background = '#fff';
+                t.style.color = 'var(--accent-green)';
+                t.style.borderColor = 'rgba(28,56,38,0.2)';
+            });
+            this.classList.add('active');
+            this.style.background = 'var(--accent-green)';
+            this.style.color = '#fff';
+            this.style.borderColor = 'var(--accent-green)';
+
+            document.querySelectorAll('.modal-meal-category-block').forEach(block => {
+                const blockCat = block.getAttribute('data-category');
+                if (targetCat === 'all' || blockCat === targetCat) {
+                    block.style.display = 'block';
+                } else {
+                    block.style.display = 'none';
+                }
+            });
         });
     });
 
@@ -2722,6 +3004,11 @@ document.addEventListener("DOMContentLoaded", () => {
         // Duplex tier choice
         const tierRadio = document.querySelector('input[name="modal_tier"]:checked');
         const modalTier = tierRadio ? tierRadio.value : 'full';
+        let duplexUnit = 'full';
+        if (modalTier === 'single_room') {
+            const wingRadio = document.querySelector('input[name="modal_duplex_wing"]:checked');
+            duplexUnit = wingRadio ? wingRadio.value : 'left';
+        }
 
         // Addons
         const addonsList = [];
@@ -2740,13 +3027,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 const qtyInput = card.querySelector('.dish-qty-input');
                 const qty = parseInt(qtyInput?.value || "0", 10);
                 const cat = card.getAttribute('data-dish-category');
-                const price = (cat === 'breakfast') ? 0 : parseFloat(card.getAttribute('data-dish-price') || "0");
+                const price = parseFloat(card.getAttribute('data-dish-price') || "0");
+                const mealTimeInp = card.querySelector('.dish-meal-time-val');
+                const mealTime = mealTimeInp ? mealTimeInp.value : (card.getAttribute('data-default-meal') || cat || 'breakfast');
                 if (qty > 0) {
                     foodItems.push({
                         id: card.getAttribute('data-dish-id'),
                         category: cat,
+                        meal_time: mealTime,
                         heading: card.getAttribute('data-dish-name'),
-                        subtitle: card.getAttribute('data-dish-subtitle'),
+                        subtitle: card.getAttribute('data-dish-subtitle') || '',
                         price: price,
                         quantity: qty,
                         subtotal: qty * price
@@ -2782,6 +3072,7 @@ document.addEventListener("DOMContentLoaded", () => {
             villas: villasList,
             is_multi_room: isMultiRoom,
             tier: modalTier,
+            duplex_unit: duplexUnit,
             adults: adultsCount,
             kids: kidsCount,
             guests: guestsCount,
@@ -2801,13 +3092,48 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
+    function resetBookingModalState() {
+        const form = document.getElementById('luxury-booking-form');
+        const confirmBox = document.getElementById('booking-confirmation-state');
+        const stickyBar = document.getElementById('modal-sticky-checkout-bar');
+        const modalHeader = document.querySelector('.booking-modal-header');
+        const submitDirectBtn = document.getElementById('btn-submit-booking-direct');
+        const mscbReserveBtn = document.getElementById('btn-mscb-submit');
+
+        if (form) form.style.display = 'block';
+        if (confirmBox) confirmBox.style.display = 'none';
+        if (stickyBar) stickyBar.style.display = '';
+        if (modalHeader) modalHeader.style.display = '';
+
+        if (submitDirectBtn) {
+            submitDirectBtn.disabled = false;
+            submitDirectBtn.innerHTML = '<i class="fa-solid fa-receipt"></i> <span>Confirm Reservation & Generate PDF Receipt</span>';
+        }
+        if (mscbReserveBtn) {
+            mscbReserveBtn.disabled = false;
+            mscbReserveBtn.classList.remove('btn-mscb-disabled');
+            mscbReserveBtn.innerHTML = '<span>Confirm &amp; Reserve</span> <i class="fa-solid fa-arrow-right"></i>';
+        }
+    }
+    window.resetBookingModalState = resetBookingModalState;
+
     function showBookingConfirmationState(res) {
         const form = document.getElementById('luxury-booking-form');
         const confirmBox = document.getElementById('booking-confirmation-state');
+        const stickyBar = document.getElementById('modal-sticky-checkout-bar');
+        const modalHeader = document.querySelector('.booking-modal-header');
+        const modalContainer = document.querySelector('.booking-modal-container');
+        const modalContent = document.querySelector('.booking-modal-content');
+
         if (!confirmBox) return;
 
         if (form) form.style.display = 'none';
+        if (stickyBar) stickyBar.style.display = 'none';
+        if (modalHeader) modalHeader.style.display = 'none';
         confirmBox.style.display = 'block';
+
+        if (modalContainer) modalContainer.scrollTop = 0;
+        if (modalContent) modalContent.scrollTop = 0;
 
         const refCodeEl = document.getElementById('confirm-ref-code');
         if (refCodeEl) refCodeEl.innerText = res.reference_code || 'FF-0000';
@@ -2834,6 +3160,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const receiptBtn = document.getElementById('confirm-receipt-btn');
         if (receiptBtn && res.receipt_url) {
             receiptBtn.href = res.receipt_url;
+            receiptBtn.setAttribute('href', res.receipt_url);
         }
 
         const waBtn = document.getElementById('confirm-wa-btn');
@@ -2846,6 +3173,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Submit Reservation & Generate PDF Receipt
     const submitBookingDirectBtn = document.getElementById('btn-submit-booking-direct');
+    const mscbReserveBtn = document.getElementById('btn-mscb-submit');
+
+    if (mscbReserveBtn) {
+        mscbReserveBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const confirmBox = document.getElementById('booking-confirmation-state');
+            if (confirmBox && confirmBox.style.display !== 'none') {
+                const stickyBar = document.getElementById('modal-sticky-checkout-bar');
+                if (stickyBar) stickyBar.style.display = 'none';
+                return;
+            }
+            if (submitBookingDirectBtn && !submitBookingDirectBtn.disabled) {
+                submitBookingDirectBtn.click();
+            }
+        });
+    }
+
     if (submitBookingDirectBtn) {
         submitBookingDirectBtn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -2908,6 +3252,11 @@ document.addEventListener("DOMContentLoaded", () => {
             submitBookingDirectBtn.disabled = true;
             submitBookingDirectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Recording Reservation...</span>';
 
+            if (mscbReserveBtn) {
+                mscbReserveBtn.disabled = true;
+                mscbReserveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Recording...</span>';
+            }
+
             const res = await saveBookingToDatabase(payload);
 
             if (res && res.success) {
@@ -2915,6 +3264,10 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 submitBookingDirectBtn.disabled = false;
                 submitBookingDirectBtn.innerHTML = '<i class="fa-solid fa-receipt"></i> <span>Confirm Reservation & Generate PDF Receipt</span>';
+                if (mscbReserveBtn) {
+                    mscbReserveBtn.disabled = false;
+                    mscbReserveBtn.innerHTML = '<span>Confirm &amp; Reserve</span> <i class="fa-solid fa-arrow-right"></i>';
+                }
                 alert(res?.message || 'Could not record reservation. Please connect directly via WhatsApp Concierge.');
             }
         });
@@ -2962,6 +3315,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             whatsappSubmitBtn.disabled = true;
             whatsappSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Connecting...</span>';
+            if (mscbReserveBtn) {
+                mscbReserveBtn.disabled = true;
+                mscbReserveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Connecting...</span>';
+            }
 
             const saveRes = await saveBookingToDatabase(payload);
             const refCode = saveRes?.reference_code || 'FF-' + Math.floor(1000 + Math.random() * 9000);
@@ -2971,13 +3328,14 @@ document.addEventListener("DOMContentLoaded", () => {
             let villaName = selectedOption?.getAttribute('data-name') || 'Sanctuary Suite';
             const structureType = selectedOption?.getAttribute('data-structure-type') || 'single_hut';
             if (structureType === 'duplex_hut') {
-                villaName += (payload.tier === 'single_room') ? ' [Duplex: Single Room Suite]' : ' [Full Duplex: Both Suites]';
+                const wingTitle = payload.duplex_unit === 'left' ? 'Left Suite (Wing A)' : (payload.duplex_unit === 'right' ? 'Right Suite (Wing B)' : 'Both Suites');
+                villaName += (payload.tier === 'single_room') ? ` [Duplex: Single Room — ${wingTitle}]` : ' [Full Duplex: Both Suites]';
             }
             const total = document.getElementById('summary-total')?.innerText || '₹14,500';
 
             let foodSummary = 'Farm Dining Plan on Arrival';
             if (payload.food_items && payload.food_items.length > 0) {
-                foodSummary = '\n' + payload.food_items.map(f => `  - ${f.heading} × ${f.quantity} set(s) [${f.category === 'breakfast' ? 'Included (₹0)' : ('₹' + (f.price * f.quantity).toLocaleString('en-IN'))}]`).join('\n');
+                foodSummary = '\n' + payload.food_items.map(f => `  - ${f.heading} × ${f.quantity} [${(f.meal_time || f.category || 'MEAL').toUpperCase()}] (₹${(f.price * f.quantity).toLocaleString('en-IN')})`).join('\n');
             }
 
             let expNote = payload.addons ? `\n• *Experiences (On-Site Direct Pay)*:\n${payload.addons.split(',').map(a => `  - ${a.trim()} (Payable On-Site)`).join('\n')}` : '';
@@ -3010,6 +3368,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             whatsappSubmitBtn.disabled = false;
             whatsappSubmitBtn.innerHTML = '<i class="fa-brands fa-whatsapp"></i> <span>Instant WhatsApp Concierge Confirmation</span>';
+            if (mscbReserveBtn && (!saveRes || !saveRes.success)) {
+                mscbReserveBtn.disabled = false;
+                mscbReserveBtn.innerHTML = '<span>Confirm &amp; Reserve</span> <i class="fa-solid fa-arrow-right"></i>';
+            }
 
             if (saveRes && saveRes.success) {
                 showBookingConfirmationState(saveRes);
