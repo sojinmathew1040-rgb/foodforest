@@ -1396,7 +1396,11 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                             <div class="table-dish-sub"><?php echo htmlspecialchars($booking['room_elevation'] ?? 'Kanthalloor Fruit Forest'); ?> • <?php echo htmlspecialchars(ucfirst($booking['room_stay_type'] ?? 'Sanctuary Stay')); ?></div>
                         </td>
                         <td style="text-align: center; color: var(--text-muted);">
-                            <?php echo $p['adults_count']; ?> Adults<?php echo $p['kids_count'] > 0 ? ', ' . $p['kids_count'] . ' Kids' : ''; ?>
+                            <?php if ($p['extra_guest_total'] > 0): ?>
+                                <?php echo $p['adults_in_base']; ?> Adults (Base)<?php echo $p['kids_in_base'] > 0 ? ', ' . $p['kids_in_base'] . ' Kids' : ''; ?>
+                            <?php else: ?>
+                                <?php echo $p['adults_count']; ?> Adults<?php echo $p['kids_count'] > 0 ? ', ' . $p['kids_count'] . ' Kids' : ''; ?>
+                            <?php endif; ?>
                         </td>
                         <td style="text-align: right; color: var(--text-muted);">
                             <?php echo $currency . number_format($p['rate_per_night'], 2); ?>
@@ -1416,10 +1420,23 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                     <?php echo $p['extra_adults'] > 0 ? $p['extra_adults'] . ' Extra Adult(s)' : ''; ?>
                                     <?php echo ($p['extra_adults'] > 0 && $p['extra_kids'] > 0) ? ' & ' : ''; ?>
                                     <?php echo $p['extra_kids'] > 0 ? $p['extra_kids'] . ' Extra Child(ren)' : ''; ?>
+                                    (Standard tariff supplement)
                                 </div>
                             </td>
-                            <td style="text-align: center; color: var(--text-muted);">-</td>
-                            <td style="text-align: right; color: var(--text-muted);">-</td>
+                            <td style="text-align: center; color: var(--text-muted);">
+                                <?php echo $p['extra_adults']; ?> Adults<?php echo $p['extra_kids'] > 0 ? ', ' . $p['extra_kids'] . ' Kids' : ''; ?>
+                            </td>
+                            <td style="text-align: right; color: var(--text-muted);">
+                                <?php 
+                                    if ($p['extra_adults'] > 0 && $p['extra_kids'] == 0) {
+                                        echo $currency . number_format($p['extra_adult_rate'], 2) . ' / adult';
+                                    } elseif ($p['extra_kids'] > 0 && $p['extra_adults'] == 0) {
+                                        echo $currency . number_format($p['extra_child_rate'], 2) . ' / child';
+                                    } else {
+                                        echo 'Tiered Supplement';
+                                    }
+                                ?>
+                            </td>
                             <td style="text-align: center; font-weight: 600;"><?php echo $p['nights']; ?></td>
                             <td style="text-align: right; font-weight: 700; color: var(--primary);">
                                 <?php echo $currency . number_format($p['extra_guest_total'], 2); ?>
@@ -1793,10 +1810,25 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                     <?php else: ?>
                     <!-- Consolidated Master Totals -->
                     <table class="charges-summary-table">
-                        <tr>
-                            <td style="color: var(--text-muted);">Villa Tariff Total:</td>
-                            <td class="amount-cell"><?php echo $currency . number_format($p['room_amount'], 2); ?></td>
-                        </tr>
+                        <?php if ($p['extra_guest_total'] > 0): ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">Villa Base Tariff (<?php echo $p['nights']; ?> Night<?php echo $p['nights'] > 1 ? 's' : ''; ?>):</td>
+                                <td class="amount-cell"><?php echo $currency . number_format($p['room_base_total'], 2); ?></td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">Extra Guest Occupancy Charges:</td>
+                                <td class="amount-cell"><?php echo $currency . number_format($p['extra_guest_total'], 2); ?></td>
+                            </tr>
+                            <tr style="border-top: 1px dashed #CBD5E1;">
+                                <td style="font-weight: 600; color: var(--text-dark); padding-top: 4px;">Villa Tariff Total:</td>
+                                <td class="amount-cell" style="font-weight: 600; color: var(--text-dark); padding-top: 4px;"><?php echo $currency . number_format($p['room_amount'], 2); ?></td>
+                            </tr>
+                        <?php else: ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">Villa Tariff Total:</td>
+                                <td class="amount-cell"><?php echo $currency . number_format($p['room_amount'], 2); ?></td>
+                            </tr>
+                        <?php endif; ?>
                         <?php if ($p['food_total'] > 0): ?>
                             <tr>
                                 <td style="color: var(--text-muted);">Gastronomy &amp; Meals Subtotal:</td>

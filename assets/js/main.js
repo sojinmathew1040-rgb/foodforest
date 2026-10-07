@@ -3056,6 +3056,8 @@ document.addEventListener("DOMContentLoaded", () => {
             for (const key in payload) {
                 if (key === 'food_items') {
                     formData.append(key, JSON.stringify(payload[key]));
+                } else if (typeof payload[key] === 'boolean') {
+                    formData.append(key, payload[key] ? '1' : '0');
                 } else if (payload[key] !== null && payload[key] !== undefined) {
                     formData.append(key, payload[key]);
                 }

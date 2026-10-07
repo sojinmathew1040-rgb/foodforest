@@ -416,10 +416,12 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     </div>
 
                     <div id="food-selection-container" class="food-selection-wrapper">
-                        <?php foreach ($modal_food_cats as $cat_key => $cat_data): ?>
-                            <div class="modal-meal-category-block" id="modal-cat-block-<?php echo $cat_key; ?>" data-category="<?php echo $cat_key; ?>">
+                        <?php foreach ($modal_food_cats as $cat_key => $cat_data): 
+                            $is_initially_open = in_array($cat_key, ['breakfast', 'lunch', 'dinner']);
+                        ?>
+                            <div class="modal-meal-category-block <?php echo $is_initially_open ? 'is-open' : ''; ?>" id="modal-cat-block-<?php echo $cat_key; ?>" data-category="<?php echo $cat_key; ?>">
                                 
-                                <div class="meal-cat-header-row font-sans" role="button" tabindex="0" aria-expanded="false" data-cat="<?php echo $cat_key; ?>" title="Click to view / hide dishes for <?php echo htmlspecialchars($cat_data['name']); ?>">
+                                <div class="meal-cat-header-row font-sans" role="button" tabindex="0" aria-expanded="<?php echo $is_initially_open ? 'true' : 'false'; ?>" data-cat="<?php echo $cat_key; ?>" title="Click to view / hide dishes for <?php echo htmlspecialchars($cat_data['name']); ?>">
                                     <div class="meal-cat-header-left">
                                         <div class="meal-cat-icon-wrap">
                                             <i class="<?php echo htmlspecialchars($cat_data['icon']); ?>"></i>
@@ -449,8 +451,8 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                     </div>
                                 </div>
 
-                                <!-- Collapsible Dish Grid Panel (Hidden by default for a clean, compact view) -->
-                                <div class="modal-dishes-grid-panel" id="dishes-panel-<?php echo $cat_key; ?>" style="display: none;">
+                                <!-- Collapsible Dish Grid Panel -->
+                                <div class="modal-dishes-grid-panel" id="dishes-panel-<?php echo $cat_key; ?>" style="<?php echo $is_initially_open ? 'display: block;' : 'display: none;'; ?>">
                                     <div class="modal-dishes-grid" id="dishes-grid-<?php echo $cat_key; ?>">
                                     <?php if (!empty($cat_data['items'])): ?>
                                         <?php foreach ($cat_data['items'] as $d_item): 

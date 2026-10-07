@@ -314,13 +314,20 @@ if ($method === 'POST') {
             $custom_total += (float)($ci['subtotal'] ?? (($ci['quantity'] ?? 1) * ($ci['price'] ?? 0)));
         }
 
-        $new_total = $room_amt + $food_total + $act_total + $custom_total;
+        $discount_amt = max(0, (float)($booking['discount_amount'] ?? 0));
+        $taxable_subtotal = max(0, $room_amt + $food_total + $act_total + $custom_total - $discount_amt);
+        $gst_percentage = (float)($booking['gst_percentage'] > 0 ? $booking['gst_percentage'] : 5.00);
+        $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
+        $grand_total = $taxable_subtotal + $gst_amount;
 
         $upd = $pdo->prepare("UPDATE bookings SET 
             food_items = ?, 
             food_amount = ?, 
             activities_json = ?, 
             billing_items_json = ?, 
+            gst_percentage = ?,
+            gst_amount = ?,
+            tax_amount = ?,
             total_amount = ?,
             status = ?, 
             checked_out_at = COALESCE(?, checked_out_at) 
@@ -330,7 +337,10 @@ if ($method === 'POST') {
             $food_total,
             $activities_json,
             $custom_items_json,
-            $new_total,
+            $gst_percentage,
+            $gst_amount,
+            $gst_amount,
+            $grand_total,
             $new_status,
             $checkout_timestamp,
             $booking_id

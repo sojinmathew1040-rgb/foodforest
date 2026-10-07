@@ -217,9 +217,12 @@ try {
 
     $verified_food_items = [];
     $food_total = 0.00;
-    $food_status = (!empty($input['food_skipped']) || empty($food_items_array)) ? 'skipped' : 'selected';
+    
+    // Strict check for food_skipped (never treat string "false" as true!)
+    $raw_skipped = $input['food_skipped'] ?? null;
+    $is_explicitly_skipped = ($raw_skipped === true || $raw_skipped === 1 || $raw_skipped === '1' || $raw_skipped === 'true');
 
-    if ($food_status === 'selected') {
+    if (!$is_explicitly_skipped && !empty($food_items_array)) {
         foreach ($food_items_array as $fi) {
             $qty = max(0, (int)($fi['quantity'] ?? ($fi['sets'] ?? 0)));
             $cat = trim($fi['category'] ?? 'general');
@@ -269,7 +272,12 @@ try {
                     'quantity' => $qty,
                     'subtotal' => $subtotal,
                     'meal_time' => $meal_time,
-                    'inclusions' => is_array($fi['inclusions'] ?? null) ? $fi['inclusions'] : []
+                    'dietary_type' => trim($fi['dietary_type'] ?? 'veg'),
+                    'inclusions' => is_array($fi['inclusions'] ?? null) ? $fi['inclusions'] : [],
+                    'status' => 'queued',
+                    'served' => true,
+                    'ordered_at' => date('Y-m-d H:i:s'),
+                    'special_notes' => $special_notes
                 ];
             }
         }
@@ -283,7 +291,7 @@ try {
             break;
         }
     }
-    if (!$has_candlelight && (stripos($addons, 'candlelight') !== false || (is_array($addons_input) && in_array('dinner', $addons_input)))) {
+    if (!$has_candlelight && (stripos($addons, 'candlelight') !== false || (is_array($addons_input ?? null) && in_array('dinner', $addons_input)))) {
         $verified_food_items[] = [
             'id' => 999,
             'category' => 'dinner',
@@ -293,17 +301,18 @@ try {
             'price' => 3000.00,
             'quantity' => 1,
             'subtotal' => 3000.00,
+            'meal_time' => 'dinner',
+            'dietary_type' => 'veg',
+            'status' => 'queued',
             'served' => true,
+            'ordered_at' => date('Y-m-d H:i:s'),
             'inclusions' => ['Private 4-course dinner', 'Under blooming apple trees', 'Curated table setting'],
             'special_notes' => $special_notes
         ];
         $food_total += 3000.00;
-        $food_status = 'selected';
     }
 
-    if (empty($verified_food_items)) {
-        $food_status = 'skipped';
-    }
+    $food_status = !empty($verified_food_items) ? 'selected' : 'skipped';
 
     // Billing & GST Calculation
     ensure_booking_gst_columns($pdo);

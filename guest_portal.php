@@ -996,8 +996,9 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
     }
 
     .status-badge-kitchen.served { background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .status-badge-kitchen.preparing { background: rgba(14, 116, 144, 0.2); color: #38BDF8; border: 1px solid rgba(14, 116, 144, 0.4); }
-    .status-badge-kitchen.queued { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .status-badge-kitchen.ready { background: rgba(16, 185, 129, 0.22); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.45); }
+    .status-badge-kitchen.preparing { background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .status-badge-kitchen.queued, .status-badge-kitchen.selected { background: rgba(148, 163, 184, 0.15); color: #CBD5E1; border: 1px solid rgba(148, 163, 184, 0.3); }
 
     /* Menu Items Grid */
     .menu-filter-bar {
@@ -1345,6 +1346,58 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         color: #E2E8F0;
         vertical-align: middle;
+    }
+
+    /* Dish Cancellation Actions */
+    .btn-cancel-dish {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        color: #F87171;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: var(--adm-transition);
+    }
+    .btn-cancel-dish:hover {
+        background: rgba(239, 68, 68, 0.25);
+        border-color: #EF4444;
+        color: #FFFFFF;
+        transform: translateY(-1px);
+    }
+    .btn-cancel-dish:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+    .btn-cancel-all-orders {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        color: #FCA5A5;
+        padding: 7px 14px;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: var(--adm-transition);
+    }
+    .btn-cancel-all-orders:hover {
+        background: rgba(239, 68, 68, 0.25);
+        border-color: #EF4444;
+        color: #FFFFFF;
+        transform: translateY(-1px);
+    }
+    .btn-cancel-all-orders:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
     }
 
     /* Mobile Responsive */
@@ -2229,7 +2282,34 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                     <h3 class="g-card-title"><i class="fa-solid fa-kitchen-set"></i> Our Kitchen — In-Cottage Dining Hub</h3>
                                     <span style="font-size: 12px; color: #94A3B8;">Synchronized in real-time with estate chef stations &amp; farm hearth</span>
                                 </div>
-                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                    <?php 
+                                        $food_status_code = strtolower(trim($active_booking['food_status'] ?? 'selected'));
+                                        $is_order_locked = in_array($food_status_code, ['preparing', 'cooking', 'ready', 'served']);
+                                        $has_unserved_food = false;
+                                        if (!empty($f_items)) {
+                                            foreach ($f_items as $chk_f) {
+                                                $fi_st = strtolower(trim($chk_f['status'] ?? ''));
+                                                if (empty($chk_f['served']) && !in_array($fi_st, ['preparing', 'cooking', 'ready', 'served'])) {
+                                                    $has_unserved_food = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    ?>
+                                    <?php if ($is_order_locked): ?>
+                                        <div id="kitchen-order-locked-notice" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #FBBF24;">
+                                            <i class="fa-solid fa-lock"></i>
+                                            <span>Preparation Active — Order locked from cancellation</span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <button type="button" 
+                                            id="btn-cancel-all-orders"
+                                            class="btn-cancel-all-orders" 
+                                            style="<?php echo (!$is_order_locked && $has_unserved_food) ? 'display: inline-flex;' : 'display: none;'; ?>"
+                                            onclick="cancelAllPendingFoodOrders(<?php echo (int)$active_booking['id']; ?>, '<?php echo $b_ref; ?>')">
+                                        <i class="fa-solid fa-ban"></i> Cancel Food Order
+                                    </button>
                                     <!-- Print Food Bill PDF Button -->
                                     <a href="admin/print_bill.php?ref=<?php echo urlencode($active_booking['reference_code']); ?>&token=<?php echo urlencode($folio_token); ?>&type=other" target="_blank" class="btn-gold-action" title="Print Food / Dining Bill (PDF)">
                                         <i class="fa-solid fa-file-pdf"></i> Print Food Bill (PDF)
@@ -2252,8 +2332,18 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                 </div>
                                 <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 10px;">
                                     <span style="font-size: 12px; color: #94A3B8;">Preparation Status:</span>
-                                    <span class="status-badge-kitchen <?php echo strtolower($active_booking['food_status'] ?? 'queued'); ?>">
-                                        <?php echo ($active_booking['food_status'] ?? '') === 'served' ? '✓ Served' : (($active_booking['food_status'] ?? '') === 'preparing' ? '🍳 Preparing' : '⏳ Queued'); ?>
+                                    <span class="status-badge-kitchen <?php echo $food_status_code; ?>" id="kitchen-overall-status-badge">
+                                        <?php 
+                                        if ($food_status_code === 'served') {
+                                            echo '✓ Delivered / Served';
+                                        } elseif ($food_status_code === 'ready') {
+                                            echo '🟢 Ready to Serve';
+                                        } elseif ($food_status_code === 'preparing' || $food_status_code === 'cooking') {
+                                            echo '🍳 Preparing to Cook';
+                                        } else {
+                                            echo '⏳ Order Placed (Queued)';
+                                        }
+                                        ?>
                                     </span>
                                 </div>
                             </div>
@@ -2270,18 +2360,21 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                                 <th style="text-align: right;">Unit Rate</th>
                                                 <th style="text-align: right;">Subtotal</th>
                                                 <th style="text-align: center;">Kitchen Status</th>
+                                                <th style="text-align: center; width: 90px;">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody id="cottage-kitchen-tbody">
-                                            <?php foreach ($f_items as $f_row): 
+                                            <?php foreach ($f_items as $f_idx => $f_row): 
                                                 $f_name = $f_row['heading'] ?? 'Custom Farm Meal';
                                                 $f_slot = ucfirst($f_row['meal_time'] ?? ($f_row['category'] ?? 'Dining'));
                                                 $f_qty = (int)($f_row['quantity'] ?? 1);
                                                 $f_rate = (float)($f_row['price'] ?? 0);
                                                 $f_sub = (float)($f_row['subtotal'] ?? ($f_qty * $f_rate));
-                                                $f_status = strtolower($active_booking['food_status'] ?? 'queued');
+                                                $is_served = !empty($f_row['served']);
+                                                $fi_st = $is_served ? 'served' : strtolower(trim($f_row['status'] ?? ($active_booking['food_status'] ?? 'selected')));
+                                                $is_item_locked = $is_served || $is_order_locked || in_array($fi_st, ['preparing', 'cooking', 'ready', 'served']);
                                             ?>
-                                                <tr>
+                                                <tr id="kitchen-row-<?php echo $f_idx; ?>">
                                                     <td>
                                                         <strong style="color: #FFFFFF;"><?php echo htmlspecialchars($f_name); ?></strong>
                                                         <?php if (!empty($f_row['dietary_type'])): ?>
@@ -2297,9 +2390,37 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                                     <td style="text-align: right; color: #94A3B8;"><?php echo $currency . number_format($f_rate, 2); ?></td>
                                                     <td style="text-align: right; font-weight: 700; color: #C5A059;"><?php echo $currency . number_format($f_sub, 2); ?></td>
                                                     <td style="text-align: center;">
-                                                        <span class="status-badge-kitchen <?php echo $f_status; ?>">
-                                                            <?php echo $f_status === 'served' ? '✓ Served' : ($f_status === 'preparing' ? '🍳 Preparing' : '⏳ Queued'); ?>
+                                                        <span class="status-badge-kitchen <?php echo $fi_st; ?>">
+                                                            <?php 
+                                                            if ($fi_st === 'served') {
+                                                                echo '✓ Served';
+                                                            } elseif ($fi_st === 'ready') {
+                                                                echo '🟢 Ready to Serve';
+                                                            } elseif ($fi_st === 'preparing' || $fi_st === 'cooking') {
+                                                                echo '🍳 Preparing to Cook';
+                                                            } else {
+                                                                echo '⏳ Order Placed';
+                                                            }
+                                                            ?>
                                                         </span>
+                                                    </td>
+                                                    <td style="text-align: center;">
+                                                        <?php if (!$is_item_locked): ?>
+                                                            <button type="button" 
+                                                                    class="btn-cancel-dish" 
+                                                                    title="Cancel this item"
+                                                                    onclick="cancelFoodOrderItem(<?php echo $f_idx; ?>, '<?php echo addslashes($f_name); ?>', <?php echo (int)$active_booking['id']; ?>, '<?php echo $b_ref; ?>')">
+                                                                <i class="fa-solid fa-xmark"></i> Cancel
+                                                            </button>
+                                                        <?php else: ?>
+                                                            <?php if ($fi_st === 'served'): ?>
+                                                                <span style="font-size: 11px; color: #10B981; font-weight: 600;"><i class="fa-solid fa-check"></i> Served</span>
+                                                            <?php elseif ($fi_st === 'ready'): ?>
+                                                                <span style="font-size: 11px; color: #10B981; font-weight: 600;"><i class="fa-solid fa-bell-concierge"></i> Ready</span>
+                                                            <?php else: ?>
+                                                                <span style="font-size: 11px; color: #F59E0B; font-weight: 600;" title="Preparation in progress — cannot be cancelled"><i class="fa-solid fa-lock"></i> In Prep</span>
+                                                            <?php endif; ?>
+                                                        <?php endif; ?>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -3683,107 +3804,8 @@ async function confirmAndDispatchOrder(bookingId, refCode) {
         if (data.success) {
             showPortalToast('✓ ' + (data.message || 'Dishes successfully dispatched to Estate Kitchen!'), true);
 
-            // Update KPI stats & Badges
-            var cur = '<?php echo $currency; ?>';
-            var fTotal = parseFloat(data.food_total) || 0;
-            var gTotal = parseFloat(data.grand_total) || 0;
-            var balDue = parseFloat(data.balance_due) || 0;
-            var fCount = data.food_count || 0;
-
-            var kpiFTotal = document.getElementById('kpi-food-total');
-            if (kpiFTotal) kpiFTotal.textContent = cur + fTotal.toFixed(2);
-            var kpiFCount = document.getElementById('kpi-food-count');
-            if (kpiFCount) kpiFCount.textContent = fCount + ' Dishes Ordered';
-
-            var kpiBal = document.getElementById('kpi-bal-val');
-            if (kpiBal) {
-                kpiBal.textContent = cur + balDue.toFixed(2);
-                kpiBal.style.color = (balDue <= 0 ? '#34D399' : '#FBBF24');
-            }
-            var kpiBalStatus = document.getElementById('kpi-bal-status');
-            if (kpiBalStatus) {
-                kpiBalStatus.textContent = (balDue <= 0 ? '✓ SETTLED IN FULL' : 'DUE AT CHECKOUT');
-                kpiBalStatus.style.color = (balDue <= 0 ? '#34D399' : '#F59E0B');
-            }
-
-            // Update Sidebar Badges
-            var navFBadge = document.getElementById('nav-food-count-badge');
-            if (navFBadge) {
-                navFBadge.textContent = fCount;
-            } else {
-                var kitchenLink = document.querySelector(".guest-nav-link[data-view='kitchen']");
-                if (kitchenLink) {
-                    var newBadge = document.createElement('span');
-                    newBadge.className = 'guest-nav-badge';
-                    newBadge.id = 'nav-food-count-badge';
-                    newBadge.textContent = fCount;
-                    kitchenLink.appendChild(newBadge);
-                }
-            }
-
-            // Update Kitchen View Badges & Table
-            var kDishesCount = document.getElementById('kitchen-dishes-count-badge');
-            if (kDishesCount) kDishesCount.textContent = fCount + ' Items';
-            var kDishesTotal = document.getElementById('kitchen-dishes-total-badge');
-            if (kDishesTotal) kDishesTotal.textContent = cur + fTotal.toFixed(2);
-
-            var kTableWrap = document.getElementById('cottage-kitchen-table-wrap');
-            if (kTableWrap && data.food_items) {
-                var html = '<table class="g-table"><thead><tr><th>Dish Name</th><th>Meal Slot</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Rate</th><th style="text-align:right;">Subtotal</th><th style="text-align:center;">Kitchen Status</th></tr></thead><tbody>';
-                data.food_items.forEach(function(item) {
-                    var iName = item.heading || 'Custom Farm Meal';
-                    var iSlot = (item.meal_time || item.category || 'Dining');
-                    var iQty = parseInt(item.quantity) || 1;
-                    var iRate = parseFloat(item.price) || 0;
-                    var iSub = parseFloat(item.subtotal) || (iQty * iRate);
-                    html += '<tr><td><strong style="color:#FFFFFF;">' + iName + '</strong></td><td><span style="font-size:11px;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:4px;">' + iSlot.charAt(0).toUpperCase() + iSlot.slice(1) + '</span></td><td style="text-align:center;font-weight:700;color:#FFFFFF;">' + iQty + '</td><td style="text-align:right;color:#94A3B8;">' + cur + iRate.toFixed(2) + '</td><td style="text-align:right;font-weight:700;color:#C5A059;">' + cur + iSub.toFixed(2) + '</td><td style="text-align:center;"><span class="status-badge-kitchen queued">⏳ Queued</span></td></tr>';
-                });
-                html += '</tbody></table>';
-                kTableWrap.innerHTML = html;
-            }
-
-            // Update Stay Dashboard Summary Box
-            var dashSummaryBox = document.getElementById('dash-ordered-summary-box');
-            if (dashSummaryBox && data.food_items) {
-                var dHtml = '<table class="g-table"><thead><tr><th>Dish</th><th>Meal Time</th><th style="text-align: center;">Qty</th><th style="text-align: right;">Price</th></tr></thead><tbody>';
-                data.food_items.slice(0, 5).forEach(function(sItem) {
-                    var sName = sItem.heading || 'Custom Farm Meal';
-                    var sSlot = (sItem.meal_time || sItem.category || 'Dining');
-                    sSlot = sSlot.charAt(0).toUpperCase() + sSlot.slice(1);
-                    var sQty = parseInt(sItem.quantity) || 1;
-                    var sPrice = parseFloat(sItem.price) || 0;
-                    dHtml += '<tr><td><strong style="color: #FFFFFF;">' + sName + '</strong></td><td><span style="font-size: 11px; color: #94A3B8; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">' + sSlot + '</span></td><td style="text-align: center;">' + sQty + '</td><td style="text-align: right; color: #C5A059; font-weight: 700;">' + cur + (sQty * sPrice).toFixed(2) + '</td></tr>';
-                });
-                dHtml += '</tbody></table>';
-                if (data.food_items.length > 5) {
-                    dHtml += '<div style="text-align: center; margin-top: 12px;"><button type="button" onclick="switchGuestTab(\'kitchen\')" style="background: transparent; color: #C5A059; font-size: 12px; font-weight: 600;">View all ' + data.food_items.length + ' dishes in Kitchen &rarr;</button></div>';
-                }
-                dashSummaryBox.innerHTML = dHtml;
-            }
-
-            // Update Folio View
-            var folioFVal = document.getElementById('folio-food-val');
-            if (folioFVal) folioFVal.textContent = cur + fTotal.toFixed(2);
-            var folioFCount = document.getElementById('folio-food-count');
-            if (folioFCount) folioFCount.textContent = fCount;
-
-            var folioCGST = document.getElementById('folio-cgst-val');
-            if (folioCGST && data.cgst_amount) folioCGST.textContent = cur + parseFloat(data.cgst_amount).toFixed(2);
-            var folioSGST = document.getElementById('folio-sgst-val');
-            if (folioSGST && data.sgst_amount) folioSGST.textContent = cur + parseFloat(data.sgst_amount).toFixed(2);
-
-            var folioNet = document.getElementById('folio-net-total-val');
-            if (folioNet) folioNet.textContent = cur + gTotal.toFixed(2);
-
-            var folioBal = document.getElementById('folio-balance-val');
-            if (folioBal) {
-                folioBal.textContent = cur + balDue.toFixed(2);
-                folioBal.style.color = (balDue <= 0 ? '#34D399' : '#F59E0B');
-            }
-            var folioStatusBadge = document.getElementById('folio-balance-status-badge');
-            if (folioStatusBadge) {
-                folioStatusBadge.textContent = (balDue <= 0 ? '✓ SETTLED IN FULL' : 'PAYMENT DUE AT CHECKOUT');
-            }
+            // Update Kitchen & Folio UI
+            updateKitchenAndFolioUI(data, bookingId, refCode);
 
             // Clear Cart & Close Modal
             guestDiningTray = [];
@@ -3813,6 +3835,311 @@ async function confirmAndDispatchOrder(bookingId, refCode) {
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> <span>Confirm &amp; Send to Kitchen</span>';
+        }
+    }
+}
+
+// 9. Synchronize Kitchen View, Stats, Badges & Folio Across Orders & Cancellations
+function updateKitchenAndFolioUI(data, bookingId, refCode) {
+    var cur = '<?php echo $currency; ?>';
+    var fTotal = parseFloat(data.food_total) || 0;
+    var gTotal = parseFloat(data.grand_total) || 0;
+    var balDue = parseFloat(data.balance_due) || 0;
+    var fCount = data.food_count || (data.food_items ? data.food_items.length : 0);
+
+    // 1. Update KPI stats
+    var kpiFTotal = document.getElementById('kpi-food-total');
+    if (kpiFTotal) kpiFTotal.textContent = cur + fTotal.toFixed(2);
+    var kpiFCount = document.getElementById('kpi-food-count');
+    if (kpiFCount) kpiFCount.textContent = fCount + (fCount === 1 ? ' Dish Ordered' : ' Dishes Ordered');
+
+    var kpiBal = document.getElementById('kpi-bal-val');
+    if (kpiBal) {
+        kpiBal.textContent = cur + balDue.toFixed(2);
+        kpiBal.style.color = (balDue <= 0 ? '#34D399' : '#FBBF24');
+    }
+    var kpiBalStatus = document.getElementById('kpi-bal-status');
+    if (kpiBalStatus) {
+        kpiBalStatus.textContent = (balDue <= 0 ? '✓ SETTLED IN FULL' : 'DUE AT CHECKOUT');
+        kpiBalStatus.style.color = (balDue <= 0 ? '#34D399' : '#F59E0B');
+    }
+
+    // 2. Update Sidebar Badges
+    var navFBadge = document.getElementById('nav-food-count-badge');
+    if (navFBadge) {
+        navFBadge.textContent = fCount;
+    } else if (fCount > 0) {
+        var kitchenLink = document.querySelector(".guest-nav-link[data-view='kitchen']");
+        if (kitchenLink) {
+            var newBadge = document.createElement('span');
+            newBadge.className = 'guest-nav-badge';
+            newBadge.id = 'nav-food-count-badge';
+            newBadge.textContent = fCount;
+            kitchenLink.appendChild(newBadge);
+        }
+    }
+
+    // 3. Update Kitchen View Header Badges & Cancel All button
+    var kDishesCount = document.getElementById('kitchen-dishes-count-badge');
+    if (kDishesCount) kDishesCount.textContent = fCount + (fCount === 1 ? ' Item' : ' Items');
+    var kDishesTotal = document.getElementById('kitchen-dishes-total-badge');
+    if (kDishesTotal) kDishesTotal.textContent = cur + fTotal.toFixed(2);
+
+    var currentFoodStatus = (data.food_status || '<?php echo addslashes($active_booking['food_status'] ?? 'selected'); ?>').toLowerCase();
+    var isOrderLocked = ['preparing', 'cooking', 'ready', 'served'].indexOf(currentFoodStatus) !== -1;
+
+    var overallBadge = document.getElementById('kitchen-overall-status-badge');
+    if (overallBadge) {
+        overallBadge.className = 'status-badge-kitchen ' + currentFoodStatus;
+        if (currentFoodStatus === 'served') {
+            overallBadge.innerHTML = '✓ Delivered / Served';
+        } else if (currentFoodStatus === 'ready') {
+            overallBadge.innerHTML = '🟢 Ready to Serve';
+        } else if (currentFoodStatus === 'preparing' || currentFoodStatus === 'cooking') {
+            overallBadge.innerHTML = '🍳 Preparing to Cook';
+        } else {
+            overallBadge.innerHTML = '⏳ Order Placed (Queued)';
+        }
+    }
+
+    var lockNotice = document.getElementById('kitchen-order-locked-notice');
+    if (isOrderLocked) {
+        if (!lockNotice) {
+            var btnWrap = document.querySelector('.g-card-header div:last-child');
+            if (btnWrap) {
+                var newNotice = document.createElement('div');
+                newNotice.id = 'kitchen-order-locked-notice';
+                newNotice.style.cssText = 'background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #FBBF24;';
+                newNotice.innerHTML = '<i class="fa-solid fa-lock"></i> <span>Preparation Active — Order locked from cancellation</span>';
+                btnWrap.insertBefore(newNotice, btnWrap.firstChild);
+            }
+        } else {
+            lockNotice.style.display = 'inline-flex';
+        }
+    } else if (lockNotice) {
+        lockNotice.style.display = 'none';
+    }
+
+    var hasCancelable = false;
+    if (!isOrderLocked && data.food_items && data.food_items.length > 0) {
+        hasCancelable = data.food_items.some(function(it) { 
+            var itSt = (it.status || '').toLowerCase();
+            return !it.served && ['preparing', 'cooking', 'ready', 'served'].indexOf(itSt) === -1; 
+        });
+    }
+    var cancelAllBtn = document.getElementById('btn-cancel-all-orders');
+    if (cancelAllBtn) {
+        cancelAllBtn.style.display = hasCancelable ? 'inline-flex' : 'none';
+    }
+
+    // 4. Update Kitchen View Table
+    var kTableWrap = document.getElementById('cottage-kitchen-table-wrap');
+    if (kTableWrap) {
+        if (!data.food_items || data.food_items.length === 0) {
+            kTableWrap.innerHTML = '<div style="text-align: center; padding: 40px 10px; color: #94A3B8;">' +
+                '<i class="fa-solid fa-utensils" style="font-size: 32px; color: #C5A059; margin-bottom: 10px; display: block;"></i>' +
+                '<h4 class="font-serif" style="font-size: 18px; color: #FFFFFF; margin-bottom: 6px;">No Meals Ordered Yet</h4>' +
+                '<p style="font-size: 13px; max-width: 440px; margin: 0 auto 18px;">Browse our 75 organic farm-to-table dishes from the Farm Menu tab to have delicious meals delivered straight to your cottage.</p>' +
+                '<button type="button" onclick="switchGuestTab(\'menu\')" class="btn-gold-action">' +
+                    '<i class="fa-solid fa-utensils"></i> Open Farm Menu &amp; Order' +
+                '</button>' +
+            '</div>';
+        } else {
+            var bId = bookingId || <?php echo (int)($active_booking['id'] ?? 0); ?>;
+            var rCode = refCode || '<?php echo addslashes($b_ref); ?>';
+            var html = '<table class="g-table"><thead><tr>' +
+                '<th>Dish Name</th><th>Meal Slot</th><th style="text-align:center;">Qty</th>' +
+                '<th style="text-align:right;">Unit Rate</th><th style="text-align:right;">Subtotal</th>' +
+                '<th style="text-align:center;">Kitchen Status</th><th style="text-align:center;width:90px;">Action</th>' +
+                '</tr></thead><tbody id="cottage-kitchen-tbody">';
+
+            data.food_items.forEach(function(item, idx) {
+                var iName = item.heading || 'Custom Farm Meal';
+                var iSlot = (item.meal_time || item.category || 'Dining');
+                var iQty = parseInt(item.quantity) || 1;
+                var iRate = parseFloat(item.price) || 0;
+                var iSub = parseFloat(item.subtotal) || (iQty * iRate);
+                var isServed = !(!item.served);
+                var itemSt = (item.status || (isServed ? 'served' : currentFoodStatus)).toLowerCase();
+                var isItemLocked = isServed || isOrderLocked || ['preparing', 'cooking', 'ready', 'served'].indexOf(itemSt) !== -1;
+
+                var dietBadge = '';
+                if (item.dietary_type === 'veg') {
+                    dietBadge = '<span style="font-size:11px;margin-left:6px;color:#34D399;">🌱 Veg</span>';
+                } else if (item.dietary_type === 'non-veg') {
+                    dietBadge = '<span style="font-size:11px;margin-left:6px;color:#F87171;">🍗 Non-Veg</span>';
+                }
+
+                var safeName = iName.replace(/'/g, "\\'");
+
+                var statusHtml = '';
+                if (itemSt === 'served' || isServed) {
+                    statusHtml = '<span class="status-badge-kitchen served">✓ Served</span>';
+                } else if (itemSt === 'ready') {
+                    statusHtml = '<span class="status-badge-kitchen ready">🟢 Ready to Serve</span>';
+                } else if (itemSt === 'preparing' || itemSt === 'cooking') {
+                    statusHtml = '<span class="status-badge-kitchen preparing">🍳 Preparing to Cook</span>';
+                } else {
+                    statusHtml = '<span class="status-badge-kitchen queued">⏳ Order Placed</span>';
+                }
+
+                var actionHtml = '';
+                if (!isItemLocked) {
+                    actionHtml = '<button type="button" class="btn-cancel-dish" onclick="cancelFoodOrderItem(' + idx + ', \'' + safeName + '\', ' + bId + ', \'' + rCode + '\')"><i class="fa-solid fa-xmark"></i> Cancel</button>';
+                } else {
+                    if (itemSt === 'served' || isServed) {
+                        actionHtml = '<span style="font-size:11px;color:#10B981;font-weight:600;"><i class="fa-solid fa-check"></i> Served</span>';
+                    } else if (itemSt === 'ready') {
+                        actionHtml = '<span style="font-size:11px;color:#10B981;font-weight:600;"><i class="fa-solid fa-bell-concierge"></i> Ready</span>';
+                    } else {
+                        actionHtml = '<span style="font-size:11px;color:#F59E0B;font-weight:600;" title="Preparation in progress — cannot be cancelled"><i class="fa-solid fa-lock"></i> In Prep</span>';
+                    }
+                }
+
+                html += '<tr id="kitchen-row-' + idx + '">' +
+                    '<td><strong style="color:#FFFFFF;">' + iName + '</strong>' + dietBadge + '</td>' +
+                    '<td><span style="font-size:11px;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:4px;">' + iSlot.charAt(0).toUpperCase() + iSlot.slice(1) + '</span></td>' +
+                    '<td style="text-align:center;font-weight:700;color:#FFFFFF;">' + iQty + '</td>' +
+                    '<td style="text-align:right;color:#94A3B8;">' + cur + iRate.toFixed(2) + '</td>' +
+                    '<td style="text-align:right;font-weight:700;color:#C5A059;">' + cur + iSub.toFixed(2) + '</td>' +
+                    '<td style="text-align:center;">' + statusHtml + '</td>' +
+                    '<td style="text-align:center;">' + actionHtml + '</td>' +
+                '</tr>';
+            });
+            html += '</tbody></table>';
+            kTableWrap.innerHTML = html;
+        }
+    }
+
+    // 5. Update Stay Dashboard Summary Box
+    var dashSummaryBox = document.getElementById('dash-ordered-summary-box');
+    if (dashSummaryBox) {
+        if (!data.food_items || data.food_items.length === 0) {
+            dashSummaryBox.innerHTML = '<div style="text-align: center; padding: 24px 10px; color: #94A3B8; font-size: 13px;">No meals currently active on your stay account.</div>';
+        } else {
+            var dHtml = '<table class="g-table"><thead><tr><th>Dish</th><th>Meal Time</th><th style="text-align: center;">Qty</th><th style="text-align: right;">Price</th></tr></thead><tbody>';
+            data.food_items.slice(0, 5).forEach(function(sItem) {
+                var sName = sItem.heading || 'Custom Farm Meal';
+                var sSlot = (sItem.meal_time || sItem.category || 'Dining');
+                sSlot = sSlot.charAt(0).toUpperCase() + sSlot.slice(1);
+                var sQty = parseInt(sItem.quantity) || 1;
+                var sPrice = parseFloat(sItem.price) || 0;
+                dHtml += '<tr><td><strong style="color: #FFFFFF;">' + sName + '</strong></td><td><span style="font-size: 11px; color: #94A3B8; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">' + sSlot + '</span></td><td style="text-align: center;">' + sQty + '</td><td style="text-align: right; color: #C5A059; font-weight: 700;">' + cur + (sQty * sPrice).toFixed(2) + '</td></tr>';
+            });
+            dHtml += '</tbody></table>';
+            if (data.food_items.length > 5) {
+                dHtml += '<div style="text-align: center; margin-top: 12px;"><button type="button" onclick="switchGuestTab(\'kitchen\')" style="background: transparent; color: #C5A059; font-size: 12px; font-weight: 600;">View all ' + data.food_items.length + ' dishes in Kitchen &rarr;</button></div>';
+            }
+            dashSummaryBox.innerHTML = dHtml;
+        }
+    }
+
+    // 6. Update Folio View
+    var folioFVal = document.getElementById('folio-food-val');
+    if (folioFVal) folioFVal.textContent = cur + fTotal.toFixed(2);
+    var folioFCount = document.getElementById('folio-food-count');
+    if (folioFCount) folioFCount.textContent = fCount;
+
+    var folioCGST = document.getElementById('folio-cgst-val');
+    if (folioCGST && data.cgst_amount !== undefined) folioCGST.textContent = cur + parseFloat(data.cgst_amount).toFixed(2);
+    var folioSGST = document.getElementById('folio-sgst-val');
+    if (folioSGST && data.sgst_amount !== undefined) folioSGST.textContent = cur + parseFloat(data.sgst_amount).toFixed(2);
+
+    var folioNet = document.getElementById('folio-net-total-val');
+    if (folioNet) folioNet.textContent = cur + gTotal.toFixed(2);
+
+    var folioBal = document.getElementById('folio-balance-val');
+    if (folioBal) {
+        folioBal.textContent = cur + balDue.toFixed(2);
+        folioBal.style.color = (balDue <= 0 ? '#34D399' : '#F59E0B');
+    }
+    var folioStatusBadge = document.getElementById('folio-balance-status-badge');
+    if (folioStatusBadge) {
+        folioStatusBadge.textContent = (balDue <= 0 ? '✓ SETTLED IN FULL' : 'PAYMENT DUE AT CHECKOUT');
+    }
+}
+
+// 10. Cancel Individual Dish from Kitchen Order
+async function cancelFoodOrderItem(itemIndex, dishName, bookingId, refCode) {
+    if (!confirm('Are you sure you want to cancel "' + dishName + '" from your cottage dining order?')) {
+        return;
+    }
+
+    var row = document.getElementById('kitchen-row-' + itemIndex);
+    var btn = row ? row.querySelector('.btn-cancel-dish') : null;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
+    }
+
+    try {
+        var res = await fetch('api/order_food.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'cancel_item',
+                booking_id: bookingId,
+                reference_code: refCode,
+                item_index: itemIndex
+            })
+        });
+
+        var data = await res.json();
+        if (data.success) {
+            showPortalToast('✓ ' + (data.message || ('Cancelled ' + dishName + '. Folio updated.')), true);
+            updateKitchenAndFolioUI(data, bookingId, refCode);
+        } else {
+            showPortalToast(data.message || 'Could not cancel food item.', false);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+            }
+        }
+    } catch (err) {
+        showPortalToast('Network communication error.', false);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+        }
+    }
+}
+
+// 11. Cancel All Pending (Unserved) Meals
+async function cancelAllPendingFoodOrders(bookingId, refCode) {
+    if (!confirm('Are you sure you want to cancel all pending meals from your cottage dining order?')) {
+        return;
+    }
+
+    var btn = document.getElementById('btn-cancel-all-orders');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
+    }
+
+    try {
+        var res = await fetch('api/order_food.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'cancel_order',
+                booking_id: bookingId,
+                reference_code: refCode
+            })
+        });
+
+        var data = await res.json();
+        if (data.success) {
+            showPortalToast('✓ ' + (data.message || 'All pending food orders cancelled.'), true);
+            updateKitchenAndFolioUI(data, bookingId, refCode);
+        } else {
+            showPortalToast(data.message || 'Could not cancel food orders.', false);
+        }
+    } catch (err) {
+        showPortalToast('Network communication error.', false);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-ban"></i> Cancel Food Order';
         }
     }
 }

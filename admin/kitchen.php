@@ -44,7 +44,14 @@ $alert_message = '';
 $alert_type = 'success';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
+        if ($is_ajax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Security validation failed. Please try again.']);
+            exit;
+        }
         $alert_message = 'Security validation failed. Please try again.';
         $alert_type = 'error';
     } else {
@@ -54,9 +61,104 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $booking_id = (int)($_POST['booking_id'] ?? 0);
             $new_status = trim($_POST['new_food_status'] ?? 'selected');
             if ($booking_id > 0) {
-                $stmt = $pdo->prepare("UPDATE bookings SET food_status = ? WHERE id = ?");
-                $stmt->execute([$new_status, $booking_id]);
-                $alert_message = "Kitchen status for Reservation #{$booking_id} updated to " . ucfirst($new_status) . ".";
+                $bstmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+                $bstmt->execute([$booking_id]);
+                $curr_b = $bstmt->fetch(PDO::FETCH_ASSOC);
+                if ($curr_b) {
+                    $f_items = !empty($curr_b['food_items']) ? json_decode($curr_b['food_items'], true) : [];
+                    if (is_array($f_items)) {
+                        foreach ($f_items as &$fi) {
+                            $fi['status'] = $new_status;
+                            $fi['served'] = ($new_status === 'served');
+                        }
+                        unset($fi);
+                    }
+                    $stmt = $pdo->prepare("UPDATE bookings SET food_status = ?, food_items = ? WHERE id = ?");
+                    $stmt->execute([
+                        $new_status,
+                        !empty($f_items) ? json_encode($f_items, JSON_UNESCAPED_UNICODE) : null,
+                        $booking_id
+                    ]);
+
+                    $status_labels = [
+                        'selected' => 'Order Placed (Queued)',
+                        'preparing' => 'Preparing to Cook',
+                        'ready' => 'Ready to Serve',
+                        'served' => 'Delivered / Served'
+                    ];
+                    $lbl = $status_labels[$new_status] ?? ucfirst($new_status);
+                    $alert_message = "Kitchen status for Reservation #{$curr_b['reference_code']} updated to '{$lbl}'.";
+
+                    if ($is_ajax) {
+                        header('Content-Type: application/json');
+                        echo json_encode([
+                            'success' => true,
+                            'message' => $alert_message,
+                            'food_status' => $new_status,
+                            'food_status_label' => $lbl,
+                            'booking_id' => $booking_id,
+                            'reference_code' => $curr_b['reference_code']
+                        ]);
+                        exit;
+                    }
+                }
+            }
+        } elseif ($action === 'update_dish_status') {
+            $booking_id = (int)($_POST['booking_id'] ?? 0);
+            $item_idx = (int)($_POST['item_index'] ?? -1);
+            $new_dish_status = trim($_POST['new_dish_status'] ?? 'selected');
+            if ($booking_id > 0 && $item_idx >= 0) {
+                $bstmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+                $bstmt->execute([$booking_id]);
+                $curr_b = $bstmt->fetch(PDO::FETCH_ASSOC);
+                if ($curr_b) {
+                    $f_items = !empty($curr_b['food_items']) ? json_decode($curr_b['food_items'], true) : [];
+                    if (is_array($f_items) && isset($f_items[$item_idx])) {
+                        $f_items[$item_idx]['status'] = $new_dish_status;
+                        $f_items[$item_idx]['served'] = ($new_dish_status === 'served');
+
+                        // Recalculate overall status
+                        $all_served = true;
+                        $any_preparing = false;
+                        $any_ready = false;
+                        foreach ($f_items as $chk_f) {
+                            $st = strtolower(trim($chk_f['status'] ?? ''));
+                            if (empty($chk_f['served']) && $st !== 'served') $all_served = false;
+                            if ($st === 'preparing') $any_preparing = true;
+                            if ($st === 'ready') $any_ready = true;
+                        }
+                        if ($all_served && !empty($f_items)) {
+                            $overall_status = 'served';
+                        } elseif ($any_ready) {
+                            $overall_status = 'ready';
+                        } elseif ($any_preparing) {
+                            $overall_status = 'preparing';
+                        } else {
+                            $overall_status = $curr_b['food_status'] ?? 'selected';
+                        }
+
+                        $stmt = $pdo->prepare("UPDATE bookings SET food_status = ?, food_items = ? WHERE id = ?");
+                        $stmt->execute([
+                            $overall_status,
+                            json_encode($f_items, JSON_UNESCAPED_UNICODE),
+                            $booking_id
+                        ]);
+                        $dish_name = $f_items[$item_idx]['heading'] ?? 'Dish';
+                        $alert_message = "Status for '{$dish_name}' updated.";
+
+                        if ($is_ajax) {
+                            header('Content-Type: application/json');
+                            echo json_encode([
+                                'success' => true,
+                                'message' => $alert_message,
+                                'dish_status' => $new_dish_status,
+                                'overall_status' => $overall_status,
+                                'booking_id' => $booking_id
+                            ]);
+                            exit;
+                        }
+                    }
+                }
             }
         } elseif ($action === 'quick_add_dish') {
             $booking_id = (int)($_POST['booking_id'] ?? 0);
@@ -581,11 +683,23 @@ foreach ($all_matching_bookings as $b) {
                     $chalet_label = format_chalet_label($kb['villa_type']);
                     $status_badge_color = ($kb['food_status'] === 'ready' || $kb['food_status'] === 'served') ? '#10B981' : (($kb['food_status'] === 'preparing') ? '#F59E0B' : '#64748B');
                 ?>
-                    <div class="adm-card kitchen-ticket-card" id="kitchen-card-<?php echo $kb['id']; ?>" style="background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.15); border-radius: 12px; padding: 18px; box-shadow: 0 3px 10px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between;">
+                    <?php
+                    $st_val = strtolower($kb['food_status'] ?? 'selected');
+                    if ($st_val === 'served') {
+                        $st_badge_bg = '#ECFDF5'; $st_badge_color = '#065F46'; $st_badge_border = '#10B981'; $st_badge_text = '✅ Delivered / Served';
+                    } elseif ($st_val === 'ready') {
+                        $st_badge_bg = '#F0FDF4'; $st_badge_color = '#15803D'; $st_badge_border = '#22C55E'; $st_badge_text = '🟢 Ready to Serve';
+                    } elseif ($st_val === 'preparing' || $st_val === 'cooking') {
+                        $st_badge_bg = '#FFFBEB'; $st_badge_color = '#B45309'; $st_badge_border = '#F59E0B'; $st_badge_text = '🟠 Preparing to Cook';
+                    } else {
+                        $st_badge_bg = '#F1F5F9'; $st_badge_color = '#475569'; $st_badge_border = '#94A3B8'; $st_badge_text = '🟡 Order Placed';
+                    }
+                    ?>
+                    <div class="adm-card kitchen-ticket-card" id="kitchen-card-<?php echo $kb['id']; ?>" style="background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.15); border-radius: 12px; padding: 18px; box-shadow: 0 3px 10px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; position: relative;">
                         
                         <div>
-                            <!-- Ticket Top Bar: Chalet & Reference -->
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #F1F5F9; gap: 8px;">
+                            <!-- Ticket Top Bar: Chalet & Reference & Current Status Badge -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #F1F5F9; gap: 8px; flex-wrap: wrap;">
                                 <div>
                                     <span style="font-size: 11px; font-weight: 700; color: #0E7490; background: #E0F2FE; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;">
                                         REF #<?php echo htmlspecialchars($kb['reference_code']); ?>
@@ -595,18 +709,66 @@ foreach ($all_matching_bookings as $b) {
                                     </h4>
                                 </div>
 
-                                <!-- Food Status Form -->
-                                <form method="POST" action="kitchen.php?filter=<?php echo urlencode($filter); ?>&from_date=<?php echo urlencode($from_date); ?>&to_date=<?php echo urlencode($to_date); ?>&meal=<?php echo urlencode($meal_filter); ?>" style="margin: 0;">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="action" value="update_food_status">
-                                    <input type="hidden" name="booking_id" value="<?php echo $kb['id']; ?>">
-                                    <select name="new_food_status" onchange="this.form.submit();" style="font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 6px; border: 1.5px solid <?php echo $status_badge_color; ?>; color: <?php echo $status_badge_color; ?>; background: #FFFFFF; cursor: pointer;">
-                                        <option value="selected" <?php echo ($kb['food_status'] === 'selected') ? 'selected' : ''; ?>>🟡 Order Placed</option>
-                                        <option value="preparing" <?php echo ($kb['food_status'] === 'preparing') ? 'selected' : ''; ?>>🟠 Cooking / Prep</option>
-                                        <option value="ready" <?php echo ($kb['food_status'] === 'ready') ? 'selected' : ''; ?>>🟢 Ready to Serve</option>
-                                        <option value="served" <?php echo ($kb['food_status'] === 'served') ? 'selected' : ''; ?>>✅ Delivered / Served</option>
-                                    </select>
-                                </form>
+                                <!-- Current Status Badge -->
+                                <div id="ticket-badge-wrap-<?php echo $kb['id']; ?>">
+                                    <span id="ticket-current-badge-<?php echo $kb['id']; ?>" style="font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 6px; background: <?php echo $st_badge_bg; ?>; color: <?php echo $st_badge_color; ?>; border: 1.5px solid <?php echo $st_badge_border; ?>; display: inline-flex; align-items: center; gap: 5px;">
+                                        <?php echo $st_badge_text; ?>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- 1-Click Interactive Status Workflow Bar -->
+                            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
+                                        <i class="fa-solid fa-arrows-spin" style="color: #0E7490; margin-right: 4px;"></i> Update Kitchen Status:
+                                    </span>
+                                    <span style="font-size: 10.5px; color: #94A3B8;">(Click to advance stage)</span>
+                                </div>
+                                
+                                <div class="kitchen-stage-btn-group" id="ticket-stage-group-<?php echo $kb['id']; ?>" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+                                    
+                                    <!-- 1. Placed -->
+                                    <button type="button" 
+                                            class="btn-kitchen-stage <?php echo ($st_val === 'selected' || $st_val === 'queued') ? 'active-stage' : ''; ?>" 
+                                            onclick="updateTicketKitchenStatus(<?php echo $kb['id']; ?>, 'selected', 'Order Placed');"
+                                            style="padding: 7px 4px; font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid <?php echo ($st_val === 'selected' || $st_val === 'queued') ? '#94A3B8' : '#CBD5E1'; ?>; background: <?php echo ($st_val === 'selected' || $st_val === 'queued') ? '#334155' : '#FFFFFF'; ?>; color: <?php echo ($st_val === 'selected' || $st_val === 'queued') ? '#FFFFFF' : '#475569'; ?>; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; transition: all 0.15s ease;"
+                                            title="Mark as Placed / Queued (Guest may cancel)">
+                                        <span style="font-size: 13px;">🟡</span>
+                                        <span>Placed</span>
+                                    </button>
+
+                                    <!-- 2. Preparing to Cook -->
+                                    <button type="button" 
+                                            class="btn-kitchen-stage <?php echo ($st_val === 'preparing' || $st_val === 'cooking') ? 'active-stage' : ''; ?>" 
+                                            onclick="updateTicketKitchenStatus(<?php echo $kb['id']; ?>, 'preparing', 'Preparing to Cook');"
+                                            style="padding: 7px 4px; font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid <?php echo ($st_val === 'preparing' || $st_val === 'cooking') ? '#D97706' : '#FDE68A'; ?>; background: <?php echo ($st_val === 'preparing' || $st_val === 'cooking') ? '#D97706' : '#FFFBEB'; ?>; color: <?php echo ($st_val === 'preparing' || $st_val === 'cooking') ? '#FFFFFF' : '#92400E'; ?>; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; transition: all 0.15s ease;"
+                                            title="Start cooking — Locks order so guest cannot cancel!">
+                                        <span style="font-size: 13px;">🍳</span>
+                                        <span>Preparing</span>
+                                    </button>
+
+                                    <!-- 3. Ready to Serve -->
+                                    <button type="button" 
+                                            class="btn-kitchen-stage <?php echo ($st_val === 'ready') ? 'active-stage' : ''; ?>" 
+                                            onclick="updateTicketKitchenStatus(<?php echo $kb['id']; ?>, 'ready', 'Ready to Serve');"
+                                            style="padding: 7px 4px; font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid <?php echo ($st_val === 'ready') ? '#059669' : '#A7F3D0'; ?>; background: <?php echo ($st_val === 'ready') ? '#059669' : '#F0FDF4'; ?>; color: <?php echo ($st_val === 'ready') ? '#FFFFFF' : '#065F46'; ?>; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; transition: all 0.15s ease;"
+                                            title="Food is cooked &amp; plated — Ready for delivery runner">
+                                        <span style="font-size: 13px;">🍲</span>
+                                        <span>Ready</span>
+                                    </button>
+
+                                    <!-- 4. Delivered / Served -->
+                                    <button type="button" 
+                                            class="btn-kitchen-stage <?php echo ($st_val === 'served') ? 'active-stage' : ''; ?>" 
+                                            onclick="updateTicketKitchenStatus(<?php echo $kb['id']; ?>, 'served', 'Delivered / Served');"
+                                            style="padding: 7px 4px; font-size: 11px; font-weight: 700; border-radius: 6px; border: 1px solid <?php echo ($st_val === 'served') ? '#1C3826' : '#CBD5E1'; ?>; background: <?php echo ($st_val === 'served') ? '#1C3826' : '#FFFFFF'; ?>; color: <?php echo ($st_val === 'served') ? '#FFFFFF' : '#1C3826'; ?>; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; transition: all 0.15s ease;"
+                                            title="Food served at cottage / guest dining">
+                                        <span style="font-size: 13px;">✅</span>
+                                        <span>Served</span>
+                                    </button>
+
+                                </div>
                             </div>
 
                             <!-- Guest & Contact Info -->
@@ -642,23 +804,26 @@ foreach ($all_matching_bookings as $b) {
                                     <thead>
                                         <tr style="background: rgba(28, 56, 38, 0.05); color: #1C3826; text-align: left; font-size: 11px; text-transform: uppercase;">
                                             <th style="padding: 7px 10px;">Dish</th>
-                                            <th style="padding: 7px 8px;">Serve Time</th>
+                                            <th style="padding: 7px 8px;">Meal Slot</th>
                                             <th style="padding: 7px 10px; text-align: right;">Qty</th>
                                             <th style="padding: 7px 10px; text-align: right;">Price</th>
+                                            <th style="padding: 7px 10px; text-align: center;">Item Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php 
                                         $ticket_subtotal = 0;
-                                        foreach ($dishes_to_render as $dish_item): 
+                                        foreach ($dishes_to_render as $dish_idx => $dish_item): 
                                             $dish_qty = (int)($dish_item['quantity'] ?? 1);
                                             $dish_price = (float)($dish_item['price'] ?? 0);
                                             $dish_sub = (float)($dish_item['subtotal'] ?? ($dish_qty * $dish_price));
                                             $ticket_subtotal += $dish_sub;
                                             $dish_slot = strtolower(trim($dish_item['meal_time'] ?? $dish_item['category'] ?? 'lunch'));
                                             $is_veg = (($dish_item['dietary_type'] ?? 'veg') === 'veg');
+                                            $d_served = !empty($dish_item['served']);
+                                            $d_status = $d_served ? 'served' : strtolower(trim($dish_item['status'] ?? $st_val));
                                         ?>
-                                            <tr style="border-top: 1px solid rgba(0,0,0,0.05);">
+                                            <tr style="border-top: 1px solid rgba(0,0,0,0.05);" id="ticket-dish-row-<?php echo $kb['id']; ?>-<?php echo $dish_idx; ?>">
                                                 <td style="padding: 7px 10px; color: #1E293B; font-weight: 600;">
                                                     <span style="color: <?php echo $is_veg ? '#059669' : '#DC2626'; ?>; font-size: 9px; margin-right: 4px;">●</span>
                                                     <?php echo htmlspecialchars($dish_item['heading'] ?? 'Dish'); ?>
@@ -674,13 +839,21 @@ foreach ($all_matching_bookings as $b) {
                                                 <td style="padding: 7px 10px; text-align: right; color: #64748B;">
                                                     ₹<?php echo number_format($dish_sub, 0); ?>
                                                 </td>
+                                                <td style="padding: 7px 10px; text-align: center;">
+                                                    <select onchange="updateSingleDishStatus(<?php echo $kb['id']; ?>, <?php echo $dish_idx; ?>, this.value);" style="font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid #CBD5E1; background: #FFFFFF; cursor: pointer;">
+                                                        <option value="selected" <?php echo ($d_status === 'selected' || $d_status === 'queued') ? 'selected' : ''; ?>>🟡 Placed</option>
+                                                        <option value="preparing" <?php echo ($d_status === 'preparing' || $d_status === 'cooking') ? 'selected' : ''; ?>>🟠 Preparing</option>
+                                                        <option value="ready" <?php echo ($d_status === 'ready') ? 'selected' : ''; ?>>🟢 Ready</option>
+                                                        <option value="served" <?php echo ($d_status === 'served') ? 'selected' : ''; ?>>✅ Served</option>
+                                                    </select>
+                                                </td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>
                                     <tfoot>
                                         <tr style="border-top: 1.5px solid rgba(28, 56, 38, 0.15); background: rgba(28, 56, 38, 0.03);">
                                             <td colspan="3" style="padding: 8px 10px; font-weight: 700; color: #1C3826;">Ticket Total:</td>
-                                            <td style="padding: 8px 10px; text-align: right; font-weight: 800; color: #1C3826; font-size: 13px;">
+                                            <td colspan="2" style="padding: 8px 10px; text-align: right; font-weight: 800; color: #1C3826; font-size: 13px;">
                                                 ₹<?php echo number_format($ticket_subtotal, 0); ?>
                                             </td>
                                         </tr>
@@ -689,7 +862,7 @@ foreach ($all_matching_bookings as $b) {
                             </div>
                         </div>
 
-                        <!-- Ticket Footer: Print Single KOT & Walk-in Add Item -->
+                        <!-- Ticket Footer: Print Single KOT & Folio -->
                         <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px dashed rgba(28, 56, 38, 0.15);">
                             <a href="print_bill.php?booking_id=<?php echo $kb['id']; ?>" target="_blank" style="font-size: 11.5px; color: #0E7490; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                                 <i class="fa-solid fa-file-invoice"></i> View Folio Bill
@@ -1186,6 +1359,159 @@ function printSingleTicket(bookingId) {
     w.document.write('<script>window.onload=function(){window.print(); window.close();};<\/script>');
     w.document.write('</body></html>');
     w.document.close();
+}
+
+// Instant Toast Notification
+function showKitchenToast(message, isSuccess) {
+    var toast = document.getElementById('adm-kitchen-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'adm-kitchen-toast';
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;padding:12px 20px;border-radius:8px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);transition:all 0.25s ease;transform:translateY(100px);opacity:0;';
+        document.body.appendChild(toast);
+    }
+    toast.style.background = isSuccess ? '#064E3B' : '#7F1D1D';
+    toast.style.color = '#FFFFFF';
+    toast.style.border = isSuccess ? '1.5px solid #10B981' : '1.5px solid #EF4444';
+    toast.innerHTML = (isSuccess ? '<i class="fa-solid fa-circle-check" style="color:#34D399;font-size:16px;"></i> ' : '<i class="fa-solid fa-circle-exclamation" style="color:#F87171;font-size:16px;"></i> ') + '<span>' + message + '</span>';
+
+    toast.style.transform = 'translateY(0)';
+    toast.style.opacity = '1';
+
+    clearTimeout(window._kitchenToastTimer);
+    window._kitchenToastTimer = setTimeout(function() {
+        toast.style.transform = 'translateY(100px)';
+        toast.style.opacity = '0';
+    }, 4000);
+}
+
+// 1-Click Status Update for Kitchen Order Ticket
+async function updateTicketKitchenStatus(bookingId, newStatus, label) {
+    var group = document.getElementById('ticket-stage-group-' + bookingId);
+    var badge = document.getElementById('ticket-current-badge-' + bookingId);
+
+    if (badge) {
+        badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
+    }
+
+    try {
+        var formData = new FormData();
+        formData.append('csrf_token', '<?php echo csrf_token(); ?>');
+        formData.append('action', 'update_food_status');
+        formData.append('booking_id', bookingId);
+        formData.append('new_food_status', newStatus);
+
+        var res = await fetch('kitchen.php?filter=<?php echo urlencode($filter); ?>&from_date=<?php echo urlencode($from_date); ?>&to_date=<?php echo urlencode($to_date); ?>&meal=<?php echo urlencode($meal_filter); ?>', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        });
+
+        var data = await res.json();
+        if (data.success) {
+            var badgeStyles = {
+                'selected': { bg: '#F1F5F9', color: '#475569', border: '#94A3B8', text: '🟡 Order Placed' },
+                'preparing': { bg: '#FFFBEB', color: '#B45309', border: '#F59E0B', text: '🟠 Preparing to Cook' },
+                'ready': { bg: '#F0FDF4', color: '#15803D', border: '#22C55E', text: '🟢 Ready to Serve' },
+                'served': { bg: '#ECFDF5', color: '#065F46', border: '#10B981', text: '✅ Delivered / Served' }
+            };
+            var style = badgeStyles[newStatus] || badgeStyles['selected'];
+            if (badge) {
+                badge.style.background = style.bg;
+                badge.style.color = style.color;
+                badge.style.borderColor = style.border;
+                badge.innerHTML = style.text;
+            }
+
+            if (group) {
+                var btns = group.querySelectorAll('.btn-kitchen-stage');
+                btns.forEach(function(b) {
+                    b.classList.remove('active-stage');
+                    b.style.background = '#FFFFFF';
+                    b.style.color = '#475569';
+                    b.style.borderColor = '#CBD5E1';
+                });
+
+                var activeIdx = ['selected', 'preparing', 'ready', 'served'].indexOf(newStatus);
+                if (activeIdx !== -1 && btns[activeIdx]) {
+                    var ab = btns[activeIdx];
+                    ab.classList.add('active-stage');
+                    if (newStatus === 'selected') {
+                        ab.style.background = '#334155'; ab.style.color = '#FFFFFF'; ab.style.borderColor = '#94A3B8';
+                    } else if (newStatus === 'preparing') {
+                        ab.style.background = '#D97706'; ab.style.color = '#FFFFFF'; ab.style.borderColor = '#D97706';
+                    } else if (newStatus === 'ready') {
+                        ab.style.background = '#059669'; ab.style.color = '#FFFFFF'; ab.style.borderColor = '#059669';
+                    } else if (newStatus === 'served') {
+                        ab.style.background = '#1C3826'; ab.style.color = '#FFFFFF'; ab.style.borderColor = '#1C3826';
+                    }
+                }
+            }
+
+            // Sync all item selects in this ticket
+            var card = document.getElementById('kitchen-card-' + bookingId);
+            if (card) {
+                card.querySelectorAll('tbody select').forEach(function(sel) {
+                    sel.value = newStatus;
+                });
+            }
+
+            showKitchenToast(data.message || ('Status updated to ' + label), true);
+        } else {
+            showKitchenToast(data.message || 'Error updating status', false);
+        }
+    } catch (e) {
+        // Fallback: form submit
+        var fbForm = document.createElement('form');
+        fbForm.method = 'POST';
+        fbForm.action = 'kitchen.php?filter=<?php echo urlencode($filter); ?>&from_date=<?php echo urlencode($from_date); ?>&to_date=<?php echo urlencode($to_date); ?>&meal=<?php echo urlencode($meal_filter); ?>';
+        fbForm.innerHTML = '<?php echo csrf_field(); ?>' +
+            '<input type="hidden" name="action" value="update_food_status">' +
+            '<input type="hidden" name="booking_id" value="' + bookingId + '">' +
+            '<input type="hidden" name="new_food_status" value="' + newStatus + '">';
+        document.body.appendChild(fbForm);
+        fbForm.submit();
+    }
+}
+
+// Update Single Dish Status
+async function updateSingleDishStatus(bookingId, itemIndex, newStatus) {
+    try {
+        var formData = new FormData();
+        formData.append('csrf_token', '<?php echo csrf_token(); ?>');
+        formData.append('action', 'update_dish_status');
+        formData.append('booking_id', bookingId);
+        formData.append('item_index', itemIndex);
+        formData.append('new_dish_status', newStatus);
+
+        var res = await fetch('kitchen.php?filter=<?php echo urlencode($filter); ?>&from_date=<?php echo urlencode($from_date); ?>&to_date=<?php echo urlencode($to_date); ?>&meal=<?php echo urlencode($meal_filter); ?>', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        });
+        var data = await res.json();
+        if (data.success) {
+            showKitchenToast(data.message || 'Dish status updated', true);
+            if (data.overall_status) {
+                var badgeStyles = {
+                    'selected': { bg: '#F1F5F9', color: '#475569', border: '#94A3B8', text: '🟡 Order Placed' },
+                    'preparing': { bg: '#FFFBEB', color: '#B45309', border: '#F59E0B', text: '🟠 Preparing to Cook' },
+                    'ready': { bg: '#F0FDF4', color: '#15803D', border: '#22C55E', text: '🟢 Ready to Serve' },
+                    'served': { bg: '#ECFDF5', color: '#065F46', border: '#10B981', text: '✅ Delivered / Served' }
+                };
+                var badge = document.getElementById('ticket-current-badge-' + bookingId);
+                var style = badgeStyles[data.overall_status] || badgeStyles['selected'];
+                if (badge) {
+                    badge.style.background = style.bg;
+                    badge.style.color = style.color;
+                    badge.style.borderColor = style.border;
+                    badge.innerHTML = style.text;
+                }
+            }
+        }
+    } catch (e) {
+        showKitchenToast('Failed to update dish status', false);
+    }
 }
 </script>
 

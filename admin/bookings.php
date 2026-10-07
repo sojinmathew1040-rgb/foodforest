@@ -1123,6 +1123,44 @@ if (!function_exists('build_tab_url')) {
                         <div style="color: var(--adm-text-secondary); font-size: 13px; font-style: italic;" id="view-notes-text">-</div>
                     </div>
 
+                    <!-- In-Cottage Dining & Kitchen Orders -->
+                    <div style="margin-top: 14px; padding: 14px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);" id="view-food-orders-box">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted); font-weight: 700; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-utensils" style="color: var(--adm-gold); margin-right: 5px;"></i> Kitchen &amp; In-Cottage Dining
+                            </span>
+                            <span id="view-food-status-badge" style="font-size: 11.5px; padding: 3px 10px; border-radius: 999px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.06); color: var(--adm-text-muted);">
+                                No Orders
+                            </span>
+                        </div>
+                        <div id="view-food-items-list" style="font-size: 12.5px; color: var(--adm-text-secondary); margin-bottom: 10px;">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                        <!-- Quick Kitchen Status Stage Buttons -->
+                        <div id="view-food-status-actions" style="display: none; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <div style="font-size: 11px; color: var(--adm-text-muted); text-transform: uppercase; font-weight: 600;">
+                                    Update Kitchen Status (Locks guest cancel):
+                                </div>
+                                <span id="modal-food-status-msg" style="font-size: 11px; font-weight: 600; display: none;"></span>
+                            </div>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.35); color: #fde047;" onclick="modalUpdateFoodStatus('selected')">
+                                    <i class="fa-solid fa-clock"></i> Placed
+                                </button>
+                                <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(249, 115, 22, 0.2); border: 1px solid rgba(249, 115, 22, 0.5); color: #fdba74;" onclick="modalUpdateFoodStatus('preparing')">
+                                    <i class="fa-solid fa-fire-burner"></i> Preparing to Cook
+                                </button>
+                                <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #6ee7b7;" onclick="modalUpdateFoodStatus('ready')">
+                                    <i class="fa-solid fa-bell-concierge"></i> Ready to Serve
+                                </button>
+                                <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.5); color: #4ade80;" onclick="modalUpdateFoodStatus('served')">
+                                    <i class="fa-solid fa-circle-check"></i> Delivered / Served
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Actual Recorded Check-In & Check-Out Timestamps -->
                     <div style="margin-top: 14px; padding-top: 12px; border-top: var(--adm-border-subtle); background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
                         <div style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--adm-gold-light); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
@@ -1465,7 +1503,160 @@ function viewBookingDetails(b) {
         });
     };
 
+    // Render In-Cottage Dining Details & Setup Status Control
+    window.currentViewBooking = b;
+    renderModalFoodDetails(b);
+
     openAdmModal('modal-view-booking');
+}
+
+function escapeModalHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderModalFoodDetails(b) {
+    const badgeEl = document.getElementById('view-food-status-badge');
+    const listEl = document.getElementById('view-food-items-list');
+    const actionsEl = document.getElementById('view-food-status-actions');
+    if (!badgeEl || !listEl || !actionsEl) return;
+
+    let items = [];
+    if (b.food_items) {
+        if (typeof b.food_items === 'string') {
+            try { items = JSON.parse(b.food_items); } catch(e) { items = []; }
+        } else if (Array.isArray(b.food_items)) {
+            items = b.food_items;
+        }
+    }
+
+    const st = (b.food_status || 'none').toLowerCase();
+
+    if (!items || items.length === 0) {
+        badgeEl.innerHTML = '<span style="color: var(--adm-text-muted);">No Dining Orders</span>';
+        badgeEl.style.background = 'rgba(255,255,255,0.05)';
+        badgeEl.style.border = '1px solid rgba(255,255,255,0.1)';
+        listEl.innerHTML = '<div style="font-style: italic; color: var(--adm-text-muted);">No in-cottage dining ordered for this stay.</div>';
+        actionsEl.style.display = 'none';
+        return;
+    }
+
+    actionsEl.style.display = 'block';
+    if (st === 'preparing' || st === 'cooking') {
+        badgeEl.innerHTML = '<i class="fa-solid fa-fire-burner"></i> Preparing to Cook';
+        badgeEl.style.background = 'rgba(249, 115, 22, 0.2)';
+        badgeEl.style.color = '#fdba74';
+        badgeEl.style.border = '1px solid rgba(249, 115, 22, 0.5)';
+    } else if (st === 'ready') {
+        badgeEl.innerHTML = '<i class="fa-solid fa-bell-concierge"></i> Ready to Serve';
+        badgeEl.style.background = 'rgba(16, 185, 129, 0.2)';
+        badgeEl.style.color = '#6ee7b7';
+        badgeEl.style.border = '1px solid rgba(16, 185, 129, 0.5)';
+    } else if (st === 'served') {
+        badgeEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> Delivered / Served';
+        badgeEl.style.background = 'rgba(34, 197, 94, 0.2)';
+        badgeEl.style.color = '#4ade80';
+        badgeEl.style.border = '1px solid rgba(34, 197, 94, 0.5)';
+    } else if (st === 'cancelled') {
+        badgeEl.innerHTML = '<i class="fa-solid fa-ban"></i> Cancelled';
+        badgeEl.style.background = 'rgba(239, 68, 68, 0.2)';
+        badgeEl.style.color = '#f87171';
+        badgeEl.style.border = '1px solid rgba(239, 68, 68, 0.5)';
+    } else {
+        badgeEl.innerHTML = '<i class="fa-solid fa-clock"></i> Order Placed';
+        badgeEl.style.background = 'rgba(234, 179, 8, 0.2)';
+        badgeEl.style.color = '#fde047';
+        badgeEl.style.border = '1px solid rgba(234, 179, 8, 0.5)';
+    }
+
+    let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 4px;">';
+    html += '<thead style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--adm-text-muted); text-align: left;">';
+    html += '<tr><th style="padding: 4px 6px;">Item</th><th style="padding: 4px 6px; text-align: center;">Qty</th><th style="padding: 4px 6px; text-align: right;">Amount</th><th style="padding: 4px 6px; text-align: right;">Status</th></tr></thead><tbody>';
+
+    let totalVal = 0;
+    items.forEach(function(it) {
+        const qty = it.quantity || 1;
+        const sub = it.subtotal || ((it.price || 0) * qty);
+        totalVal += sub;
+        const itSt = (it.status || (it.served ? 'served' : (st !== 'none' ? st : 'queued'))).toLowerCase();
+        let itBadge = '<span style="color: #fde047;">Placed</span>';
+        if (itSt === 'preparing' || itSt === 'cooking') itBadge = '<span style="color: #fdba74;">Preparing</span>';
+        else if (itSt === 'ready') itBadge = '<span style="color: #6ee7b7;">Ready</span>';
+        else if (itSt === 'served') itBadge = '<span style="color: #4ade80;">Served</span>';
+        else if (itSt === 'cancelled') itBadge = '<span style="color: #f87171;">Cancelled</span>';
+
+        html += `<tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+            <td style="padding: 5px 6px; color: var(--adm-text-primary); font-weight: 500;">${escapeModalHtml(it.heading || 'Dish')}</td>
+            <td style="padding: 5px 6px; text-align: center; color: var(--adm-text-secondary);">${qty}</td>
+            <td style="padding: 5px 6px; text-align: right; color: var(--adm-gold-light); font-weight: 600;">₹${Number(sub).toLocaleString('en-IN')}</td>
+            <td style="padding: 5px 6px; text-align: right;">${itBadge}</td>
+        </tr>`;
+    });
+
+    html += `</tbody><tfoot><tr style="border-top: 1px solid rgba(255,255,255,0.15); font-weight: 700;">
+        <td colspan="2" style="padding: 6px; color: var(--adm-text-muted);">Total Food Charge:</td>
+        <td style="padding: 6px; text-align: right; color: var(--adm-gold-light);">₹${Number(b.food_amount || b.food_total || totalVal).toLocaleString('en-IN')}</td>
+        <td></td>
+    </tr></tfoot></table>`;
+
+    if (b.food_instructions) {
+        html += `<div style="margin-top: 6px; font-size: 11px; color: #cbd5e1; font-style: italic;">
+            <i class="fa-solid fa-comment-dots" style="color: var(--adm-gold);"></i> Instructions: "${escapeModalHtml(b.food_instructions)}"
+        </div>`;
+    }
+
+    listEl.innerHTML = html;
+}
+
+function modalUpdateFoodStatus(newStatus) {
+    if (!window.currentViewBooking || !window.currentViewBooking.id) return;
+    const msgEl = document.getElementById('modal-food-status-msg');
+    if (msgEl) {
+        msgEl.style.display = 'inline';
+        msgEl.style.color = '#38bdf8';
+        msgEl.innerText = 'Updating status...';
+    }
+
+    fetch('../api/order_food.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'update_food_status',
+            booking_id: window.currentViewBooking.id,
+            status: newStatus
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.currentViewBooking.food_status = newStatus;
+            if (data.food_items) {
+                window.currentViewBooking.food_items = data.food_items;
+            } else if (Array.isArray(window.currentViewBooking.food_items)) {
+                window.currentViewBooking.food_items.forEach(it => {
+                    it.status = newStatus;
+                    it.served = (newStatus === 'served');
+                });
+            }
+            renderModalFoodDetails(window.currentViewBooking);
+            if (msgEl) {
+                msgEl.style.color = '#4ade80';
+                msgEl.innerText = '✓ Status Updated to ' + (data.food_status_label || newStatus);
+                setTimeout(() => { if (msgEl) msgEl.style.display = 'none'; }, 3000);
+            }
+        } else {
+            if (msgEl) {
+                msgEl.style.color = '#f87171';
+                msgEl.innerText = '✕ ' + (data.message || 'Failed to update');
+            }
+        }
+    })
+    .catch(err => {
+        if (msgEl) {
+            msgEl.style.color = '#f87171';
+            msgEl.innerText = '✕ Network error';
+        }
+    });
 }
 </script>
 

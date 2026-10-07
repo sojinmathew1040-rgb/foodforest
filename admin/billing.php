@@ -52,6 +52,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($gst_percentage <= 0) $gst_percentage = 5.00;
 
                     // Process Food Items from Form
+                    $existing_items_map = [];
+                    $existing_food_status = strtolower(trim($curr['food_status'] ?? 'none'));
+                    if (!empty($curr['food_items'])) {
+                        $raw_existing = is_array($curr['food_items']) ? $curr['food_items'] : json_decode($curr['food_items'], true);
+                        if (is_array($raw_existing)) {
+                            foreach ($raw_existing as $ei) {
+                                if (!empty($ei['heading'])) {
+                                    $existing_items_map[trim($ei['heading'])] = $ei;
+                                }
+                            }
+                        }
+                    }
+
                     $food_items = [];
                     $food_total = 0.00;
                     if (!empty($_POST['food_heading']) && is_array($_POST['food_heading'])) {
@@ -63,17 +76,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $price = max(0, (float)($_POST['food_price'][$idx] ?? 0));
                             $subtotal = $qty * $price;
                             $food_total += $subtotal;
+
+                            $matched = $existing_items_map[$heading] ?? null;
+                            $dish_status = $matched['status'] ?? (in_array($existing_food_status, ['preparing', 'ready', 'served']) ? $existing_food_status : 'queued');
+                            $dish_served = !empty($matched['served']) || ($dish_status === 'served');
+
                             $food_items[] = [
                                 'heading' => $heading,
                                 'category' => $cat,
                                 'quantity' => $qty,
                                 'price' => $price,
-                                'subtotal' => $subtotal
+                                'subtotal' => $subtotal,
+                                'status' => $dish_status,
+                                'served' => $dish_served
                             ];
                         }
                     }
                     $food_json = !empty($food_items) ? json_encode($food_items, JSON_UNESCAPED_UNICODE) : null;
-                    $food_status = !empty($food_items) ? 'selected' : 'none';
+                    if (empty($food_items)) {
+                        $food_status = 'none';
+                    } else {
+                        // Retain active workflow status if in preparing / ready / served
+                        if (in_array($existing_food_status, ['preparing', 'ready', 'served'])) {
+                            $food_status = $existing_food_status;
+                        } else {
+                            $food_status = 'selected';
+                        }
+                    }
 
                     // Process Activities from Form
                     $activities = [];

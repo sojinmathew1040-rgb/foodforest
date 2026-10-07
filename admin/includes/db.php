@@ -3204,13 +3204,13 @@ function get_booking_billing_details($pdo, $identifier) {
         ensure_users_and_guest_columns($pdo);
 
         if (is_numeric($identifier)) {
-            $stmt = $pdo->prepare("SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type, r.rate_per_night AS room_rate, r.base_guests, r.extra_guest_rate, r.extra_child_rate 
+            $stmt = $pdo->prepare("SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type, r.rate_per_night AS room_rate, r.single_room_rate, r.structure_type, r.base_guests, r.extra_guest_rate, r.extra_child_rate 
                                    FROM bookings b 
                                    LEFT JOIN rooms r ON b.villa_type = r.slug 
                                    WHERE b.id = ?");
             $stmt->execute([(int)$identifier]);
         } else {
-            $stmt = $pdo->prepare("SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type, r.rate_per_night AS room_rate, r.base_guests, r.extra_guest_rate, r.extra_child_rate 
+            $stmt = $pdo->prepare("SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type, r.rate_per_night AS room_rate, r.single_room_rate, r.structure_type, r.base_guests, r.extra_guest_rate, r.extra_child_rate 
                                    FROM bookings b 
                                    LEFT JOIN rooms r ON b.villa_type = r.slug 
                                    WHERE b.reference_code = ?");
@@ -3219,7 +3219,36 @@ function get_booking_billing_details($pdo, $identifier) {
         $b = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$b) return null;
 
-        // Fallbacks for room metadata
+        // Fallbacks for room metadata & multi-room bookings
+        if (empty($b['room_title']) && !empty($b['villa_type'])) {
+            $slugs = array_filter(array_map('trim', explode(',', $b['villa_type'])));
+            if (count($slugs) > 1) {
+                $inQuery = implode(',', array_fill(0, count($slugs), '?'));
+                $mStmt = $pdo->prepare("SELECT title, rate_per_night, single_room_rate, base_guests, extra_guest_rate, extra_child_rate FROM rooms WHERE slug IN ($inQuery)");
+                $mStmt->execute($slugs);
+                $mRooms = $mStmt->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($mRooms)) {
+                    $mTitles = [];
+                    $mRate = 0.0;
+                    $mBase = 0;
+                    $mExtraAdultRate = 750.0;
+                    $mExtraChildRate = 0.0;
+                    foreach ($mRooms as $mr) {
+                        $mTitles[] = $mr['title'];
+                        $mRate += (float)$mr['rate_per_night'];
+                        $mBase += (int)($mr['base_guests'] ?? 2);
+                        if (!empty($mr['extra_guest_rate'])) $mExtraAdultRate = (float)$mr['extra_guest_rate'];
+                        if (!empty($mr['extra_child_rate'])) $mExtraChildRate = (float)$mr['extra_child_rate'];
+                    }
+                    $b['room_title'] = implode(' & ', $mTitles);
+                    $b['room_rate'] = $mRate;
+                    $b['base_guests'] = $mBase;
+                    $b['extra_guest_rate'] = $mExtraAdultRate;
+                    $b['extra_child_rate'] = $mExtraChildRate;
+                }
+            }
+        }
+
         if (empty($b['room_title'])) {
             $b['room_title'] = ($b['villa_type'] === 'treehouse' ? 'The Canopy Treehouse' : ($b['villa_type'] === 'mudhouse' ? 'Traditional Earthen Mudhouse' : 'Luxury Forest Sanctuary'));
         }
@@ -3228,22 +3257,37 @@ function get_booking_billing_details($pdo, $identifier) {
         }
 
         $duplex_unit = strtolower(trim($b['duplex_unit'] ?? ''));
+        $is_single_wing = in_array($duplex_unit, ['left', 'right']);
         if ($duplex_unit === 'left') {
-            $b['room_title'] .= ' (Left Suite - Wing A)';
+            if (stripos($b['room_title'], 'Wing A') === false) {
+                $b['room_title'] .= ' (Left Suite - Wing A)';
+            }
         } elseif ($duplex_unit === 'right') {
-            $b['room_title'] .= ' (Right Suite - Wing B)';
+            if (stripos($b['room_title'], 'Wing B') === false) {
+                $b['room_title'] .= ' (Right Suite - Wing B)';
+            }
         } elseif ($duplex_unit === 'full' && (stripos($b['villa_type'], 'duplex') !== false || stripos($b['room_title'], 'duplex') !== false)) {
-            $b['room_title'] .= ' (Full Duplex - Both Suites)';
+            if (stripos($b['room_title'], 'Both Suites') === false) {
+                $b['room_title'] .= ' (Full Duplex - Both Suites)';
+            }
         }
 
         // Room calculation
         $nights = max(1, (int)($b['nights'] ?? 1));
-        $rate_per_night = (float)($b['room_rate'] ?? 14500);
         $adults_count = max(1, (int)($b['adults_count'] ?? 2));
         $kids_count = max(0, (int)($b['kids_count'] ?? 0));
-        $base_guests = max(1, (int)($b['base_guests'] ?? 2));
-        $extra_adult_rate = (float)($b['extra_guest_rate'] ?? 1500);
-        $extra_child_rate = (float)($b['extra_child_rate'] ?? 800);
+
+        if ($is_single_wing) {
+            $rate_per_night = !empty($b['single_room_rate']) ? (float)$b['single_room_rate'] : round(((float)($b['room_rate'] ?? 9000)) / 2, 2);
+            $base_guests = 2;
+            $extra_adult_rate = !empty($b['extra_guest_rate']) ? (float)$b['extra_guest_rate'] : 750.00;
+            $extra_child_rate = isset($b['extra_child_rate']) ? (float)$b['extra_child_rate'] : 0.00;
+        } else {
+            $rate_per_night = (float)($b['room_rate'] ?? 14500);
+            $base_guests = max(1, (int)($b['base_guests'] ?? 2));
+            $extra_adult_rate = !empty($b['extra_guest_rate']) ? (float)$b['extra_guest_rate'] : 1500.00;
+            $extra_child_rate = (float)($b['extra_child_rate'] ?? 800.00);
+        }
 
         $adults_in_base = min($adults_count, $base_guests);
         $extra_adults = max(0, $adults_count - $adults_in_base);
@@ -3255,7 +3299,21 @@ function get_booking_billing_details($pdo, $identifier) {
         $extra_guest_total = ($extra_adults * $extra_adult_rate * $nights) + ($extra_kids * $extra_child_rate * $nights);
         $calculated_room_amount = $room_base_total + $extra_guest_total;
 
-        $room_amount = (float)($b['room_amount'] > 0 ? $b['room_amount'] : $calculated_room_amount);
+        if (isset($b['room_amount']) && (float)$b['room_amount'] > 0) {
+            $room_amount = (float)$b['room_amount'];
+            if (abs($calculated_room_amount - $room_amount) > 0.01) {
+                if ($extra_guest_total > 0 && $room_amount > $extra_guest_total) {
+                    $room_base_total = $room_amount - $extra_guest_total;
+                    $rate_per_night = round($room_base_total / $nights, 2);
+                } else {
+                    $extra_guest_total = 0.00;
+                    $room_base_total = $room_amount;
+                    $rate_per_night = round($room_base_total / $nights, 2);
+                }
+            }
+        } else {
+            $room_amount = $calculated_room_amount;
+        }
 
         // Parse Food Items (Gastronomy)
         $food_items = !empty($b['food_items']) ? json_decode($b['food_items'], true) : [];
@@ -3583,7 +3641,11 @@ function get_booking_billing_details($pdo, $identifier) {
             'payment_method' => $b['payment_method'] ?? 'unspecified',
             'extra_child_rate' => $extra_child_rate,
             'extra_adult_rate' => $extra_adult_rate,
-            'base_guests' => $base_guests
+            'base_guests' => $base_guests,
+            'adults_in_base' => $adults_in_base,
+            'kids_in_base' => $kids_in_base,
+            'is_single_wing' => $is_single_wing,
+            'duplex_unit' => $duplex_unit
         ];
 
         return $b;
