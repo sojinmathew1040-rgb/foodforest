@@ -266,7 +266,7 @@ try {
     // Return detailed breakdown for instant cart UI update
     echo json_encode([
         'success' => true,
-        'message' => 'Successfully ordered ' . $qty . 'x ' . htmlspecialchars($dish['heading']) . ' (' . ucfirst($meal_time) . ') to your cottage! The estate kitchen has received your order.',
+        'message' => '✓ Successfully confirmed & dispatched ' . $total_added_qty . ' item' . ($total_added_qty > 1 ? 's' : '') . ' to Cottage #' . htmlspecialchars($booking['reference_code']) . '! The Estate Kitchen has received your order.',
         'food_total' => $new_food_total,
         'grand_total' => $new_grand_total,
         'balance_due' => $new_balance_due,
@@ -275,14 +275,8 @@ try {
         'cgst_amount' => round($new_gst / 2, 2),
         'sgst_amount' => round($new_gst / 2, 2),
         'gst_amount' => $new_gst,
-        'ordered_item' => [
-            'id' => (int)$dish['id'],
-            'heading' => $dish['heading'],
-            'price' => $price,
-            'quantity' => $qty,
-            'subtotal' => $subtotal,
-            'meal_time' => $meal_time
-        ],
+        'ordered_count' => $total_added_qty,
+        'ordered_dishes' => $summary_names,
         'cart_summary' => [
             'room_amount' => $room_amt,
             'food_total' => $new_food_total,

@@ -1109,6 +1109,244 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
         to { transform: translateX(0); opacity: 1; }
     }
 
+    /* Floating Order Tray Bar */
+    .guest-cart-bar {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 48px);
+        max-width: 760px;
+        background: rgba(14, 28, 19, 0.96);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1.5px solid var(--adm-gold);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(197, 160, 89, 0.3);
+        border-radius: 14px;
+        padding: 12px 20px;
+        z-index: 9990;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        animation: slideUpBar 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes slideUpBar {
+        from { transform: translate(-50%, 100%); opacity: 0; }
+        to { transform: translate(-50%, 0); opacity: 1; }
+    }
+
+    .cart-bar-info {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .cart-bar-badge {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--adm-gold-gradient);
+        color: #08120B;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        gap: 4px;
+        box-shadow: 0 4px 12px rgba(197, 160, 89, 0.4);
+        flex-shrink: 0;
+    }
+
+    .cart-bar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .btn-cart-clear {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #94A3B8;
+        padding: 9px 14px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--adm-transition);
+    }
+
+    .btn-cart-clear:hover {
+        color: #F87171;
+        border-color: rgba(239, 68, 68, 0.4);
+        background: rgba(239, 68, 68, 0.1);
+    }
+
+    .btn-cart-review {
+        background: var(--adm-gold-gradient);
+        color: #08120B;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 15px rgba(197, 160, 89, 0.35);
+        transition: var(--adm-transition);
+        border: none;
+    }
+
+    .btn-cart-review:hover {
+        background: var(--adm-gold-gradient-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(197, 160, 89, 0.5);
+    }
+
+    /* Modal Overlay & Card */
+    .portal-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        animation: fadeInOverlay 0.2s ease-out;
+    }
+
+    @keyframes fadeInOverlay {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .portal-modal-card {
+        background: #0D1C12;
+        border: 1.5px solid rgba(197, 160, 89, 0.4);
+        border-radius: 16px;
+        width: 100%;
+        max-width: 680px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(197, 160, 89, 0.2);
+        animation: scaleUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        overflow: hidden;
+    }
+
+    @keyframes scaleUpModal {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    .portal-modal-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .portal-modal-title {
+        font-family: var(--adm-font-title);
+        font-size: 18px;
+        color: #FFFFFF;
+        margin: 0 0 3px 0;
+        letter-spacing: 0.5px;
+    }
+
+    .portal-modal-sub {
+        font-size: 12px;
+        color: #94A3B8;
+        display: block;
+    }
+
+    .portal-modal-close {
+        background: transparent;
+        border: none;
+        color: #94A3B8;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 6px;
+        transition: var(--adm-transition);
+    }
+
+    .portal-modal-close:hover {
+        color: #FFFFFF;
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .portal-modal-body {
+        padding: 20px 24px;
+        overflow-y: auto;
+        flex-grow: 1;
+    }
+
+    .portal-modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid rgba(197, 160, 89, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.3);
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .btn-modal-cancel {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #CBD5E1;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--adm-transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-modal-cancel:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #FFFFFF;
+    }
+
+    .tray-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+    }
+
+    .tray-table th {
+        text-align: left;
+        color: var(--adm-gold);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+    }
+
+    .tray-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        color: #E2E8F0;
+        vertical-align: middle;
+    }
+
     /* Mobile Responsive */
     @media (max-width: 992px) {
         .guest-sidebar {
@@ -2091,10 +2329,15 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                             <div class="g-card-header">
                                 <div>
                                     <h3 class="g-card-title"><i class="fa-solid fa-utensils"></i> Sanctuary Living Gastronomy Menu</h3>
-                                    <span style="font-size: 12px; color: #94A3B8;">Select any dish, pick your meal slot, and click Order to send immediately to the kitchen</span>
+                                    <span style="font-size: 12px; color: #94A3B8;">Add farm-fresh dishes to your dining tray, review your order, and confirm with security verification</span>
                                 </div>
-                                <div style="min-width: 250px;">
-                                    <div style="position: relative;">
+                                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                    <button type="button" class="btn-gold-action" onclick="openOrderReviewModal()" style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; font-size: 12.5px; font-weight: 700; border-radius: 7px; cursor: pointer;">
+                                        <i class="fa-solid fa-bell-concierge"></i>
+                                        <span>Order Tray</span>
+                                        <span id="tray-header-count" style="background: rgba(0,0,0,0.5); padding: 2px 7px; border-radius: 10px; font-size: 11px;">0</span>
+                                    </button>
+                                    <div style="min-width: 220px; position: relative;">
                                         <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 11px; color: #94A3B8; font-size: 12px;"></i>
                                         <input type="text" id="menu-search-input" oninput="searchGuestMenu(this.value)" placeholder="Search 75 farm dishes..." style="width: 100%; padding: 8px 12px 8px 34px; background: rgba(0,0,0,0.35); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 7px; color: #FFFFFF; font-size: 12.5px; outline: none;">
                                     </div>
@@ -2167,9 +2410,9 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                                     <button type="button" 
                                                             id="btn-order-<?php echo $d['id']; ?>"
                                                             class="btn-gold-action" 
-                                                            style="padding: 6px 12px; font-size: 12px;"
-                                                            onclick="orderDishToCottage(<?php echo (int)$active_booking['id']; ?>, '<?php echo $b_ref; ?>', <?php echo $d['id']; ?>, '<?php echo addslashes($d['heading']); ?>', <?php echo $d['price']; ?>)">
-                                                        <i class="fa-solid fa-plus"></i> Order
+                                                            style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;"
+                                                            onclick="addToDiningTray(<?php echo $d['id']; ?>, '<?php echo addslashes($d['heading']); ?>', <?php echo $d['price']; ?>, '<?php echo addslashes($d_diet); ?>')">
+                                                        <i class="fa-solid fa-cart-plus"></i> Add
                                                     </button>
                                                 </div>
                                             </div>
@@ -2403,6 +2646,125 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
             </main>
         </div>
 
+    <!-- ========================================================================= -->
+    <!-- DINING ORDER TRAY: FLOATING BAR & VERIFICATION MODAL                      -->
+    <!-- ========================================================================= -->
+
+    <!-- Floating Tray Bar -->
+    <div id="guest-cart-floating-bar" class="guest-cart-bar" style="display: none;">
+        <div class="cart-bar-info">
+            <div class="cart-bar-badge">
+                <i class="fa-solid fa-bell-concierge"></i>
+                <span id="floating-cart-count">0</span>
+            </div>
+            <div>
+                <div style="font-size: 14px; font-weight: 700; color: #FFFFFF; font-family: var(--adm-font-title);">Dining Order Tray</div>
+                <div style="font-size: 12px; color: #CBD5E1;">
+                    <span id="floating-cart-items-text">0 dishes selected</span> &bull; 
+                    <strong style="color: var(--adm-gold); font-size: 13px;" id="floating-cart-total"><?php echo $currency; ?>0.00</strong>
+                </div>
+            </div>
+        </div>
+        <div class="cart-bar-actions">
+            <button type="button" class="btn-cart-clear" onclick="clearDiningTray()">
+                <i class="fa-solid fa-trash-can"></i> Clear
+            </button>
+            <button type="button" class="btn-cart-review" onclick="openOrderReviewModal()">
+                <span>Review &amp; Confirm</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Review & Confirm Order Modal with Captcha Challenge -->
+    <div id="modal-order-review" class="portal-modal-overlay" style="display: none;">
+        <div class="portal-modal-card">
+            <div class="portal-modal-header">
+                <div>
+                    <h3 class="portal-modal-title"><i class="fa-solid fa-bell-concierge" style="color: var(--adm-gold); margin-right: 8px;"></i> Review Your Dining Order</h3>
+                    <span class="portal-modal-sub">Cottage: <strong><?php echo htmlspecialchars($b_title ?? 'Active Stay'); ?></strong> (Ref: #<?php echo htmlspecialchars($b_ref); ?>)</span>
+                </div>
+                <button type="button" class="portal-modal-close" onclick="closeOrderReviewModal()" title="Close">&times;</button>
+            </div>
+
+            <div class="portal-modal-body">
+                <!-- Tray Items Table -->
+                <div style="margin-bottom: 18px; max-height: 240px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; background: rgba(0,0,0,0.25);">
+                    <table class="tray-table">
+                        <thead>
+                            <tr>
+                                <th>Dish</th>
+                                <th>Meal Slot</th>
+                                <th style="text-align: center;">Qty</th>
+                                <th style="text-align: right;">Unit</th>
+                                <th style="text-align: right;">Subtotal</th>
+                                <th style="text-align: center; width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tray-modal-table-body">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Financial Summary Box -->
+                <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 10px; padding: 14px 18px; margin-bottom: 18px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #94A3B8; margin-bottom: 6px;">
+                        <span>Items Subtotal:</span>
+                        <strong style="color: #FFFFFF;" id="modal-summary-subtotal"><?php echo $currency; ?>0.00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #94A3B8; margin-bottom: 8px;">
+                        <span>Restaurant GST (5%):</span>
+                        <strong style="color: #FFFFFF;" id="modal-summary-tax"><?php echo $currency; ?>0.00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 14.5px; font-weight: 700; color: #FFFFFF; border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 8px;">
+                        <span style="color: var(--adm-gold);">Estimated Order Total:</span>
+                        <strong style="color: var(--adm-gold); font-size: 16px;" id="modal-summary-total"><?php echo $currency; ?>0.00</strong>
+                    </div>
+                    <div style="font-size: 11px; color: #64748B; margin-top: 6px;">
+                        * This dining total will be posted to your cottage folio and settled at checkout.
+                    </div>
+                </div>
+
+                <!-- Security Captcha Verification Section (Mandatory to prevent unintended kitchen orders) -->
+                <div style="background: rgba(197, 160, 89, 0.08); border: 1.5px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 14px 18px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                        <i class="fa-solid fa-shield-halved" style="color: var(--adm-gold); font-size: 15px;"></i>
+                        <span style="font-size: 13px; font-weight: 700; color: #FFFFFF;">Security Order Verification</span>
+                    </div>
+                    <p style="font-size: 11.5px; color: #94A3B8; margin: 0 0 12px 0; line-height: 1.4;">
+                        Please enter the security verification code below to confirm this dining order and prevent accidental kitchen dispatch:
+                    </p>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; background: #000; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(197,160,89,0.4);">
+                            <img id="order-captcha-img" src="api/captcha.php?type=order" alt="Security Code" style="height: 38px; border-radius: 4px; display: block; filter: brightness(1.05);">
+                            <button type="button" onclick="refreshOrderCaptcha()" title="Refresh Security Code" style="background: transparent; border: none; color: var(--adm-gold); cursor: pointer; padding: 6px 8px; font-size: 14px;">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                        <div style="flex-grow: 1; min-width: 140px;">
+                            <input type="text" 
+                                   id="order-captcha-input" 
+                                   maxlength="6" 
+                                   placeholder="ENTER CODE" 
+                                   autocomplete="off"
+                                   style="width: 100%; padding: 10px 14px; background: rgba(0,0,0,0.5); border: 1.5px solid rgba(197,160,89,0.4); border-radius: 8px; color: #FFFFFF; font-size: 15px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; text-align: center; outline: none;">
+                        </div>
+                    </div>
+                    <div id="order-captcha-err" style="display: none; color: #F87171; font-size: 12px; margin-top: 8px; font-weight: 600;"></div>
+                </div>
+            </div>
+
+            <div class="portal-modal-footer">
+                <button type="button" class="btn-modal-cancel" onclick="closeOrderReviewModal()">
+                    <i class="fa-solid fa-arrow-left"></i> Keep Browsing
+                </button>
+                <button type="button" class="btn-cart-review" id="btn-confirm-dispatch-order" onclick="confirmAndDispatchOrder(<?php echo (int)($active_booking['id'] ?? 0); ?>, '<?php echo addslashes($b_ref); ?>')">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span>Confirm &amp; Send to Kitchen</span>
+                </button>
+            </div>
+        </div>
     </div>
 
 <?php endif; ?>
@@ -3051,37 +3413,275 @@ function adjustPortalQty(dishId, delta) {
     box.textContent = updated;
 }
 
-// 8. Order Dish to Cottage AJAX
-async function orderDishToCottage(bookingId, refCode, dishId, dishName, unitPrice) {
+// =========================================================================
+// 8. DINING TRAY CART & SECURITY CAPTCHA ORDER DISPATCH
+// =========================================================================
+var guestDiningTray = [];
+
+function addToDiningTray(dishId, dishName, unitPrice, dietaryType) {
     var qtyBox = document.getElementById('qty-val-' + dishId);
     var mealSelect = document.getElementById('meal-select-' + dishId);
-    var orderBtn = document.getElementById('btn-order-' + dishId);
+    var btn = document.getElementById('btn-order-' + dishId);
 
     var qty = qtyBox ? (parseInt(qtyBox.textContent) || 1) : 1;
     var mealTime = mealSelect ? mealSelect.value : 'lunch';
 
-    if (orderBtn) {
-        orderBtn.disabled = true;
-        orderBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Ordering...';
+    // Check if dish + meal slot already exists in tray
+    var existing = guestDiningTray.find(function(it) {
+        return it.dishId === dishId && it.mealSlot === mealTime;
+    });
+
+    if (existing) {
+        existing.quantity += qty;
+    } else {
+        guestDiningTray.push({
+            dishId: dishId,
+            dishName: dishName,
+            unitPrice: parseFloat(unitPrice) || 0,
+            quantity: qty,
+            mealSlot: mealTime,
+            dietaryType: dietaryType || 'veg'
+        });
     }
+
+    // Button feedback
+    if (btn) {
+        var origHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Added';
+        btn.style.background = '#10B981';
+        btn.style.color = '#FFFFFF';
+        setTimeout(function() {
+            btn.innerHTML = origHtml;
+            btn.style.background = '';
+            btn.style.color = '';
+        }, 900);
+    }
+
+    // Reset stepper back to 1
+    if (qtyBox) qtyBox.textContent = '1';
+
+    updateTrayUI();
+    showPortalToast('✓ Added: ' + qty + 'x ' + dishName + ' (' + mealTime.toUpperCase() + ') to Tray', true);
+}
+
+function updateTrayUI() {
+    var totalCount = 0;
+    var subtotal = 0;
+
+    guestDiningTray.forEach(function(item) {
+        totalCount += item.quantity;
+        subtotal += (item.quantity * item.unitPrice);
+    });
+
+    var cur = '<?php echo $currency; ?>';
+
+    // Update Header Badge
+    var headerCount = document.getElementById('tray-header-count');
+    if (headerCount) headerCount.textContent = totalCount;
+
+    // Update Floating Bar
+    var floatBar = document.getElementById('guest-cart-floating-bar');
+    var floatCount = document.getElementById('floating-cart-count');
+    var floatText = document.getElementById('floating-cart-items-text');
+    var floatTotal = document.getElementById('floating-cart-total');
+
+    if (floatBar) {
+        if (totalCount > 0) {
+            floatBar.style.display = 'flex';
+            if (floatCount) floatCount.textContent = totalCount;
+            if (floatText) floatText.textContent = totalCount + (totalCount === 1 ? ' dish in tray' : ' dishes in tray');
+            if (floatTotal) floatTotal.textContent = cur + subtotal.toFixed(2);
+        } else {
+            floatBar.style.display = 'none';
+        }
+    }
+}
+
+function clearDiningTray() {
+    if (guestDiningTray.length === 0) return;
+    guestDiningTray = [];
+    updateTrayUI();
+    closeOrderReviewModal();
+    showPortalToast('Dining tray emptied.', false);
+}
+
+function openOrderReviewModal() {
+    if (guestDiningTray.length === 0) {
+        showPortalToast('Your order tray is currently empty. Add dishes from the menu first!', false);
+        return;
+    }
+    renderTrayModalTable();
+    refreshOrderCaptcha();
+
+    var errBox = document.getElementById('order-captcha-err');
+    if (errBox) {
+        errBox.textContent = '';
+        errBox.style.display = 'none';
+    }
+
+    var modal = document.getElementById('modal-order-review');
+    if (modal) modal.style.display = 'flex';
+
+    setTimeout(function() {
+        var inp = document.getElementById('order-captcha-input');
+        if (inp) inp.focus();
+    }, 150);
+}
+
+function closeOrderReviewModal() {
+    var modal = document.getElementById('modal-order-review');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderTrayModalTable() {
+    var tbody = document.getElementById('tray-modal-table-body');
+    if (!tbody) return;
+
+    var cur = '<?php echo $currency; ?>';
+    var subtotal = 0;
+
+    if (guestDiningTray.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px; color: #94A3B8;">No dishes in your tray.</td></tr>';
+        return;
+    }
+
+    var html = '';
+    guestDiningTray.forEach(function(item, idx) {
+        var lineTotal = item.quantity * item.unitPrice;
+        subtotal += lineTotal;
+
+        var dietBadge = '';
+        if (item.dietaryType === 'veg') {
+            dietBadge = '<span style="font-size: 10px; color: #34D399; margin-left: 5px;">🌱</span>';
+        } else if (item.dietaryType === 'non-veg') {
+            dietBadge = '<span style="font-size: 10px; color: #F87171; margin-left: 5px;">🍗</span>';
+        }
+
+        var slotLabel = item.mealSlot.charAt(0).toUpperCase() + item.mealSlot.slice(1);
+
+        html += '<tr>' +
+            '<td><strong style="color: #FFFFFF;">' + item.dishName + '</strong>' + dietBadge + '</td>' +
+            '<td><span style="font-size: 11px; background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 4px; color: #CBD5E1;">' + slotLabel + '</span></td>' +
+            '<td style="text-align: center;">' +
+                '<div style="display: inline-flex; align-items: center; background: rgba(0,0,0,0.4); border-radius: 5px; border: 1px solid rgba(255,255,255,0.12);">' +
+                    '<button type="button" style="width: 24px; height: 24px; background: transparent; color: #fff; font-weight: 700; border: none; cursor: pointer;" onclick="adjustTrayItemQty(' + idx + ', -1)">−</button>' +
+                    '<span style="width: 22px; text-align: center; font-size: 12px; font-weight: 700; color: #FFFFFF;">' + item.quantity + '</span>' +
+                    '<button type="button" style="width: 24px; height: 24px; background: transparent; color: #fff; font-weight: 700; border: none; cursor: pointer;" onclick="adjustTrayItemQty(' + idx + ', 1)">+</button>' +
+                '</div>' +
+            '</td>' +
+            '<td style="text-align: right; color: #94A3B8; font-family: monospace;">' + cur + item.unitPrice.toFixed(2) + '</td>' +
+            '<td style="text-align: right; font-weight: 700; color: #C5A059; font-family: monospace;">' + cur + lineTotal.toFixed(2) + '</td>' +
+            '<td style="text-align: center;">' +
+                '<button type="button" onclick="removeTrayItem(' + idx + ')" title="Remove item" style="background: transparent; border: none; color: #94A3B8; cursor: pointer; padding: 4px; border-radius: 4px; transition: 0.2s;" onmouseover="this.style.color=\'#F87171\'" onmouseout="this.style.color=\'#94A3B8\'">' +
+                    '<i class="fa-solid fa-xmark"></i>' +
+                '</button>' +
+            '</td>' +
+        '</tr>';
+    });
+
+    tbody.innerHTML = html;
+
+    var gst = subtotal * 0.05;
+    var grandTotal = subtotal + gst;
+
+    var sSub = document.getElementById('modal-summary-subtotal');
+    if (sSub) sSub.textContent = cur + subtotal.toFixed(2);
+
+    var sTax = document.getElementById('modal-summary-tax');
+    if (sTax) sTax.textContent = cur + gst.toFixed(2);
+
+    var sTot = document.getElementById('modal-summary-total');
+    if (sTot) sTot.textContent = cur + grandTotal.toFixed(2);
+}
+
+function adjustTrayItemQty(idx, delta) {
+    if (!guestDiningTray[idx]) return;
+    var newQty = guestDiningTray[idx].quantity + delta;
+    if (newQty <= 0) {
+        removeTrayItem(idx);
+    } else {
+        guestDiningTray[idx].quantity = Math.min(30, newQty);
+        renderTrayModalTable();
+        updateTrayUI();
+    }
+}
+
+function removeTrayItem(idx) {
+    if (!guestDiningTray[idx]) return;
+    var removedName = guestDiningTray[idx].dishName;
+    guestDiningTray.splice(idx, 1);
+    renderTrayModalTable();
+    updateTrayUI();
+    if (guestDiningTray.length === 0) {
+        closeOrderReviewModal();
+        showPortalToast('Tray emptied: removed ' + removedName, false);
+    }
+}
+
+function refreshOrderCaptcha() {
+    var img = document.getElementById('order-captcha-img');
+    if (img) img.src = 'api/captcha.php?type=order&v=' + Date.now();
+    var inp = document.getElementById('order-captcha-input');
+    if (inp) inp.value = '';
+    var errBox = document.getElementById('order-captcha-err');
+    if (errBox) {
+        errBox.textContent = '';
+        errBox.style.display = 'none';
+    }
+}
+
+async function confirmAndDispatchOrder(bookingId, refCode) {
+    if (guestDiningTray.length === 0) {
+        showPortalToast('Your order tray is empty.', false);
+        return;
+    }
+
+    var inp = document.getElementById('order-captcha-input');
+    var code = inp ? inp.value.trim() : '';
+    var errBox = document.getElementById('order-captcha-err');
+
+    if (!code) {
+        if (errBox) {
+            errBox.textContent = 'Please enter the security verification code.';
+            errBox.style.display = 'block';
+        }
+        if (inp) inp.focus();
+        return;
+    }
+
+    var btn = document.getElementById('btn-confirm-dispatch-order');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying & Dispatching...';
+    }
+
+    var payloadItems = guestDiningTray.map(function(item) {
+        return {
+            dish_id: item.dishId,
+            dish_name: item.dishName,
+            meal_time: item.mealSlot,
+            quantity: item.quantity,
+            unit_price: item.unitPrice
+        };
+    });
 
     try {
         var res = await fetch('api/order_food.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                action: 'order',
+                action: 'batch_order',
                 booking_id: bookingId,
                 reference_code: refCode,
-                dish_id: dishId,
-                meal_time: mealTime,
-                quantity: qty
+                captcha: code,
+                items: payloadItems
             })
         });
 
         var data = await res.json();
+
         if (data.success) {
-            showPortalToast('✓ Ordered: ' + qty + 'x ' + dishName + ' dispatched to Estate Kitchen!', true);
+            showPortalToast('✓ ' + (data.message || 'Dishes successfully dispatched to Estate Kitchen!'), true);
 
             // Update KPI stats & Badges
             var cur = '<?php echo $currency; ?>';
@@ -3185,20 +3785,42 @@ async function orderDishToCottage(bookingId, refCode, dishId, dishName, unitPric
                 folioStatusBadge.textContent = (balDue <= 0 ? '✓ SETTLED IN FULL' : 'PAYMENT DUE AT CHECKOUT');
             }
 
-            // Reset Stepper
-            if (qtyBox) qtyBox.textContent = '1';
+            // Clear Cart & Close Modal
+            guestDiningTray = [];
+            updateTrayUI();
+            closeOrderReviewModal();
+
+            // Switch to Kitchen tab so guest immediately sees their queued order!
+            setTimeout(function() {
+                switchGuestTab('kitchen');
+            }, 600);
 
         } else {
+            if (errBox) {
+                errBox.textContent = data.message || 'Could not place food order.';
+                errBox.style.display = 'block';
+            }
             showPortalToast(data.message || 'Could not place food order.', false);
+            refreshOrderCaptcha();
+            if (inp) {
+                inp.value = '';
+                inp.focus();
+            }
         }
     } catch (err) {
         showPortalToast('Network communication error.', false);
     } finally {
-        if (orderBtn) {
-            orderBtn.disabled = false;
-            orderBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Order';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> <span>Confirm &amp; Send to Kitchen</span>';
         }
     }
+}
+
+// Backward Compatibility fallback
+function orderDishToCottage(bookingId, refCode, dishId, dishName, unitPrice) {
+    addToDiningTray(dishId, dishName, unitPrice, 'veg');
+    openOrderReviewModal();
 }
 </script>
 
