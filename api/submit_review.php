@@ -5,6 +5,7 @@
 
 header('Content-Type: application/json; charset=UTF-8');
 require_once __DIR__ . '/../admin/includes/db.php';
+require_once __DIR__ . '/../admin/includes/upload.php';
 require_once __DIR__ . '/../includes/client_auth.php';
 
 client_session_start();
@@ -73,6 +74,10 @@ try {
             $new_name = 'avatar_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
             $dest = $upload_base . '/' . $new_name;
             if (move_uploaded_file($_FILES['avatar_file']['tmp_name'], $dest)) {
+                $opt = compress_and_resize_image_file($dest, ['max_dimension' => 600]);
+                if (!empty($opt['success']) && !empty($opt['filename'])) {
+                    $new_name = $opt['filename'];
+                }
                 $avatar_url = 'uploads/testimonials/' . $new_name;
             }
         }
@@ -92,6 +97,10 @@ try {
             $new_name = 'media_img_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
             $dest = $upload_base . '/' . $new_name;
             if (move_uploaded_file($_FILES['media_file']['tmp_name'], $dest)) {
+                $opt = compress_and_resize_image_file($dest, ['max_dimension' => 1920]);
+                if (!empty($opt['success']) && !empty($opt['filename'])) {
+                    $new_name = $opt['filename'];
+                }
                 $media_url = 'uploads/testimonials/' . $new_name;
                 $media_type = 'image';
             }

@@ -17,11 +17,21 @@ if (isset($_GET['logged_out'])) {
     $success_message = 'You have safely logged out of the Food Forest Concierge.';
 }
 
+if (isset($_GET['timeout'])) {
+    $error_message = 'Your session timed out after 5 minutes of inactivity for security. Please sign in again.';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
+    $captcha = trim($_POST['captcha'] ?? '');
 
-    if (empty($username) || empty($password)) {
+    $expected_captcha = $_SESSION['captcha_admin'] ?? '';
+    unset($_SESSION['captcha_admin']); // Single-use challenge
+
+    if (empty($captcha) || empty($expected_captcha) || strcasecmp($captcha, $expected_captcha) !== 0) {
+        $error_message = 'Security Captcha verification failed. Please enter the characters shown in the badge.';
+    } elseif (empty($username) || empty($password)) {
         $error_message = 'Please provide both username and password.';
     } else {
         $auth_res = login_admin($username, $password);
@@ -110,6 +120,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
+            <!-- Security Captcha -->
+            <div class="adm-form-group">
+                <label for="adm-captcha" class="adm-label">Security Captcha Challenge *</label>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <img id="admin-captcha-img" src="../api/captcha.php?type=admin&v=<?php echo time(); ?>" alt="Security Captcha" style="height: 48px; border-radius: 6px; cursor: pointer;" onclick="refreshAdminCaptcha();" title="Click to refresh Captcha">
+                    <button type="button" onclick="refreshAdminCaptcha();" class="adm-btn-action" style="padding: 10px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #C5A059; border-radius: 6px; cursor: pointer;" title="Generate new code">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                </div>
+                <div class="adm-input-icon-wrap">
+                    <input type="text" id="adm-captcha" name="captcha" class="adm-input" placeholder="Enter characters shown above" required autocomplete="off" style="letter-spacing: 2px; font-weight: 700; text-transform: uppercase;">
+                    <i class="fa-solid fa-shield-halved adm-input-icon"></i>
+                </div>
+            </div>
+
             <!-- Submit Button -->
             <button type="submit" class="adm-btn-primary">
                 <span>Access Concierge Console</span>
@@ -130,5 +155,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script src="assets/js/admin.js?v=<?php echo time(); ?>"></script>
+<script>
+function refreshAdminCaptcha() {
+    var img = document.getElementById('admin-captcha-img');
+    if (img) {
+        img.src = '../api/captcha.php?type=admin&v=' + Date.now();
+    }
+}
+</script>
 </body>
 </html>

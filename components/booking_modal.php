@@ -10,7 +10,8 @@ ensure_booking_gst_columns($modal_db);
 $modal_villas = get_all_rooms(true);
 $modal_all_food = get_food_menu_items(null, true);
 $currency = get_setting('currency_symbol', '₹');
-$gst_rate_percent = (float)get_setting('gst_rate_percentage', '12');
+$gst_rate_percent = (float)get_setting('gst_rate_percentage', '5');
+if ($gst_rate_percent <= 0) $gst_rate_percent = 5.0;
 
 $modal_food_cats = [
     'breakfast' => ['name' => 'Breakfast', 'title' => 'Morning Breakfast Service', 'time' => '09:00 AM — 10:00 AM', 'icon' => 'fa-solid fa-mug-saucer', 'items' => []],
@@ -383,7 +384,8 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     </div>
                 </div>
 
-                <!-- Step                <div class="booking-section-group" id="booking-gastronomy-section">
+                <!-- Step 2: Curate Your Dining & Kitchen Orders -->
+                <div class="booking-section-group" id="booking-gastronomy-section">
                     <div class="section-heading-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
                         <div>
                             <h4 class="group-title font-serif" style="margin-bottom: 2px;">2. Curate Your Dining & Kitchen Orders</h4>
@@ -396,39 +398,60 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         </label>
                     </div>
 
-                    <!-- Category Filter Tabs -->
-                    <div class="modal-food-tabs-bar font-sans" style="display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 12px 2px; margin-bottom: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: thin;">
-                        <button type="button" class="btn-food-filter-tab active" data-cat="all" style="padding: 6px 12px; border-radius: 18px; border: 1.5px solid var(--accent-green); background: var(--accent-green); color: #fff; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">
-                            🍽️ All (<?php echo count($modal_all_food); ?>)
-                        </button>
-                        <?php foreach ($modal_food_cats as $ck => $cd): ?>
-                            <button type="button" class="btn-food-filter-tab" data-cat="<?php echo $ck; ?>" style="padding: 6px 12px; border-radius: 18px; border: 1.5px solid rgba(28,56,38,0.2); background: #fff; color: var(--accent-green); font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">
-                                <i class="<?php echo $cd['icon']; ?>"></i> <?php echo htmlspecialchars($cd['name']); ?> (<?php echo count($cd['items']); ?>)
+                    <!-- Category Filter Tabs & Expand/Collapse Control -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+                        <div class="modal-food-tabs-bar font-sans" style="display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; flex: 1; min-width: 250px;">
+                            <button type="button" class="btn-food-filter-tab active" data-cat="all" style="padding: 6px 12px; border-radius: 18px; border: 1.5px solid var(--accent-green); background: var(--accent-green); color: #fff; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">
+                                🍽️ All (<?php echo count($modal_all_food); ?>)
                             </button>
-                        <?php endforeach; ?>
+                            <?php foreach ($modal_food_cats as $ck => $cd): ?>
+                                <button type="button" class="btn-food-filter-tab" data-cat="<?php echo $ck; ?>" style="padding: 6px 12px; border-radius: 18px; border: 1.5px solid rgba(28,56,38,0.2); background: #fff; color: var(--accent-green); font-size: 11.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease;">
+                                    <i class="<?php echo $cd['icon']; ?>"></i> <?php echo htmlspecialchars($cd['name']); ?> (<?php echo count($cd['items']); ?>)
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+                        <button type="button" id="btn-toggle-all-food-cats" class="btn-toggle-all-cats font-sans" title="Expand or collapse all menu categories">
+                            <i class="fa-solid fa-angles-down"></i> <span>Expand All</span>
+                        </button>
                     </div>
 
                     <div id="food-selection-container" class="food-selection-wrapper">
                         <?php foreach ($modal_food_cats as $cat_key => $cat_data): ?>
-                            <div class="modal-meal-category-block" id="modal-cat-block-<?php echo $cat_key; ?>" data-category="<?php echo $cat_key; ?>" style="margin-bottom: 20px; background: #F8FAF8; border: 1.5px solid rgba(28, 56, 38, 0.12); border-radius: 10px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+                            <div class="modal-meal-category-block" id="modal-cat-block-<?php echo $cat_key; ?>" data-category="<?php echo $cat_key; ?>">
                                 
-                                <div class="meal-cat-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px dashed rgba(28, 56, 38, 0.15);">
-                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                        <span class="font-serif" style="font-size: 17px; color: var(--accent-green); font-weight: 700; letter-spacing: 0.3px;">
-                                            <i class="<?php echo htmlspecialchars($cat_data['icon']); ?>" style="margin-right: 6px; color: var(--accent-gold);"></i>
-                                            <?php echo htmlspecialchars($cat_data['name']); ?>
-                                        </span>
-                                        <span class="font-sans" style="font-size: 11.5px; color: var(--text-muted); background: rgba(28,56,38,0.06); padding: 2px 8px; border-radius: 4px; font-weight: 500;">
-                                            <?php echo htmlspecialchars($cat_data['time']); ?>
-                                        </span>
+                                <div class="meal-cat-header-row font-sans" role="button" tabindex="0" aria-expanded="false" data-cat="<?php echo $cat_key; ?>" title="Click to view / hide dishes for <?php echo htmlspecialchars($cat_data['name']); ?>">
+                                    <div class="meal-cat-header-left">
+                                        <div class="meal-cat-icon-wrap">
+                                            <i class="<?php echo htmlspecialchars($cat_data['icon']); ?>"></i>
+                                        </div>
+                                        <div class="meal-cat-title-wrap">
+                                            <h5 class="meal-cat-title font-serif">
+                                                <span><?php echo htmlspecialchars($cat_data['name']); ?></span>
+                                            </h5>
+                                            <div class="meal-cat-meta-pills">
+                                                <span class="meal-cat-time-pill"><i class="fa-regular fa-clock" style="color: var(--accent-gold); font-size: 10px;"></i> <?php echo htmlspecialchars($cat_data['time']); ?></span>
+                                                <span class="meal-cat-count-pill"><?php echo count($cat_data['items']); ?> items</span>
+                                                <span class="meal-cat-selected-badge" id="cat-badge-selected-<?php echo $cat_key; ?>" style="display: none;">
+                                                    <i class="fa-solid fa-circle-check"></i> <span class="badge-num">0</span> selected
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <label class="meal-skip-btn font-sans" style="font-size: 11.5px; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 6px; background: #FFFFFF; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(28,56,38,0.15); font-weight: 500;">
-                                        <input type="checkbox" class="cat-skip-checkbox" data-target-cat="<?php echo $cat_key; ?>" style="accent-color: var(--accent-gold);">
-                                        <span>Skip <?php echo htmlspecialchars($cat_data['name']); ?></span>
-                                    </label>
+
+                                    <div class="meal-cat-header-right">
+                                        <label class="meal-skip-btn" onclick="event.stopPropagation();" title="Skip ordering <?php echo htmlspecialchars($cat_data['name']); ?>">
+                                            <input type="checkbox" class="cat-skip-checkbox" data-target-cat="<?php echo $cat_key; ?>" style="accent-color: var(--accent-gold); cursor: pointer;">
+                                            <span>Skip</span>
+                                        </label>
+                                        <div class="meal-cat-chevron-btn" title="Click to expand/collapse">
+                                            <i class="fa-solid fa-chevron-down meal-cat-chevron"></i>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div class="modal-dishes-grid" id="dishes-grid-<?php echo $cat_key; ?>" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px;">
+                                <!-- Collapsible Dish Grid Panel (Hidden by default for a clean, compact view) -->
+                                <div class="modal-dishes-grid-panel" id="dishes-panel-<?php echo $cat_key; ?>" style="display: none;">
+                                    <div class="modal-dishes-grid" id="dishes-grid-<?php echo $cat_key; ?>">
                                     <?php if (!empty($cat_data['items'])): ?>
                                         <?php foreach ($cat_data['items'] as $d_item): 
                                              $is_veg = ($d_item['dietary_type'] ?? 'veg') === 'veg';
@@ -519,6 +542,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                             </div>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
+                                    </div>
                                 </div>
 
                             </div>
@@ -589,11 +613,11 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     </div>
                 </div>
 
-                <!-- Step 4: Invoice & Billing Preference (Estimate vs GST Bill) -->
+                <!-- Step 4: GST Billing Preference (Without Address vs With Address) -->
                 <div class="booking-section-group" style="background: #F8FAF8; border: 1.5px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 20px; margin-bottom: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                         <h4 class="group-title font-serif" style="color: #1C3826 !important; font-size: 1.35rem; margin-bottom: 0;">
-                            <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-gold); margin-right: 6px;"></i> 4. Invoice & Billing Preference
+                            <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-gold); margin-right: 6px;"></i> 4. GST Invoice & Billing Details
                         </h4>
                         <span id="badge-gst-rate" style="font-size: 11.5px; background: rgba(14, 116, 144, 0.1); color: #0E7490; padding: 3px 10px; border-radius: 4px; font-weight: 700; border: 1px solid rgba(14, 116, 144, 0.2);">
                             GST Tax Rate: <?php echo htmlspecialchars($gst_rate_percent); ?>%
@@ -601,37 +625,37 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     </div>
                     
                     <p class="font-sans" style="font-size: 12.5px; color: #475569; margin-bottom: 14px; line-height: 1.5;">
-                        Choose whether you require an official <strong>GST Tax Invoice</strong> (for corporate expense claim & input tax credit) or a standard <strong>Estimate Bill</strong>.
+                        All reservations include official <strong><?php echo htmlspecialchars($gst_rate_percent); ?>% GST</strong>. Please indicate whether you require your registered company address &amp; GSTIN on the invoice for tax input credit.
                     </p>
 
                     <!-- Billing Type Interactive Selection Cards -->
                     <div class="booking-billing-type-selector font-sans" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 14px;">
-                        <!-- Estimate Bill Card -->
-                        <label class="modal-billing-card modal-billing-card-active" id="label-bill-estimate" style="background: #FEF9C3; border: 2px solid #CA8A04; border-radius: 8px; padding: 14px 16px; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: all 0.2s ease;">
-                            <input type="radio" name="modal_billing_type" value="estimate" checked style="margin-top: 3px; accent-color: #CA8A04;">
+                        <!-- GST Bill Without Address (Standard) Card -->
+                        <label class="modal-billing-card modal-billing-card-active" id="label-bill-without-address" style="background: #E0F2FE; border: 2px solid #0284C7; border-radius: 8px; padding: 14px 16px; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: all 0.2s ease;">
+                            <input type="radio" name="modal_billing_type" value="gst_without_address" checked style="margin-top: 3px; accent-color: #0284C7;">
                             <div style="flex: 1;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                                    <strong style="font-size: 14px; color: #854D0E; font-weight: 700;">Estimate Bill</strong>
-                                    <span style="font-size: 10.5px; background: #FEF08A; color: #854D0E; padding: 2px 7px; border-radius: 3px; font-weight: 700;">Standard</span>
+                                    <strong style="font-size: 14px; color: #0369A1; font-weight: 700;">GST Bill (Without Address)</strong>
+                                    <span style="font-size: 10.5px; background: #BAE6FD; color: #0369A1; padding: 2px 7px; border-radius: 3px; font-weight: 700;">Standard</span>
                                 </div>
-                                <span style="font-size: 11.5px; color: #475569; line-height: 1.4; display: block;">Standard reservation voucher & stay folio. No GSTIN required (0% GST added).</span>
+                                <span style="font-size: 11.5px; color: #475569; line-height: 1.4; display: block;">Standard guest GST bill with 5% tax. No company GSTIN or address required.</span>
                             </div>
                         </label>
 
-                        <!-- GST Tax Invoice Card -->
-                        <label class="modal-billing-card" id="label-bill-gst" style="background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 14px 16px; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: all 0.2s ease;">
-                            <input type="radio" name="modal_billing_type" value="gst" style="margin-top: 3px; accent-color: #0284C7;">
+                        <!-- GST Bill With Address (B2B Tax Invoice) Card -->
+                        <label class="modal-billing-card" id="label-bill-with-address" style="background: #FFFFFF; border: 1.5px solid #CBD5E1; border-radius: 8px; padding: 14px 16px; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: all 0.2s ease;">
+                            <input type="radio" name="modal_billing_type" value="gst_with_address" style="margin-top: 3px; accent-color: #0284C7;">
                             <div style="flex: 1;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                                    <strong style="font-size: 14px; color: #0369A1; font-weight: 700;">GST Tax Invoice</strong>
-                                    <span style="font-size: 10.5px; background: #E0F2FE; color: #0284C7; padding: 2px 7px; border-radius: 3px; font-weight: 700;">+<?php echo htmlspecialchars($gst_rate_percent); ?>% GST</span>
+                                    <strong style="font-size: 14px; color: #1E293B; font-weight: 700;">GST Bill (With Address &amp; GSTIN)</strong>
+                                    <span style="font-size: 10.5px; background: #DCFCE7; color: #15803D; padding: 2px 7px; border-radius: 3px; font-weight: 700;">B2B ITC</span>
                                 </div>
-                                <span style="font-size: 11.5px; color: #475569; line-height: 1.4; display: block;">Official B2B / B2C Tax Invoice with GSTIN breakdown & billing address.</span>
+                                <span style="font-size: 11.5px; color: #475569; line-height: 1.4; display: block;">Official B2B tax invoice with registered company name, GSTIN &amp; billing address.</span>
                             </div>
                         </label>
                     </div>
 
-                    <!-- Collapsible GST Details Form (Shown when GST Bill is selected) -->
+                    <!-- Collapsible GST Details Form (Shown when GST Bill With Address is selected) -->
                     <div id="modal-gst-fields-wrapper" style="display: none; background: #FFFFFF; border: 1.5px solid #0284C7; border-radius: 8px; padding: 16px 18px; margin-top: 14px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.08); transition: all 0.3s ease;">
                         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #0284C7; font-size: 13px; font-weight: 700;">
                             <i class="fa-solid fa-building-flag"></i> <span>Company & GST Identification Details</span>
@@ -640,7 +664,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         <div class="booking-grid-2">
                             <div class="form-field">
                                 <label for="modal-gst-number" class="form-label font-sans" style="color: #0F172A !important; font-weight: 600;">
-                                    GSTIN Number * <small style="font-size: 11px; color: #0284C7; font-weight: normal;">(15-Character GST ID)</small>
+                                    Company GSTIN Number * <small style="font-size: 11px; color: #0284C7; font-weight: normal;">(15-Character GST ID)</small>
                                 </label>
                                 <input type="text" id="modal-gst-number" class="form-input font-sans" placeholder="e.g. 32AAAAA0000A1Z5" maxlength="15" style="text-transform: uppercase; font-family: monospace; font-weight: 700; color: #0F172A !important; letter-spacing: 1px;">
                             </div>
@@ -796,6 +820,13 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                 </button>
                             </div>
                         </div>
+                        <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; padding: 0 2px;">
+                            <label style="display: inline-flex; align-items: center; gap: 6px; color: #0369A1; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" id="modal-auto-compress" name="auto_compress" value="1" checked style="accent-color: #0284C7; cursor: pointer; width: 14px; height: 14px;">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="color: #0284C7;"></i> Auto-compress &amp; resize photo
+                            </label>
+                            <span style="color: #059669; font-weight: 700; background: rgba(5, 150, 105, 0.1); padding: 2px 7px; border-radius: 4px; font-size: 10px;">⚡ Instant 80% Faster Upload</span>
+                        </div>
                     </div>
 
                     <div class="form-field" style="margin-bottom: 12px;">
@@ -857,20 +888,20 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         </div>
                     </div>
 
-                    <!-- Taxable Subtotal Line (Shown when GST is Active) -->
-                    <div class="summary-line" id="summary-subtotal-line" style="display: none; border-top: 1px dashed rgba(28, 56, 38, 0.15); padding-top: 8px; margin-top: 4px;">
+                    <!-- Taxable Subtotal Line -->
+                    <div class="summary-line" id="summary-subtotal-line" style="display: flex; border-top: 1px dashed rgba(28, 56, 38, 0.15); padding-top: 8px; margin-top: 4px;">
                         <span class="font-sans font-weight-600" style="color: #475569;">Taxable Subtotal (Stay + Meals):</span>
                         <span id="summary-subtotal-rate" class="font-sans font-weight-600" style="color: #1E293B;">₹14,500</span>
                     </div>
 
-                    <!-- GST Tax Rate Line (Shown when GST Bill is Chosen) -->
-                    <div class="summary-line" id="summary-gst-line" style="display: none; color: #0284C7; font-weight: 600;">
+                    <!-- GST Tax Line (Always 5%) -->
+                    <div class="summary-line" id="summary-gst-line" style="display: flex; color: #0284C7; font-weight: 600;">
                         <span class="font-sans"><i class="fa-solid fa-file-invoice-dollar" style="font-size: 11.5px;"></i> <span id="summary-gst-label">GST Tax (<?php echo htmlspecialchars($gst_rate_percent); ?>%):</span></span>
                         <span id="summary-gst-rate" class="font-sans font-weight-600">+₹0</span>
                     </div>
 
                     <div class="summary-line total-line">
-                        <span class="font-serif" id="summary-total-title">Estimated Total (Standard Folio):</span>
+                        <span class="font-serif" id="summary-total-title">Grand Total (<?php echo htmlspecialchars($gst_rate_percent); ?>% GST Incl.):</span>
                         <span id="summary-total" class="font-serif price-highlight">₹14,500</span>
                     </div>
                 </div> <!-- End .booking-summary-box -->

@@ -191,7 +191,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $ext = strtolower(pathinfo($_FILES['id_proof_file']['name'], PATHINFO_EXTENSION));
                     if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'pdf'])) {
                         $id_proof_file = 'id_adm_' . time() . '_' . rand(100, 999) . '.' . $ext;
-                        move_uploaded_file($_FILES['id_proof_file']['tmp_name'], $upload_dir . $id_proof_file);
+                        if (move_uploaded_file($_FILES['id_proof_file']['tmp_name'], $upload_dir . $id_proof_file)) {
+                            if ($ext !== 'pdf' && (!isset($_POST['auto_compress']) || !empty($_POST['auto_compress']))) {
+                                compress_and_resize_image_file($upload_dir . $id_proof_file, ['max_dimension' => 1600]);
+                            }
+                        }
                     }
                 }
 
@@ -212,8 +216,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Search and Filter logic
 $search = trim($_GET['search'] ?? '');
-$active_tab = trim($_GET['tab'] ?? ($_GET['status'] ?? ($_GET['filter'] ?? 'all')));
-if (empty($active_tab)) $active_tab = 'all';
+$active_tab = trim($_GET['tab'] ?? ($_GET['status'] ?? ($_GET['filter'] ?? 'pending')));
+if (empty($active_tab)) $active_tab = 'pending';
 $filter_villa = trim($_GET['villa'] ?? '');
 $filter_source = trim($_GET['source'] ?? '');
 $date_from = trim($_GET['date_from'] ?? '');
@@ -315,9 +319,11 @@ $tab_title_map = [
 $current_heading = $tab_title_map[$active_tab] ?? 'All Reservations';
 
 // Build query string helper for links
-function build_tab_url($tab_name, $current_params = []) {
-    $params = array_merge($_GET, ['tab' => $tab_name]);
-    return 'bookings.php?' . http_build_query($params);
+if (!function_exists('build_tab_url')) {
+    function build_tab_url($tab_name, $current_params = []) {
+        $params = array_merge($_GET, ['tab' => $tab_name]);
+        return 'bookings.php?' . http_build_query($params);
+    }
 }
 ?>
 
@@ -330,11 +336,6 @@ function build_tab_url($tab_name, $current_params = []) {
 
 <!-- Multi-Status Reservations Tabs -->
 <div class="adm-reservation-tabs">
-    <a href="<?php echo build_tab_url('all'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'all') ? 'is-active' : ''; ?>">
-        <i class="fa-solid fa-list-check"></i>
-        <span>All</span>
-        <span class="adm-res-tab-pill gold"><?php echo $count_all; ?></span>
-    </a>
     <a href="<?php echo build_tab_url('pending'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'pending') ? 'is-active' : ''; ?>" title="New online bookings needing approval">
         <i class="fa-solid fa-hourglass-half" style="color: #f59e0b;"></i>
         <span>Pending</span>
@@ -365,10 +366,15 @@ function build_tab_url($tab_name, $current_params = []) {
         <span>Former Guests</span>
         <span class="adm-res-tab-pill slate"><?php echo $count_former; ?></span>
     </a>
-    <a href="<?php echo build_tab_url('cancelled'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'cancelled') ? 'is-active' : ''; ?>">
+    <a href="<?php echo build_tab_url('cancelled'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'cancelled') ? 'is-active' : ''; ?>" title="Cancelled or rejected bookings">
         <i class="fa-solid fa-ban" style="color: #f43f5e;"></i>
         <span>Cancelled</span>
         <span class="adm-res-tab-pill rose"><?php echo $count_cancelled; ?></span>
+    </a>
+    <a href="<?php echo build_tab_url('all'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'all') ? 'is-active' : ''; ?>" title="All bookings across all statuses">
+        <i class="fa-solid fa-list-check"></i>
+        <span>All</span>
+        <span class="adm-res-tab-pill gold"><?php echo $count_all; ?></span>
     </a>
 </div>
 
@@ -379,7 +385,7 @@ function build_tab_url($tab_name, $current_params = []) {
         <form method="GET" class="adm-search-box" style="display:flex;">
             <input type="text" name="search" id="adm-table-search" class="adm-search-input" placeholder="Search by name, phone, ref #..." value="<?php echo e($search); ?>">
             <i class="fa-solid fa-magnifying-glass adm-search-icon"></i>
-            <?php if (!empty($active_tab) && $active_tab !== 'all'): ?>
+            <?php if (!empty($active_tab)): ?>
                 <input type="hidden" name="tab" value="<?php echo e($active_tab); ?>">
             <?php endif; ?>
             <?php if (!empty($filter_villa)): ?>
@@ -463,7 +469,7 @@ function build_tab_url($tab_name, $current_params = []) {
             <h2 class="adm-table-title"><?php echo $current_heading; ?> (<?php echo count($bookings); ?>)</h2>
             <p class="adm-table-subtitle">Showing guest itineraries matching active status & stay filters</p>
         </div>
-        <?php if (!empty($search) || ($active_tab !== 'all') || !empty($filter_villa)): ?>
+        <?php if (!empty($search) || ($active_tab !== 'pending') || !empty($filter_villa) || !empty($filter_source) || !empty($date_from) || !empty($date_to)): ?>
             <a href="bookings.php" class="adm-btn-action outline" style="font-size: 12px; padding: 4px 10px;">
                 <i class="fa-solid fa-xmark"></i> Clear Filters
             </a>
@@ -957,6 +963,13 @@ function build_tab_url($tab_name, $current_params = []) {
                     <div class="adm-form-group">
                         <label class="adm-label">Attach ID Document (JPG, PNG, PDF)</label>
                         <input type="file" name="id_proof_file" accept=".jpg,.jpeg,.png,.webp,.pdf" class="adm-input" style="padding: 7px 10px; font-size: 12px;">
+                        <div style="margin-top: 6px; font-size: 11px; display: flex; align-items: center; gap: 6px;">
+                            <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: #2ecc71; font-weight: 600;">
+                                <input type="checkbox" name="auto_compress" value="1" checked style="accent-color: #2ecc71; cursor: pointer;">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-compress &amp; resize photo
+                            </label>
+                            <span style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">Recommended</span>
+                        </div>
                     </div>
                 </div>
 

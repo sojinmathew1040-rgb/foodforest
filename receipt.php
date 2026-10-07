@@ -29,8 +29,11 @@ if (!$booking) {
 // 4. Passcode matches guest_access_token or guest phone
 $is_admin = !empty($_SESSION['admin_logged_in']);
 $is_owner_user = is_client_user_logged_in() && ((int)$_SESSION['ff_client_user_id'] === (int)$booking['user_id']);
-$is_owner_guest = is_guest_booking_session_active() && ($_SESSION['ff_guest_booking_ref'] === $booking['reference_code']);
-$is_valid_passcode = !empty($passcode) && (!empty($booking['guest_access_token']) && strcasecmp($booking['guest_access_token'], $passcode) === 0);
+$clean_pass = preg_replace('/[^0-9]/', '', $passcode);
+$clean_phone_db = preg_replace('/[^0-9]/', '', $booking['guest_phone'] ?? '');
+$phone_match = !empty($clean_pass) && strlen($clean_pass) >= 4 && str_ends_with($clean_phone_db, substr($clean_pass, -4));
+$token_match = !empty($passcode) && !empty($booking['guest_access_token']) && (strcasecmp($booking['guest_access_token'], $passcode) === 0);
+$is_valid_passcode = $token_match || $phone_match;
 
 if (!$is_admin && !$is_owner_user && !$is_owner_guest && !$is_valid_passcode) {
     // If not verified, redirect to guest portal with ref code prefilled
@@ -68,31 +71,76 @@ $food_amount = (float)($booking['food_amount'] ?? 0.00);
 $room_amount = (float)($booking['room_amount'] ?? ($booking['total_amount'] - $food_amount));
 $total_amount = (float)$booking['total_amount'];
 
-// Billing Type & GST Breakdown
-$billing_type = !empty($booking['billing_type']) ? strtolower(trim($booking['billing_type'])) : 'estimate';
-$is_gst_bill = ($billing_type === 'gst');
+// Billing Type & GST Breakdown (All receipts are official GST Tax Invoices)
+$raw_billing_type = !empty($booking['billing_type']) ? strtolower(trim($booking['billing_type'])) : 'gst_without_address';
+if ($raw_billing_type === 'estimate') {
+    $raw_billing_type = 'gst_without_address';
+}
+$billing_type = $raw_billing_type;
+$is_gst_bill = true;
 $guest_gstin = $booking['gst_number'] ?? '';
 $billing_name = $booking['billing_name'] ?? '';
 $billing_address = $booking['billing_address'] ?? '';
-$gst_percentage = (float)($booking['gst_percentage'] ?? 0.00);
-$gst_amount = (float)($booking['gst_amount'] ?? 0.00);
-$taxable_subtotal = $room_amount + $food_amount;
+$has_b2b_details = ($billing_type === 'gst_with_address' || (!empty($guest_gstin) && !empty($billing_address)));
 
-if ($is_gst_bill && $gst_percentage <= 0) {
-    $gst_percentage = (float)get_setting('gst_rate_percentage', '12');
+$system_gst_rate = (float)get_setting('gst_rate_percentage', '5');
+if ($system_gst_rate <= 0) $system_gst_rate = 5.00;
+
+$gst_percentage = (float)($booking['gst_percentage'] ?? 0.00);
+if ($gst_percentage <= 0) {
+    $gst_percentage = $system_gst_rate;
 }
-if ($is_gst_bill && $gst_amount <= 0) {
+
+$taxable_subtotal = $room_amount + $food_amount;
+$gst_amount = (float)($booking['gst_amount'] ?? 0.00);
+if ($gst_amount <= 0) {
     $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
 }
+if ($total_amount <= $taxable_subtotal) {
+    $total_amount = $taxable_subtotal + $gst_amount;
+}
 
-// Group food items by category
-$grouped_food = [];
+// Resolve meal serving slot for each item (breakfast, lunch, snacks, dinner)
+$grouped_food = [
+    'breakfast' => [],
+    'lunch' => [],
+    'snacks' => [],
+    'dinner' => []
+];
+
+$total_verified_food_calc = 0.0;
 foreach ($food_items as $fi) {
-    $cat = strtolower(trim($fi['category'] ?? 'general'));
-    if (!isset($grouped_food[$cat])) {
-        $grouped_food[$cat] = [];
+    $slot = strtolower(trim($fi['meal_time'] ?? $fi['category'] ?? 'lunch'));
+    if (strpos($slot, 'snack') !== false || strpos($slot, 'evening') !== false || strpos($slot, 'tea') !== false) {
+        $slot = 'snacks';
+    } elseif (strpos($slot, 'break') !== false || strpos($slot, 'morn') !== false) {
+        $slot = 'breakfast';
+    } elseif (strpos($slot, 'din') !== false || strpos($slot, 'night') !== false) {
+        $slot = 'dinner';
+    } elseif (strpos($slot, 'lunch') !== false || strpos($slot, 'noon') !== false) {
+        $slot = 'lunch';
     }
-    $grouped_food[$cat][] = $fi;
+    if (!in_array($slot, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+        $slot = 'lunch';
+    }
+    
+    $qty = max(1, (int)($fi['quantity'] ?? 1));
+    $price = (float)($fi['price'] ?? 0);
+    $subtotal = (float)($fi['subtotal'] ?? ($qty * $price));
+    $total_verified_food_calc += $subtotal;
+    
+    $fi['resolved_slot'] = $slot;
+    $fi['quantity'] = $qty;
+    $fi['price'] = $price;
+    $fi['subtotal'] = $subtotal;
+    $grouped_food[$slot][] = $fi;
+}
+
+if ($food_amount <= 0 && $total_verified_food_calc > 0) {
+    $food_amount = $total_verified_food_calc;
+    $taxable_subtotal = $room_amount + $food_amount;
+    $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
+    $total_amount = $taxable_subtotal + $gst_amount;
 }
 
 $meal_rituals = [
@@ -102,7 +150,7 @@ $meal_rituals = [
         'time' => '07:30 AM — 10:00 AM',
         'items' => $grouped_food['breakfast'] ?? [],
         'default_title' => 'Chef\'s Organic Orchard Breakfast',
-        'is_complimentary' => true,
+        'is_complimentary' => false,
     ],
     'lunch' => [
         'name' => 'Lunch Ritual',
@@ -850,15 +898,9 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                 </p>
             </div>
             <div class="receipt-meta-box">
-                <?php if ($is_gst_bill): ?>
-                    <span class="receipt-status-badge font-sans" style="background: rgba(2, 132, 199, 0.12); color: #0284C7; border: 1px solid rgba(2, 132, 199, 0.3);">
-                        <i class="fa-solid fa-file-invoice-dollar"></i> TAX INVOICE (GST)
-                    </span>
-                <?php else: ?>
-                    <span class="receipt-status-badge font-sans">
-                        <i class="fa-solid fa-circle-check"></i> ESTIMATE STAY FOLIO
-                    </span>
-                <?php endif; ?>
+                <span class="receipt-status-badge font-sans" style="background: rgba(2, 132, 199, 0.12); color: #0284C7; border: 1px solid rgba(2, 132, 199, 0.3);">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> TAX INVOICE (GST <?php echo number_format($gst_percentage, 0); ?>%)
+                </span>
                 <div class="receipt-ref-code font-serif"><?php echo htmlspecialchars($booking['reference_code']); ?></div>
                 <div class="receipt-date-line font-sans">
                     Issued: <?php echo date('d M Y, h:i A', strtotime($booking['created_at'])); ?>
@@ -913,8 +955,8 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                     </div>
                     <div class="detail-row">
                         <span class="label">Folio Type:</span>
-                        <span class="value" style="font-weight: 700; color: <?php echo $is_gst_bill ? '#0284C7' : '#101F15'; ?>;">
-                            <?php echo $is_gst_bill ? "Official Tax Invoice (GST {$gst_percentage}%)" : 'Estimate Bill (Standard Folio)'; ?>
+                        <span class="value" style="font-weight: 700; color: #0284C7;">
+                            <?php echo $has_b2b_details ? "B2B Tax Invoice (GST {$gst_percentage}%)" : "Standard Tax Invoice (GST {$gst_percentage}%)"; ?>
                         </span>
                     </div>
                 </div>
@@ -934,25 +976,28 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                         <span class="label">Email Address:</span>
                         <span class="value"><?php echo htmlspecialchars($booking['guest_email'] ?: 'On File'); ?></span>
                     </div>
-                    <?php if ($is_gst_bill): ?>
-                        <?php if (!empty($guest_gstin)): ?>
-                            <div class="detail-row">
-                                <span class="label">Guest GSTIN:</span>
-                                <span class="value" style="font-family: monospace; font-weight: bold; color: #0284C7;"><?php echo htmlspecialchars($guest_gstin); ?></span>
-                            </div>
-                        <?php endif; ?>
-                        <?php if (!empty($billing_name)): ?>
-                            <div class="detail-row">
-                                <span class="label">Billing Name:</span>
-                                <span class="value"><?php echo htmlspecialchars($billing_name); ?></span>
-                            </div>
-                        <?php endif; ?>
-                        <?php if (!empty($billing_address)): ?>
-                            <div class="detail-row">
-                                <span class="label">Billing Address:</span>
-                                <span class="value"><?php echo htmlspecialchars($billing_address); ?></span>
-                            </div>
-                        <?php endif; ?>
+                    <?php if (!empty($guest_gstin)): ?>
+                        <div class="detail-row">
+                            <span class="label">Buyer GSTIN:</span>
+                            <span class="value" style="font-family: monospace; font-weight: bold; color: #0284C7;"><?php echo htmlspecialchars($guest_gstin); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($billing_name)): ?>
+                        <div class="detail-row">
+                            <span class="label">Company / Entity:</span>
+                            <span class="value"><?php echo htmlspecialchars($billing_name); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($billing_address)): ?>
+                        <div class="detail-row">
+                            <span class="label">Billing Address:</span>
+                            <span class="value"><?php echo htmlspecialchars($billing_address); ?></span>
+                        </div>
+                    <?php elseif (empty($guest_gstin)): ?>
+                        <div class="detail-row">
+                            <span class="label">Invoice Mode:</span>
+                            <span class="value" style="color: #64748B;">Standard Guest GST (B2C)</span>
+                        </div>
                     <?php endif; ?>
                     <?php if (!empty($booking['special_notes'])): ?>
                         <div class="detail-row">
@@ -1002,7 +1047,7 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                                     <?php endif; ?>
                                 </div>
 
-                                <ul class="meal-dishes-list">
+                                                <ul class="meal-dishes-list">
                                     <?php if ($has_items): ?>
                                         <?php foreach ($ritual['items'] as $item): 
                                             $i_qty = (int)($item['quantity'] ?? 1);
@@ -1012,15 +1057,13 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                                             <li class="meal-dish-item">
                                                 <div class="meal-dish-name">
                                                     <strong><?php echo htmlspecialchars($item['heading']); ?></strong>
-                                                    <?php if ($i_qty > 1): ?>
-                                                        <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">(<?php echo $i_qty; ?> Sets)</span>
-                                                    <?php endif; ?>
+                                                    <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">(<?php echo $i_qty; ?> Set<?php echo $i_qty > 1 ? 's' : ''; ?> @ <?php echo $currency . number_format($i_price, 2); ?>)</span>
                                                 </div>
                                                 <div class="meal-dish-rate">
-                                                    <?php if ($ritual['is_complimentary'] || $i_price == 0): ?>
-                                                        <span style="color: #059669; font-weight: 700;">Included (₹0.00)</span>
+                                                    <?php if ($i_subtotal > 0): ?>
+                                                        <strong style="color: #101F15; font-size: 13.5px;"><?php echo $currency . number_format($i_subtotal, 2); ?></strong>
                                                     <?php else: ?>
-                                                        <span><?php echo $currency . number_format($i_subtotal, 2); ?></span>
+                                                        <span style="color: #059669; font-weight: 700;">Complimentary (₹0.00)</span>
                                                     <?php endif; ?>
                                                 </div>
                                             </li>
@@ -1031,11 +1074,7 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                                                 <span><?php echo htmlspecialchars($ritual['default_title']); ?></span>
                                             </div>
                                             <div class="meal-dish-rate">
-                                                <?php if ($ritual['is_complimentary']): ?>
-                                                    <span style="color: #059669; font-weight: 700;">Included (₹0.00)</span>
-                                                <?php else: ?>
-                                                    <span style="color: #64748B; font-weight: 600; font-size: 11.5px;">Payable On-Site (₹0.00)</span>
-                                                <?php endif; ?>
+                                                <span style="color: #64748B; font-weight: 600; font-size: 11.5px;">A la carte on arrival</span>
                                             </div>
                                         </li>
                                     <?php endif; ?>
@@ -1044,6 +1083,70 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                         </div>
                     <?php endforeach; ?>
                 </div>
+
+                <!-- Official Itemized Gastronomy Billing Table -->
+                <?php if (!empty($food_items)): ?>
+                    <div style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 10px; overflow: hidden; margin-top: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                        <div style="padding: 10px 14px; background: #F8FAF8; border-bottom: 1.5px solid #E2E8F0; display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="font-size: 12.5px; color: #1C3826; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-receipt" style="color: #C5A059; margin-right: 5px;"></i> Itemized Dining &amp; Gastronomy Statement
+                            </strong>
+                            <span style="font-size: 11px; font-weight: 700; color: #047857; background: #ECFDF5; padding: 2px 8px; border-radius: 4px;">
+                                <?php echo count($food_items); ?> Dishes Billed
+                            </span>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; font-family: 'Plus Jakarta Sans', sans-serif;">
+                            <thead>
+                                <tr style="background: #FFFFFF; color: #64748B; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.5px; border-bottom: 1px solid #E2E8F0;">
+                                    <th style="padding: 9px 14px; text-align: left;">Dish / Beverage Item</th>
+                                    <th style="padding: 9px 10px; text-align: left;">Meal Slot</th>
+                                    <th style="padding: 9px 10px; text-align: center;">Qty / Sets</th>
+                                    <th style="padding: 9px 12px; text-align: right;">Unit Rate</th>
+                                    <th style="padding: 9px 14px; text-align: right;">Subtotal (<?php echo $currency; ?>)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($food_items as $f_row): 
+                                    $r_qty = max(1, (int)($f_row['quantity'] ?? 1));
+                                    $r_price = (float)($f_row['price'] ?? 0);
+                                    $r_sub = (float)($f_row['subtotal'] ?? ($r_qty * $r_price));
+                                    $r_slot = strtolower(trim($f_row['meal_time'] ?? $f_row['category'] ?? 'lunch'));
+                                ?>
+                                    <tr style="border-bottom: 1px solid #F1F5F9;">
+                                        <td style="padding: 9px 14px; color: #1E293B; font-weight: 600;">
+                                            <?php echo htmlspecialchars($f_row['heading'] ?? 'Custom Meal'); ?>
+                                            <?php if (!empty($f_row['subtitle'])): ?>
+                                                <div style="font-size: 11px; color: #64748B; font-weight: normal;"><?php echo htmlspecialchars($f_row['subtitle']); ?></div>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="padding: 9px 10px;">
+                                            <span style="font-size: 10.5px; font-weight: 700; color: #065F46; background: #DCFCE7; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;">
+                                                <?php echo htmlspecialchars($r_slot); ?>
+                                            </span>
+                                        </td>
+                                        <td style="padding: 9px 10px; text-align: center; font-weight: 700; color: #1C3826;">
+                                            × <?php echo $r_qty; ?>
+                                        </td>
+                                        <td style="padding: 9px 12px; text-align: right; color: #64748B;">
+                                            <?php echo $currency . number_format($r_price, 2); ?>
+                                        </td>
+                                        <td style="padding: 9px 14px; text-align: right; font-weight: 700; color: #1C3826;">
+                                            <?php echo $currency . number_format($r_sub, 2); ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                            <tfoot>
+                                <tr style="background: #F8FAF8; border-top: 1.5px solid #CBD5E1;">
+                                    <td colspan="4" style="padding: 10px 14px; text-align: right; font-weight: 700; color: #1C3826;">Estate Gastronomy Subtotal:</td>
+                                    <td style="padding: 10px 14px; text-align: right; font-weight: 800; font-size: 13.5px; color: #1C3826;">
+                                        <?php echo $currency . number_format($food_amount, 2); ?>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
 
             <!-- Selected Signature Experiences & Curated Add-ons Section -->
@@ -1145,7 +1248,6 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                                 <td style="color: var(--text-muted);">Estate Gastronomy Total:</td>Gastronomy Total:</td>
                                 <td style="text-align: right; font-weight: 600;"><?php echo $currency . number_format($food_amount, 2); ?></td>
                             </tr>
-                            <?php if ($is_gst_bill): ?>
                                 <tr>
                                     <td style="color: #475569; font-weight: 600; border-top: 1px dashed #E2E8F0; padding-top: 6px;">Taxable Subtotal:</td>
                                     <td style="text-align: right; font-weight: 600; border-top: 1px dashed #E2E8F0; padding-top: 6px;"><?php echo $currency . number_format($taxable_subtotal, 2); ?></td>
@@ -1170,16 +1272,6 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                                     <td class="font-serif" style="font-size: 18px; font-weight: 700; color: var(--primary);">Grand Total (GST Incl.):</td>
                                     <td class="font-serif grand-total-val"><?php echo $currency . number_format($total_amount, 2); ?></td>
                                 </tr>
-                            <?php else: ?>
-                                <tr>
-                                    <td style="color: var(--text-muted);">Estate Taxes & Levies:</td>
-                                    <td style="text-align: right; color: #10B981; font-weight: 600;">Inclusive</td>
-                                </tr>
-                                <tr class="total-row">
-                                    <td class="font-serif" style="font-size: 18px; font-weight: 700; color: var(--primary);">Estimated Total:</td>
-                                    <td class="font-serif grand-total-val"><?php echo $currency . number_format($total_amount, 2); ?></td>
-                                </tr>
-                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>

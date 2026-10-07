@@ -13,8 +13,8 @@ ensure_booking_gst_columns($pdo);
 ensure_food_menu_table_exists($pdo);
 
 $alert_message = '';
-$alert_type = 'success';
-$system_gst_rate = (float)get_setting('gst_rate_percentage', '12');
+$system_gst_rate = (float)get_setting('gst_rate_percentage', '5');
+if ($system_gst_rate <= 0) $system_gst_rate = 5.00;
 
 // Handle Bill Customization & Payment Updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -39,16 +39,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $payment_method = trim($_POST['payment_method'] ?? 'unspecified');
                     $billing_notes = trim($_POST['billing_notes'] ?? '');
 
-                    // GST & Billing Entity parameters
-                    $billing_type = strtolower(trim($_POST['billing_type'] ?? 'estimate'));
-                    if ($billing_type !== 'gst') {
-                        $billing_type = 'estimate';
+                    // GST & Billing Entity parameters (All bills are official GST bills with 5% GST)
+                    $billing_type = strtolower(trim($_POST['billing_type'] ?? 'gst_without_address'));
+                    if (!in_array($billing_type, ['gst_with_address', 'gst_without_address'])) {
+                        $billing_type = (!empty($_POST['gst_number']) ? 'gst_with_address' : 'gst_without_address');
                     }
-                    $is_gst_mode = ($billing_type === 'gst');
-                    $gst_number = $is_gst_mode ? strtoupper(trim($_POST['gst_number'] ?? '')) : '';
-                    $billing_name = $is_gst_mode ? trim($_POST['billing_name'] ?? '') : '';
-                    $billing_address = $is_gst_mode ? trim($_POST['billing_address'] ?? '') : '';
-                    $gst_percentage = $is_gst_mode ? max(0, (float)($_POST['gst_percentage'] ?? $system_gst_rate)) : 0.00;
+                    $is_with_address = ($billing_type === 'gst_with_address');
+                    $gst_number = $is_with_address ? strtoupper(trim($_POST['gst_number'] ?? '')) : '';
+                    $billing_name = $is_with_address ? trim($_POST['billing_name'] ?? '') : '';
+                    $billing_address = $is_with_address ? trim($_POST['billing_address'] ?? '') : '';
+                    $gst_percentage = max(0, (float)($_POST['gst_percentage'] ?? $system_gst_rate));
+                    if ($gst_percentage <= 0) $gst_percentage = 5.00;
 
                     // Process Food Items from Form
                     $food_items = [];
@@ -122,13 +123,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $gross = $room_amount + $food_total + $activities_total + $custom_total;
                     $taxable_subtotal = max(0, $gross - $discount_amount);
 
-                    if ($is_gst_mode) {
-                        $gst_amount = (float)($_POST['gst_amount'] ?? round($taxable_subtotal * ($gst_percentage / 100), 2));
-                        $tax_amount = $gst_amount;
-                    } else {
-                        $gst_amount = 0.00;
-                        $tax_amount = max(0, (float)($_POST['tax_amount'] ?? 0));
+                    $gst_amount = (float)($_POST['gst_amount'] ?? round($taxable_subtotal * ($gst_percentage / 100), 2));
+                    if ($gst_amount <= 0 && $taxable_subtotal > 0) {
+                        $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
                     }
+                    $tax_amount = $gst_amount;
 
                     $net_total = max(0, $taxable_subtotal + $tax_amount);
                     $balance_due = max(0, $net_total - $advance_paid);
@@ -571,9 +570,9 @@ $currency = get_setting('currency_symbol', '₹');
                                         </div>
                                     <?php endif; ?>
                                     <div style="margin-top: 5px;">
-                                        <?php if (!empty($bp['is_gst_bill'])): ?>
+                                        <?php if (!empty($bp['is_b2b_gst'])): ?>
                                             <span class="adm-badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(16,185,129,0.3); font-size: 10.5px; font-weight: 700; padding: 2px 6px;">
-                                                <i class="fa-solid fa-file-invoice" style="margin-right: 3px;"></i> GST INVOICE (<?php echo $bp['gst_percentage']; ?>%)
+                                                <i class="fa-solid fa-building-flag" style="margin-right: 3px;"></i> GST (With Address) <?php echo $bp['gst_percentage']; ?>%
                                             </span>
                                             <?php if (!empty($bp['guest_gst_number'])): ?>
                                                 <div style="font-family: monospace; font-size: 11px; color: var(--adm-gold); margin-top: 2px;">
@@ -581,8 +580,8 @@ $currency = get_setting('currency_symbol', '₹');
                                                 </div>
                                             <?php endif; ?>
                                         <?php else: ?>
-                                            <span class="adm-badge" style="background: rgba(148, 163, 184, 0.12); color: #94A3B8; font-size: 10.5px; padding: 2px 6px;">
-                                                <i class="fa-solid fa-file-lines" style="margin-right: 3px;"></i> ESTIMATE (0% GST)
+                                            <span class="adm-badge" style="background: rgba(2, 132, 199, 0.18); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35); font-size: 10.5px; font-weight: 700; padding: 2px 6px;">
+                                                <i class="fa-solid fa-file-invoice" style="margin-right: 3px;"></i> GST (Without Address) <?php echo $bp['gst_percentage']; ?>%
                                             </span>
                                         <?php endif; ?>
                                     </div>
@@ -982,25 +981,25 @@ $currency = get_setting('currency_symbol', '₹');
                 </div>
             </div>
 
-            <!-- 5. Invoice & Billing Preference (Estimate vs GST) -->
+            <!-- 5. Invoice & Billing Preference (GST Without Address vs With Address) -->
             <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
                 <div style="font-weight: 700; color: var(--adm-gold); font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-file-invoice"></i> 5. Invoice Preference &amp; GST Tax Details
+                    <i class="fa-solid fa-file-invoice"></i> 5. Invoice Preference &amp; GST Tax Details (All Bills: 5% GST)
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                    <label id="modalBillingLabelEstimate" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0A160F; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
-                        <input type="radio" name="billing_type" id="modalBillingTypeEstimate" value="estimate" onchange="toggleModalBillingType()" style="accent-color: var(--adm-gold);">
+                    <label id="modalBillingLabelWithout" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(52, 211, 153, 0.5); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
+                        <input type="radio" name="billing_type" id="modalBillingTypeWithout" value="gst_without_address" onchange="toggleModalBillingType()" style="accent-color: #34D399;" checked>
                         <div>
-                            <strong style="color: #FFFFFF; font-size: 13px; display: block;">Estimate Bill</strong>
-                            <span style="font-size: 11.5px; color: var(--adm-text-muted);">Standard stay folio (0% GST added)</span>
+                            <strong style="color: #34D399; font-size: 13px; display: block;">GST Bill (Without Address)</strong>
+                            <span style="font-size: 11.5px; color: var(--adm-text-muted);">Standard Guest GST Tax Invoice (5% GST)</span>
                         </div>
                     </label>
-                    <label id="modalBillingLabelGst" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0A160F; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
-                        <input type="radio" name="billing_type" id="modalBillingTypeGst" value="gst" onchange="toggleModalBillingType()" style="accent-color: #34D399;">
+                    <label id="modalBillingLabelWith" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #0A160F; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
+                        <input type="radio" name="billing_type" id="modalBillingTypeWith" value="gst_with_address" onchange="toggleModalBillingType()" style="accent-color: #34D399;">
                         <div>
-                            <strong style="color: #34D399; font-size: 13px; display: block;">Official GST Tax Invoice</strong>
-                            <span style="font-size: 11.5px; color: var(--adm-text-muted);">Itemized CGST + SGST tax invoice</span>
+                            <strong style="color: #34D399; font-size: 13px; display: block;">GST Bill (With Company Address &amp; GSTIN)</strong>
+                            <span style="font-size: 11.5px; color: var(--adm-text-muted);">Official B2B Corporate Invoice with ITC</span>
                         </div>
                     </label>
                 </div>
@@ -1108,23 +1107,31 @@ var activeModalBooking = null;
 var systemDefaultGstRate = <?php echo json_encode($system_gst_rate); ?>;
 
 function toggleModalBillingType() {
-    var isGst = document.getElementById('modalBillingTypeGst').checked;
+    var isWithAddress = document.getElementById('modalBillingTypeWith') && document.getElementById('modalBillingTypeWith').checked;
     var wrapper = document.getElementById('modalGstSectionWrapper');
-    var estLabel = document.getElementById('modalBillingLabelEstimate');
-    var gstLabel = document.getElementById('modalBillingLabelGst');
+    var withoutLabel = document.getElementById('modalBillingLabelWithout');
+    var withLabel = document.getElementById('modalBillingLabelWith');
 
-    if (isGst) {
-        wrapper.style.display = 'block';
-        gstLabel.style.borderColor = 'rgba(52, 211, 153, 0.5)';
-        gstLabel.style.background = 'rgba(16, 185, 129, 0.1)';
-        estLabel.style.borderColor = 'rgba(255,255,255,0.1)';
-        estLabel.style.background = '#0A160F';
+    if (isWithAddress) {
+        if (wrapper) wrapper.style.display = 'block';
+        if (withLabel) {
+            withLabel.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+            withLabel.style.background = 'rgba(16, 185, 129, 0.12)';
+        }
+        if (withoutLabel) {
+            withoutLabel.style.borderColor = 'rgba(255,255,255,0.1)';
+            withoutLabel.style.background = '#0A160F';
+        }
     } else {
-        wrapper.style.display = 'none';
-        estLabel.style.borderColor = 'rgba(197, 160, 89, 0.5)';
-        estLabel.style.background = 'rgba(197, 160, 89, 0.08)';
-        gstLabel.style.borderColor = 'rgba(255,255,255,0.1)';
-        gstLabel.style.background = '#0A160F';
+        if (wrapper) wrapper.style.display = 'none';
+        if (withoutLabel) {
+            withoutLabel.style.borderColor = 'rgba(52, 211, 153, 0.5)';
+            withoutLabel.style.background = 'rgba(16, 185, 129, 0.12)';
+        }
+        if (withLabel) {
+            withLabel.style.borderColor = 'rgba(255,255,255,0.1)';
+            withLabel.style.background = '#0A160F';
+        }
     }
     recalculateModalTotals();
 }
@@ -1151,18 +1158,19 @@ function openBillEditModal(booking) {
     document.getElementById('modalChildRate').value = childRate;
     updateChildFeeStatusBadge(kids, childRate, p.nights || 1);
 
-    // GST & Billing Fields
-    var isGst = (p.billing_type === 'gst' || booking.billing_type === 'gst');
-    if (isGst) {
-        document.getElementById('modalBillingTypeGst').checked = true;
+    // GST & Billing Fields (All Bills are 5% GST; toggle With Address vs Without Address)
+    var bType = (p.billing_type || booking.billing_type || '').toLowerCase();
+    var hasB2b = (bType === 'gst_with_address' || (!bType.includes('without') && (p.guest_gst_number || booking.gst_number || p.billing_name || booking.billing_name)));
+    if (hasB2b) {
+        if (document.getElementById('modalBillingTypeWith')) document.getElementById('modalBillingTypeWith').checked = true;
     } else {
-        document.getElementById('modalBillingTypeEstimate').checked = true;
+        if (document.getElementById('modalBillingTypeWithout')) document.getElementById('modalBillingTypeWithout').checked = true;
     }
 
     document.getElementById('modalGstNumber').value = p.guest_gst_number || booking.gst_number || '';
     document.getElementById('modalBillingName').value = p.billing_name || booking.billing_name || '';
     document.getElementById('modalBillingAddress').value = p.billing_address || booking.billing_address || '';
-    document.getElementById('modalGstPercentage').value = (p.gst_percentage > 0 ? p.gst_percentage : systemDefaultGstRate);
+    document.getElementById('modalGstPercentage').value = (p.gst_percentage > 0 ? p.gst_percentage : (systemDefaultGstRate || 5));
 
     document.getElementById('modalDiscount').value = p.discount_amount || 0;
     document.getElementById('modalTax').value = p.tax_amount || 0;
@@ -1376,21 +1384,13 @@ function recalculateModalTotals() {
     var gross = roomAmt + foodTotal + actTotal + custTotal;
     var taxableSubtotal = Math.max(0, gross - discount);
 
-    var isGst = document.getElementById('modalBillingTypeGst') ? document.getElementById('modalBillingTypeGst').checked : false;
-    var gstRate = parseFloat(document.getElementById('modalGstPercentage')?.value) || 0;
-    var calculatedTax = 0;
+    var gstRateInput = parseFloat(document.getElementById('modalGstPercentage')?.value);
+    var gstRate = (!isNaN(gstRateInput) && gstRateInput >= 0) ? gstRateInput : (parseFloat(systemDefaultGstRate) || 5);
+    var calculatedTax = Math.round(taxableSubtotal * (gstRate / 100) * 100) / 100;
 
-    if (isGst) {
-        calculatedTax = Math.round(taxableSubtotal * (gstRate / 100) * 100) / 100;
-        document.getElementById('modalTax').value = calculatedTax.toFixed(2);
-        document.getElementById('modalTaxHeaderLabel').innerText = 'GST (' + gstRate + '%)';
-        document.getElementById('modalTaxSummaryLabel').innerText = '+₹' + calculatedTax.toLocaleString('en-IN', {minimumFractionDigits: 2});
-    } else {
-        calculatedTax = 0;
-        document.getElementById('modalTax').value = '0.00';
-        document.getElementById('modalTaxHeaderLabel').innerText = 'Estimate (0% GST)';
-        document.getElementById('modalTaxSummaryLabel').innerText = '₹0.00';
-    }
+    document.getElementById('modalTax').value = calculatedTax.toFixed(2);
+    document.getElementById('modalTaxHeaderLabel').innerText = 'GST (' + gstRate + '%)';
+    document.getElementById('modalTaxSummaryLabel').innerText = '+₹' + calculatedTax.toLocaleString('en-IN', {minimumFractionDigits: 2});
 
     var net = Math.max(0, taxableSubtotal + calculatedTax);
     var due = Math.max(0, net - advance);

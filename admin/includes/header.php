@@ -49,31 +49,66 @@ $current_page = basename($_SERVER['PHP_SELF']);
     function previewUploadImage(input, previewImgId, infoBadgeId) {
         if (input.files && input.files[0]) {
             var file = input.files[0];
-            if (!file.type.match('image.*')) {
+            if (!file.type.match('image.*') && !file.name.match(/\.(jpe?g|png|webp|gif|svg|avif)$/i)) {
                 alert('Please select an image file (JPG, PNG, WEBP, GIF, SVG).');
                 input.value = '';
                 return;
             }
             var previewImg = document.getElementById(previewImgId);
+            var sizeKb = Math.round(file.size / 1024);
+            var sizeStr = sizeKb > 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
+
             if (previewImg) {
                 var reader = new FileReader();
                 reader.onload = function(e) {
                     previewImg.src = e.target.result;
+                    var tempImg = new Image();
+                    tempImg.onload = function() {
+                        var dims = this.naturalWidth + '×' + this.naturalHeight;
+                        if (infoBadgeId) {
+                            var badge = document.getElementById(infoBadgeId);
+                            if (badge) {
+                                badge.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #2ecc71;"></i> ' + file.name + ' <span style="opacity:0.8;margin-left:4px;">(' + sizeStr + ' • ' + dims + ')</span><span class="adm-compress-tag" title="Auto-compress and resize enabled"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Compress &amp; Resize Active</span>';
+                                badge.style.display = 'inline-flex';
+                            }
+                        }
+                    };
+                    tempImg.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
-            }
-            if (infoBadgeId) {
+            } else if (infoBadgeId) {
                 var badge = document.getElementById(infoBadgeId);
                 if (badge) {
-                    var sizeKb = Math.round(file.size / 1024);
-                    var sizeStr = sizeKb > 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
-                    badge.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #2ecc71;"></i> ' + file.name + ' <span style="opacity:0.7;margin-left:4px;">(' + sizeStr + ')</span>';
+                    badge.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #2ecc71;"></i> ' + file.name + ' <span style="opacity:0.8;margin-left:4px;">(' + sizeStr + ')</span><span class="adm-compress-tag" title="Auto-compress and resize enabled"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Compress &amp; Resize Active</span>';
                     badge.style.display = 'inline-flex';
                 }
             }
         }
     }
     window.previewUploadImage = previewUploadImage;
+
+    // Auto-attach sleek compression option toggle to all upload inputs across admin
+    document.addEventListener("DOMContentLoaded", function() {
+        document.querySelectorAll("input[type='file']").forEach(function(input) {
+            if (input.name === 'backup_file' || input.name === 'sql_file' || input.dataset.noCompress) return;
+            var form = input.form;
+            if (form && !form.querySelector("input[name='auto_compress']")) {
+                var hidden = document.createElement("input");
+                hidden.type = "hidden";
+                hidden.name = "auto_compress";
+                hidden.value = "1";
+                form.appendChild(hidden);
+            }
+            var parent = input.closest(".adm-form-group") || input.parentElement;
+            if (parent && !parent.querySelector(".adm-compress-option-pill")) {
+                var pill = document.createElement("label");
+                pill.className = "adm-compress-option-pill";
+                pill.title = "High-efficiency compression & resizing enabled";
+                pill.innerHTML = '<input type="checkbox" name="auto_compress" value="1" checked onchange="if(this.form){ var h = this.form.querySelector(\'input[type=hidden][name=auto_compress]\'); if(h) h.value = this.checked ? \'1\' : \'0\'; }"> <span><i class="fa-solid fa-bolt" style="color:#10B981;"></i> Auto-compress &amp; resize</span> <span class="badge-rec">⚡ Recommended</span>';
+                parent.appendChild(pill);
+            }
+        });
+    });
 
     function admin_img_src(path, fallback) {
         if (!fallback) fallback = '../assets/images/treehouse_exterior.png';

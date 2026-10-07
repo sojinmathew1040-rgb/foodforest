@@ -328,7 +328,7 @@ function seed_mysql_initial_data(PDO $pdo) {
         'bank_upi_id' => 'foodforest@upi',
         'bank_qr_image' => 'assets/images/foodforest_upi_qr.svg',
         'gst_number' => '32AAECF1234M1Z5',
-        'gst_rate_percentage' => '12',
+        'gst_rate_percentage' => '5',
         'bill_show_bank_details' => '1',
         'bill_show_qr_code' => '1',
         'bill_footer_notes' => 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.'
@@ -358,7 +358,7 @@ function ensure_default_settings(PDO $pdo) {
         'bank_upi_id' => 'foodforest@upi',
         'bank_qr_image' => 'assets/images/foodforest_upi_qr.svg',
         'gst_number' => '32AAECF1234M1Z5',
-        'gst_rate_percentage' => '12',
+        'gst_rate_percentage' => '5',
         'bill_show_bank_details' => '1',
         'bill_show_qr_code' => '1',
         'bill_footer_notes' => 'All payments via UPI, IMPS, or NEFT must be confirmed with transaction ID. For official GST tax invoices, notify concierge prior to checkout.',
@@ -2384,9 +2384,19 @@ function ensure_users_and_guest_columns(?PDO $pdo = null) {
             `email` VARCHAR(150) UNIQUE NOT NULL,
             `phone` VARCHAR(50) NULL,
             `password_hash` VARCHAR(255) NOT NULL,
+            `is_google_verified` TINYINT(1) DEFAULT 0,
+            `verified_at` DATETIME NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             `last_login` DATETIME NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+
+        $u_cols = $pdo->query("SHOW COLUMNS FROM `users`")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('is_google_verified', $u_cols)) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `is_google_verified` TINYINT(1) DEFAULT 0 AFTER `password_hash`");
+        }
+        if (!in_array('verified_at', $u_cols)) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `verified_at` DATETIME NULL AFTER `is_google_verified`");
+        }
 
         // 2. Ensure columns exist in bookings table
         $cols = $pdo->query("SHOW COLUMNS FROM `bookings`")->fetchAll(PDO::FETCH_COLUMN);
@@ -2440,7 +2450,7 @@ function ensure_users_and_guest_columns(?PDO $pdo = null) {
 /**
  * Register a permanent client account
  */
-function register_client_user($full_name, $email, $phone, $password) {
+function register_client_user($full_name, $email, $phone, $password, $is_google_verified = 0) {
     try {
         $pdo = get_db();
         ensure_users_and_guest_columns($pdo);
@@ -2448,6 +2458,7 @@ function register_client_user($full_name, $email, $phone, $password) {
         $email = strtolower(trim($email));
         $full_name = trim($full_name);
         $phone = trim($phone);
+        $is_verified = (int)$is_google_verified > 0 ? 1 : 0;
 
         if (empty($full_name) || empty($email) || empty($password)) {
             return ['success' => false, 'message' => 'Full name, valid email, and password are required.'];
@@ -2460,9 +2471,14 @@ function register_client_user($full_name, $email, $phone, $password) {
             return ['success' => false, 'message' => 'An account with this email already exists. Please sign in instead.'];
         }
 
-        $stmt = $pdo->prepare("INSERT INTO users (full_name, email, phone, password_hash, last_login) VALUES (?, ?, ?, ?, NOW())");
-        $stmt->execute([$full_name, $email, $phone, $password]);
+        $stmt = $pdo->prepare("INSERT INTO users (full_name, email, phone, password_hash, is_google_verified, verified_at, last_login) VALUES (?, ?, ?, ?, ?, " . ($is_verified ? "NOW()" : "NULL") . ", NOW())");
+        $stmt->execute([$full_name, $email, $phone, $password, $is_verified]);
         $user_id = (int)$pdo->lastInsertId();
+
+        // Auto-link any existing bookings matching this email
+        try {
+            $pdo->prepare("UPDATE bookings SET user_id = ? WHERE LOWER(guest_email) = ? AND (user_id IS NULL OR user_id = 0)")->execute([$user_id, $email]);
+        } catch (Exception $e) {}
 
         return [
             'success' => true,
@@ -2470,7 +2486,8 @@ function register_client_user($full_name, $email, $phone, $password) {
                 'id' => $user_id,
                 'full_name' => $full_name,
                 'email' => $email,
-                'phone' => $phone
+                'phone' => $phone,
+                'is_google_verified' => $is_verified
             ]
         ];
     } catch (Exception $e) {
@@ -2502,6 +2519,11 @@ function authenticate_client_user($email, $password) {
 
         // Update last login
         $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
+
+        // Auto-link any existing bookings matching this email
+        try {
+            $pdo->prepare("UPDATE bookings SET user_id = ? WHERE LOWER(guest_email) = ? AND (user_id IS NULL OR user_id = 0)")->execute([$user['id'], $email]);
+        } catch (Exception $e) {}
 
         unset($user['password_hash']);
         return ['success' => true, 'user' => $user];
@@ -2566,12 +2588,25 @@ function get_client_bookings($user_id) {
         $pdo = get_db();
         ensure_users_and_guest_columns($pdo);
 
+        // Fetch user email for comprehensive matching
+        $user_email = '';
+        $u_stmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
+        $u_stmt->execute([(int)$user_id]);
+        $user_email = strtolower(trim($u_stmt->fetchColumn() ?: ''));
+
+        if (!empty($user_email)) {
+            // Auto link any unlinked bookings matching this email
+            try {
+                $pdo->prepare("UPDATE bookings SET user_id = ? WHERE LOWER(guest_email) = ? AND (user_id IS NULL OR user_id = 0)")->execute([(int)$user_id, $user_email]);
+            } catch (Exception $e) {}
+        }
+
         $stmt = $pdo->prepare("SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type
                                FROM bookings b 
                                LEFT JOIN rooms r ON b.villa_type = r.slug 
-                               WHERE b.user_id = ? 
+                               WHERE b.user_id = ? OR (LOWER(b.guest_email) = ? AND ? != '')
                                ORDER BY b.id DESC");
-        $stmt->execute([(int)$user_id]);
+        $stmt->execute([(int)$user_id, $user_email, $user_email]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($rows as &$r) {
@@ -3135,7 +3170,7 @@ function ensure_booking_gst_columns(PDO $pdo) {
         $cols = $pdo->query("SHOW COLUMNS FROM `bookings`")->fetchAll(PDO::FETCH_COLUMN);
 
         if (!in_array('billing_type', $cols)) {
-            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `billing_type` VARCHAR(20) DEFAULT 'estimate' AFTER `booking_source`");
+            $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `billing_type` VARCHAR(20) DEFAULT 'gst_without_address' AFTER `booking_source`");
         }
         if (!in_array('gst_number', $cols)) {
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `gst_number` VARCHAR(50) NULL AFTER `billing_type`");
@@ -3425,29 +3460,28 @@ function get_booking_billing_details($pdo, $identifier) {
         $gross_total = $room_amount + $food_total + $activities_total + $custom_total + $extra_charges;
         $taxable_subtotal = max(0, $gross_total - $discount_amount);
 
-        // GST & Billing Configuration
-        $billing_type = !empty($b['billing_type']) ? strtolower(trim($b['billing_type'])) : 'estimate';
-        $is_gst_bill = ($billing_type === 'gst');
-        
-        $system_gst_rate = (float)get_setting('gst_rate_percentage', '12');
-        $gst_percentage = 0.00;
-        $gst_amount = 0.00;
-
-        if ($is_gst_bill) {
-            $gst_percentage = (float)($b['gst_percentage'] > 0 ? $b['gst_percentage'] : $system_gst_rate);
-            if (!empty($b['gst_amount']) && (float)$b['gst_amount'] > 0) {
-                $gst_amount = (float)$b['gst_amount'];
-            } elseif (!empty($b['tax_amount']) && (float)$b['tax_amount'] > 0) {
-                $gst_amount = (float)$b['tax_amount'];
-            } else {
-                $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
-            }
-            $tax_amount = $gst_amount;
-        } else {
-            $tax_amount = (float)($b['tax_amount'] ?? 0);
-            $gst_amount = 0.00;
-            $gst_percentage = 0.00;
+        // GST & Billing Configuration (All bills are official GST bills with 5% GST)
+        $raw_billing_type = !empty($b['billing_type']) ? strtolower(trim($b['billing_type'])) : 'gst_without_address';
+        if ($raw_billing_type === 'estimate') {
+            $raw_billing_type = 'gst_without_address';
         }
+        $billing_type = in_array($raw_billing_type, ['gst_with_address', 'gst_without_address', 'gst']) ? $raw_billing_type : 'gst_without_address';
+        $is_gst_bill = true;
+        $is_b2b_gst = ($billing_type === 'gst_with_address' || (!empty($b['gst_number']) && !empty($b['billing_name'])));
+        
+        $system_gst_rate = (float)get_setting('gst_rate_percentage', '5');
+        if ($system_gst_rate <= 0) $system_gst_rate = 5.00;
+        $gst_percentage = (float)($b['gst_percentage'] > 0 ? $b['gst_percentage'] : $system_gst_rate);
+        if ($gst_percentage <= 0) $gst_percentage = 5.00;
+
+        if (!empty($b['gst_amount']) && (float)$b['gst_amount'] > 0) {
+            $gst_amount = (float)$b['gst_amount'];
+        } elseif (!empty($b['tax_amount']) && (float)$b['tax_amount'] > 0) {
+            $gst_amount = (float)$b['tax_amount'];
+        } else {
+            $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
+        }
+        $tax_amount = $gst_amount;
 
         $net_total = max(0, $taxable_subtotal + $tax_amount);
         
@@ -3530,6 +3564,7 @@ function get_booking_billing_details($pdo, $identifier) {
             'taxable_subtotal' => $taxable_subtotal,
             'billing_type' => $billing_type,
             'is_gst_bill' => $is_gst_bill,
+            'is_b2b_gst' => $is_b2b_gst,
             'guest_gst_number' => $b['gst_number'] ?? '',
             'billing_name' => $b['billing_name'] ?? '',
             'billing_address' => $b['billing_address'] ?? '',

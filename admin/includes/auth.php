@@ -27,10 +27,27 @@ function is_admin_logged_in() {
 }
 
 /**
+ * Checks and enforces 5-minute (300 seconds) inactivity auto-logout for admin.
+ */
+function check_admin_inactivity_timeout() {
+    if (is_admin_logged_in()) {
+        $now = time();
+        $timeout_seconds = 300; // 5 minutes of inactivity
+        if (isset($_SESSION['last_activity']) && ($now - $_SESSION['last_activity'] > $timeout_seconds)) {
+            logout_admin();
+            header("Location: login.php?timeout=1");
+            exit;
+        }
+        $_SESSION['last_activity'] = $now;
+    }
+}
+
+/**
  * Ensures administrator is actively logged in.
  * If not, redirects to login page with return url.
  */
 function require_admin_auth() {
+    check_admin_inactivity_timeout();
     if (!is_admin_logged_in()) {
         $current_url = $_SERVER['REQUEST_URI'] ?? '';
         header("Location: login.php?return=" . urlencode($current_url));

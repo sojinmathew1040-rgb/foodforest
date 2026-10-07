@@ -393,6 +393,19 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </a>
 
+    <!-- Card 19: Media & Image Optimization (Auto-Compress & Resize) -->
+    <a href="edit_section.php?section=media" class="adm-setting-card-btn" data-title="media image photo auto compress resize optimization webp automatic quality dimensions batch sandbox" style="text-decoration:none; color:inherit; display:flex;">
+        <div class="adm-setting-card-icon cyan" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; border-color: rgba(14, 165, 233, 0.35);"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+        <div class="adm-setting-card-content">
+            <span class="adm-setting-card-num" style="color: #38bdf8;">CARD 19 • MEDIA OPTIMIZER</span>
+            <h4>Image Compression &amp; Resize</h4>
+            <p>Auto-compress, WebP &amp; resize high-res uploads</p>
+            <span style="font-size: 11px; color: var(--adm-gold); font-weight: 600; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                Open Section Editor <i class="fa-solid fa-arrow-right"></i>
+            </span>
+        </div>
+    </a>
+
 </div>
 
 <script>

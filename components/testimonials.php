@@ -257,6 +257,12 @@
                                 </label>
                                 <div id="review-avatar-preview" class="avatar-preview-box" style="display: none;"></div>
                             </div>
+                            <div style="margin-top: 4px; font-size: 11px;">
+                                <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; color:var(--text-muted, #718096); font-weight:500;">
+                                    <input type="checkbox" name="auto_compress_avatar" value="1" checked style="accent-color:#C5A059; cursor:pointer;">
+                                    <i class="fa-solid fa-wand-magic-sparkles" style="color:#C5A059;"></i> Auto-compress &amp; resize avatar
+                                </label>
+                            </div>
                         </div>
 
                         <div class="review-form-group">
@@ -269,6 +275,12 @@
                                     <span id="review-media-trigger-text"><i class="fa-solid fa-camera"></i> Upload Photo / Video</span>
                                 </label>
                                 <div id="review-media-preview-box" class="media-preview-box" style="display: none;"></div>
+                            </div>
+                            <div style="margin-top: 4px; font-size: 11px;">
+                                <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; color:var(--text-muted, #718096); font-weight:500;">
+                                    <input type="checkbox" name="auto_compress_media" value="1" checked style="accent-color:#C5A059; cursor:pointer;">
+                                    <i class="fa-solid fa-wand-magic-sparkles" style="color:#C5A059;"></i> Auto-compress &amp; resize photo
+                                </label>
                             </div>
                         </div>
                     </div>

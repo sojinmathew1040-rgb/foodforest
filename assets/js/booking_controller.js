@@ -55,6 +55,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const sacTotalPrice = document.getElementById('sac-total-price');
     const btnSacOpenCheckout = document.getElementById('btn-sac-open-checkout');
 
+    // New Facility vs Stay DOM Elements
+    const sacRatesPolicy = document.getElementById('sac-rates-policy');
+    const sacPriceBreakdown = document.getElementById('sac-price-breakdown');
+    const sacFacilityCard = document.getElementById('sac-facility-card');
+    const sfcDesc = document.getElementById('sfc-desc');
+    const sfcHighlights = document.getElementById('sfc-highlights');
+    const btnSacCheckInfo = document.getElementById('btn-sac-check-info');
+    const sacWaBtn = document.getElementById('sac-wa-btn');
+    const sacWaText = document.getElementById('sac-wa-text');
+    const sacAmenitiesRow = document.getElementById('sac-amenities-row');
+    const conciergeWhatsApp = window.conciergeWhatsApp || '919234567890';
+
     const nodes = Array.from(document.querySelectorAll('.bms-chalet-node'));
     nodes.forEach(node => {
         const topVal = parseFloat(node.style.top || "50");
@@ -123,8 +135,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Dynamic Photo Set Switcher for Duplex Wings & Chalets
     function syncPhotosForSelection() {
         if (!currentSpot) return;
-        const isDuplex = (currentSpot.structure_type === 'duplex_hut' || (currentRoom && currentRoom.structure_type === 'duplex_hut'));
-        if (isDuplex && currentTier === 'single_room') {
+        const isStay = (!emptyOrZero(currentSpot.is_stay) || currentSpot.category === 'stays');
+        const isDuplex = isStay && (currentSpot.structure_type === 'duplex_hut' || (currentRoom && currentRoom.structure_type === 'duplex_hut'));
+
+        if (!isStay) {
+            if (currentSpot.photos_list && currentSpot.photos_list.length > 0 && currentSpot.photos_list[0]) {
+                currentPhotos = currentSpot.photos_list.filter(p => p && p.trim() !== '');
+            } else if (currentSpot.image_url && currentSpot.image_url.trim() !== '') {
+                currentPhotos = [currentSpot.image_url];
+            } else {
+                const titleLower = (currentSpot.title || '').toLowerCase();
+                if (currentSpot.category === 'dining' || titleLower.includes('dining') || titleLower.includes('kitchen')) {
+                    currentPhotos = ['assets/images/food_kerala_sadya.jpg', 'assets/images/food_dosa_set.jpg', 'assets/images/food_evening_snacks.jpg'];
+                } else if (titleLower.includes('pool')) {
+                    currentPhotos = ['assets/images/01 (10).jpeg', 'assets/images/01 (14).jpeg'];
+                } else if (titleLower.includes('campfire') || titleLower.includes('recreation')) {
+                    currentPhotos = ['assets/images/01 (26).jpeg', 'assets/images/01 (7).jpeg'];
+                } else if (titleLower.includes('kids')) {
+                    currentPhotos = ['assets/images/01 (8).jpeg', 'assets/images/01 (9).jpeg'];
+                } else {
+                    currentPhotos = ['assets/images/01 (25).jpeg'];
+                }
+            }
+        } else if (isDuplex && currentTier === 'single_room') {
             if (currentDuplexUnit === 'left' && currentSpot.photos_left_list && currentSpot.photos_left_list.length > 0) {
                 currentPhotos = currentSpot.photos_left_list;
             } else if (currentDuplexUnit === 'right' && currentSpot.photos_right_list && currentSpot.photos_right_list.length > 0) {
@@ -158,6 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Recalculate and render pricing
     function recalculateSidebarPricing() {
         if (!currentSpot) return;
+        const isStay = (!emptyOrZero(currentSpot.is_stay) || currentSpot.category === 'stays');
+        if (!isStay) return; // Do not calculate nightly room tariff for facilities!
 
         const nights = getNights();
         const adults = parseInt(adultsInput ? adultsInput.value : "2", 10) || 2;
@@ -310,20 +345,138 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Proceed to reserve button state
-        if (btnSacOpenCheckout) {
-            if (isStay && !spotAvail) {
-                btnSacOpenCheckout.disabled = true;
-                btnSacOpenCheckout.classList.add('btn-disabled-booked');
-                btnSacOpenCheckout.innerHTML = '<i class="fa-solid fa-calendar-xmark"></i> <span>Chalet Reserved for Selected Dates</span>';
-            } else if (isStay && spotPartiallyBooked) {
-                btnSacOpenCheckout.disabled = false;
-                btnSacOpenCheckout.classList.remove('btn-disabled-booked');
-                btnSacOpenCheckout.innerHTML = '<span>Book Available Suite</span> <i class="fa-solid fa-arrow-right"></i>';
-            } else {
-                btnSacOpenCheckout.disabled = false;
-                btnSacOpenCheckout.classList.remove('btn-disabled-booked');
-                btnSacOpenCheckout.innerHTML = '<span>Proceed to Reserve</span> <i class="fa-solid fa-arrow-right"></i>';
+        // Proceed to reserve button state & facility vs stay UI toggles
+        if (isStay) {
+            // Show Stay rate policies & price breakdown
+            if (sacRatesPolicy) sacRatesPolicy.style.display = 'block';
+            if (sacPriceBreakdown) sacPriceBreakdown.style.display = 'block';
+            if (sacFacilityCard) sacFacilityCard.style.display = 'none';
+
+            // Show Proceed to Reserve button, Hide Check Info button
+            if (btnSacOpenCheckout) btnSacOpenCheckout.style.display = 'inline-flex';
+            if (btnSacCheckInfo) btnSacCheckInfo.style.display = 'none';
+
+            if (btnSacOpenCheckout) {
+                if (!spotAvail) {
+                    btnSacOpenCheckout.disabled = true;
+                    btnSacOpenCheckout.classList.add('btn-disabled-booked');
+                    btnSacOpenCheckout.innerHTML = '<i class="fa-solid fa-calendar-xmark"></i> <span>Chalet Reserved for Selected Dates</span>';
+                } else if (spotPartiallyBooked) {
+                    btnSacOpenCheckout.disabled = false;
+                    btnSacOpenCheckout.classList.remove('btn-disabled-booked');
+                    btnSacOpenCheckout.innerHTML = '<span>Book Available Suite</span> <i class="fa-solid fa-arrow-right"></i>';
+                } else {
+                    btnSacOpenCheckout.disabled = false;
+                    btnSacOpenCheckout.classList.remove('btn-disabled-booked');
+                    btnSacOpenCheckout.innerHTML = '<span>Proceed to Reserve</span> <i class="fa-solid fa-arrow-right"></i>';
+                }
+            }
+
+            // Restore Stay Amenities
+            if (sacAmenitiesRow) {
+                sacAmenitiesRow.innerHTML = `
+                    <span><i class="fa-solid fa-utensils"></i> All Farm Meals Included</span>
+                    <span><i class="fa-solid fa-wifi"></i> Forest Wi-Fi</span>
+                    <span><i class="fa-solid fa-mug-hot"></i> Organic Tea Ritual</span>
+                    <span><i class="fa-solid fa-square-parking"></i> Free Parking</span>
+                `;
+            }
+
+            // Update WhatsApp Link for Stay Booking
+            if (sacWaBtn) {
+                sacWaBtn.href = `https://wa.me/${conciergeWhatsApp}?text=${encodeURIComponent(`Hello Concierge, I am interested in booking ${spot.title} at Food Forest.`)}`;
+            }
+            if (sacWaText) {
+                sacWaText.innerText = 'WhatsApp Concierge';
+            }
+        } else {
+            // Non-Stay Facilities & Amenities (Pool, Campfire Glade, Dining Hub, Kids Park, etc.)
+            // Hide Stay rate policies & room price breakdown
+            if (sacRatesPolicy) sacRatesPolicy.style.display = 'none';
+            if (sacPriceBreakdown) sacPriceBreakdown.style.display = 'none';
+            if (sacFacilityCard) sacFacilityCard.style.display = 'block';
+
+            // Hide Proceed to Reserve button, Show Check Info button
+            if (btnSacOpenCheckout) btnSacOpenCheckout.style.display = 'none';
+            if (btnSacCheckInfo) {
+                btnSacCheckInfo.style.display = 'inline-flex';
+                btnSacCheckInfo.disabled = false;
+            }
+
+            // Update Facility Card text
+            if (sfcDesc) {
+                sfcDesc.innerText = spot.description || 'This facility is an open sanctuary amenity accessible to all guests staying at our cottages. No separate reservation required.';
+            }
+
+            // Contextual Highlights
+            const titleLower = (spot.title || '').toLowerCase();
+            if (sfcHighlights) {
+                if (titleLower.includes('pool')) {
+                    sfcHighlights.innerHTML = `
+                        <span><i class="fa-solid fa-droplet" style="color: #0EA5E9;"></i> Mountain Spring Water (Zero Chemicals)</span>
+                        <span><i class="fa-solid fa-person-swimming" style="color: #0EA5E9;"></i> Open Daily 07:00 AM – 06:00 PM</span>
+                        <span><i class="fa-solid fa-gift" style="color: #10B981;"></i> Complimentary In-Stay Access</span>
+                    `;
+                } else if (titleLower.includes('campfire') || titleLower.includes('recreation')) {
+                    sfcHighlights.innerHTML = `
+                        <span><i class="fa-solid fa-fire" style="color: #F59E0B;"></i> Twilight Bonfire &amp; Acoustic Music</span>
+                        <span><i class="fa-solid fa-star" style="color: #F59E0B;"></i> Stargazing Glade with Firepit Seating</span>
+                        <span><i class="fa-solid fa-gift" style="color: #10B981;"></i> Complimentary In-Stay Access</span>
+                    `;
+                } else if (titleLower.includes('kitchen') || titleLower.includes('dining') || spot.category === 'dining') {
+                    sfcHighlights.innerHTML = `
+                        <span><i class="fa-solid fa-utensils" style="color: #F59E0B;"></i> All 4 Farm Meals Included in Tariff</span>
+                        <span><i class="fa-solid fa-fire-burner" style="color: #F59E0B;"></i> Claypot Slow Hearth Cooking</span>
+                        <span><i class="fa-solid fa-seedling" style="color: #10B981;"></i> 100% Soil-to-Plate Organic Harvest</span>
+                    `;
+                } else {
+                    sfcHighlights.innerHTML = `
+                        <span><i class="fa-regular fa-clock" style="color: #0EA5E9;"></i> Open Daily for In-House Guests</span>
+                        <span><i class="fa-solid fa-mountain-sun" style="color: var(--accent-gold);"></i> 1,600M Scenic High-Range Atmosphere</span>
+                        <span><i class="fa-solid fa-gift" style="color: #10B981;"></i> Complimentary In-Stay Access</span>
+                    `;
+                }
+            }
+
+            // Tailored Amenities Pills for Facility
+            if (sacAmenitiesRow) {
+                if (titleLower.includes('pool')) {
+                    sacAmenitiesRow.innerHTML = `
+                        <span><i class="fa-solid fa-droplet"></i> Natural Spring Water</span>
+                        <span><i class="fa-solid fa-shower"></i> River Stone Bath</span>
+                        <span><i class="fa-solid fa-leaf"></i> Zero Chlorine</span>
+                        <span><i class="fa-solid fa-mountain"></i> Mountain Vista</span>
+                    `;
+                } else if (titleLower.includes('campfire') || titleLower.includes('recreation')) {
+                    sacAmenitiesRow.innerHTML = `
+                        <span><i class="fa-solid fa-fire"></i> Twilight Bonfire</span>
+                        <span><i class="fa-solid fa-music"></i> Acoustic Stargazing</span>
+                        <span><i class="fa-solid fa-mug-hot"></i> Evening Chai Ritual</span>
+                        <span><i class="fa-solid fa-users"></i> Gathering Glade</span>
+                    `;
+                } else if (titleLower.includes('kitchen') || titleLower.includes('dining') || spot.category === 'dining') {
+                    sacAmenitiesRow.innerHTML = `
+                        <span><i class="fa-solid fa-utensils"></i> All Meals Included</span>
+                        <span><i class="fa-solid fa-seedling"></i> Farm Fresh Harvest</span>
+                        <span><i class="fa-solid fa-fire-burner"></i> Claypot Cooking</span>
+                        <span><i class="fa-solid fa-mug-hot"></i> Marayoor Spices</span>
+                    `;
+                } else {
+                    sacAmenitiesRow.innerHTML = `
+                        <span><i class="fa-solid fa-sparkles"></i> Included Amenity</span>
+                        <span><i class="fa-solid fa-mountain"></i> 1,600M High Range</span>
+                        <span><i class="fa-solid fa-wifi"></i> Forest Wi-Fi</span>
+                        <span><i class="fa-solid fa-leaf"></i> 100% Organic Sanctuary</span>
+                    `;
+                }
+            }
+
+            // Update WhatsApp Link for Facility Inquiry
+            if (sacWaBtn) {
+                sacWaBtn.href = `https://wa.me/${conciergeWhatsApp}?text=${encodeURIComponent(`Hello Concierge, I would like to know more about the ${spot.title} at Food Forest.`)}`;
+            }
+            if (sacWaText) {
+                sacWaText.innerText = 'Inquire with Concierge';
             }
         }
 
@@ -1594,6 +1747,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 14. "Proceed to Reserve" Button -> Triggers Modal with pre-filled state
     function triggerBookingModalWithSelectedStay(forcedSlug) {
+        if (!currentSpot && !forcedSlug) return;
+        const isStay = forcedSlug || (currentSpot && (!emptyOrZero(currentSpot.is_stay) || currentSpot.category === 'stays'));
+        if (!isStay) {
+            // Guard: non-stay facilities cannot be booked via room checkout, open info modal instead
+            if (currentSpot && typeof openFacilityInfoModal === 'function') {
+                openFacilityInfoModal(currentSpot);
+            }
+            return;
+        }
+
         const roomSlug = forcedSlug || (currentSpot ? (currentSpot.linked_room_slug || 'mudhouse-stay') : 'mudhouse-stay');
         const modal = document.getElementById('booking-modal');
         if (!modal) return;
@@ -1690,6 +1853,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnSacOpenCheckout) {
         btnSacOpenCheckout.addEventListener('click', () => triggerBookingModalWithSelectedStay());
+    }
+
+    if (btnSacCheckInfo) {
+        btnSacCheckInfo.addEventListener('click', () => {
+            if (currentSpot && typeof openFacilityInfoModal === 'function') {
+                openFacilityInfoModal(currentSpot);
+            } else if (typeof openAmenitiesGuide === 'function') {
+                openAmenitiesGuide();
+            }
+        });
     }
 
     // Photo Gallery Carousel Controls

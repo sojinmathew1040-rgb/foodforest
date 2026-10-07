@@ -834,15 +834,15 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <!-- Amenities Summary Pills -->
-                            <div class="sac-amenities-row font-sans">
+                            <div class="sac-amenities-row font-sans" id="sac-amenities-row">
                                 <span><i class="fa-solid fa-utensils"></i> All Farm Meals Included</span>
                                 <span><i class="fa-solid fa-wifi"></i> Forest Wi-Fi</span>
                                 <span><i class="fa-solid fa-mug-hot"></i> Organic Tea Ritual</span>
                                 <span><i class="fa-solid fa-square-parking"></i> Free Parking</span>
                             </div>
 
-                            <!-- Transparent Rate Policy Card -->
-                            <div class="sac-rates-policy font-sans" style="background: rgba(197, 160, 89, 0.12); border: 1px dashed rgba(197, 160, 89, 0.5); border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 11.5px; line-height: 1.5;">
+                            <!-- Transparent Rate Policy Card (Stays Only) -->
+                            <div class="sac-rates-policy font-sans" id="sac-rates-policy" style="background: rgba(197, 160, 89, 0.12); border: 1px dashed rgba(197, 160, 89, 0.5); border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 11.5px; line-height: 1.5;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; color: #8F6B2A; font-weight: 700;">
                                     <span style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-shield-halved" style="color: var(--accent-gold);"></i> All-Inclusive Sanctuary Tariff</span>
                                     <button type="button" onclick="openAmenitiesGuide();" style="background: none; border: none; color: #1E6B52; font-size: 11px; cursor: pointer; text-decoration: underline; font-weight: 600; padding: 0;">
@@ -855,8 +855,8 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                             </div>
 
-                            <!-- Pricing Calculation Box -->
-                            <div class="sac-price-breakdown font-sans">
+                            <!-- Pricing Calculation Box (Stays Only) -->
+                            <div class="sac-price-breakdown font-sans" id="sac-price-breakdown">
                                 <div class="price-row">
                                     <span id="sac-price-label">Room Rate (1 Night):</span>
                                     <strong id="sac-base-price">₹5,000</strong>
@@ -871,14 +871,40 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                             </div>
 
+                            <!-- Facility Experience & Information Card (Non-Stay Amenities / Facilities) -->
+                            <div class="sac-facility-card font-sans" id="sac-facility-card" style="display: none;">
+                                <div class="sfc-header">
+                                    <span class="sfc-badge"><i class="fa-solid fa-sparkles"></i> Complimentary Feature</span>
+                                    <button type="button" onclick="openAmenitiesGuide();" class="sfc-all-link">
+                                        <i class="fa-solid fa-circle-info"></i> All 8 Amenities
+                                    </button>
+                                </div>
+                                <p class="sfc-desc" id="sfc-desc">
+                                    This facility is an open sanctuary amenity accessible to all guests staying at our cottages. No separate reservation required.
+                                </p>
+                                <div class="sfc-highlights" id="sfc-highlights">
+                                    <span><i class="fa-regular fa-clock"></i> Open Daily for Guests</span>
+                                    <span><i class="fa-solid fa-users"></i> Resident Guests Only</span>
+                                    <span><i class="fa-solid fa-gift"></i> Complimentary In-Stay Access</span>
+                                </div>
+                            </div>
+
                             <!-- Action Buttons -->
                             <div class="sac-actions">
+                                <!-- Proceed to Reserve: Only shown for Cottages/Stays -->
                                 <button type="button" class="btn-primary sac-book-btn font-sans" id="btn-sac-open-checkout">
                                     <span>Proceed to Reserve</span>
                                     <i class="fa-solid fa-arrow-right"></i>
                                 </button>
-                                <a href="https://wa.me/<?php echo htmlspecialchars($concierge_wa); ?>?text=Hello%20Concierge,%20I%20am%20interested%20in%20booking%20at%20Food%20Forest." target="_blank" class="btn-outline sac-wa-btn font-sans">
-                                    <i class="fa-brands fa-whatsapp"></i> WhatsApp Concierge
+
+                                <!-- Check Info / More Info: Shown ONLY for Facilities/Amenities (Pool, Campfire, Dining, etc.) -->
+                                <button type="button" class="btn-primary sac-info-btn font-sans" id="btn-sac-check-info" style="display: none;">
+                                    <i class="fa-solid fa-circle-info"></i>
+                                    <span>More Info</span>
+                                </button>
+
+                                <a href="https://wa.me/<?php echo htmlspecialchars($concierge_wa); ?>?text=Hello%20Concierge,%20I%20am%20interested%20in%20booking%20at%20Food%20Forest." target="_blank" class="btn-outline sac-wa-btn font-sans" id="sac-wa-btn">
+                                    <i class="fa-brands fa-whatsapp"></i> <span id="sac-wa-text">WhatsApp Concierge</span>
                                 </a>
                             </div>
                         </div>
@@ -957,6 +983,7 @@ require_once __DIR__ . '/includes/header.php';
 window.bookingSanctuarySpots = <?php echo json_encode($sanctuary_spots); ?>;
 window.bookingRooms = <?php echo json_encode($rooms); ?>;
 window.preselectVillaSlug = <?php echo json_encode($preselect_slug); ?>;
+window.conciergeWhatsApp = <?php echo json_encode($concierge_wa); ?>;
 </script>
 <script src="assets/js/booking_controller.js?v=<?php echo time(); ?>"></script>
 
@@ -1096,6 +1123,206 @@ function closeAmenitiesGuide() {
 }
 window.openAmenitiesGuide = openAmenitiesGuide;
 window.closeAmenitiesGuide = closeAmenitiesGuide;
+</script>
+
+<!-- Sanctuary Facility & Amenity Detail Modal (More Info / Check Info Popup) -->
+<div id="facility-info-modal" class="booking-modal-overlay" style="display: none; z-index: 99999;" aria-hidden="true" role="dialog">
+    <div class="booking-modal-backdrop" onclick="closeFacilityInfoModal();"></div>
+    <div class="booking-modal-container font-sans" style="max-width: 680px; background: #0E2016; border: 1.5px solid rgba(197, 160, 89, 0.45); border-radius: 16px; padding: 0; color: #FFFFFF; overflow: hidden; display: flex; flex-direction: column;">
+        
+        <!-- Header Image & Hero Overlay -->
+        <div style="position: relative; width: 100%; height: 240px; overflow: hidden; background: #07130C;">
+            <img id="fim-img" src="assets/images/01 (10).jpeg" alt="Facility Image" style="width: 100%; height: 100%; object-fit: cover;">
+            <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7,19,12,0.2) 0%, rgba(7,19,12,0.85) 100%);"></div>
+            
+            <button type="button" onclick="closeFacilityInfoModal();" style="position: absolute; top: 14px; right: 14px; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.2); width: 34px; height: 34px; border-radius: 50%; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center;" aria-label="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div style="position: absolute; bottom: 16px; left: 20px; right: 20px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+                    <span id="fim-badge" style="background: rgba(86, 194, 201, 0.25); border: 1px solid rgba(86, 194, 201, 0.6); color: #56C2C9; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 1px;">
+                        <i class="fa-solid fa-water"></i> ESTATE AMENITY
+                    </span>
+                    <span id="fim-spot-num" style="background: rgba(197, 160, 89, 0.2); border: 1px solid rgba(197, 160, 89, 0.5); color: var(--accent-gold); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;">
+                        SPOT 15
+                    </span>
+                </div>
+                <h3 class="font-serif" id="fim-title" style="font-size: 1.55rem; color: #FFFFFF; margin: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.6);">Natural Plunge Pool &amp; Spring Bath</h3>
+            </div>
+        </div>
+
+        <!-- Body Details -->
+        <div style="padding: 20px; max-height: calc(85vh - 240px); overflow-y: auto;">
+            
+            <!-- Quick Feature Badges -->
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 6px; padding: 5px 10px; font-size: 11.5px; color: #E2E8F0;">
+                    <i class="fa-solid fa-mountain" style="color: var(--accent-gold);"></i>
+                    <span id="fim-elevation">1,600M Elevation</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 6px; padding: 5px 10px; font-size: 11.5px; color: #E2E8F0;">
+                    <i class="fa-solid fa-wind" style="color: #56C2C9;"></i>
+                    <span id="fim-climate">18°C Alpine Breeze</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 6px; padding: 5px 10px; font-size: 11.5px; color: #4ADE80; font-weight: 600;">
+                    <i class="fa-solid fa-gift"></i>
+                    <span>Included in Cottage Stays</span>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+                <h5 style="color: var(--accent-gold); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 4px;">Experience Details</h5>
+                <p id="fim-desc" style="color: #D3E0D8; font-size: 13px; line-height: 1.6; margin: 0;">
+                    Fresh crystal-clear natural mountain spring water pool.
+                </p>
+            </div>
+
+            <!-- Privilege & Highlights Grid -->
+            <div style="margin-bottom: 16px;">
+                <h5 style="color: var(--accent-gold); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px;">Facility Inclusions</h5>
+                <div id="fim-highlights-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">
+                    <!-- Inserted dynamically -->
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px;">
+                <button type="button" class="btn-primary" onclick="selectFirstAvailableCottage(); closeFacilityInfoModal();" style="flex: 1; min-width: 180px; justify-content: center; padding: 10px; font-size: 13px;">
+                    <i class="fa-solid fa-house-chimney"></i> <span>Reserve Cottage to Enjoy</span>
+                </button>
+                <a href="#" id="fim-wa-btn" target="_blank" class="btn-outline" style="border-color: #25D366; color: #25D366; padding: 10px 14px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                    <i class="fa-brands fa-whatsapp"></i> <span>Ask Concierge</span>
+                </a>
+                <button type="button" class="btn-outline" onclick="closeFacilityInfoModal(); openAmenitiesGuide();" style="border-color: rgba(197, 160, 89, 0.4); color: var(--accent-gold); padding: 10px 12px; font-size: 13px;">
+                    <span>All Amenities</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function openFacilityInfoModal(spot) {
+    if (!spot) return;
+    var m = document.getElementById('facility-info-modal');
+    if (!m) return;
+
+    var titleEl = document.getElementById('fim-title');
+    var descEl = document.getElementById('fim-desc');
+    var badgeEl = document.getElementById('fim-badge');
+    var spotNumEl = document.getElementById('fim-spot-num');
+    var imgEl = document.getElementById('fim-img');
+    var elevEl = document.getElementById('fim-elevation');
+    var climEl = document.getElementById('fim-climate');
+    var gridEl = document.getElementById('fim-highlights-grid');
+    var waBtn = document.getElementById('fim-wa-btn');
+
+    if (titleEl) titleEl.innerText = spot.title || 'Estate Facility';
+    if (descEl) descEl.innerText = spot.description || 'Complimentary estate facility exclusively included for all resident sanctuary guests.';
+    if (spotNumEl) spotNumEl.innerText = 'SPOT ' + String(spot.spot_number || spot.id || '01').padStart(2, '0');
+    if (elevEl) elevEl.innerText = spot.elevation || '1,600M Elevation';
+    if (climEl) climEl.innerText = spot.temperature || '18°C Alpine Breeze';
+
+    var isDining = (spot.category === 'dining' || (spot.title && spot.title.toLowerCase().includes('dining')));
+    if (badgeEl) {
+        badgeEl.innerHTML = isDining ? '<i class="fa-solid fa-utensils"></i> FARM DINING' : '<i class="fa-solid fa-water"></i> ESTATE AMENITY';
+    }
+
+    // Set contextual image
+    var photoSrc = '';
+    if (spot.photos_list && spot.photos_list.length > 0 && spot.photos_list[0]) {
+        photoSrc = spot.photos_list[0];
+    } else if (spot.image_url) {
+        photoSrc = spot.image_url;
+    } else if (isDining) {
+        photoSrc = 'assets/images/food_kerala_sadya.jpg';
+    } else if (spot.title && spot.title.toLowerCase().includes('pool')) {
+        photoSrc = 'assets/images/01 (10).jpeg';
+    } else if (spot.title && spot.title.toLowerCase().includes('campfire')) {
+        photoSrc = 'assets/images/01 (26).jpeg';
+    } else {
+        photoSrc = 'assets/images/01 (25).jpeg';
+    }
+    if (imgEl) imgEl.src = photoSrc;
+
+    // Highlights grid
+    if (gridEl) {
+        var tLower = (spot.title || '').toLowerCase();
+        if (tLower.includes('pool')) {
+            gridEl.innerHTML = `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(86,194,201,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-droplet" style="color: #0EA5E9; margin-right: 6px;"></i> Pure Natural Spring Aquifer Water</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(86,194,201,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-leaf" style="color: #10B981; margin-right: 6px;"></i> 100% Chlorine &amp; Chemical Free</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(86,194,201,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-clock" style="color: var(--accent-gold); margin-right: 6px;"></i> Open Daily 07:00 AM – 06:00 PM</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(86,194,201,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-users" style="color: #56C2C9; margin-right: 6px;"></i> Free for All In-House Residents</div>
+            `;
+        } else if (tLower.includes('campfire') || tLower.includes('recreation')) {
+            gridEl.innerHTML = `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(245,158,11,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-fire" style="color: #F59E0B; margin-right: 6px;"></i> Twilight Bonfire &amp; Acoustic Music</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(245,158,11,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-star" style="color: var(--accent-gold); margin-right: 6px;"></i> High-Altitude Night Stargazing Lawn</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(245,158,11,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-mug-hot" style="color: #F59E0B; margin-right: 6px;"></i> Evening Plantation Tea &amp; Snacks</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(245,158,11,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-users" style="color: #10B981; margin-right: 6px;"></i> Free for All In-House Residents</div>
+            `;
+        } else if (isDining) {
+            gridEl.innerHTML = `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(245,158,11,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-utensils" style="color: #F59E0B; margin-right: 6px;"></i> All 4 Farm Meals Included with Stays</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(245,158,11,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-fire-burner" style="color: #F59E0B; margin-right: 6px;"></i> Traditional Claypot Woodfire Cooking</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(245,158,11,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-seedling" style="color: #10B981; margin-right: 6px;"></i> 100% Soil-to-Plate Organic Produce</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(245,158,11,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-shield-halved" style="color: var(--accent-gold); margin-right: 6px;"></i> Pure Vegetarian &amp; Non-Veg Sections</div>
+            `;
+        } else {
+            gridEl.innerHTML = `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(197,160,89,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-sparkles" style="color: var(--accent-gold); margin-right: 6px;"></i> Sanctuary Amenity for All Guests</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(197,160,89,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-tree" style="color: #10B981; margin-right: 6px;"></i> Organic High-Range Nature Surrounds</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(197,160,89,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-clock" style="color: #56C2C9; margin-right: 6px;"></i> Accessible Throughout Your Stay</div>
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(197,160,89,0.25); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #D3E0D8;"><i class="fa-solid fa-wifi" style="color: var(--accent-gold); margin-right: 6px;"></i> Wi-Fi &amp; Concierge Service Available</div>
+            `;
+        }
+    }
+
+    if (waBtn) {
+        var waNum = window.conciergeWhatsApp || '919234567890';
+        waBtn.href = 'https://wa.me/' + waNum + '?text=' + encodeURIComponent('Hello Concierge, I would like to know more about the ' + (spot.title || 'facilities') + ' at Food Forest.');
+    }
+
+    m.style.display = 'flex';
+    m.style.opacity = '1';
+    m.style.pointerEvents = 'auto';
+    m.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeFacilityInfoModal() {
+    var m = document.getElementById('facility-info-modal');
+    if (m) {
+        m.classList.remove('active');
+        m.style.display = 'none';
+        m.style.opacity = '0';
+        m.style.pointerEvents = 'none';
+        document.body.style.overflow = '';
+    }
+}
+
+function selectFirstAvailableCottage() {
+    var spots = window.bookingSanctuarySpots || [];
+    var stay = spots.find(function(s) {
+        return (s.is_stay == 1 || s.is_stay === '1' || s.category === 'stays');
+    });
+    if (stay) {
+        var node = document.getElementById('chalet-node-' + stay.id);
+        if (node) {
+            node.click();
+        } else if (typeof selectChalet === 'function') {
+            selectChalet(stay.id, true);
+        }
+    }
+}
+
+window.openFacilityInfoModal = openFacilityInfoModal;
+window.closeFacilityInfoModal = closeFacilityInfoModal;
+window.selectFirstAvailableCottage = selectFirstAvailableCottage;
 </script>
 
 <?php

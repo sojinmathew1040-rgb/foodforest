@@ -4924,5 +4924,105 @@ body.theme-light.adm-body {
     display: none;
 }
 
+/* =========================================================================
+   13. AUTOMATED IMAGE COMPRESSION & RESIZING UI COMPONENTS
+   ========================================================================= */
+.adm-compress-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 10.5px;
+    font-weight: 700;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.adm-compress-option-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    color: var(--adm-text-primary);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 6px;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+.adm-compress-option-pill:hover {
+    background: rgba(16, 185, 129, 0.14);
+    border-color: rgba(16, 185, 129, 0.45);
+}
+.adm-compress-option-pill input[type="checkbox"] {
+    accent-color: #10B981;
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+.adm-compress-option-pill .badge-rec {
+    background: #10B981;
+    color: #0A160F;
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+/* Sandbox Drag-and-Drop Zone */
+.adm-compress-dropzone {
+    border: 2px dashed rgba(197, 160, 89, 0.4);
+    border-radius: 12px;
+    padding: 28px 20px;
+    text-align: center;
+    background: rgba(10, 22, 15, 0.6);
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.adm-compress-dropzone:hover,
+.adm-compress-dropzone.dragover {
+    border-color: var(--adm-gold);
+    background: rgba(197, 160, 89, 0.08);
+    box-shadow: 0 0 20px rgba(197, 160, 89, 0.15);
+}
+
+.adm-stat-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+}
+.adm-stat-mini-card {
+    background: var(--adm-bg-surface);
+    border: 1px solid var(--adm-border-subtle);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+}
+.adm-stat-mini-card .val {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--adm-gold);
+    font-family: var(--adm-font-sans);
+}
+.adm-stat-mini-card .lbl {
+    font-size: 11px;
+    color: var(--adm-text-muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+
 
 

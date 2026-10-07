@@ -62,19 +62,19 @@ if (!in_array($bill_type, ['stay', 'other', 'combined'])) {
 $is_gst = !empty($p['is_gst_bill']);
 $bill_date = date('d M Y, h:i A');
 
-// Generate Specific Invoice Number & Title
+// Generate Specific Invoice Number & Title (All folios are Tax Invoices with 5% GST)
 if ($bill_type === 'stay') {
     $invoice_no = 'FF-STAY-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
-    $bill_title_text = $is_gst ? "TAX INVOICE — ACCOMMODATION & STAY" : "PROPERTY STAY FOLIO";
-    $bill_category_badge = "🏡 PROPERTY STAY BILL";
+    $bill_title_text = "TAX INVOICE (GST 5%) — ACCOMMODATION & STAY";
+    $bill_category_badge = "🏡 PROPERTY STAY TAX INVOICE";
 } elseif ($bill_type === 'other') {
     $invoice_no = 'FF-OTHER-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
-    $bill_title_text = $is_gst ? "TAX INVOICE — GASTRONOMY & INCIDENTALS" : "GASTRONOMY & INCIDENTALS FOLIO (\"OTHER BILL\")";
-    $bill_category_badge = "🍽️ OTHER BILL (FOOD & SERVICES)";
+    $bill_title_text = "TAX INVOICE (GST 5%) — GASTRONOMY & INCIDENTALS";
+    $bill_category_badge = "🍽️ OTHER BILL TAX INVOICE (FOOD & SERVICES)";
 } else {
     $invoice_no = 'FF-INV-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
-    $bill_title_text = $is_gst ? "TAX INVOICE (GST) — CONSOLIDATED" : "ESTIMATE MASTER STAY FOLIO";
-    $bill_category_badge = "📑 CONSOLIDATED MASTER FOLIO";
+    $bill_title_text = "TAX INVOICE (GST 5%) — CONSOLIDATED MASTER";
+    $bill_category_badge = "📑 CONSOLIDATED MASTER TAX INVOICE";
 }
 
 // Generate Public Digital Folio URL
@@ -1295,8 +1295,8 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                     </tr>
                     <tr>
                         <td>Billing Type:</td>
-                        <td style="font-weight: 700; color: <?php echo $p['is_gst_bill'] ? '#059669' : 'var(--text-muted)'; ?>;">
-                            <?php echo $p['is_gst_bill'] ? 'GST Tax Invoice (' . $p['gst_percentage'] . '%)' : 'Estimate (0% GST)'; ?>
+                        <td style="font-weight: 700; color: #059669;">
+                            <?php echo !empty($p['is_b2b_gst']) ? 'B2B GST Tax Invoice (' . $p['gst_percentage'] . '%)' : 'GST Tax Invoice (' . $p['gst_percentage'] . '%)'; ?>
                         </td>
                     </tr>
                     <tr>
@@ -1683,7 +1683,6 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                 <td class="amount-cell" style="color: #DC2626;">-<?php echo $currency . number_format($p['stay_discount'], 2); ?></td>
                             </tr>
                         <?php endif; ?>
-                        <?php if ($p['is_gst_bill']): ?>
                             <tr style="border-top: 1px dashed #CBD5E1;">
                                 <td style="font-weight: 600; color: var(--text-dark); padding-top: 6px;">Stay Taxable Subtotal:</td>
                                 <td class="amount-cell" style="font-weight: 700; color: var(--text-dark); padding-top: 6px;">
@@ -1702,14 +1701,6 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                     +<?php echo $currency . number_format($p['stay_gst'] / 2, 2); ?>
                                 </td>
                             </tr>
-                        <?php else: ?>
-                            <tr>
-                                <td style="color: var(--text-muted);">GST / Tax Assessment:</td>
-                                <td class="amount-cell" style="color: var(--text-muted); font-size: 12px;">
-                                    Estimate Folio (0% GST)
-                                </td>
-                            </tr>
-                        <?php endif; ?>
                         <tr class="grand-total-row">
                             <td class="grand-total-label">Stay Grand Total:</td>
                             <td class="grand-total-val"><?php echo $currency . number_format($p['stay_total'], 2); ?></td>
@@ -1758,7 +1749,6 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                 <td class="amount-cell" style="color: #DC2626;">-<?php echo $currency . number_format($p['other_discount'], 2); ?></td>
                             </tr>
                         <?php endif; ?>
-                        <?php if ($p['is_gst_bill']): ?>
                             <tr style="border-top: 1px dashed #CBD5E1;">
                                 <td style="font-weight: 600; color: var(--text-dark); padding-top: 6px;">Taxable Subtotal:</td>
                                 <td class="amount-cell" style="font-weight: 700; color: var(--text-dark); padding-top: 6px;">
@@ -1777,14 +1767,6 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                     +<?php echo $currency . number_format($p['other_gst'] / 2, 2); ?>
                                 </td>
                             </tr>
-                        <?php else: ?>
-                            <tr>
-                                <td style="color: var(--text-muted);">GST / Tax Assessment:</td>
-                                <td class="amount-cell" style="color: var(--text-muted); font-size: 12px;">
-                                    Estimate Folio (0% GST)
-                                </td>
-                            </tr>
-                        <?php endif; ?>
                         <tr class="grand-total-row">
                             <td class="grand-total-label">Other Bill Grand Total:</td>
                             <td class="grand-total-val"><?php echo $currency . number_format($p['other_total'], 2); ?></td>
@@ -1839,7 +1821,6 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                 <td class="amount-cell" style="color: #DC2626;">-<?php echo $currency . number_format($p['discount_amount'], 2); ?></td>
                             </tr>
                         <?php endif; ?>
-                        <?php if ($p['is_gst_bill']): ?>
                             <tr style="border-top: 1px dashed #CBD5E1;">
                                 <td style="font-weight: 600; color: var(--text-dark); padding-top: 6px;">Taxable Subtotal:</td>
                                 <td class="amount-cell" style="font-weight: 700; color: var(--text-dark); padding-top: 6px;">
@@ -1858,14 +1839,6 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                     +<?php echo $currency . number_format($p['sgst_amount'], 2); ?>
                                 </td>
                             </tr>
-                        <?php else: ?>
-                            <tr>
-                                <td style="color: var(--text-muted);">GST / Tax Assessment:</td>
-                                <td class="amount-cell" style="color: var(--text-muted); font-size: 12px;">
-                                    Estimate Folio (0% GST)
-                                </td>
-                            </tr>
-                        <?php endif; ?>
                         <tr class="grand-total-row">
                             <td class="grand-total-label">Grand Total:</td>
                             <td class="grand-total-val"><?php echo $currency . number_format($p['net_total'], 2); ?></td>

@@ -133,7 +133,8 @@ $tab_titles = [
     'security' => 'CARD 15 • SECURITY & MASTER PASSWORD',
     'backup' => 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE',
     'bank' => 'CARD 17 • BANK DETAILS & UPI QR CODE',
-    'footer' => 'CARD 18 • FOOTER & ECO TRUST PILLARS'
+    'footer' => 'CARD 18 • FOOTER & ECO TRUST PILLARS',
+    'media' => 'CARD 19 • MEDIA & IMAGE OPTIMIZATION (AUTO-COMPRESS & RESIZE)'
 ];
 if (!array_key_exists($active_tab, $tab_titles)) {
     $active_tab = 'climate';
@@ -1312,7 +1313,10 @@ ensure_experiences_details_columns($pdo);
                     $ext = strtolower(pathinfo($_FILES['new_avatar_file']['name'], PATHINFO_EXTENSION));
                     if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
                         $new_name = 'avatar_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-                        if (move_uploaded_file($_FILES['new_avatar_file']['tmp_name'], $upload_base . '/' . $new_name)) {
+                        $dest_avatar = $upload_base . '/' . $new_name;
+                        if (move_uploaded_file($_FILES['new_avatar_file']['tmp_name'], $dest_avatar)) {
+                            $opt = compress_and_resize_image_file($dest_avatar, ['max_dimension' => 600]);
+                            if (!empty($opt['success']) && !empty($opt['filename'])) $new_name = $opt['filename'];
                             $avatar_url = 'uploads/testimonials/' . $new_name;
                         }
                     }
@@ -1327,7 +1331,10 @@ ensure_experiences_details_columns($pdo);
                     $ext = strtolower(pathinfo($_FILES['new_media_file']['name'], PATHINFO_EXTENSION));
                     if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
                         $new_name = 'media_img_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-                        if (move_uploaded_file($_FILES['new_media_file']['tmp_name'], $upload_base . '/' . $new_name)) {
+                        $dest_media = $upload_base . '/' . $new_name;
+                        if (move_uploaded_file($_FILES['new_media_file']['tmp_name'], $dest_media)) {
+                            $opt = compress_and_resize_image_file($dest_media, ['max_dimension' => 1920]);
+                            if (!empty($opt['success']) && !empty($opt['filename'])) $new_name = $opt['filename'];
                             $media_url = 'uploads/testimonials/' . $new_name;
                             $media_type = 'image';
                         }
@@ -1393,7 +1400,10 @@ ensure_experiences_details_columns($pdo);
                             $ext = strtolower(pathinfo($_FILES['avatar_file']['name'][$idx], PATHINFO_EXTENSION));
                             if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
                                 $new_name = 'avatar_' . $tid . '_' . time() . '.' . $ext;
-                                if (move_uploaded_file($_FILES['avatar_file']['tmp_name'][$idx], $upload_base . '/' . $new_name)) {
+                                $dest_av = $upload_base . '/' . $new_name;
+                                if (move_uploaded_file($_FILES['avatar_file']['tmp_name'][$idx], $dest_av)) {
+                                    $opt = compress_and_resize_image_file($dest_av, ['max_dimension' => 600]);
+                                    if (!empty($opt['success']) && !empty($opt['filename'])) $new_name = $opt['filename'];
                                     $pdo->prepare("UPDATE testimonials SET avatar_url = ? WHERE id = ?")->execute(['uploads/testimonials/' . $new_name, (int)$tid]);
                                 }
                             }
@@ -1525,6 +1535,24 @@ ensure_experiences_details_columns($pdo);
             if (empty($alert_message)) {
                 $alert_message = 'Footer parameters, eco trust pillars, navigation links & legal copy successfully updated.';
             }
+        }
+
+        // 19. Media & Image Optimization (Auto-Compress & Resize) Card
+        elseif ($form_type === 'media_settings') {
+            $auto_compress = isset($_POST['image_auto_compress_enabled']) ? '1' : '0';
+            $max_dim = isset($_POST['image_max_dimension']) ? (string)max(0, (int)$_POST['image_max_dimension']) : '1920';
+            $quality = isset($_POST['image_jpeg_quality']) ? (string)max(50, min(100, (int)$_POST['image_jpeg_quality'])) : '82';
+            $convert_webp = isset($_POST['image_convert_webp']) ? '1' : '0';
+            $client_compress = isset($_POST['image_client_side_compress']) ? '1' : '0';
+
+            $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+            $stmt->execute(['image_auto_compress_enabled', $auto_compress]);
+            $stmt->execute(['image_max_dimension', $max_dim]);
+            $stmt->execute(['image_jpeg_quality', $quality]);
+            $stmt->execute(['image_convert_webp', $convert_webp]);
+            $stmt->execute(['image_client_side_compress', $client_compress]);
+
+            $alert_message = 'Automatic image compression, max dimensions & optimization preferences successfully saved.';
         }
     }
 }
@@ -7381,6 +7409,367 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
             </div>
         </form>
     </div>
+    <?php endif; ?>
+
+    <!-- ============================================================= -->
+    <!-- CARD 19: MEDIA & IMAGE OPTIMIZATION (AUTO-COMPRESS & RESIZE)  -->
+    <!-- ============================================================= -->
+    <?php if ($active_tab === 'media'): ?>
+    <?php 
+    $opt_enabled = ($s['image_auto_compress_enabled'] ?? '1') === '1';
+    $opt_max_dim = (int)($s['image_max_dimension'] ?? 1920);
+    $opt_quality = (int)($s['image_jpeg_quality'] ?? 82);
+    $opt_webp = ($s['image_convert_webp'] ?? '0') === '1';
+    $opt_client = ($s['image_client_side_compress'] ?? '1') === '1';
+    $gd_active = extension_loaded('gd');
+    $gd_info_data = $gd_active ? gd_info() : [];
+    ?>
+    <div class="adm-section-panel active" id="panel-media">
+        <div class="adm-section-panel-header">
+            <div style="display:flex; align-items:center; gap:14px;">
+                <div class="adm-setting-card-icon cyan" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; border-color: rgba(14, 165, 233, 0.35); width: 44px; height: 44px; font-size: 18px;">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div>
+                    <span class="adm-setting-card-num" style="color: #38bdf8;">CARD 19 • MEDIA OPTIMIZER</span>
+                    <h3 style="font-family: var(--adm-font-title); font-size: 17px; color: #FFF; margin: 0 0 4px; letter-spacing: 0.5px;">
+                        AUTOMATIC IMAGE COMPRESSION &amp; RESIZING
+                    </h3>
+                    <p style="font-size: 12px; color: var(--adm-text-muted); margin: 0;">
+                        Auto-compress and resize high-res photos across all upload options to achieve 70–90% faster page loads.
+                    </p>
+                </div>
+            </div>
+            <div>
+                <span class="adm-badge gold" style="display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-server"></i> GD Engine <?php echo $gd_active ? 'Online' : 'Offline'; ?>
+                </span>
+            </div>
+        </div>
+
+        <form action="edit_section.php?section=media" method="POST" id="form-media-settings">
+            <input type="hidden" name="csrf_token" value="<?php echo e(generate_csrf_token()); ?>">
+            <input type="hidden" name="form_type" value="media_settings">
+            <input type="hidden" name="active_tab" value="media">
+
+            <div class="adm-section-panel-body" style="padding: 24px;">
+
+                <!-- Server Capabilities Summary Banner -->
+                <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.25); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="fa-solid fa-microchip" style="color: #38bdf8; font-size: 24px;"></i>
+                        <div>
+                            <div style="font-size: 13px; font-weight: 700; color: #FFF;">PHP Graphics Acceleration Diagnostics</div>
+                            <div style="font-size: 11.5px; color: var(--adm-text-secondary); margin-top: 2px;">
+                                Server Environment: GD <?php echo $gd_info_data['GD Version'] ?? 'Bundled'; ?> • WebP: <?php echo !empty($gd_info_data['WebP Support']) ? '✓ Supported' : '✗ Missing'; ?> • JPEG: <?php echo !empty($gd_info_data['JPEG Support']) ? '✓ Supported' : '✗ Missing'; ?> • PNG: <?php echo !empty($gd_info_data['PNG Support']) ? '✓ Supported' : '✗ Missing'; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <span style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;">
+                            ✓ Memory Limit: <?php echo ini_get('memory_limit'); ?>
+                        </span>
+                        <span style="background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;">
+                            ✓ Max Upload: <?php echo ini_get('upload_max_filesize'); ?>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 1. Master Auto-Compression Switch -->
+                <div class="adm-card" style="margin-bottom: 20px; padding: 20px; background: var(--adm-bg-surface); border: 1.5px solid var(--adm-gold-border); border-radius: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                        <div style="max-width: 520px;">
+                            <label style="font-size: 14.5px; font-weight: 700; color: #FFF; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-power-off" style="color: <?php echo $opt_enabled ? '#2ecc71' : 'var(--adm-text-muted)'; ?>;"></i>
+                                Enable Automatic Image Compression &amp; Resizing
+                            </label>
+                            <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 4px 0 0; line-height: 1.5;">
+                                When enabled, all images uploaded anywhere (villas, gallery, food menu, experiences, banners, avatars, ID cards) are automatically resized to web-friendly dimensions and compressed with high-fidelity visual retention.
+                            </p>
+                        </div>
+                        <div>
+                            <label class="adm-switch" style="position: relative; display: inline-block; width: 56px; height: 30px;">
+                                <input type="checkbox" name="image_auto_compress_enabled" value="1" <?php echo $opt_enabled ? 'checked' : ''; ?> style="opacity: 0; width: 0; height: 0;" onchange="document.getElementById('opt-status-label').textContent = this.checked ? 'ENABLED' : 'DISABLED';">
+                                <span class="adm-slider round" style="position: absolute; cursor: pointer; inset: 0; background-color: <?php echo $opt_enabled ? '#10B981' : '#475569'; ?>; border-radius: 34px; transition: .3s;"></span>
+                            </label>
+                            <span id="opt-status-label" style="display: block; font-size: 10px; font-weight: 800; text-align: center; margin-top: 4px; color: <?php echo $opt_enabled ? '#10B981' : '#94A3B8'; ?>;">
+                                <?php echo $opt_enabled ? 'ENABLED' : 'DISABLED'; ?>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Configuration Parameters (Dimension, Quality, WebP, Client) -->
+                <div class="adm-grid-2" style="gap: 20px; margin-bottom: 24px;">
+                    
+                    <!-- Max Dimension Selector -->
+                    <div class="adm-card" style="padding: 18px; background: var(--adm-bg-surface); border: 1px solid var(--adm-border-subtle); border-radius: 12px;">
+                        <label class="adm-label" style="font-size: 13px; font-weight: 700; color: #FFF; display: flex; align-items: center; justify-content: space-between;">
+                            <span><i class="fa-solid fa-expand" style="color: var(--adm-gold); margin-right: 6px;"></i> Maximum Image Dimension</span>
+                            <span style="font-size: 11px; color: var(--adm-gold); font-weight: 600;">Longest Side</span>
+                        </label>
+                        <select name="image_max_dimension" class="adm-input" style="width: 100%; margin-top: 8px;">
+                            <option value="1280" <?php echo ($opt_max_dim === 1280) ? 'selected' : ''; ?>>1280 px — Compact Web (Fastest)</option>
+                            <option value="1600" <?php echo ($opt_max_dim === 1600) ? 'selected' : ''; ?>>1600 px — Balanced HD</option>
+                            <option value="1920" <?php echo ($opt_max_dim === 1920) ? 'selected' : ''; ?>>1920 px — Full HD Standard [Recommended for Luxury Site]</option>
+                            <option value="2560" <?php echo ($opt_max_dim === 2560) ? 'selected' : ''; ?>>2560 px — Ultra 2K QHD</option>
+                            <option value="0" <?php echo ($opt_max_dim === 0) ? 'selected' : ''; ?>>Original — Keep Original Dimensions (Compress Quality Only)</option>
+                        </select>
+                        <p style="font-size: 11.5px; color: var(--adm-text-muted); margin: 8px 0 0; line-height: 1.4;">
+                            Images larger than this will be downsampled proportionally. EXIF camera orientation is automatically corrected.
+                        </p>
+                    </div>
+
+                    <!-- Quality Slider -->
+                    <div class="adm-card" style="padding: 18px; background: var(--adm-bg-surface); border: 1px solid var(--adm-border-subtle); border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label class="adm-label" style="font-size: 13px; font-weight: 700; color: #FFF; margin: 0;">
+                                <i class="fa-solid fa-sliders" style="color: var(--adm-gold); margin-right: 6px;"></i> Compression Quality Level
+                            </label>
+                            <span id="quality-val-badge" style="background: rgba(197, 160, 89, 0.2); color: var(--adm-gold); padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 800;">
+                                <?php echo $opt_quality; ?>%
+                            </span>
+                        </div>
+                        <div style="margin-top: 14px;">
+                            <input type="range" name="image_jpeg_quality" id="opt-quality-slider" min="60" max="95" step="1" value="<?php echo $opt_quality; ?>" style="width: 100%; accent-color: var(--adm-gold); cursor: pointer;" oninput="document.getElementById('quality-val-badge').textContent = this.value + '%'; document.getElementById('quality-desc-hint').textContent = this.value >= 85 ? 'High Quality • Minimal compression' : (this.value >= 78 ? 'Optimal Sweet Spot • 80%+ savings with visually crisp detail' : 'Maximum Compression • Smallest file size');">
+                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--adm-text-muted); margin-top: 4px;">
+                                <span>60% (Smallest Size)</span>
+                                <span id="quality-desc-hint" style="color: #2ecc71; font-weight: 600;">82% — Optimal Sweet Spot (Recommended)</span>
+                                <span>95% (Maximum Quality)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 3. WebP and Client-side Toggles -->
+                <div class="adm-grid-2" style="gap: 20px; margin-bottom: 24px;">
+                    
+                    <div class="adm-card" style="padding: 18px; background: var(--adm-bg-surface); border: 1px solid var(--adm-border-subtle); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+                        <div>
+                            <label style="font-size: 13px; font-weight: 700; color: #FFF; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <i class="fa-solid fa-file-image" style="color: #38bdf8;"></i> Convert to Next-Gen WebP Format
+                            </label>
+                            <p style="font-size: 11.5px; color: var(--adm-text-muted); margin: 3px 0 0;">
+                                Converts JPG and PNG uploads directly into WebP for 30% extra space savings.
+                            </p>
+                        </div>
+                        <input type="checkbox" name="image_convert_webp" value="1" <?php echo $opt_webp ? 'checked' : ''; ?> style="width: 18px; height: 18px; accent-color: #38bdf8; cursor: pointer;">
+                    </div>
+
+                    <div class="adm-card" style="padding: 18px; background: var(--adm-bg-surface); border: 1px solid var(--adm-border-subtle); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 14px;">
+                        <div>
+                            <label style="font-size: 13px; font-weight: 700; color: #FFF; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <i class="fa-solid fa-bolt" style="color: #2ecc71;"></i> Client-Side Browser Pre-Compression
+                            </label>
+                            <p style="font-size: 11.5px; color: var(--adm-text-muted); margin: 3px 0 0;">
+                                Compresses large photos directly in the user browser before network upload.
+                            </p>
+                        </div>
+                        <input type="checkbox" name="image_client_side_compress" value="1" <?php echo $opt_client ? 'checked' : ''; ?> style="width: 18px; height: 18px; accent-color: #2ecc71; cursor: pointer;">
+                    </div>
+
+                </div>
+
+                <!-- Save Settings Button -->
+                <div style="text-align: right; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--adm-border-subtle);">
+                    <button type="submit" class="adm-btn-action gold" style="padding: 12px 28px; font-weight: 700; font-size: 13.5px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>SAVE COMPRESSION SETTINGS</span>
+                    </button>
+                </div>
+
+                <!-- 4. Interactive Live Compression Sandbox / Lab -->
+                <div class="adm-card" style="padding: 24px; background: linear-gradient(135deg, rgba(16, 31, 21, 0.9) 0%, rgba(10, 20, 14, 0.95) 100%); border: 1.5px solid var(--adm-gold-border); border-radius: 14px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <span class="adm-setting-card-num" style="color: var(--adm-gold);">TEST LAB • REAL-TIME DEMO</span>
+                            <h4 style="font-family: var(--adm-font-title); font-size: 16px; color: #FFF; margin: 2px 0 0;">
+                                Live Image Compression Sandbox
+                            </h4>
+                            <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 2px 0 0;">
+                                Drop or choose any photo from your phone/computer to immediately test compression ratios and compare quality.
+                            </p>
+                        </div>
+                        <button type="button" class="adm-btn-action outline" onclick="document.getElementById('sandbox-file-input').click();" style="padding: 7px 16px; font-size: 12px;">
+                            <i class="fa-solid fa-folder-open"></i> Choose Test Photo
+                        </button>
+                    </div>
+
+                    <input type="file" id="sandbox-file-input" accept="image/*" style="display: none;" onchange="runSandboxCompressionTest(this);">
+
+                    <div class="adm-compress-dropzone" id="sandbox-dropzone" onclick="document.getElementById('sandbox-file-input').click();">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 36px; color: var(--adm-gold); margin-bottom: 10px;"></i>
+                        <div style="font-size: 14px; font-weight: 700; color: #FFF;">
+                            Drop an Image Here or Click to Test Compression
+                        </div>
+                        <div style="font-size: 11.5px; color: var(--adm-text-muted); margin-top: 4px;">
+                            Supports JPG, PNG, WEBP, AVIF up to 25MB • Runs instant test without overwriting estate photos
+                        </div>
+                    </div>
+
+                    <!-- Sandbox Results Section (Initially Hidden) -->
+                    <div id="sandbox-result-box" style="display: none; margin-top: 20px;">
+                        <div class="adm-stat-grid-3">
+                            <div class="adm-stat-mini-card">
+                                <div class="val" id="sb-stat-original">0 KB</div>
+                                <div class="lbl">Original Size</div>
+                            </div>
+                            <div class="adm-stat-mini-card" style="border-color: rgba(46, 204, 113, 0.4);">
+                                <div class="val" id="sb-stat-compressed" style="color: #2ecc71;">0 KB</div>
+                                <div class="lbl">Compressed Size</div>
+                            </div>
+                            <div class="adm-stat-mini-card" style="border-color: rgba(14, 165, 233, 0.4);">
+                                <div class="val" id="sb-stat-savings" style="color: #38bdf8;">0%</div>
+                                <div class="lbl">Bandwidth Saved</div>
+                            </div>
+                            <div class="adm-stat-mini-card">
+                                <div class="val" id="sb-stat-dims" style="font-size: 14px; color: #FFF;">—</div>
+                                <div class="lbl">Resolution Resize</div>
+                            </div>
+                        </div>
+
+                        <!-- Preview Comparison Image -->
+                        <div style="margin-top: 14px; background: rgba(0,0,0,0.4); border: 1px solid var(--adm-border-subtle); border-radius: 10px; padding: 12px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--adm-text-muted); margin-bottom: 8px; font-weight: 600;">
+                                COMPRESSED PREVIEW (Full High-Definition Retention)
+                            </div>
+                            <img id="sb-preview-img" src="" alt="Compressed Preview" style="max-height: 280px; max-width: 100%; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);">
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 5. 1-Click Batch Optimize Existing Media -->
+                <div class="adm-card" style="padding: 20px; background: var(--adm-bg-surface); border: 1px solid var(--adm-border-subtle); border-radius: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                        <div>
+                            <h4 style="font-family: var(--adm-font-title); font-size: 15px; color: #FFF; margin: 0 0 2px;">
+                                <i class="fa-solid fa-broom" style="color: var(--adm-gold); margin-right: 6px;"></i>
+                                Batch Optimize Existing Uploads Repository
+                            </h4>
+                            <p style="font-size: 12px; color: var(--adm-text-muted); margin: 0;">
+                                Scan all legacy uploaded photos in <code style="color:var(--adm-gold);">assets/uploads/</code> and compress any oversized files.
+                            </p>
+                        </div>
+                        <button type="button" id="btn-batch-optimize" class="adm-btn-action outline" onclick="runBatchOptimization();" style="padding: 9px 18px; font-size: 12.5px;">
+                            <i class="fa-solid fa-play"></i> Run Batch Optimizer
+                        </button>
+                    </div>
+
+                    <div id="batch-progress-box" style="display: none; margin-top: 16px; padding: 14px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--adm-border-subtle);">
+                        <div id="batch-progress-text" style="font-size: 12px; color: #FFF; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-spinner fa-spin" style="color: var(--adm-gold);"></i> Scanning and optimizing media repository...
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </form>
+    </div>
+
+    <script>
+    // Drag and Drop Sandbox support
+    var dropzone = document.getElementById('sandbox-dropzone');
+    if (dropzone) {
+        ['dragenter', 'dragover'].forEach(function(evt) {
+            dropzone.addEventListener(evt, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function(evt) {
+            dropzone.addEventListener(evt, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', function(e) {
+            var files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                var input = document.getElementById('sandbox-file-input');
+                input.files = files;
+                runSandboxCompressionTest(input);
+            }
+        });
+    }
+
+    function runSandboxCompressionTest(input) {
+        if (!input.files || !input.files[0]) return;
+        var file = input.files[0];
+        var dropzone = document.getElementById('sandbox-dropzone');
+        var origHtml = dropzone.innerHTML;
+        dropzone.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; color: var(--adm-gold); margin-bottom: 8px;"></i><div style="color:#FFF; font-weight:700;">Compressing and analyzing photo...</div>';
+
+        var formData = new FormData();
+        formData.append('action', 'test_compress');
+        formData.append('test_file', file);
+        formData.append('max_dimension', document.querySelector('select[name="image_max_dimension"]').value);
+        formData.append('quality', document.getElementById('opt-quality-slider').value);
+        formData.append('convert_webp', document.querySelector('input[name="image_convert_webp"]').checked ? '1' : '0');
+
+        fetch('api_optimize.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            dropzone.innerHTML = origHtml;
+            if (res.success) {
+                document.getElementById('sandbox-result-box').style.display = 'block';
+                var origKb = Math.round(res.original_size / 1024);
+                var origStr = origKb > 1024 ? (origKb / 1024).toFixed(2) + ' MB' : origKb + ' KB';
+                var compKb = Math.round(res.new_size / 1024);
+                var compStr = compKb > 1024 ? (compKb / 1024).toFixed(2) + ' MB' : compKb + ' KB';
+
+                document.getElementById('sb-stat-original').textContent = origStr;
+                document.getElementById('sb-stat-compressed').textContent = compStr;
+                document.getElementById('sb-stat-savings').textContent = res.savings_pct + '% Saved';
+                document.getElementById('sb-stat-dims').textContent = res.original_dims + ' → ' + res.new_dims;
+                if (res.preview_data) {
+                    document.getElementById('sb-preview-img').src = res.preview_data;
+                }
+                if (typeof window.showAdmToast === 'function') {
+                    window.showAdmToast('⚡ Optimization Test Complete: ' + res.savings_pct + '% reduction!', 'success');
+                }
+            } else {
+                alert('Test failed: ' + (res.error || 'Unknown error'));
+            }
+        })
+        .catch(function(err) {
+            dropzone.innerHTML = origHtml;
+            alert('Upload error: ' + err.message);
+        });
+    }
+
+    function runBatchOptimization() {
+        var btn = document.getElementById('btn-batch-optimize');
+        var pBox = document.getElementById('batch-progress-box');
+        var pText = document.getElementById('batch-progress-text');
+        btn.disabled = true;
+        pBox.style.display = 'block';
+
+        fetch('api_optimize.php?action=batch_optimize')
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            btn.disabled = false;
+            if (res.success) {
+                pText.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#2ecc71;"></i> <strong>Complete!</strong> Scanned ' + res.files_scanned + ' files, optimized ' + res.files_optimized + ' images. Total disk space saved: <strong>' + res.total_saved_mb + ' MB</strong>.';
+                if (typeof window.showAdmToast === 'function') {
+                    window.showAdmToast('Batch Optimization Complete: Saved ' + res.total_saved_mb + ' MB!', 'success');
+                }
+            } else {
+                pText.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#e74c3c;"></i> ' + (res.error || 'Failed');
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            pText.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#e74c3c;"></i> Error: ' + err.message;
+        });
+    }
+    </script>
     <?php endif; ?>
     </div> <!-- End .adm-settings-panels-container -->
     </div> <!-- End .adm-editor-col -->

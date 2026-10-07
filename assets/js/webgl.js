@@ -164,6 +164,54 @@ document.addEventListener("DOMContentLoaded", () => {
     let activeStay = (window.ESTATE_DYNAMIC_STAY && window.ESTATE_DYNAMIC_STAY.defaultStay) ? window.ESTATE_DYNAMIC_STAY.defaultStay : 'treehouse';
     const textureLoader = new THREE.TextureLoader();
 
+    // Dynamic Exterior Plane Geometry Adjustment to preserve natural photo aspect ratio and avoid excessive zoom/crop
+    function updateExteriorPlaneGeometry(stayKey = activeStay) {
+        if (!extMesh) return;
+
+        const tex = (textures[stayKey] && textures[stayKey].exterior) ? textures[stayKey].exterior : null;
+        let imgAspect = 16 / 9;
+
+        if (tex && tex.image && tex.image.width && tex.image.height && tex.image.width > 0 && tex.image.height > 0) {
+            imgAspect = tex.image.width / tex.image.height;
+        }
+
+        // Camera visible frustum at exterior plane distance (Z = -6.5)
+        const dist = Math.abs(extMesh.position.z - camera.position.z);
+        const vFovRad = (camera.fov * Math.PI) / 180;
+        const frustumH = 2 * dist * Math.tan(vFovRad / 2);
+        const frustumW = frustumH * camera.aspect;
+
+        let planeW, planeH;
+
+        // Fit the photo so wide compositions are completely visible without harsh cropping
+        if (camera.aspect >= imgAspect) {
+            // Viewport is wider than or equal to image aspect:
+            // Fit height to viewport frustum, compute width proportionally
+            planeH = frustumH;
+            planeW = planeH * imgAspect;
+        } else {
+            // Viewport is narrower than image aspect (e.g. mobile or wide photo on desktop):
+            // Fit width to viewport frustum, compute height proportionally
+            planeW = frustumW;
+            planeH = planeW / imgAspect;
+        }
+
+        if (extMesh.geometry) {
+            extMesh.geometry.dispose();
+        }
+        extMesh.geometry = new THREE.PlaneGeometry(planeW, planeH);
+    }
+
+    // Dynamic 360 Sphere Starting Alignment
+    // Base alignment is +Math.PI / 2 which maps u=0 (the exact start/left edge of the uploaded panorama) directly in front of the camera (0, 0, -1)
+    function updateSphereOrientation(stayKey = activeStay) {
+        if (!sphereMesh) return;
+        const stayOffset = (STAY_DATA[stayKey] && typeof STAY_DATA[stayKey].panoOffset === 'number')
+            ? STAY_DATA[stayKey].panoOffset
+            : 0;
+        sphereMesh.rotation.y = (Math.PI / 2) + stayOffset;
+    }
+
     // Pre-load textures for both stays so switching is instantaneous
     const textures = {
         treehouse: {
@@ -171,6 +219,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 tex.minFilter = THREE.LinearFilter;
                 tex.magFilter = THREE.LinearFilter;
                 tex.generateMipmaps = false;
+                if (activeStay === 'treehouse') {
+                    updateExteriorPlaneGeometry('treehouse');
+                }
                 renderer.render(scene, camera);
             }),
             interior: textureLoader.load(STAY_DATA.treehouse.interiorImg, (tex) => {
@@ -185,11 +236,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 tex.minFilter = THREE.LinearFilter;
                 tex.magFilter = THREE.LinearFilter;
                 tex.generateMipmaps = false;
+                if (activeStay === 'mudhouse') {
+                    updateExteriorPlaneGeometry('mudhouse');
+                }
+                renderer.render(scene, camera);
             }),
             interior: textureLoader.load(STAY_DATA.mudhouse.interiorImg, (tex) => {
                 tex.minFilter = THREE.LinearFilter;
                 tex.magFilter = THREE.LinearFilter;
                 tex.generateMipmaps = false;
+                renderer.render(scene, camera);
             })
         }
     };
@@ -207,6 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const extMesh = new THREE.Mesh(extGeo, extMat);
     extMesh.position.set(0, 0, -6.5);
     scene.add(extMesh);
+    updateExteriorPlaneGeometry(activeStay);
 
     // 3B. 360° Center Room Inverted Sphere (Interior Suite)
     const sphereGeo = new THREE.SphereGeometry(100, 64, 40);
@@ -220,6 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
         depthWrite: false
     });
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    updateSphereOrientation(activeStay);
     scene.add(sphereMesh);
 
     // 3C. Function to switch between Treehouse and Mudhouse
@@ -280,6 +338,8 @@ document.addEventListener("DOMContentLoaded", () => {
             extMat.needsUpdate = true;
             sphereMat.map = textures[stayKey].interior;
             sphereMat.needsUpdate = true;
+            updateExteriorPlaneGeometry(stayKey);
+            updateSphereOrientation(stayKey);
         }
 
         renderer.render(scene, camera);
@@ -381,23 +441,23 @@ document.addEventListener("DOMContentLoaded", () => {
             // Camera is looking forward at exterior window
             targetRotY = 0;
 
-            // Zoom exterior plane toward the curved bay window
-            const scaleVal = 1.0 + t * 3.4;
+            // Smooth, cinematic forward glide without harsh cropping or extreme zoom
+            const scaleVal = 1.0 + Math.pow(t, 1.4) * 0.75;
             extMesh.scale.set(scaleVal, scaleVal, 1);
 
-            // Crossfade into 360 interior as window glass is reached
-            if (t < 0.35) {
+            // Crossfade into 360 interior smoothly as window entrance is reached
+            if (t < 0.20) {
                 extMat.opacity = 1.0;
                 sphereMat.opacity = 0.0;
                 setTourProgressStep(1);
                 showCard(1);
             } else {
-                const fade = (t - 0.35) / 0.65;
-                extMat.opacity = 1.0 - fade;
-                sphereMat.opacity = fade;
+                const fade = (t - 0.20) / 0.80; // 0 to 1
+                // Smooth sine/cosine crossfade for cinematic transparency blending
+                extMat.opacity = Math.cos(fade * Math.PI * 0.5);
+                sphereMat.opacity = Math.sin(fade * Math.PI * 0.5);
 
-                // Near the end of fly-in, activate stage 2
-                if (t > 0.8) {
+                if (t > 0.70) {
                     setTourProgressStep(2);
                     showCard(2);
                 } else {
@@ -608,6 +668,7 @@ document.addEventListener("DOMContentLoaded", () => {
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+        updateExteriorPlaneGeometry(activeStay);
         if (typeof ScrollTrigger !== "undefined") {
             ScrollTrigger.refresh();
         }

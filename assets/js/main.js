@@ -2173,12 +2173,6 @@ document.addEventListener("DOMContentLoaded", () => {
         let nights = Math.ceil((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24));
         if (isNaN(nights) || nights < 1) nights = 1;
 
-        // All menu items are available for selection regardless of stay duration
-        const breakfastGrid = document.getElementById('dishes-grid-breakfast');
-        if (breakfastGrid) {
-            breakfastGrid.style.display = 'grid';
-        }
-
         let villaPrice = 5000;
         let villaName = "Luxury Canopy Treehouse";
         let baseGuests = 2;
@@ -2290,20 +2284,16 @@ document.addEventListener("DOMContentLoaded", () => {
         // Addons are payable on-site directly to local artisans/guides, so addonsTotal is 0 in advance bill
         const stayTotal = baseVillaTotal + extraAdultsTotal + extraKidsTotal + foodTotal;
 
-        // GST & Billing Preference Calculation
+        // GST & Billing Preference Calculation (Official 5% GST on all bookings)
         const bookingFormEl = document.getElementById('luxury-booking-form');
-        const gstRateAttr = parseFloat(bookingFormEl?.getAttribute('data-gst-rate') || '12');
-        const gstRate = isNaN(gstRateAttr) ? 12 : gstRateAttr;
+        const gstRateAttr = parseFloat(bookingFormEl?.getAttribute('data-gst-rate') || '5');
+        const gstRate = (isNaN(gstRateAttr) || gstRateAttr <= 0) ? 5 : gstRateAttr;
         const billingTypeRadio = document.querySelector('input[name="modal_billing_type"]:checked');
-        const isGstBill = billingTypeRadio ? (billingTypeRadio.value === 'gst') : false;
+        const billingTypeValue = billingTypeRadio ? billingTypeRadio.value : 'gst_without_address';
+        const isWithAddress = (billingTypeValue === 'gst_with_address');
 
-        let gstAmount = 0;
-        let grandTotal = stayTotal;
-
-        if (isGstBill) {
-            gstAmount = Math.round(stayTotal * (gstRate / 100));
-            grandTotal = stayTotal + gstAmount;
-        }
+        const gstAmount = Math.round(stayTotal * (gstRate / 100));
+        const grandTotal = stayTotal + gstAmount;
 
         // Update summary elements
         const summaryNights = document.getElementById('summary-nights');
@@ -2398,6 +2388,33 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        // Update live category selected counts and badges
+        const categoryTotals = {};
+        document.querySelectorAll('.modal-dish-card').forEach(card => {
+            const cat = card.getAttribute('data-dish-category');
+            const qty = parseInt(card.querySelector('.dish-qty-input')?.value || "0", 10);
+            const price = parseFloat(card.getAttribute('data-dish-price') || "0");
+            if (!categoryTotals[cat]) categoryTotals[cat] = { qty: 0, total: 0 };
+            categoryTotals[cat].qty += qty;
+            categoryTotals[cat].total += (qty * price);
+        });
+
+        Object.keys(categoryTotals).forEach(cat => {
+            const badge = document.getElementById('cat-badge-selected-' + cat);
+            const block = document.getElementById('modal-cat-block-' + cat);
+            const data = categoryTotals[cat];
+            if (badge) {
+                if (data.qty > 0) {
+                    badge.style.display = 'inline-flex';
+                    badge.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span class="badge-num">${data.qty}</span> selected <small style="font-weight: 600; opacity: 0.85; margin-left: 2px;">(₹${data.total.toLocaleString('en-IN')})</small>`;
+                    if (block) block.classList.add('has-selected');
+                } else {
+                    badge.style.display = 'none';
+                    if (block) block.classList.remove('has-selected');
+                }
+            }
+        });
+
         if (summaryExtraGuestsLine) summaryExtraGuestsLine.style.display = 'none';
 
         // Addons Experiences itemized container update
@@ -2433,22 +2450,18 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        // Subtotal & GST Lines
-        if (isGstBill) {
-            if (summarySubtotalLine && summarySubtotalRate) {
-                summarySubtotalLine.style.display = 'flex';
-                summarySubtotalRate.innerText = `₹${stayTotal.toLocaleString('en-IN')}`;
-            }
-            if (summaryGstLine && summaryGstRate) {
-                summaryGstLine.style.display = 'flex';
-                if (summaryGstLabel) summaryGstLabel.innerText = `GST Tax (${gstRate}%):`;
-                summaryGstRate.innerText = `+₹${gstAmount.toLocaleString('en-IN')}`;
-            }
-            if (summaryTotalTitle) summaryTotalTitle.innerText = `Grand Total (${gstRate}% GST Incl.):`;
-        } else {
-            if (summarySubtotalLine) summarySubtotalLine.style.display = 'none';
-            if (summaryGstLine) summaryGstLine.style.display = 'none';
-            if (summaryTotalTitle) summaryTotalTitle.innerText = `Estimated Total (Standard Folio):`;
+        // Subtotal & GST Lines (Always 5% GST)
+        if (summarySubtotalLine && summarySubtotalRate) {
+            summarySubtotalLine.style.display = 'flex';
+            summarySubtotalRate.innerText = `₹${stayTotal.toLocaleString('en-IN')}`;
+        }
+        if (summaryGstLine && summaryGstRate) {
+            summaryGstLine.style.display = 'flex';
+            if (summaryGstLabel) summaryGstLabel.innerText = `GST Tax (${gstRate}%):`;
+            summaryGstRate.innerText = `+₹${gstAmount.toLocaleString('en-IN')}`;
+        }
+        if (summaryTotalTitle) {
+            summaryTotalTitle.innerText = `Grand Total (${gstRate}% GST Incl.):`;
         }
 
         if (summaryTotal) summaryTotal.innerText = `₹${grandTotal.toLocaleString('en-IN')}`;
@@ -2496,17 +2509,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         if (mscbTaxPill) {
-            if (isGstBill) {
-                mscbTaxPill.innerHTML = `<i class="fa-solid fa-file-invoice-dollar"></i> ${gstRate}% GST Incl.`;
-                mscbTaxPill.style.background = 'rgba(2, 132, 199, 0.2)';
-                mscbTaxPill.style.color = '#38BDF8';
-                mscbTaxPill.style.borderColor = 'rgba(56, 189, 248, 0.4)';
-            } else {
-                mscbTaxPill.innerHTML = `<i class="fa-solid fa-receipt"></i> Est. Folio (GST-Free)`;
-                mscbTaxPill.style.background = 'rgba(16, 185, 129, 0.18)';
-                mscbTaxPill.style.color = '#4ADE80';
-                mscbTaxPill.style.borderColor = 'rgba(74, 222, 128, 0.35)';
-            }
+            mscbTaxPill.innerHTML = `<i class="fa-solid fa-file-invoice-dollar"></i> ${gstRate}% GST Incl.`;
+            mscbTaxPill.style.background = 'rgba(2, 132, 199, 0.2)';
+            mscbTaxPill.style.color = '#38BDF8';
+            mscbTaxPill.style.borderColor = 'rgba(56, 189, 248, 0.4)';
         }
         if (mscbReserveBtn) {
             if (!isCurrentVillaAvailable) {
@@ -2600,6 +2606,76 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // -------------------------------------------------------------
+    // Interactive Collapsible Gastronomy Accordion & Category Tabs
+    // -------------------------------------------------------------
+    function toggleMealCategory(catKey, forceState = null) {
+        const block = document.getElementById('modal-cat-block-' + catKey);
+        const panel = document.getElementById('dishes-panel-' + catKey);
+        const header = block ? block.querySelector('.meal-cat-header-row') : null;
+        if (!block || !panel) return;
+
+        const isCurrentlyOpen = block.classList.contains('is-open');
+        const shouldOpen = (forceState !== null) ? forceState : !isCurrentlyOpen;
+
+        if (shouldOpen) {
+            block.classList.add('is-open');
+            panel.style.display = 'block';
+            if (header) header.setAttribute('aria-expanded', 'true');
+        } else {
+            block.classList.remove('is-open');
+            panel.style.display = 'none';
+            if (header) header.setAttribute('aria-expanded', 'false');
+        }
+        updateToggleAllCatsButtonText();
+    }
+
+    // Header click & keyboard listener
+    document.querySelectorAll('.meal-cat-header-row').forEach(row => {
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('.meal-skip-btn') || e.target.closest('.cat-skip-checkbox')) {
+                return;
+            }
+            const cat = this.getAttribute('data-cat');
+            toggleMealCategory(cat);
+        });
+        row.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.target.closest('.meal-skip-btn')) return;
+                e.preventDefault();
+                const cat = this.getAttribute('data-cat');
+                toggleMealCategory(cat);
+            }
+        });
+    });
+
+    // Expand All / Collapse All Master Button
+    const btnToggleAllCats = document.getElementById('btn-toggle-all-food-cats');
+    function updateToggleAllCatsButtonText() {
+        if (!btnToggleAllCats) return;
+        const visibleBlocks = Array.from(document.querySelectorAll('.modal-meal-category-block')).filter(b => b.style.display !== 'none');
+        const anyClosed = visibleBlocks.some(b => !b.classList.contains('is-open'));
+        if (anyClosed) {
+            btnToggleAllCats.innerHTML = '<i class="fa-solid fa-angles-down"></i> <span>Expand All</span>';
+        } else {
+            btnToggleAllCats.innerHTML = '<i class="fa-solid fa-angles-up"></i> <span>Collapse All</span>';
+        }
+    }
+
+    if (btnToggleAllCats) {
+        btnToggleAllCats.addEventListener('click', function(e) {
+            e.preventDefault();
+            const visibleBlocks = Array.from(document.querySelectorAll('.modal-meal-category-block')).filter(b => b.style.display !== 'none');
+            const anyClosed = visibleBlocks.some(b => !b.classList.contains('is-open'));
+            const targetOpen = anyClosed; // If any closed, expand all; otherwise collapse all
+            visibleBlocks.forEach(b => {
+                const cat = b.getAttribute('data-category');
+                toggleMealCategory(cat, targetOpen);
+            });
+            updateToggleAllCatsButtonText();
+        });
+    }
+
     // Category Filter Tabs (All, Breakfast, Lunch, Snacks, Dinner, Millets, Curries, Juices)
     document.querySelectorAll('.btn-food-filter-tab').forEach(tab => {
         tab.addEventListener('click', function(e) {
@@ -2621,10 +2697,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 const blockCat = block.getAttribute('data-category');
                 if (targetCat === 'all' || blockCat === targetCat) {
                     block.style.display = 'block';
+                    if (targetCat !== 'all') {
+                        // Automatically expand selected single category for convenient browsing
+                        toggleMealCategory(blockCat, true);
+                    }
                 } else {
                     block.style.display = 'none';
                 }
             });
+            updateToggleAllCatsButtonText();
         });
     });
 
@@ -2632,16 +2713,24 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('.cat-skip-checkbox').forEach(chk => {
         chk.addEventListener('change', function() {
             const cat = this.getAttribute('data-target-cat');
+            const block = document.getElementById('modal-cat-block-' + cat);
             const grid = document.getElementById('dishes-grid-' + cat);
-            if (!grid) return;
+            if (!block) return;
 
             if (this.checked) {
-                grid.style.opacity = '0.35';
-                grid.style.pointerEvents = 'none';
-                grid.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
+                if (grid) {
+                    grid.style.opacity = '0.35';
+                    grid.style.pointerEvents = 'none';
+                    grid.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
+                }
+                block.style.opacity = '0.6';
+                toggleMealCategory(cat, false);
             } else {
-                grid.style.opacity = '1';
-                grid.style.pointerEvents = 'auto';
+                if (grid) {
+                    grid.style.opacity = '1';
+                    grid.style.pointerEvents = 'auto';
+                }
+                block.style.opacity = '1';
             }
             recalculateBookingSummary();
         });
@@ -2655,9 +2744,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!container) return;
 
             if (this.checked) {
-                container.style.opacity = '0.35';
+                container.style.opacity = '0.4';
                 container.style.pointerEvents = 'none';
                 container.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
+                // Collapse all categories
+                document.querySelectorAll('.modal-meal-category-block').forEach(b => {
+                    const cat = b.getAttribute('data-category');
+                    toggleMealCategory(cat, false);
+                });
             } else {
                 container.style.opacity = '1';
                 container.style.pointerEvents = 'auto';
@@ -2715,45 +2809,49 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Modal Billing Type Radio Switcher (Estimate vs GST Tax Invoice)
+    // Modal Billing Type Radio Switcher (GST Without Address vs GST With Address)
     document.querySelectorAll('input[name="modal_billing_type"]').forEach(radio => {
         radio.addEventListener('change', function() {
             const gstWrapper = document.getElementById('modal-gst-fields-wrapper');
-            const labelEstimate = document.getElementById('label-bill-estimate');
-            const labelGst = document.getElementById('label-bill-gst');
+            const labelWithout = document.getElementById('label-bill-without-address');
+            const labelWith = document.getElementById('label-bill-with-address');
 
-            if (this.value === 'gst') {
+            if (this.value === 'gst_with_address') {
                 if (gstWrapper) {
                     gstWrapper.style.display = 'block';
                     gstWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
                 document.getElementById('modal-gst-number')?.setAttribute('required', 'required');
-                if (labelGst) {
-                    labelGst.style.background = '#E0F2FE';
-                    labelGst.style.border = '2px solid #0284C7';
-                    const strong = labelGst.querySelector('strong');
+                document.getElementById('modal-billing-name')?.setAttribute('required', 'required');
+                document.getElementById('modal-billing-address')?.setAttribute('required', 'required');
+                if (labelWith) {
+                    labelWith.style.background = '#E0F2FE';
+                    labelWith.style.border = '2px solid #0284C7';
+                    const strong = labelWith.querySelector('strong');
                     if (strong) strong.style.color = '#0369A1';
                 }
-                if (labelEstimate) {
-                    labelEstimate.style.background = '#FFFFFF';
-                    labelEstimate.style.border = '1.5px solid #CBD5E1';
-                    const strong = labelEstimate.querySelector('strong');
-                    if (strong) strong.style.color = '#1C3826';
+                if (labelWithout) {
+                    labelWithout.style.background = '#FFFFFF';
+                    labelWithout.style.border = '1.5px solid #CBD5E1';
+                    const strong = labelWithout.querySelector('strong');
+                    if (strong) strong.style.color = '#1E293B';
                 }
             } else {
                 if (gstWrapper) gstWrapper.style.display = 'none';
                 document.getElementById('modal-gst-number')?.removeAttribute('required');
-                if (labelEstimate) {
-                    labelEstimate.style.background = '#FEF9C3';
-                    labelEstimate.style.border = '2px solid #CA8A04';
-                    const strong = labelEstimate.querySelector('strong');
-                    if (strong) strong.style.color = '#854D0E';
-                }
-                if (labelGst) {
-                    labelGst.style.background = '#FFFFFF';
-                    labelGst.style.border = '1.5px solid #CBD5E1';
-                    const strong = labelGst.querySelector('strong');
+                document.getElementById('modal-billing-name')?.removeAttribute('required');
+                document.getElementById('modal-billing-address')?.removeAttribute('required');
+                if (labelWithout) {
+                    labelWithout.style.background = '#E0F2FE';
+                    labelWithout.style.border = '2px solid #0284C7';
+                    const strong = labelWithout.querySelector('strong');
                     if (strong) strong.style.color = '#0369A1';
+                }
+                if (labelWith) {
+                    labelWith.style.background = '#FFFFFF';
+                    labelWith.style.border = '1.5px solid #CBD5E1';
+                    const strong = labelWith.querySelector('strong');
+                    if (strong) strong.style.color = '#1E293B';
                 }
             }
             recalculateBookingSummary();
@@ -2924,7 +3022,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 isIdFileVerifiedClean = true;
                 const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
                 if (idFileNameEl) idFileNameEl.innerText = file.name;
-                if (idFileSizeEl) idFileSizeEl.innerText = `(${sizeMb > 0 ? sizeMb : '<0.1'} MB)`;
+                const autoCompressActive = document.getElementById('modal-auto-compress')?.checked ?? true;
+                if (idFileSizeEl) idFileSizeEl.innerText = `(${sizeMb > 0 ? sizeMb : '<0.1'} MB ${autoCompressActive ? '• ⚡ Auto-Compress' : ''})`;
                 if (idFilePrompt) idFilePrompt.style.display = 'none';
                 if (idFileSelected) idFileSelected.style.display = 'flex';
             } else {
@@ -2963,6 +3062,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (idFileInput && idFileInput.files && idFileInput.files[0] && isIdFileVerifiedClean) {
                 formData.append('id_proof_file', idFileInput.files[0]);
+                const autoCompressCb = document.getElementById('modal-auto-compress');
+                formData.append('auto_compress', (autoCompressCb && autoCompressCb.checked) ? '1' : '0');
             }
             const res = await fetch('api/book.php', {
                 method: 'POST',
@@ -3045,15 +3146,17 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // Billing & GST Preference
+        // Billing & GST Preference (Always 5% GST; With or Without Company Address)
         const billingTypeRadio = document.querySelector('input[name="modal_billing_type"]:checked');
-        const billingType = billingTypeRadio ? billingTypeRadio.value : 'estimate';
-        const gstNumber = document.getElementById('modal-gst-number')?.value.trim().toUpperCase() || '';
-        const billingName = document.getElementById('modal-billing-name')?.value.trim() || '';
-        const billingAddress = document.getElementById('modal-billing-address')?.value.trim() || '';
+        const billingType = billingTypeRadio ? billingTypeRadio.value : 'gst_without_address';
+        const isWithAddress = (billingType === 'gst_with_address');
+        const gstNumber = isWithAddress ? (document.getElementById('modal-gst-number')?.value.trim().toUpperCase() || '') : '';
+        const billingName = isWithAddress ? (document.getElementById('modal-billing-name')?.value.trim() || '') : '';
+        const billingAddress = isWithAddress ? (document.getElementById('modal-billing-address')?.value.trim() || '') : '';
 
         const bookingFormEl = document.getElementById('luxury-booking-form');
-        const gstRate = parseFloat(bookingFormEl?.getAttribute('data-gst-rate') || '12');
+        const gstRateAttr = parseFloat(bookingFormEl?.getAttribute('data-gst-rate') || '5');
+        const gstRate = (isNaN(gstRateAttr) || gstRateAttr <= 0) ? 5 : gstRateAttr;
 
         // Account Type & Password
         const accountTypeRadio = document.querySelector('input[name="modal_account_type"]:checked');
@@ -3086,7 +3189,7 @@ document.addEventListener("DOMContentLoaded", () => {
             gst_number: gstNumber,
             billing_name: billingName,
             billing_address: billingAddress,
-            gst_percentage: (billingType === 'gst') ? gstRate : 0,
+            gst_percentage: gstRate,
             create_account: createAccount,
             password: password
         };
@@ -3230,7 +3333,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            if (payload.billing_type === 'gst') {
+            if (payload.billing_type === 'gst_with_address') {
                 if (!payload.gst_number || payload.gst_number.length < 8) {
                     alert('Please enter your valid 15-character GSTIN (GST Number) for your GST Tax Invoice.');
                     document.getElementById('modal-gst-number')?.focus();
@@ -3239,6 +3342,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!payload.billing_name) {
                     alert('Please enter your Registered Billing Company / Name for the GST Invoice.');
                     document.getElementById('modal-billing-name')?.focus();
+                    return;
+                }
+                if (!payload.billing_address) {
+                    alert('Please enter your Registered Company / Billing Address for the GST Invoice.');
+                    document.getElementById('modal-billing-address')?.focus();
                     return;
                 }
             }
@@ -3342,9 +3450,12 @@ document.addEventListener("DOMContentLoaded", () => {
             let cityNote = payload.city_state ? `\n• *City/Origin*: ${payload.city_state}` : '';
             let idNote = payload.id_proof_type ? (`\n• *ID Proof*: ${payload.id_proof_type}` + (payload.has_id_file ? ' (📎 Document Attached)' : '')) : '';
 
-            let billingNote = `\n• *Invoice Type*: ${payload.billing_type === 'gst' ? `Official GST Tax Invoice (GSTIN: ${payload.gst_number})` : 'Estimate Bill (Standard Folio)'}`;
-            if (payload.billing_type === 'gst' && payload.billing_name) {
-                billingNote += `\n• *Billing Entity*: ${payload.billing_name}`;
+            let billingNote = `\n• *Invoice Type*: ${payload.billing_type === 'gst_with_address' ? `Official B2B GST Tax Invoice (GSTIN: ${payload.gst_number})` : 'Standard GST Bill (5% GST Incl.)'}`;
+            if (payload.billing_type === 'gst_with_address' && payload.billing_name) {
+                billingNote += `\n• *Company*: ${payload.billing_name}`;
+            }
+            if (payload.billing_type === 'gst_with_address' && payload.billing_address) {
+                billingNote += `\n• *Address*: ${payload.billing_address}`;
             }
 
             const message = `🌿 *RESERVATION REQUEST — FOOD FOREST KANTHALLOOR* 🌿\n\n` +

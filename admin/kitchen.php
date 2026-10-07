@@ -23,6 +23,10 @@ if ($filter === 'this_week') {
 } elseif ($filter === 'tomorrow') {
     $from_date = date('Y-m-d', strtotime('+1 day'));
     $to_date = date('Y-m-d', strtotime('+1 day'));
+} elseif ($filter === 'all_active' || $filter === 'all') {
+    $filter = 'all_active';
+    $from_date = '2000-01-01';
+    $to_date = '2099-12-31';
 } elseif ($filter === 'custom') {
     $from_date = !empty($_GET['from_date']) ? $_GET['from_date'] : $today;
     $to_date = !empty($_GET['to_date']) ? $_GET['to_date'] : $today;
@@ -67,7 +71,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 $dish = $dstmt->fetch(PDO::FETCH_ASSOC);
 
                 if ($dish) {
-                    $bstmt = $pdo->prepare("SELECT food_items, food_amount, room_amount, total_amount FROM bookings WHERE id = ?");
+                    $bstmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
                     $bstmt->execute([$booking_id]);
                     $b = $bstmt->fetch(PDO::FETCH_ASSOC);
 
@@ -92,18 +96,49 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             'inclusions' => []
                         ];
 
-                        $new_food_total = (float)$b['food_amount'] + $subtotal;
-                        $new_grand_total = (float)$b['total_amount'] + $subtotal;
+                        $new_food_total = 0.00;
+                        foreach ($f_items as $fi) {
+                            $new_food_total += (float)($fi['subtotal'] ?? (($fi['price'] ?? 0) * ($fi['quantity'] ?? 1)));
+                        }
 
-                        $upd = $pdo->prepare("UPDATE bookings SET food_items = ?, food_amount = ?, food_status = 'selected', total_amount = ? WHERE id = ?");
+                        // Recalculate billing components with 5% GST
+                        $room_amt = (float)($b['room_amount'] ?? 0);
+                        $extra_chg = (float)($b['extra_charges'] ?? 0);
+                        $disc_amt = (float)($b['discount_amount'] ?? 0);
+
+                        $acts = !empty($b['activities_json']) ? json_decode($b['activities_json'], true) : [];
+                        $act_total = 0.00;
+                        if (is_array($acts)) {
+                            foreach ($acts as $act) {
+                                $act_total += (float)($act['subtotal'] ?? (($act['price'] ?? 0) * ($act['quantity'] ?? 1)));
+                            }
+                        }
+
+                        $cust_items = !empty($b['billing_items_json']) ? json_decode($b['billing_items_json'], true) : [];
+                        $cust_total = 0.00;
+                        if (is_array($cust_items)) {
+                            foreach ($cust_items as $ci) {
+                                if (is_array($ci) && isset($ci['subtotal'])) $cust_total += (float)$ci['subtotal'];
+                            }
+                        }
+
+                        $gross = $room_amt + $new_food_total + $act_total + $cust_total + $extra_chg;
+                        $taxable = max(0, $gross - $disc_amt);
+                        $gst_pct = (float)($b['gst_percentage'] > 0 ? $b['gst_percentage'] : 5.00);
+                        $new_gst = round($taxable * ($gst_pct / 100), 2);
+                        $new_grand_total = round($taxable + $new_gst, 2);
+
+                        $upd = $pdo->prepare("UPDATE bookings SET food_items = ?, food_amount = ?, food_status = 'selected', gst_amount = ?, tax_amount = ?, total_amount = ? WHERE id = ?");
                         $upd->execute([
                             json_encode($f_items, JSON_UNESCAPED_UNICODE),
                             $new_food_total,
+                            $new_gst,
+                            $new_gst,
                             $new_grand_total,
                             $booking_id
                         ]);
 
-                        $alert_message = "Added {$qty}x {$dish['heading']} ({$chosen_meal}) to Reservation #{$booking_id}.";
+                        $alert_message = "Added {$qty}x {$dish['heading']} ({$chosen_meal}) to Reservation #{$booking_id} (#{$b['reference_code']}). Bill updated with ₹" . number_format($subtotal, 2) . ".";
                     }
                 }
             }
@@ -129,6 +164,17 @@ $stmt->execute([
     ':to_date' => $to_date
 ]);
 $all_matching_bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch all active non-cancelled reservations for the walk-in modal cottage selector
+$inhouse_sql = "SELECT id, reference_code, guest_name, guest_phone, villa_type, checkin_date, checkout_date 
+                FROM bookings 
+                WHERE status != 'cancelled' 
+                  AND checkout_date >= CURDATE() 
+                ORDER BY checkin_date ASC, id ASC";
+$all_inhouse_bookings = $pdo->query($inhouse_sql)->fetchAll(PDO::FETCH_ASSOC);
+if (empty($all_inhouse_bookings)) {
+    $all_inhouse_bookings = $all_matching_bookings;
+}
 
 // Load all dishes for quick add dropdown
 $all_dishes = $pdo->query("SELECT id, heading, category, price, default_meal_time, dietary_type FROM food_menu WHERE is_active = 1 ORDER BY category ASC, heading ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -332,6 +378,12 @@ foreach ($all_matching_bookings as $b) {
                    class="btn-date-filter-pill <?php echo ($filter === 'this_week') ? 'active' : ''; ?>"
                    style="padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; <?php echo ($filter === 'this_week') ? 'background: #1C3826; color: #FFFFFF; border: 1.5px solid #1C3826;' : 'background: #F1F5F9; color: #334155; border: 1.5px solid #CBD5E1;'; ?>">
                     📅 This Week
+                </a>
+
+                <a href="kitchen.php?filter=all_active&meal=<?php echo urlencode($meal_filter); ?>" 
+                   class="btn-date-filter-pill <?php echo ($filter === 'all_active') ? 'active' : ''; ?>"
+                   style="padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; <?php echo ($filter === 'all_active') ? 'background: #1C3826; color: #FFFFFF; border: 1.5px solid #1C3826;' : 'background: #F1F5F9; color: #334155; border: 1.5px solid #CBD5E1;'; ?>">
+                    🌿 All In-House &amp; Active
                 </a>
             </div>
 
@@ -691,10 +743,10 @@ foreach ($all_matching_bookings as $b) {
                         1. Select In-House Room / Guest *
                     </label>
                     <select name="booking_id" id="walkin_booking_select" required class="adm-form-input font-sans" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1.5px solid #94A3B8; font-size: 13px; font-weight: 600; color: #0F172A; background: #FFFFFF;">
-                        <option value="">-- Choose In-House Room --</option>
-                        <?php foreach ($all_matching_bookings as $mb): ?>
+                        <option value="">-- Choose In-House Room / Cottage --</option>
+                        <?php foreach ($all_inhouse_bookings as $mb): ?>
                             <option value="<?php echo $mb['id']; ?>">
-                                [#<?php echo htmlspecialchars($mb['reference_code']); ?>] <?php echo htmlspecialchars($mb['guest_name']); ?> (<?php echo format_chalet_label($mb['villa_type']); ?>)
+                                [#<?php echo htmlspecialchars($mb['reference_code']); ?>] <?php echo htmlspecialchars($mb['guest_name']); ?> (<?php echo format_chalet_label($mb['villa_type']); ?> — <?php echo date('d M', strtotime($mb['checkin_date'])); ?> to <?php echo date('d M', strtotime($mb['checkout_date'])); ?>)
                             </option>
                         <?php endforeach; ?>
                     </select>

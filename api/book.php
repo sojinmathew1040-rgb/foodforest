@@ -7,6 +7,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../admin/includes/db.php';
+require_once __DIR__ . '/../admin/includes/upload.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -223,6 +224,25 @@ try {
             $qty = max(0, (int)($fi['quantity'] ?? ($fi['sets'] ?? 0)));
             $cat = trim($fi['category'] ?? 'general');
             $price = max(0, (float)($fi['price'] ?? 0));
+            // Fallback price lookup from official food_menu table if price is 0
+            if ($price <= 0) {
+                if (!empty($fi['id'])) {
+                    $p_stmt = $pdo->prepare("SELECT price FROM food_menu WHERE id = ?");
+                    $p_stmt->execute([(int)$fi['id']]);
+                    $db_price = $p_stmt->fetchColumn();
+                    if ($db_price !== false && (float)$db_price > 0) {
+                        $price = (float)$db_price;
+                    }
+                }
+                if ($price <= 0 && !empty($fi['heading'])) {
+                    $p_stmt = $pdo->prepare("SELECT price FROM food_menu WHERE heading = ? LIMIT 1");
+                    $p_stmt->execute([trim($fi['heading'])]);
+                    $db_price = $p_stmt->fetchColumn();
+                    if ($db_price !== false && (float)$db_price > 0) {
+                        $price = (float)$db_price;
+                    }
+                }
+            }
             $meal_time = strtolower(trim($fi['meal_time'] ?? $cat));
             if (strpos($meal_time, 'snack') !== false || strpos($meal_time, 'evening') !== false || strpos($meal_time, 'tea') !== false) {
                 $meal_time = 'snacks';
@@ -288,28 +308,29 @@ try {
     // Billing & GST Calculation
     ensure_booking_gst_columns($pdo);
 
-    $billing_type = strtolower(trim($input['billing_type'] ?? 'estimate'));
-    if ($billing_type !== 'gst') {
-        $billing_type = 'estimate';
+    $raw_billing_type = strtolower(trim($input['billing_type'] ?? 'gst_without_address'));
+    if ($raw_billing_type === 'gst_with_address' || (!empty($input['gst_number']) && strlen(trim($input['gst_number'])) >= 5)) {
+        $billing_type = 'gst_with_address';
+        $guest_gst_number = strtoupper(trim($input['gst_number'] ?? ''));
+        $billing_name = trim($input['billing_name'] ?? '');
+        $billing_address = trim($input['billing_address'] ?? '');
+    } else {
+        $billing_type = 'gst_without_address';
+        $guest_gst_number = null;
+        $billing_name = null;
+        $billing_address = null;
     }
-    $guest_gst_number = ($billing_type === 'gst') ? strtoupper(trim($input['gst_number'] ?? '')) : null;
-    $billing_name = ($billing_type === 'gst') ? trim($input['billing_name'] ?? '') : null;
-    $billing_address = ($billing_type === 'gst') ? trim($input['billing_address'] ?? '') : null;
 
     $subtotal_amount = $room_total + $food_total;
-    $system_gst_rate = (float)get_setting('gst_rate_percentage', '12');
+    $system_gst_rate = (float)get_setting('gst_rate_percentage', '5');
+    if ($system_gst_rate <= 0) $system_gst_rate = 5.00;
 
-    if ($billing_type === 'gst') {
-        $gst_percentage = (!empty($input['gst_percentage']) && (float)$input['gst_percentage'] > 0) ? (float)$input['gst_percentage'] : $system_gst_rate;
-        $gst_amount = round($subtotal_amount * ($gst_percentage / 100), 2);
-        $tax_amount = $gst_amount;
-        $total_amount = $subtotal_amount + $gst_amount;
-    } else {
-        $gst_percentage = 0.00;
-        $gst_amount = 0.00;
-        $tax_amount = 0.00;
-        $total_amount = $subtotal_amount;
-    }
+    $gst_percentage = (!empty($input['gst_percentage']) && (float)$input['gst_percentage'] > 0) ? (float)$input['gst_percentage'] : $system_gst_rate;
+    if ($gst_percentage <= 0) $gst_percentage = 5.00;
+
+    $gst_amount = round($subtotal_amount * ($gst_percentage / 100), 2);
+    $tax_amount = $gst_amount;
+    $total_amount = $subtotal_amount + $gst_amount;
 
     // Client Authentication & User Association
     require_once __DIR__ . '/../includes/client_auth.php';
@@ -565,6 +586,13 @@ try {
             'message' => 'Failed to securely store the verified ID document on server.'
         ]);
         exit;
+    }
+    // Auto-compress & resize high-resolution ID photos
+    if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+        $opt = compress_and_resize_image_file($destination, ['max_dimension' => 1600]);
+        if (!empty($opt['success']) && !empty($opt['filename'])) {
+            $new_filename = $opt['filename'];
+        }
     }
     $id_proof_file = $new_filename;
 
