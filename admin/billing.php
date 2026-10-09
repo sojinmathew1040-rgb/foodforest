@@ -460,7 +460,7 @@ $currency = get_setting('currency_symbol', '₹');
             <!-- Property Filter -->
             <div>
                 <label class="adm-form-label" style="font-size: 12px;"><i class="fa-solid fa-tree"></i> Sanctuary Villa</label>
-                <select name="villa" class="adm-input">
+                <select name="villa" class="adm-input adm-select-clean" style="height: 42px;">
                     <option value="">All Properties / Villas</option>
                     <?php foreach ($all_rooms as $r): ?>
                         <option value="<?php echo $r['slug']; ?>" <?php echo ($filter_villa === $r['slug']) ? 'selected' : ''; ?>>
@@ -473,7 +473,7 @@ $currency = get_setting('currency_symbol', '₹');
             <!-- Date Preset Shortcut -->
             <div>
                 <label class="adm-form-label" style="font-size: 12px;"><i class="fa-regular fa-clock"></i> Quick Date Filter</label>
-                <select name="date_preset" class="adm-input" onchange="this.form.submit()">
+                <select name="date_preset" class="adm-input adm-select-clean" style="height: 42px;" onchange="this.form.submit()">
                     <option value="">Custom / All Dates</option>
                     <option value="today" <?php echo ($filter_date_preset === 'today') ? 'selected' : ''; ?>>Today</option>
                     <option value="yesterday" <?php echo ($filter_date_preset === 'yesterday') ? 'selected' : ''; ?>>Yesterday</option>
@@ -496,7 +496,7 @@ $currency = get_setting('currency_symbol', '₹');
             <!-- Sort Option -->
             <div>
                 <label class="adm-form-label" style="font-size: 12px;"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort By</label>
-                <select name="sort" class="adm-input">
+                <select name="sort" class="adm-input adm-select-clean" style="height: 42px;">
                     <option value="checkin_desc" <?php echo ($sort_by === 'checkin_desc') ? 'selected' : ''; ?>>Check-In (Newest)</option>
                     <option value="checkin_asc" <?php echo ($sort_by === 'checkin_asc') ? 'selected' : ''; ?>>Check-In (Oldest)</option>
                     <option value="checkout_desc" <?php echo ($sort_by === 'checkout_desc') ? 'selected' : ''; ?>>Check-Out (Newest)</option>
@@ -1193,27 +1193,33 @@ $currency = get_setting('currency_symbol', '₹');
                     <div style="font-weight: 700; color: var(--adm-gold); font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.8px; display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-utensils"></i> 2. What They Ate (Gastronomy & Dining Orders)
                     </div>
-                    <button type="button" onclick="addFoodItemRow()" class="adm-btn adm-btn-secondary" style="padding: 4px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px;">
-                        <i class="fa-solid fa-plus"></i> Add Meal / Dish
+                    <button type="button" onclick="addFoodItemRow()" class="adm-btn adm-btn-secondary" style="padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.18);">
+                        <i class="fa-solid fa-plus"></i> Add Custom Dish
                     </button>
                 </div>
 
-                <!-- Quick Food Preset Select -->
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; background: #0A160F; padding: 8px 12px; border-radius: 6px;">
-                    <span style="font-size: 12px; color: var(--adm-text-muted); white-space: nowrap;">Quick Add from Menu:</span>
-                    <select id="foodMenuPresetSelect" class="adm-input" style="font-size: 12px; height: 34px;">
-                        <option value="">-- Choose Item from Food Menu --</option>
+                <!-- Quick Food Preset Select (Auto-Adds on selection) -->
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px; background: #0A160F; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                    <span style="font-size: 12px; color: var(--adm-text-gold); font-weight: 600; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-bolt"></i> Quick Add from Menu:
+                    </span>
+                    <select id="foodMenuPresetSelect" class="adm-input adm-select-clean" style="font-size: 13px; height: 40px; flex: 1;" onchange="addSelectedMenuPreset()">
+                        <option value="">-- Choose item from Menu to add instantly --</option>
                         <?php foreach ($menu_items as $mi): ?>
                             <option value="<?php echo htmlspecialchars(json_encode($mi), ENT_QUOTES, 'UTF-8'); ?>">
                                 [<?php echo strtoupper($mi['category']); ?>] <?php echo htmlspecialchars($mi['heading']); ?> — <?php echo $currency . number_format($mi['price'], 0); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <button type="button" onclick="addSelectedMenuPreset()" class="adm-btn adm-btn-primary" style="padding: 4px 12px; font-size: 12px; white-space: nowrap;">
-                        <i class="fa-solid fa-cart-plus"></i> Add
-                    </button>
                 </div>
 
+                <div style="display: grid; grid-template-columns: 2fr 1fr 85px 110px 38px; gap: 8px; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--adm-text-muted); font-weight: 600; padding: 0 2px;">
+                    <div>Meal / Dish Title</div>
+                    <div>Category</div>
+                    <div style="text-align: center;">Qty</div>
+                    <div style="text-align: right;">Rate (₹)</div>
+                    <div></div>
+                </div>
                 <div id="foodItemsContainer">
                     <!-- Dynamic Rows Injected Here -->
                 </div>
@@ -1228,27 +1234,33 @@ $currency = get_setting('currency_symbol', '₹');
                     <div style="font-weight: 700; color: #34D399; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.8px; display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-compass"></i> 3. What They Did (Experiences & Activities)
                     </div>
-                    <button type="button" onclick="addActivityItemRow()" class="adm-btn adm-btn-secondary" style="padding: 4px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px;">
-                        <i class="fa-solid fa-plus"></i> Add Activity
+                    <button type="button" onclick="addActivityItemRow()" class="adm-btn adm-btn-secondary" style="padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.18);">
+                        <i class="fa-solid fa-plus"></i> Add Custom Activity
                     </button>
                 </div>
 
-                <!-- Quick Activity Preset Select -->
-                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; background: #0A160F; padding: 8px 12px; border-radius: 6px;">
-                    <span style="font-size: 12px; color: var(--adm-text-muted); white-space: nowrap;">Quick Add from Experiences:</span>
-                    <select id="experiencePresetSelect" class="adm-input" style="font-size: 12px; height: 34px;">
-                        <option value="">-- Choose Experience / Ritual --</option>
+                <!-- Quick Activity Preset Select (Auto-Adds on selection) -->
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px; background: #0A160F; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                    <span style="font-size: 12px; color: #34D399; font-weight: 600; white-space: nowrap; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-bolt"></i> Quick Add from Experiences:
+                    </span>
+                    <select id="experiencePresetSelect" class="adm-input adm-select-clean" style="font-size: 13px; height: 40px; flex: 1;" onchange="addSelectedExperiencePreset()">
+                        <option value="">-- Choose experience to add instantly --</option>
                         <?php foreach ($experience_items as $ei): ?>
                             <option value="<?php echo htmlspecialchars(json_encode($ei), ENT_QUOTES, 'UTF-8'); ?>">
                                 <?php echo htmlspecialchars($ei['title']); ?> (<?php echo htmlspecialchars($ei['timing']); ?>)
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <button type="button" onclick="addSelectedExperiencePreset()" class="adm-btn adm-btn-primary" style="padding: 4px 12px; font-size: 12px; white-space: nowrap;">
-                        <i class="fa-solid fa-plus"></i> Add
-                    </button>
                 </div>
 
+                <div style="display: grid; grid-template-columns: 2fr 1fr 85px 110px 38px; gap: 8px; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--adm-text-muted); font-weight: 600; padding: 0 2px;">
+                    <div>Experience / Ritual Title</div>
+                    <div>Schedule / Notes</div>
+                    <div style="text-align: center;">Qty</div>
+                    <div style="text-align: right;">Rate (₹)</div>
+                    <div></div>
+                </div>
                 <div id="activityItemsContainer">
                     <!-- Dynamic Rows Injected Here -->
                 </div>
@@ -1263,9 +1275,15 @@ $currency = get_setting('currency_symbol', '₹');
                     <div style="font-weight: 700; color: #818CF8; font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.8px; display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-bell-concierge"></i> 4. Extra Services / Bespoke Incidentals
                     </div>
-                    <button type="button" onclick="addCustomItemRow()" class="adm-btn adm-btn-secondary" style="padding: 4px 10px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px;">
+                    <button type="button" onclick="addCustomItemRow()" class="adm-btn adm-btn-secondary" style="padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.18);">
                         <i class="fa-solid fa-plus"></i> Add Custom Charge
                     </button>
+                </div>
+                <div style="display: grid; grid-template-columns: 2.5fr 85px 110px 38px; gap: 8px; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--adm-text-muted); font-weight: 600; padding: 0 2px;">
+                    <div>Custom Service / Item Description</div>
+                    <div style="text-align: center;">Qty</div>
+                    <div style="text-align: right;">Amount (₹)</div>
+                    <div></div>
                 </div>
                 <div id="customItemsContainer">
                     <!-- Dynamic Rows Injected Here -->
@@ -1339,7 +1357,7 @@ $currency = get_setting('currency_symbol', '₹');
                     </div>
                     <div>
                         <label class="adm-form-label" style="font-size: 12px;">Payment Method</label>
-                        <select name="payment_method" id="modalPaymentMethod" class="adm-input">
+                        <select name="payment_method" id="modalPaymentMethod" class="adm-input adm-select-clean" style="height: 40px;">
                             <option value="upi">UPI / GPay / PhonePe</option>
                             <option value="cash">Cash on Arrival</option>
                             <option value="card">Credit / Debit Card</option>
@@ -1554,13 +1572,13 @@ function appendFoodRow(heading, category, qty, price) {
     var container = document.getElementById('foodItemsContainer');
     var row = document.createElement('div');
     row.className = 'food-edit-row';
-    row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 80px 100px 36px; gap: 8px; margin-bottom: 8px; align-items: center;';
+    row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 85px 110px 38px; gap: 8px; margin-bottom: 8px; align-items: center;';
     row.innerHTML = `
-        <input type="text" name="food_heading[]" value="${escapeHtml(heading)}" class="adm-input" placeholder="Dish / Meal Title" style="height: 36px; font-size: 12.5px;">
-        <input type="text" name="food_category[]" value="${escapeHtml(category)}" class="adm-input" placeholder="Category" style="height: 36px; font-size: 12px;">
-        <input type="number" name="food_qty[]" value="${qty}" min="1" class="adm-input" style="height: 36px; text-align: center;" oninput="recalculateModalTotals()">
-        <input type="number" step="0.01" name="food_price[]" value="${price}" class="adm-input" placeholder="Rate" style="height: 36px; text-align: right;" oninput="recalculateModalTotals()">
-        <button type="button" onclick="this.parentElement.remove(); recalculateModalTotals();" class="adm-btn" style="height: 36px; background: rgba(239, 68, 68, 0.2); color: #F87171; padding: 0; display: flex; align-items: center; justify-content: center;" title="Remove">
+        <input type="text" name="food_heading[]" value="${escapeHtml(heading)}" class="adm-table-input" placeholder="Dish / Meal Title" style="font-size: 13px;">
+        <input type="text" name="food_category[]" value="${escapeHtml(category)}" class="adm-table-input" placeholder="Category" style="font-size: 12px; color: #94A3B8;">
+        <input type="number" name="food_qty[]" value="${qty}" min="1" class="adm-table-input" style="text-align: center; font-weight: 600; padding: 6px 4px;" title="Quantity" oninput="recalculateModalTotals()">
+        <input type="number" step="0.01" name="food_price[]" value="${price}" class="adm-table-input" placeholder="Rate" style="text-align: right; font-weight: 600; padding: 6px 8px; color: var(--adm-gold-light);" title="Unit Rate" oninput="recalculateModalTotals()">
+        <button type="button" onclick="this.parentElement.remove(); recalculateModalTotals();" class="adm-btn" style="height: 38px; background: rgba(239, 68, 68, 0.16); border: 1px solid rgba(239, 68, 68, 0.3); color: #F87171; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; transition: all 0.2s;" title="Remove Item">
             <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
         </button>
     `;
@@ -1588,13 +1606,13 @@ function appendActivityRow(title, timing, qty, price) {
     var container = document.getElementById('activityItemsContainer');
     var row = document.createElement('div');
     row.className = 'activity-edit-row';
-    row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 80px 100px 36px; gap: 8px; margin-bottom: 8px; align-items: center;';
+    row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 85px 110px 38px; gap: 8px; margin-bottom: 8px; align-items: center;';
     row.innerHTML = `
-        <input type="text" name="act_title[]" value="${escapeHtml(title)}" class="adm-input" placeholder="Experience Title" style="height: 36px; font-size: 12.5px;">
-        <input type="text" name="act_timing[]" value="${escapeHtml(timing)}" class="adm-input" placeholder="Schedule / Notes" style="height: 36px; font-size: 12px;">
-        <input type="number" name="act_qty[]" value="${qty}" min="1" class="adm-input" style="height: 36px; text-align: center;" oninput="recalculateModalTotals()">
-        <input type="number" step="0.01" name="act_price[]" value="${price}" class="adm-input" placeholder="Rate" style="height: 36px; text-align: right;" oninput="recalculateModalTotals()">
-        <button type="button" onclick="this.parentElement.remove(); recalculateModalTotals();" class="adm-btn" style="height: 36px; background: rgba(239, 68, 68, 0.2); color: #F87171; padding: 0; display: flex; align-items: center; justify-content: center;" title="Remove">
+        <input type="text" name="act_title[]" value="${escapeHtml(title)}" class="adm-table-input" placeholder="Experience Title" style="font-size: 13px;">
+        <input type="text" name="act_timing[]" value="${escapeHtml(timing)}" class="adm-table-input" placeholder="Schedule / Notes" style="font-size: 12px; color: #94A3B8;">
+        <input type="number" name="act_qty[]" value="${qty}" min="1" class="adm-table-input" style="text-align: center; font-weight: 600; padding: 6px 4px;" title="Quantity" oninput="recalculateModalTotals()">
+        <input type="number" step="0.01" name="act_price[]" value="${price}" class="adm-table-input" placeholder="Rate" style="text-align: right; font-weight: 600; padding: 6px 8px; color: #34D399;" title="Unit Rate" oninput="recalculateModalTotals()">
+        <button type="button" onclick="this.parentElement.remove(); recalculateModalTotals();" class="adm-btn" style="height: 38px; background: rgba(239, 68, 68, 0.16); border: 1px solid rgba(239, 68, 68, 0.3); color: #F87171; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; transition: all 0.2s;" title="Remove Activity">
             <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
         </button>
     `;
@@ -1622,12 +1640,12 @@ function appendCustomRow(title, qty, price) {
     var container = document.getElementById('customItemsContainer');
     var row = document.createElement('div');
     row.className = 'custom-edit-row';
-    row.style.cssText = 'display: grid; grid-template-columns: 2.5fr 80px 100px 36px; gap: 8px; margin-bottom: 8px; align-items: center;';
+    row.style.cssText = 'display: grid; grid-template-columns: 2.5fr 85px 110px 38px; gap: 8px; margin-bottom: 8px; align-items: center;';
     row.innerHTML = `
-        <input type="text" name="cust_title[]" value="${escapeHtml(title)}" class="adm-input" placeholder="e.g. Special Campfire Wood, Cab Transfer, Spa Service" style="height: 36px; font-size: 12.5px;">
-        <input type="number" name="cust_qty[]" value="${qty}" min="1" class="adm-input" style="height: 36px; text-align: center;" oninput="recalculateModalTotals()">
-        <input type="number" step="0.01" name="cust_price[]" value="${price}" class="adm-input" placeholder="Amount" style="height: 36px; text-align: right;" oninput="recalculateModalTotals()">
-        <button type="button" onclick="this.parentElement.remove(); recalculateModalTotals();" class="adm-btn" style="height: 36px; background: rgba(239, 68, 68, 0.2); color: #F87171; padding: 0; display: flex; align-items: center; justify-content: center;" title="Remove">
+        <input type="text" name="cust_title[]" value="${escapeHtml(title)}" class="adm-table-input" placeholder="e.g. Special Campfire Wood, Cab Transfer, Spa Service" style="font-size: 13px;">
+        <input type="number" name="cust_qty[]" value="${qty}" min="1" class="adm-table-input" style="text-align: center; font-weight: 600; padding: 6px 4px;" title="Quantity" oninput="recalculateModalTotals()">
+        <input type="number" step="0.01" name="cust_price[]" value="${price}" class="adm-table-input" placeholder="Amount" style="text-align: right; font-weight: 600; padding: 6px 8px; color: #818CF8;" title="Amount" oninput="recalculateModalTotals()">
+        <button type="button" onclick="this.parentElement.remove(); recalculateModalTotals();" class="adm-btn" style="height: 38px; background: rgba(239, 68, 68, 0.16); border: 1px solid rgba(239, 68, 68, 0.3); color: #F87171; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; transition: all 0.2s;" title="Remove Charge">
             <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
         </button>
     `;
