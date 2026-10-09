@@ -124,16 +124,19 @@ if ($active_booking) {
     }
 }
 
-// 4. Load Complete Estate Food Menu
+// 4. Food Ordering Status & Menu
+$food_ordering_enabled = (get_setting('food_ordering_enabled', '1') !== '0');
 $portal_menu_items = [];
 try {
-    $m_stmt = $pdo->query("SELECT id, category, heading, subtitle, price, dietary_type, default_meal_time, inclusions FROM food_menu WHERE is_active = 1 ORDER BY category ASC, heading ASC");
-    $portal_menu_items = $m_stmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($portal_menu_items as &$pmi) {
-        $pmi['price'] = (float)$pmi['price'];
-        $pmi['inclusions'] = !empty($pmi['inclusions']) ? json_decode($pmi['inclusions'], true) : [];
+    if ($food_ordering_enabled) {
+        $m_stmt = $pdo->query("SELECT id, category, heading, subtitle, price, dietary_type, default_meal_time, inclusions FROM food_menu WHERE is_active = 1 ORDER BY category ASC, heading ASC");
+        $portal_menu_items = $m_stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($portal_menu_items as &$pmi) {
+            $pmi['price'] = (float)$pmi['price'];
+            $pmi['inclusions'] = !empty($pmi['inclusions']) ? json_decode($pmi['inclusions'], true) : [];
+        }
+        unset($pmi);
     }
-    unset($pmi);
 } catch (Exception $e) {
     $portal_menu_items = [];
 }
@@ -1839,12 +1842,14 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                     </a>
                 </li>
 
+                <?php if ($food_ordering_enabled): ?>
                 <li class="guest-nav-item">
                     <a class="guest-nav-link" data-view="menu" onclick="switchGuestTab('menu')">
                         <i class="fa-solid fa-utensils"></i>
                         <span>Our Farm Menu</span>
                     </a>
                 </li>
+                <?php endif; ?>
 
                 <li class="guest-nav-item">
                     <a class="guest-nav-link" data-view="experiences" onclick="switchGuestTab('experiences')">
@@ -1857,6 +1862,13 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                     <a class="guest-nav-link" data-view="folio" onclick="switchGuestTab('folio')">
                         <i class="fa-solid fa-receipt"></i>
                         <span>Payable Folio &amp; Bills</span>
+                    </a>
+                </li>
+
+                <li class="guest-nav-item">
+                    <a class="guest-nav-link" data-view="feedback" onclick="switchGuestTab('feedback')">
+                        <i class="fa-solid fa-comment-dots"></i>
+                        <span>Guest Feedback &amp; Review</span>
                     </a>
                 </li>
 
@@ -2055,6 +2067,7 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                 </div>
                             </div>
 
+                            <?php if ($food_ordering_enabled): ?>
                             <div class="g-card" style="margin-bottom: 0; padding: 18px; cursor: pointer; transition: all 0.2s;" onclick="switchGuestTab('menu')">
                                 <div style="display: flex; align-items: center; gap: 14px;">
                                     <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); color: #34D399; display: flex; align-items: center; justify-content: center; font-size: 18px;">
@@ -2066,6 +2079,7 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
 
                             <div class="g-card" style="margin-bottom: 0; padding: 18px; cursor: pointer; transition: all 0.2s;" onclick="switchGuestTab('folio')">
                                 <div style="display: flex; align-items: center; gap: 14px;">
@@ -2078,6 +2092,18 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="g-card" style="margin-bottom: 0; padding: 18px; cursor: pointer; transition: all 0.2s;" onclick="switchGuestTab('feedback')">
+                                <div style="display: flex; align-items: center; gap: 14px;">
+                                    <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(197, 160, 89, 0.15); color: #C5A059; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                                        <i class="fa-solid fa-feather-pointed"></i>
+                                    </div>
+                                    <div>
+                                        <h4 style="font-size: 14px; font-weight: 700; color: #FFFFFF; margin-bottom: 2px;">Share Feedback</h4>
+                                        <p style="font-size: 11.5px; color: #94A3B8; margin: 0;">Upload photo &amp; submit review</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Dual Column Stay Hub -->
@@ -2087,9 +2113,11 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                             <div class="g-card" style="margin-bottom: 0;">
                                 <div class="g-card-header">
                                     <h3 class="g-card-title"><i class="fa-solid fa-plate-wheat"></i> Today's Cottage Dining</h3>
+                                    <?php if ($food_ordering_enabled): ?>
                                     <button type="button" onclick="switchGuestTab('menu')" class="btn-gold-action" style="padding: 5px 12px; font-size: 11.5px;">
                                         <i class="fa-solid fa-plus"></i> Order More
                                     </button>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div id="dash-ordered-summary-box">
@@ -2130,9 +2158,11 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                         <div style="text-align: center; padding: 30px 10px; color: #94A3B8;">
                                             <i class="fa-solid fa-bowl-food" style="font-size: 28px; color: #C5A059; margin-bottom: 8px; display: block;"></i>
                                             <p style="margin: 0; font-size: 13px;">No food orders placed yet for this stay.</p>
+                                            <?php if ($food_ordering_enabled): ?>
                                             <button type="button" onclick="switchGuestTab('menu')" class="btn-outline-action" style="margin-top: 14px;">
                                                 <i class="fa-solid fa-utensils"></i> Browse Farm-to-Table Menu
                                             </button>
+                                            <?php endif; ?>
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -2314,9 +2344,11 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                     <a href="admin/print_bill.php?ref=<?php echo urlencode($active_booking['reference_code']); ?>&token=<?php echo urlencode($folio_token); ?>&type=other" target="_blank" class="btn-gold-action" title="Print Food / Dining Bill (PDF)">
                                         <i class="fa-solid fa-file-pdf"></i> Print Food Bill (PDF)
                                     </a>
+                                    <?php if ($food_ordering_enabled): ?>
                                     <button type="button" onclick="switchGuestTab('menu')" class="btn-outline-action">
                                         <i class="fa-solid fa-plus"></i> Order More Dishes
                                     </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
 
@@ -2386,9 +2418,8 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                                     <td>
                                                         <span style="font-size: 11px; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px;"><?php echo htmlspecialchars($f_slot); ?></span>
                                                     </td>
-                                                    <td style="text-align: center; font-weight: 700; color: #FFFFFF;"><?php echo $f_qty; ?></td>
-                                                    <td style="text-align: right; color: #94A3B8;"><?php echo $currency . number_format($f_rate, 2); ?></td>
-                                                    <td style="text-align: right; font-weight: 700; color: #C5A059;"><?php echo $currency . number_format($f_sub, 2); ?></td>
+                                                    <td style="text-align: right; color: #94A3B8;"><?php echo ((float)$f_rate <= 0) ? '<span style="color: #34D399; font-weight: 600;">Complimentary</span>' : ($currency . number_format($f_rate, 2)); ?></td>
+                                                    <td style="text-align: right; font-weight: 700; color: #C5A059;"><?php echo ((float)$f_rate <= 0) ? '<span style="color: #34D399;">' . $currency . '0.00</span>' : ($currency . number_format($f_sub, 2)); ?></td>
                                                     <td style="text-align: center;">
                                                         <span class="status-badge-kitchen <?php echo $fi_st; ?>">
                                                             <?php 
@@ -2431,9 +2462,11 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                         <i class="fa-solid fa-utensils" style="font-size: 32px; color: #C5A059; margin-bottom: 10px; display: block;"></i>
                                         <h4 class="font-serif" style="font-size: 18px; color: #FFFFFF; margin-bottom: 6px;">No Meals Ordered Yet</h4>
                                         <p style="font-size: 13px; max-width: 440px; margin: 0 auto 18px;">Browse our 75 organic farm-to-table dishes from the Farm Menu tab to have delicious meals delivered straight to your cottage.</p>
+                                        <?php if ($food_ordering_enabled): ?>
                                         <button type="button" onclick="switchGuestTab('menu')" class="btn-gold-action">
                                             <i class="fa-solid fa-utensils"></i> Open Farm Menu &amp; Order
                                         </button>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -2446,6 +2479,7 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                     <!-- VIEW 4: OUR MENU (75 Dishes & In-Cottage Ordering)        -->
                     <!-- ========================================================= -->
                     <section class="guest-view-pane" id="view-menu">
+                        <?php if ($food_ordering_enabled): ?>
                         <div class="g-card">
                             <div class="g-card-header">
                                 <div>
@@ -2544,6 +2578,25 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                             </div>
 
                         </div>
+                        <?php else: ?>
+                            <div class="g-card" style="text-align: center; padding: 50px 24px;">
+                                <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(239, 68, 68, 0.12); color: #f87171; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 16px;">
+                                    <i class="fa-solid fa-bell-slash"></i>
+                                </div>
+                                <h3 class="font-serif" style="color: #FFFFFF; font-size: 22px; margin-bottom: 8px;">In-Cottage Food Ordering Currently Paused</h3>
+                                <p style="color: #94A3B8; font-size: 13.5px; max-width: 520px; margin: 0 auto 24px; line-height: 1.6;">
+                                    Our estate kitchen has temporarily paused digital food orders. For customized dining requests, meal timings, or special culinary service, please contact the Master Concierge directly.
+                                </p>
+                                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                                    <a href="https://wa.me/<?php echo htmlspecialchars($concierge_wa); ?>?text=Hello%20Concierge,%20regarding%20dining%20at%20<?php echo urlencode($b_title); ?>" target="_blank" class="btn-gold-action" style="padding: 10px 22px; font-size: 13px;">
+                                        <i class="fa-brands fa-whatsapp"></i> Contact Master Concierge
+                                    </a>
+                                    <button type="button" onclick="switchGuestTab('dashboard')" class="btn-outline-action" style="padding: 10px 20px; font-size: 13px;">
+                                        <i class="fa-solid fa-compass"></i> Return to Stay Dashboard
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </section>
 
 
@@ -2762,6 +2815,207 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                         </div>
                     </section>
 
+                    <!-- ========================================================= -->
+                    <!-- VIEW 7: GUEST FEEDBACK & SANCTUARY REFLECTIONS           -->
+                    <!-- ========================================================= -->
+                    <section class="guest-view-pane" id="view-feedback">
+                        <div class="g-card">
+                            <div class="g-card-header" style="border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 16px;">
+                                <div>
+                                    <h3 class="g-card-title"><i class="fa-solid fa-comment-dots"></i> Guest Feedback &amp; Sanctuary Reflection</h3>
+                                    <span style="font-size: 12px; color: #94A3B8;">Share your authentic experience, upload a personal photo, and submit your review. After administrator approval, your reflection will be published to the public website.</span>
+                                </div>
+                                <span class="guest-badge" style="background: rgba(197, 160, 89, 0.15); color: #C5A059; border: 1px solid rgba(197, 160, 89, 0.3); font-size: 11px; padding: 4px 10px;">
+                                    <i class="fa-solid fa-feather-pointed"></i> Guest Stories CMS
+                                </span>
+                            </div>
+
+                            <form id="guest-feedback-form" enctype="multipart/form-data" onsubmit="submitGuestFeedbackForm(event);" style="margin-top: 20px;">
+                                <input type="hidden" name="source" value="guest_portal">
+                                <input type="hidden" name="property_slug" value="<?php echo htmlspecialchars($active_booking['dwelling_type'] ?? 'treehouse'); ?>">
+
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                                    
+                                    <!-- 1. Profile Picture Upload & Preview -->
+                                    <div class="g-card" style="margin-bottom: 0; background: rgba(0,0,0,0.3); border: 1px dashed rgba(197, 160, 89, 0.35); padding: 20px; text-align: center;">
+                                        <label style="font-size: 12.5px; font-weight: 700; color: #FFFFFF; display: block; margin-bottom: 12px;">
+                                            <i class="fa-solid fa-user-circle" style="color: #C5A059;"></i> Profile Picture / Guest Photo *
+                                        </label>
+                                        
+                                        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                                            <div id="feedback-avatar-preview-box" style="width: 84px; height: 84px; border-radius: 50%; background: rgba(197, 160, 89, 0.15); border: 2.5px solid #C5A059; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.4);">
+                                                <span id="feedback-avatar-placeholder" style="font-size: 28px; color: #C5A059; font-weight: 700;">
+                                                    <?php echo strtoupper(substr($disp_name, 0, 1)); ?>
+                                                </span>
+                                                <img id="feedback-avatar-img" src="" alt="Preview" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+                                            </div>
+
+                                            <div>
+                                                <input type="file" id="feedback-avatar-input" name="avatar" accept="image/jpeg,image/png,image/webp" onchange="previewFeedbackAvatar(this);" style="display: none;">
+                                                <label for="feedback-avatar-input" class="btn-outline-action" style="cursor: pointer; padding: 8px 18px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                                                    <i class="fa-solid fa-upload"></i> <span id="feedback-avatar-label-text">Choose Profile Photo</span>
+                                                </label>
+                                                <div style="font-size: 10.5px; color: #94A3B8; margin-top: 6px;">JPG, PNG, or WEBP (Max 5MB)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. Guest Name & Location Details -->
+                                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                                        <div>
+                                            <label style="font-size: 12px; font-weight: 700; color: #E2E8F0; display: block; margin-bottom: 6px;">
+                                                Exact Full Name *
+                                            </label>
+                                            <input type="text" id="feedback-guest-name" name="guest_name" value="<?php echo htmlspecialchars($disp_name); ?>" required class="guest-input font-sans" placeholder="e.g. Rahul &amp; Maya Nair" style="padding: 10px 14px; font-size: 13px;">
+                                        </div>
+
+                                        <div>
+                                            <label style="font-size: 12px; font-weight: 700; color: #E2E8F0; display: block; margin-bottom: 6px;">
+                                                Address / City / Hometown *
+                                            </label>
+                                            <input type="text" id="feedback-guest-location" name="guest_location" required class="guest-input font-sans" placeholder="e.g. Kakkanad, Kochi, Kerala or Bangalore, India" style="padding: 10px 14px; font-size: 13px;">
+                                        </div>
+
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                            <div>
+                                                <label style="font-size: 11.5px; font-weight: 600; color: #94A3B8; display: block; margin-bottom: 6px;">
+                                                    Dwelling Stayed
+                                                </label>
+                                                <select name="stay_badge" class="guest-input font-sans" style="padding: 9px 10px; font-size: 12px;">
+                                                    <option value="<?php echo htmlspecialchars($b_title); ?>" selected><?php echo htmlspecialchars($b_title); ?></option>
+                                                    <option value="CANOPY TREEHOUSE VILLA">Canopy Treehouse Villa</option>
+                                                    <option value="HANDCRAFTED COB MUDHOUSE">Handcrafted Cob Mudhouse</option>
+                                                    <option value="SANCTUARY RETREAT">General Sanctuary Retreat</option>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label style="font-size: 11.5px; font-weight: 600; color: #94A3B8; display: block; margin-bottom: 6px;">
+                                                    Highlight Title (Optional)
+                                                </label>
+                                                <input type="text" name="title" class="guest-input font-sans" placeholder="e.g. Ethereal mountain mist" style="padding: 9px 10px; font-size: 12px;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 3. Interactive Star Rating -->
+                                <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 8px; padding: 14px 18px; margin-bottom: 18px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                        <div>
+                                            <label style="font-size: 12px; font-weight: 700; color: #FFFFFF; display: block; margin-bottom: 2px;">
+                                                Overall Experience Rating *
+                                            </label>
+                                            <span id="feedback-stars-label" style="font-size: 12px; color: #C5A059; font-weight: 600;">5.0 / 5.0 (Exceptional Mountain Tranquility)</span>
+                                        </div>
+                                        <div style="display: flex; gap: 6px; font-size: 22px; cursor: pointer;" id="feedback-stars-container">
+                                            <i class="fa-solid fa-star star-opt" data-val="1" onclick="setFeedbackStars(1)" style="color: #F59E0B;"></i>
+                                            <i class="fa-solid fa-star star-opt" data-val="2" onclick="setFeedbackStars(2)" style="color: #F59E0B;"></i>
+                                            <i class="fa-solid fa-star star-opt" data-val="3" onclick="setFeedbackStars(3)" style="color: #F59E0B;"></i>
+                                            <i class="fa-solid fa-star star-opt" data-val="4" onclick="setFeedbackStars(4)" style="color: #F59E0B;"></i>
+                                            <i class="fa-solid fa-star star-opt" data-val="5" onclick="setFeedbackStars(5)" style="color: #F59E0B;"></i>
+                                        </div>
+                                        <input type="hidden" name="stars" id="feedback-stars-input" value="5.0">
+                                    </div>
+                                </div>
+
+                                <!-- 4. Feedback Story Textbox -->
+                                <div style="margin-bottom: 20px;">
+                                    <label style="font-size: 12.5px; font-weight: 700; color: #FFFFFF; display: block; margin-bottom: 6px;">
+                                        Your Feedback &amp; Reflections *
+                                    </label>
+                                    <textarea id="feedback-quote" name="quote" rows="5" required class="guest-input font-sans" placeholder="Type your detailed experience here — the earthen clay architecture, high-altitude weather, woodfired organic farm meals, serenity of the stream, or hospitality of the staff..." style="padding: 12px 14px; font-size: 13px; line-height: 1.55; resize: vertical;"></textarea>
+                                </div>
+
+                                <!-- Submit Row -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px;">
+                                    <div style="font-size: 11.5px; color: #94A3B8; max-width: 480px;">
+                                        <i class="fa-solid fa-circle-info" style="color: #C5A059;"></i> Submitted reflections enter the administrator moderation queue. Once approved, they will be published live on the public website.
+                                    </div>
+                                    <button type="submit" id="btn-submit-feedback" class="btn-gold-action" style="padding: 11px 26px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                                        <i class="fa-solid fa-paper-plane"></i>
+                                        <span>Submit Feedback for Admin Approval</span>
+                                    </button>
+                                </div>
+                            </form>
+
+                            <!-- Success Banner (Hidden by default) -->
+                            <div id="feedback-success-card" style="display: none; margin-top: 20px; padding: 18px 22px; background: rgba(16, 185, 129, 0.12); border: 1.5px solid rgba(16, 185, 129, 0.35); border-radius: 10px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <i class="fa-solid fa-circle-check" style="color: #10B981; font-size: 22px;"></i>
+                                    <div>
+                                        <strong style="color: #FFFFFF; font-size: 14px; display: block;">Feedback Successfully Submitted!</strong>
+                                        <p style="color: #CBD5E1; font-size: 12px; margin: 2px 0 0;" id="feedback-success-msg">
+                                            Thank you! Your reflection is now with estate management and will be published to the website upon verification.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- List of submitted reflections by this resident -->
+                            <div style="margin-top: 30px; border-top: 1px solid rgba(197, 160, 89, 0.2); padding-top: 20px;" id="feedback-history-section">
+                                <h4 style="font-size: 14px; font-weight: 700; color: #FFFFFF; margin-bottom: 14px;">
+                                    <i class="fa-solid fa-clock-rotate-left" style="color: #C5A059;"></i> Your Submitted Reflections
+                                </h4>
+                                <div id="feedback-history-list">
+                                    <?php
+                                    $guest_reflections = [];
+                                    try {
+                                        if ($is_user && $current_user) {
+                                            $gr_stmt = $pdo->prepare("SELECT * FROM testimonials WHERE user_id = ? ORDER BY id DESC");
+                                            $gr_stmt->execute([$current_user['id']]);
+                                            $guest_reflections = $gr_stmt->fetchAll(PDO::FETCH_ASSOC);
+                                        } elseif (!empty($active_booking['guest_name'])) {
+                                            $gr_stmt = $pdo->prepare("SELECT * FROM testimonials WHERE guest_name = ? ORDER BY id DESC");
+                                            $gr_stmt->execute([$active_booking['guest_name']]);
+                                            $guest_reflections = $gr_stmt->fetchAll(PDO::FETCH_ASSOC);
+                                        }
+                                    } catch (Exception $e) {}
+                                    ?>
+                                    <?php if (!empty($guest_reflections)): ?>
+                                        <?php foreach ($guest_reflections as $gr): 
+                                            $gr_status = $gr['status'] ?? ($gr['is_active'] ? 'approved' : 'pending');
+                                        ?>
+                                            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                                        <strong style="color: #FFFFFF; font-size: 13.5px;"><?php echo htmlspecialchars($gr['guest_name']); ?></strong>
+                                                        <span style="color: #F59E0B; font-size: 11px;">★ <?php echo number_format($gr['stars'] ?? 5.0, 1); ?></span>
+                                                    </div>
+                                                    <div>
+                                                        <?php if ($gr_status === 'approved'): ?>
+                                                            <span class="guest-badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 10px; padding: 2px 8px;">
+                                                                <i class="fa-solid fa-check"></i> Approved &amp; Live on Website
+                                                            </span>
+                                                        <?php elseif ($gr_status === 'pending'): ?>
+                                                            <span class="guest-badge" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 10px; padding: 2px 8px;">
+                                                                ⏳ Pending Admin Approval
+                                                            </span>
+                                                        <?php else: ?>
+                                                            <span class="guest-badge" style="background: rgba(239, 68, 68, 0.15); color: #F87171; font-size: 10px; padding: 2px 8px;">
+                                                                Archived
+                                                            </span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                                <div style="font-size: 11px; color: #94A3B8; margin-bottom: 8px;">
+                                                    <?php echo htmlspecialchars($gr['guest_location']); ?> &bull; Stayed: <?php echo htmlspecialchars($gr['stay_badge'] ?? 'Sanctuary Stay'); ?>
+                                                </div>
+                                                <p style="font-size: 12.5px; color: #E2E8F0; font-style: italic; margin: 0; line-height: 1.5;">
+                                                    "<?php echo htmlspecialchars($gr['quote']); ?>"
+                                                </p>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <div style="font-size: 12px; color: #94A3B8; text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                                            No reflections submitted yet. Be the first to share your experience!
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
                 <?php endif; ?>
 
             </main>
@@ -2912,10 +3166,20 @@ var viewTitles = {
     'kitchen': { title: 'Our Kitchen Orders', sub: 'Real-time sync with estate chef prep stations' },
     'menu': { title: 'Farm-to-Table Menu', sub: 'Select authentic Kanthalloor farm dishes to order' },
     'experiences': { title: 'Sanctuary Experiences', sub: 'Curated mountain rituals, walks & folklore' },
-    'folio': { title: 'Payable Folio & Invoices', sub: 'Consolidated itemized charges & official tax bills' }
+    'folio': { title: 'Payable Folio & Invoices', sub: 'Consolidated itemized charges & official tax bills' },
+    'feedback': { title: 'Guest Feedback & Reflections', sub: 'Submit your personal impressions, photos & ratings' }
 };
 
+var isFoodOrderingActive = <?php echo $food_ordering_enabled ? 'true' : 'false'; ?>;
+
 function switchGuestTab(tabKey) {
+    // Check if food ordering is disabled
+    if (tabKey === 'menu' && !isFoodOrderingActive) {
+        showPortalToast('Guest in-cottage food ordering is currently disabled.', false);
+        switchGuestTab('dashboard');
+        return;
+    }
+
     // 1. Update Navigation Links
     document.querySelectorAll('.guest-nav-link').forEach(function(link) {
         if (link.getAttribute('data-view') === tabKey) {
@@ -2952,6 +3216,140 @@ function switchGuestTab(tabKey) {
     if (window.history && window.history.replaceState) {
         window.history.replaceState(null, '', '#' + tabKey);
     }
+}
+
+// -------------------------------------------------------------
+// Guest Feedback & Review Submission Handlers
+// -------------------------------------------------------------
+function previewFeedbackAvatar(input) {
+    var pImg = document.getElementById('feedback-avatar-img');
+    var pPh = document.getElementById('feedback-avatar-placeholder');
+    var pTxt = document.getElementById('feedback-avatar-label-text');
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            if (pImg) {
+                pImg.src = e.target.result;
+                pImg.style.display = 'block';
+            }
+            if (pPh) pPh.style.display = 'none';
+            if (pTxt) pTxt.textContent = 'Change Photo';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function setFeedbackStars(val) {
+    var input = document.getElementById('feedback-stars-input');
+    var label = document.getElementById('feedback-stars-label');
+    if (input) input.value = val.toFixed(1);
+    
+    var stars = document.querySelectorAll('#feedback-stars-container .star-opt');
+    stars.forEach(function(s) {
+        var sVal = parseInt(s.getAttribute('data-val'), 10);
+        if (sVal <= val) {
+            s.style.color = '#F59E0B';
+            s.className = 'fa-solid fa-star star-opt';
+        } else {
+            s.style.color = 'rgba(255,255,255,0.2)';
+            s.className = 'fa-regular fa-star star-opt';
+        }
+    });
+
+    var labels = {
+        1: '1.0 / 5.0 (Needs Substantial Improvement)',
+        2: '2.0 / 5.0 (Fair Sanctuary Stay)',
+        3: '3.0 / 5.0 (Good High-Range Experience)',
+        4: '4.0 / 5.0 (Memorable & Wholesome Stay)',
+        5: '5.0 / 5.0 (Exceptional Mountain Tranquility)'
+    };
+    if (label) label.textContent = labels[val] || (val.toFixed(1) + ' / 5.0');
+}
+
+function submitGuestFeedbackForm(e) {
+    e.preventDefault();
+    var form = document.getElementById('guest-feedback-form');
+    var btn = document.getElementById('btn-submit-feedback');
+    if (!form) return;
+
+    var nameInput = document.getElementById('feedback-guest-name');
+    var locInput = document.getElementById('feedback-guest-location');
+    var quoteInput = document.getElementById('feedback-quote');
+
+    if (!nameInput || !nameInput.value.trim()) {
+        showPortalToast('Please enter your full name.', false);
+        if (nameInput) nameInput.focus();
+        return;
+    }
+    if (!locInput || !locInput.value.trim()) {
+        showPortalToast('Please enter your address or city location.', false);
+        if (locInput) locInput.focus();
+        return;
+    }
+    if (!quoteInput || !quoteInput.value.trim()) {
+        showPortalToast('Please enter your feedback reflection in the text box.', false);
+        if (quoteInput) quoteInput.focus();
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Feedback...';
+    }
+
+    var fd = new FormData(form);
+
+    fetch('api/submit_feedback.php', {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showPortalToast('✓ ' + data.message, true);
+            var succCard = document.getElementById('feedback-success-card');
+            var succMsg = document.getElementById('feedback-success-msg');
+            if (succCard) succCard.style.display = 'block';
+            if (succMsg) succMsg.textContent = data.message;
+            
+            // Add to history list immediately
+            var histList = document.getElementById('feedback-history-list');
+            if (histList) {
+                var newCard = document.createElement('div');
+                newCard.style.cssText = 'background: rgba(0,0,0,0.3); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; animation: fadeIn 0.4s ease;';
+                var starsVal = parseFloat(document.getElementById('feedback-stars-input').value) || 5.0;
+                newCard.innerHTML = '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">' +
+                    '<div style="display: flex; align-items: center; gap: 10px;">' +
+                    '<strong style="color: #FFFFFF; font-size: 13.5px;">' + escapeHtml(nameInput.value.trim()) + '</strong>' +
+                    '<span style="color: #F59E0B; font-size: 11px;">★ ' + starsVal.toFixed(1) + '</span>' +
+                    '</div>' +
+                    '<div><span class="guest-badge" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 10px; padding: 2px 8px;">⏳ Pending Admin Approval</span></div>' +
+                    '</div>' +
+                    '<div style="font-size: 11px; color: #94A3B8; margin-bottom: 8px;">' + escapeHtml(locInput.value.trim()) + '</div>' +
+                    '<p style="font-size: 12.5px; color: #E2E8F0; font-style: italic; margin: 0; line-height: 1.5;">"' + escapeHtml(quoteInput.value.trim()) + '"</p>';
+                histList.insertBefore(newCard, histList.firstChild);
+            }
+
+            form.reset();
+            setFeedbackStars(5);
+        } else {
+            showPortalToast(data.message || 'Could not submit feedback.', false);
+        }
+    })
+    .catch(function(err) {
+        showPortalToast('Network communication error submitting feedback.', false);
+    })
+    .finally(function() {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Feedback for Admin Approval';
+        }
+    });
+}
+
+function escapeHtml(text) {
+    var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
 // Auto-activate tab from URL Hash on page load

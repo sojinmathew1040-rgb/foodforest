@@ -65,15 +65,15 @@ try {
     }
 
     $avatar_url = null;
-    // 1. Process Avatar Photo Upload
-    if (!empty($_FILES['avatar_file']['name']) && $_FILES['avatar_file']['error'] === UPLOAD_ERR_OK) {
-        $file_info = pathinfo($_FILES['avatar_file']['name']);
+    $avatar_file_item = (!empty($_FILES['avatar']['name']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) ? $_FILES['avatar'] : ((!empty($_FILES['avatar_file']['name']) && $_FILES['avatar_file']['error'] === UPLOAD_ERR_OK) ? $_FILES['avatar_file'] : null);
+    if ($avatar_file_item) {
+        $file_info = pathinfo($avatar_file_item['name']);
         $ext = strtolower($file_info['extension'] ?? '');
         $allowed = ['jpg', 'jpeg', 'png', 'webp'];
         if (in_array($ext, $allowed)) {
             $new_name = 'avatar_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
             $dest = $upload_base . '/' . $new_name;
-            if (move_uploaded_file($_FILES['avatar_file']['tmp_name'], $dest)) {
+            if (move_uploaded_file($avatar_file_item['tmp_name'], $dest)) {
                 $opt = compress_and_resize_image_file($dest, ['max_dimension' => 600]);
                 if (!empty($opt['success']) && !empty($opt['filename'])) {
                     $new_name = $opt['filename'];

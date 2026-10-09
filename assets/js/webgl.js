@@ -49,8 +49,19 @@ document.addEventListener("DOMContentLoaded", () => {
     scene.background = new THREE.Color(0x0A150F);
 
     // Gimbal Camera located at center of room (0, 0, 0)
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // Starts at 65° for exterior plane, smoothly transitions to wide-angle 85° inside room
+    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 0, 0.01);
+
+    // Dynamic FOV & 2-Axis Look Around Controls
+    let targetFOV = 65;
+    let baseInteriorFOV = (window.innerWidth < 768) ? 82 : 85;
+    let userZoomOffset = 0; // Negative = wider angle (up to 95°+), Positive = zoomed in
+    let currentRotX = 0;
+    let targetRotX = 0;
+    let prevPointerY = 0;
+    let touchStartDist = 0;
+    const tourControls = document.getElementById("tour-quick-controls");
 
     const isMobileDevice = window.innerWidth < 1025 || ('ontouchstart' in window);
     const renderer = new THREE.WebGLRenderer({
@@ -212,6 +223,36 @@ document.addEventListener("DOMContentLoaded", () => {
         sphereMesh.rotation.y = (Math.PI / 2) + stayOffset;
     }
 
+    // Configure 360 Interior Texture Aspect Ratio
+    // Prevents vertical distortion/stretching when users upload non-2:1 smartphone panoramas (e.g. 2.8:1)
+    function configureInteriorTexture(tex) {
+        if (!tex || !tex.image) return;
+        const imgW = tex.image.width || 0;
+        const imgH = tex.image.height || 0;
+        if (imgW > 0 && imgH > 0) {
+            const aspect = imgW / imgH;
+            if (aspect > 2.15) {
+                const scaleY = 2.0 / aspect;
+                tex.repeat.set(1, scaleY);
+                tex.offset.set(0, (1 - scaleY) / 2);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.ClampToEdgeWrapping;
+            } else if (aspect < 1.85) {
+                const scaleX = aspect / 2.0;
+                tex.repeat.set(scaleX, 1);
+                tex.offset.set((1 - scaleX) / 2, 0);
+                tex.wrapS = THREE.ClampToEdgeWrapping;
+                tex.wrapT = THREE.ClampToEdgeWrapping;
+            } else {
+                tex.repeat.set(1, 1);
+                tex.offset.set(0, 0);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.ClampToEdgeWrapping;
+            }
+            tex.needsUpdate = true;
+        }
+    }
+
     // Pre-load textures for both stays so switching is instantaneous
     const textures = {
         treehouse: {
@@ -228,6 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 tex.minFilter = THREE.LinearFilter;
                 tex.magFilter = THREE.LinearFilter;
                 tex.generateMipmaps = false;
+                configureInteriorTexture(tex);
                 renderer.render(scene, camera);
             })
         },
@@ -245,6 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 tex.minFilter = THREE.LinearFilter;
                 tex.magFilter = THREE.LinearFilter;
                 tex.generateMipmaps = false;
+                configureInteriorTexture(tex);
                 renderer.render(scene, camera);
             })
         }
@@ -338,6 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
             extMat.needsUpdate = true;
             sphereMat.map = textures[stayKey].interior;
             sphereMat.needsUpdate = true;
+            configureInteriorTexture(textures[stayKey].interior);
             updateExteriorPlaneGeometry(stayKey);
             updateSphereOrientation(stayKey);
         }
@@ -440,6 +484,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Camera is looking forward at exterior window
             targetRotY = 0;
+            targetRotX = 0;
+            targetFOV = 65;
+            if (tourControls) {
+                tourControls.style.opacity = '0';
+                tourControls.style.pointerEvents = 'none';
+            }
 
             // Smooth, cinematic forward glide without harsh cropping or extreme zoom
             const scaleVal = 1.0 + Math.pow(t, 1.4) * 0.75;
@@ -471,6 +521,11 @@ document.addEventListener("DOMContentLoaded", () => {
             isInside = true;
             extMat.opacity = 0.0;
             sphereMat.opacity = 1.0;
+            targetFOV = baseInteriorFOV + userZoomOffset;
+            if (tourControls) {
+                tourControls.style.opacity = '1';
+                tourControls.style.pointerEvents = 'auto';
+            }
 
             // Map progress 0.25 -> 1.00 into a full 360° circular sweep (0 to -2*PI)
             const tRot = (progress - 0.25) / 0.75; // 0 to 1
@@ -519,21 +574,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 7. Interactive Mouse / Touch Drag to Look Around Inside Room
+    // 7. Interactive Mouse / Touch Drag to Look Around Inside Room (2-Axis: Pitch + Yaw)
     let prevPointerX = 0;
 
     canvas.addEventListener("mousedown", (e) => {
         if (!isInside) return;
         isUserDragging = true;
         prevPointerX = e.clientX;
+        prevPointerY = e.clientY;
         canvas.style.cursor = "grabbing";
     });
 
     window.addEventListener("mousemove", (e) => {
         if (!isUserDragging || !isInside) return;
         const deltaX = e.clientX - prevPointerX;
+        const deltaY = e.clientY - prevPointerY;
         prevPointerX = e.clientX;
+        prevPointerY = e.clientY;
         targetRotY += deltaX * 0.005;
+        targetRotX -= deltaY * 0.004; // Look up & down smoothly
+        targetRotX = Math.max(-0.95, Math.min(0.95, targetRotX)); // Clamp vertical tilt to ±55°
     });
 
     window.addEventListener("mouseup", () => {
@@ -543,23 +603,83 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Touch support for phones, tablets and touch laptops
+    // Touch support for phones, tablets and touch laptops with pinch-to-zoom
     canvas.addEventListener("touchstart", (e) => {
-        if (!isInside || e.touches.length !== 1) return;
-        isUserDragging = true;
-        prevPointerX = e.touches[0].clientX;
+        if (!isInside) return;
+        if (e.touches.length === 1) {
+            isUserDragging = true;
+            prevPointerX = e.touches[0].clientX;
+            prevPointerY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+            isUserDragging = false;
+            touchStartDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        }
     }, { passive: true });
 
     window.addEventListener("touchmove", (e) => {
-        if (!isUserDragging || !isInside || e.touches.length !== 1) return;
-        const deltaX = e.touches[0].clientX - prevPointerX;
-        prevPointerX = e.touches[0].clientX;
-        targetRotY += deltaX * 0.005;
+        if (!isInside) return;
+        if (e.touches.length === 1 && isUserDragging) {
+            const deltaX = e.touches[0].clientX - prevPointerX;
+            const deltaY = e.touches[0].clientY - prevPointerY;
+            prevPointerX = e.touches[0].clientX;
+            prevPointerY = e.touches[0].clientY;
+            targetRotY += deltaX * 0.005;
+            targetRotX -= deltaY * 0.004;
+            targetRotX = Math.max(-0.95, Math.min(0.95, targetRotX));
+        } else if (e.touches.length === 2 && touchStartDist > 0) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const diff = dist - touchStartDist;
+            if (Math.abs(diff) > 8) {
+                userZoomOffset -= (diff > 0 ? 2 : -2);
+                userZoomOffset = Math.max(-18, Math.min(20, userZoomOffset));
+                targetFOV = baseInteriorFOV + userZoomOffset;
+                touchStartDist = dist;
+            }
+        }
     }, { passive: true });
 
     window.addEventListener("touchend", () => {
         isUserDragging = false;
+        touchStartDist = 0;
     });
+
+    // Quick Tour Floating Controls (Wide / Zoom In / Reset)
+    const btnZoomOut = document.getElementById("tour-btn-zoom-out");
+    const btnZoomIn = document.getElementById("tour-btn-zoom-in");
+    const btnResetView = document.getElementById("tour-btn-reset-view");
+
+    if (btnZoomOut) {
+        btnZoomOut.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            userZoomOffset = Math.min(22, userZoomOffset + 6); // Wider view
+            targetFOV = Math.min(98, baseInteriorFOV + userZoomOffset);
+        });
+    }
+    if (btnZoomIn) {
+        btnZoomIn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            userZoomOffset = Math.max(-20, userZoomOffset - 6); // Closer view
+            targetFOV = Math.max(55, baseInteriorFOV + userZoomOffset);
+        });
+    }
+    if (btnResetView) {
+        btnResetView.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            userZoomOffset = 0;
+            targetFOV = baseInteriorFOV;
+            targetRotX = 0;
+        });
+    }
+
 
     // 8. Progress Navigation Handlers (Desktop & Mobile Stepper)
     const stepTargetProgress = [0.05, 0.28, 0.48, 0.72, 0.95];
@@ -644,12 +764,20 @@ document.addEventListener("DOMContentLoaded", () => {
     // Smooth Hydraulic Gimbal Render Loop
     function tick() {
         if (isSectionInView) {
-            // Smooth hydraulic camera damping
+            // Smooth hydraulic camera yaw
             currentRotY += (targetRotY - currentRotY) * 0.08;
             camera.rotation.y = currentRotY;
 
-            // Subtle organic gimbal stabilization float
-            camera.rotation.x = Math.sin(Date.now() * 0.0012) * 0.01;
+            // Smooth hydraulic camera pitch (look up/down)
+            currentRotX += (targetRotX - currentRotX) * 0.08;
+            camera.rotation.x = currentRotX + (isInside ? Math.sin(Date.now() * 0.0012) * 0.003 : Math.sin(Date.now() * 0.0012) * 0.01);
+
+            // Smooth FOV zoom transition
+            const fovDiff = targetFOV - camera.fov;
+            if (Math.abs(fovDiff) > 0.05) {
+                camera.fov += fovDiff * 0.08;
+                camera.updateProjectionMatrix();
+            }
 
             if (particles) {
                 particles.rotation.y += 0.0003;

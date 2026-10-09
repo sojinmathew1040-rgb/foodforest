@@ -441,6 +441,12 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                     </div>
 
                                     <div class="meal-cat-header-right">
+                                        <?php if ($cat_key === 'breakfast'): ?>
+                                            <label class="meal-complimentary-btn font-sans" onclick="event.stopPropagation();" title="Select Complimentary Breakfast (Estate Morning Spread included at ₹0)">
+                                                <input type="checkbox" id="chk-complimentary-breakfast" class="cat-complimentary-checkbox" data-target-cat="breakfast" style="accent-color: #059669; cursor: pointer;">
+                                                <span>Complimentary</span>
+                                            </label>
+                                        <?php endif; ?>
                                         <label class="meal-skip-btn" onclick="event.stopPropagation();" title="Skip ordering <?php echo htmlspecialchars($cat_data['name']); ?>">
                                             <input type="checkbox" class="cat-skip-checkbox" data-target-cat="<?php echo $cat_key; ?>" style="accent-color: var(--accent-gold); cursor: pointer;">
                                             <span>Skip</span>
@@ -453,6 +459,25 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
 
                                 <!-- Collapsible Dish Grid Panel -->
                                 <div class="modal-dishes-grid-panel" id="dishes-panel-<?php echo $cat_key; ?>" style="<?php echo $is_initially_open ? 'display: block;' : 'display: none;'; ?>">
+                                    <?php if ($cat_key === 'breakfast'): ?>
+                                        <!-- Complimentary Breakfast Info Banner (Shown when Complimentary is checked) -->
+                                        <div class="complimentary-breakfast-banner" id="banner-complimentary-breakfast" style="display: none; background: #ECFDF5; border: 1.5px solid #10B981; border-radius: 8px; padding: 14px 18px; margin-bottom: 14px; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+                                            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px;">
+                                                <div style="width: 42px; height: 42px; border-radius: 50%; background: #D1FAE5; display: flex; align-items: center; justify-content: center; color: #059669; font-size: 18px; flex-shrink: 0;">
+                                                    <i class="fa-solid fa-mug-saucer"></i>
+                                                </div>
+                                                <div>
+                                                    <strong style="color: #065F46; font-size: 14px; display: block; margin-bottom: 2px;">Complimentary Estate Breakfast Selected</strong>
+                                                    <span style="color: #047857; font-size: 12px; line-height: 1.4; display: block;">Chef's authentic morning spread (Steaming Appam, Idiyappam, Organic Eggs, Orchard Fruits, Cardamom Tea/Coffee) will be served from 09:00 AM – 10:00 AM. Free of charge — no à la carte selection needed.</span>
+                                                </div>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <span style="background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; white-space: nowrap; box-shadow: 0 2px 4px rgba(5,150,105,0.2);">
+                                                    <i class="fa-solid fa-gift"></i> INCLUDED (₹0.00)
+                                                </span>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
                                     <div class="modal-dishes-grid" id="dishes-grid-<?php echo $cat_key; ?>">
                                     <?php if (!empty($cat_data['items'])): ?>
                                         <?php foreach ($cat_data['items'] as $d_item): 

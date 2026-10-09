@@ -367,7 +367,9 @@ function handle_image_upload($file, $prefix = 'photo', $options = []) {
     $target_dest = SANCTUARY_UPLOAD_DIR . $filename;
 
     if (!@move_uploaded_file($tmp_name, $target_dest)) {
-        return ['success' => false, 'no_file' => false, 'error' => 'Failed to move uploaded file to sanctuary media repository. Check server permissions.'];
+        if (!@copy($tmp_name, $target_dest)) {
+            return ['success' => false, 'no_file' => false, 'error' => 'Failed to move uploaded file to sanctuary media repository. Check server permissions.'];
+        }
     }
 
     // Run Automated High-Performance Compression & Resizing

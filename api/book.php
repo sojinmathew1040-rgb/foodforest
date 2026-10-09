@@ -226,9 +226,11 @@ try {
         foreach ($food_items_array as $fi) {
             $qty = max(0, (int)($fi['quantity'] ?? ($fi['sets'] ?? 0)));
             $cat = trim($fi['category'] ?? 'general');
-            $price = max(0, (float)($fi['price'] ?? 0));
-            // Fallback price lookup from official food_menu table if price is 0
-            if ($price <= 0) {
+            $is_complimentary = !empty($fi['is_complimentary']) || (stripos($fi['heading'] ?? '', 'complimentary') !== false);
+            $price = $is_complimentary ? 0.00 : max(0, (float)($fi['price'] ?? 0));
+
+            // Fallback price lookup from official food_menu table if price is 0 and not complimentary
+            if ($price <= 0 && !$is_complimentary) {
                 if (!empty($fi['id'])) {
                     $p_stmt = $pdo->prepare("SELECT price FROM food_menu WHERE id = ?");
                     $p_stmt->execute([(int)$fi['id']]);
@@ -260,7 +262,7 @@ try {
                 $meal_time = 'lunch';
             }
             if ($qty > 0 && !empty($fi['heading'])) {
-                $subtotal = $qty * $price;
+                $subtotal = $is_complimentary ? 0.00 : ($qty * $price);
                 $food_total += $subtotal;
                 $verified_food_items[] = [
                     'id' => (int)($fi['id'] ?? 0),
@@ -268,18 +270,57 @@ try {
                     'category_title' => trim($fi['category_title'] ?? ucfirst($cat)),
                     'heading' => trim($fi['heading']),
                     'subtitle' => trim($fi['subtitle'] ?? ''),
-                    'price' => $price,
+                    'price' => $is_complimentary ? 0.00 : $price,
                     'quantity' => $qty,
                     'subtotal' => $subtotal,
                     'meal_time' => $meal_time,
                     'dietary_type' => trim($fi['dietary_type'] ?? 'veg'),
                     'inclusions' => is_array($fi['inclusions'] ?? null) ? $fi['inclusions'] : [],
+                    'is_complimentary' => $is_complimentary,
                     'status' => 'queued',
                     'served' => true,
                     'ordered_at' => date('Y-m-d H:i:s'),
                     'special_notes' => $special_notes
                 ];
             }
+        }
+    }
+
+    // Process Complimentary Breakfast Option
+    $raw_comp_bfast = $input['complimentary_breakfast'] ?? null;
+    $is_comp_bfast = ($raw_comp_bfast === true || $raw_comp_bfast === 1 || $raw_comp_bfast === '1' || $raw_comp_bfast === 'true');
+    if ($is_comp_bfast) {
+        // Remove any paid breakfast items if user selected complimentary breakfast
+        $verified_food_items = array_values(array_filter($verified_food_items, function($it) {
+            return ($it['meal_time'] !== 'breakfast' || !empty($it['is_complimentary']));
+        }));
+
+        $has_comp_bfast = false;
+        foreach ($verified_food_items as $vfi) {
+            if (!empty($vfi['is_complimentary']) && $vfi['meal_time'] === 'breakfast') {
+                $has_comp_bfast = true;
+                break;
+            }
+        }
+        if (!$has_comp_bfast) {
+            $verified_food_items[] = [
+                'id' => 0,
+                'category' => 'breakfast',
+                'category_title' => 'Complimentary Estate Breakfast',
+                'heading' => 'Complimentary Sanctuary Breakfast',
+                'subtitle' => "Chef's Daily Estate Morning Spread (Included in Stay)",
+                'price' => 0.00,
+                'quantity' => max(1, $guests_count),
+                'subtotal' => 0.00,
+                'meal_time' => 'breakfast',
+                'dietary_type' => 'veg',
+                'inclusions' => ['Steaming Appam & Idiyappam', 'Organic Farm Eggs / Stew', 'Seasonal Orchard Fruits', 'Estate Tea & Coffee'],
+                'is_complimentary' => true,
+                'status' => 'queued',
+                'served' => true,
+                'ordered_at' => date('Y-m-d H:i:s'),
+                'special_notes' => $special_notes
+            ];
         }
     }
 
@@ -331,15 +372,17 @@ try {
     }
 
     $subtotal_amount = $room_total + $food_total;
-    $system_gst_rate = (float)get_setting('gst_rate_percentage', '5');
-    if ($system_gst_rate <= 0) $system_gst_rate = 5.00;
+    $raw_r_cottage = get_setting('gst_rate_cottage', null);
+    $r_cottage = ($raw_r_cottage !== null && $raw_r_cottage !== '' && is_numeric($raw_r_cottage)) ? max(0.0, (float)$raw_r_cottage) : 12.00;
+    $raw_r_food = get_setting('gst_rate_food', null);
+    $r_food = ($raw_r_food !== null && $raw_r_food !== '' && is_numeric($raw_r_food)) ? max(0.0, (float)$raw_r_food) : 5.00;
 
-    $gst_percentage = (!empty($input['gst_percentage']) && (float)$input['gst_percentage'] > 0) ? (float)$input['gst_percentage'] : $system_gst_rate;
-    if ($gst_percentage <= 0) $gst_percentage = 5.00;
-
-    $gst_amount = round($subtotal_amount * ($gst_percentage / 100), 2);
+    $room_gst = round($room_total * ($r_cottage / 100), 2);
+    $food_gst = round($food_total * ($r_food / 100), 2);
+    $gst_amount = round($room_gst + $food_gst, 2);
     $tax_amount = $gst_amount;
     $total_amount = $subtotal_amount + $gst_amount;
+    $gst_percentage = $r_cottage;
 
     // Client Authentication & User Association
     require_once __DIR__ . '/../includes/client_auth.php';

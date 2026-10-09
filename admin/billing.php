@@ -13,8 +13,8 @@ ensure_booking_gst_columns($pdo);
 ensure_food_menu_table_exists($pdo);
 
 $alert_message = '';
-$system_gst_rate = (float)get_setting('gst_rate_percentage', '5');
-if ($system_gst_rate <= 0) $system_gst_rate = 5.00;
+$raw_sys_rate = get_setting('gst_rate_percentage', null);
+$system_gst_rate = ($raw_sys_rate !== null && $raw_sys_rate !== '' && is_numeric($raw_sys_rate)) ? max(0.0, (float)$raw_sys_rate) : 5.00;
 
 // Handle Bill Customization & Payment Updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -48,8 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $gst_number = $is_with_address ? strtoupper(trim($_POST['gst_number'] ?? '')) : '';
                     $billing_name = $is_with_address ? trim($_POST['billing_name'] ?? '') : '';
                     $billing_address = $is_with_address ? trim($_POST['billing_address'] ?? '') : '';
-                    $gst_percentage = max(0, (float)($_POST['gst_percentage'] ?? $system_gst_rate));
-                    if ($gst_percentage <= 0) $gst_percentage = 5.00;
+                    $gst_percentage = (isset($_POST['gst_percentage']) && $_POST['gst_percentage'] !== '' && is_numeric($_POST['gst_percentage']))
+                        ? max(0.0, (float)$_POST['gst_percentage'])
+                        : $system_gst_rate;
 
                     // Process Food Items from Form
                     $existing_items_map = [];
@@ -234,7 +235,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+
+        // Delete Custom Invoice Action
+        if ($action === 'delete_custom_invoice') {
+            $del_id = (int)($_POST['custom_invoice_id'] ?? 0);
+            if ($del_id > 0) {
+                $stmt = $pdo->prepare("DELETE FROM custom_invoices WHERE id = ?");
+                $stmt->execute([$del_id]);
+                $alert_message = "Custom invoice #{$del_id} deleted successfully.";
+                $alert_type = 'success';
+            }
+        }
     }
+}
+
+if (isset($_GET['msg']) && $_GET['msg'] === 'saved') {
+    $alert_message = "Custom tax invoice saved and registered successfully.";
+    $alert_type = 'success';
 }
 
 // Search & Filter Logic
@@ -272,6 +289,10 @@ $tab_count_inhouse = (int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE statu
 $tab_count_recent = (int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'completed' AND (checked_out_at >= NOW() - INTERVAL 48 HOUR OR checkout_date >= CURDATE() - INTERVAL 2 DAY)")->fetchColumn();
 $tab_count_upcoming = (int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'confirmed' AND checkin_date >= CURDATE()")->fetchColumn();
 $tab_count_all = (int)$pdo->query("SELECT COUNT(*) FROM bookings")->fetchColumn();
+$tab_count_custom = (int)$pdo->query("SELECT COUNT(*) FROM custom_invoices")->fetchColumn();
+
+// Custom Invoices Data (if tab active)
+$custom_invoices = ($active_tab === 'custom_invoices') ? get_all_custom_invoices($pdo, $search) : [];
 
 // Build Base Query
 $query = "SELECT b.*, r.title AS room_title, r.image_url AS room_image, r.elevation AS room_elevation, r.stay_type AS room_stay_type, r.rate_per_night AS room_rate, r.base_guests, r.extra_guest_rate, r.extra_child_rate 
@@ -440,13 +461,32 @@ $currency = get_setting('currency_symbol', '₹');
             <span class="adm-badge-count" style="padding: 2px 7px; border-radius: 12px; font-size: 11px; <?php echo ($active_tab === 'all') ? 'background: #101F15; color: #FFF;' : 'background: rgba(255,255,255,0.1); color: #FFF;'; ?>"><?php echo $tab_count_all; ?></span>
         </a>
 
-        <a href="edit_section.php?section=bank" 
-           class="adm-tab-btn" 
-           style="padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; margin-left: auto; background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35);" 
-           title="Configure Bank Account Number, IFSC, UPI ID & Payment QR">
-            <i class="fa-solid fa-building-columns"></i>
-            <span>Bank & UPI QR Settings</span>
+        <!-- Custom Invoices Tab -->
+        <a href="?tab=custom_invoices<?php echo !empty($search) ? '&search='.urlencode($search) : ''; ?>" 
+           class="adm-tab-btn <?php echo ($active_tab === 'custom_invoices') ? 'active' : ''; ?>"
+           style="padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; <?php echo ($active_tab === 'custom_invoices') ? 'background: var(--adm-gold); color: #101F15;' : 'background: rgba(255,255,255,0.05); color: var(--adm-text-secondary);'; ?>">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
+            <span>Custom Invoices</span>
+            <span class="adm-badge-count" style="padding: 2px 7px; border-radius: 12px; font-size: 11px; <?php echo ($active_tab === 'custom_invoices') ? 'background: #101F15; color: #FFF;' : 'background: rgba(255,255,255,0.1); color: #FFF;'; ?>"><?php echo $tab_count_custom; ?></span>
         </a>
+
+        <div style="margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <a href="custom_bill.php" 
+               class="adm-btn-action gold" 
+               style="padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);" 
+               title="Create a new custom tax invoice or bespoke bill">
+                <i class="fa-solid fa-file-circle-plus"></i>
+                <span>+ Create Custom Bill</span>
+            </a>
+
+            <a href="edit_section.php?section=bank" 
+               class="adm-tab-btn" 
+               style="padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35);" 
+               title="Configure Bank Account Number, IFSC, UPI ID & Payment QR">
+                <i class="fa-solid fa-building-columns"></i>
+                <span>Bank &amp; UPI QR</span>
+            </a>
+        </div>
 
     </div>
 
@@ -534,25 +574,289 @@ $currency = get_setting('currency_symbol', '₹');
             <div>
                 <h3 style="font-family: var(--adm-font-title); font-size: 18px; color: #FFFFFF; margin: 0;">
                     <?php 
-                    if ($active_tab === 'inhouse') echo 'Currently Residing (In-House) Folios';
+                    if ($active_tab === 'custom_invoices') echo 'Custom Invoices & Non-Stay Tax Bills';
+                    elseif ($active_tab === 'inhouse') echo 'Currently Residing (In-House) Folios';
                     elseif ($active_tab === 'recent_checkouts') echo 'Recent Checked-Out Stays (Past 48 Hours)';
                     elseif ($active_tab === 'upcoming') echo 'Upcoming Confirmed Guest Folios';
                     else echo 'Comprehensive Sanctuary Billing Archive';
                     ?>
                 </h3>
                 <p style="font-size: 12.5px; color: var(--adm-text-muted); margin-top: 4px;">
-                    Showing <?php echo count($billing_records); ?> reservation folio(s) ready for review, edit, or printing.
+                    <?php if ($active_tab === 'custom_invoices'): ?>
+                        Showing <?php echo count($custom_invoices); ?> custom bespoke bill(s) with custom line items, tax rates &amp; B2B GSTIN.
+                    <?php else: ?>
+                        Showing <?php echo count($billing_records); ?> reservation folio(s) ready for review, edit, or printing.
+                    <?php endif; ?>
                 </p>
             </div>
 
             <div style="display: flex; gap: 8px;">
-                <span class="adm-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197,160,89,0.3); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;">
-                    <i class="fa-solid fa-print"></i> Ready for A4 Print
-                </span>
+                <?php if ($active_tab === 'custom_invoices'): ?>
+                    <a href="custom_bill.php" class="adm-btn adm-btn-primary" style="padding: 8px 16px; border-radius: 20px; font-size: 12.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>New Custom Bill</span>
+                    </a>
+                <?php else: ?>
+                    <span class="adm-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197,160,89,0.3); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                        <i class="fa-solid fa-print"></i> Ready for A4 Print
+                    </span>
+                <?php endif; ?>
             </div>
         </div>
 
-        <?php if (!empty($billing_records)): ?>
+        <?php if ($active_tab === 'custom_invoices'): ?>
+            <?php if (!empty($custom_invoices)): ?>
+                <div class="adm-table-responsive">
+                    <table class="adm-table" style="width: 100%; text-align: left;">
+                        <thead>
+                            <tr>
+                                <th style="width: 140px;">Invoice # / Date</th>
+                                <th>Customer &amp; B2B Particulars</th>
+                                <th>Goods / Services Rendered</th>
+                                <th style="text-align: right; width: 150px;">Taxable &amp; GST</th>
+                                <th style="text-align: right; width: 160px;">Grand Total &amp; Dues</th>
+                                <th style="text-align: center; width: 200px;">Actions &amp; Print</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($custom_invoices as $ci): 
+                                $items = json_decode($ci['items_json'] ?? '[]', true) ?: [];
+                                $item_count = count($items);
+                                $phone_clean = preg_replace('/[^0-9]/', '', $ci['customer_phone'] ?? '');
+                                $status_color = ($ci['payment_status'] === 'Paid') ? '#22c55e' : (($ci['payment_status'] === 'Partial') ? '#f59e0b' : '#ef4444');
+                                $status_bg = ($ci['payment_status'] === 'Paid') ? 'rgba(34,197,94,0.12)' : (($ci['payment_status'] === 'Partial') ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)');
+                            ?>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.15s ease;">
+                                    <!-- Invoice # / Date -->
+                                    <td style="vertical-align: top;">
+                                        <div style="font-family: monospace; font-size: 13.5px; font-weight: 700; color: var(--adm-gold);">
+                                            <?php echo htmlspecialchars($ci['invoice_no']); ?>
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--adm-text-secondary); margin-top: 4px;">
+                                            <i class="fa-regular fa-calendar" style="margin-right: 4px; font-size: 11px;"></i>
+                                            <?php echo date('d M Y', strtotime($ci['created_at'])); ?>
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--adm-text-muted); margin-top: 2px;">
+                                            <?php echo date('h:i A', strtotime($ci['created_at'])); ?>
+                                        </div>
+                                        <?php if (!empty($ci['is_gst_bill'])): ?>
+                                            <span class="adm-badge" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3); font-size: 10px; margin-top: 6px; padding: 2px 7px;">
+                                                <i class="fa-solid fa-file-invoice"></i> B2B GST
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="adm-badge" style="background: rgba(255,255,255,0.06); color: var(--adm-text-muted); font-size: 10px; margin-top: 6px; padding: 2px 7px;">
+                                                Standard
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <!-- Customer & B2B Particulars -->
+                                    <td style="vertical-align: top;">
+                                        <div style="font-weight: 600; color: #FFFFFF; font-size: 14px;">
+                                            <?php echo htmlspecialchars($ci['customer_name']); ?>
+                                        </div>
+                                        <?php if (!empty($ci['customer_phone'])): ?>
+                                            <div style="font-size: 12px; color: var(--adm-text-secondary); margin-top: 2px;">
+                                                <i class="fa-solid fa-phone" style="font-size: 10px; color: var(--adm-gold); margin-right: 4px;"></i>
+                                                <?php echo htmlspecialchars($ci['customer_phone']); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if (!empty($ci['customer_email'])): ?>
+                                            <div style="font-size: 12px; color: var(--adm-text-muted); margin-top: 2px;">
+                                                <i class="fa-solid fa-envelope" style="font-size: 10px; margin-right: 4px;"></i>
+                                                <?php echo htmlspecialchars($ci['customer_email']); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if (!empty($ci['gstin'])): ?>
+                                            <div style="margin-top: 6px; padding: 5px 8px; background: rgba(255,255,255,0.03); border-radius: 4px; border-left: 2px solid #38bdf8; font-size: 11px;">
+                                                <?php if (!empty($ci['business_name'])): ?>
+                                                    <strong style="color: #FFFFFF; display: block; margin-bottom: 2px;"><?php echo htmlspecialchars($ci['business_name']); ?></strong>
+                                                <?php endif; ?>
+                                                <span style="color: #38bdf8; font-family: monospace; font-weight: 700;">GSTIN: <?php echo htmlspecialchars($ci['gstin']); ?></span>
+                                                <?php if (!empty($ci['gst_address'])): ?>
+                                                    <div style="color: var(--adm-text-muted); font-size: 10.5px; margin-top: 2px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?php echo htmlspecialchars($ci['gst_address']); ?>">
+                                                        <?php echo htmlspecialchars($ci['gst_address']); ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php elseif (!empty($ci['customer_address'])): ?>
+                                            <div style="font-size: 11px; color: var(--adm-text-muted); margin-top: 4px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<?php echo htmlspecialchars($ci['customer_address']); ?>">
+                                                <i class="fa-solid fa-location-dot" style="font-size: 10px; margin-right: 3px;"></i> <?php echo htmlspecialchars($ci['customer_address']); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <!-- Goods / Services Rendered -->
+                                    <td style="vertical-align: top;">
+                                        <div style="font-size: 12px; font-weight: 600; color: #FFFFFF; display: flex; align-items: center; gap: 6px;">
+                                            <span class="adm-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); font-size: 11px; padding: 2px 8px;">
+                                                <?php echo $item_count; ?> <?php echo $item_count === 1 ? 'Item' : 'Items'; ?>
+                                            </span>
+                                        </div>
+                                        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                                            <?php 
+                                            $shown_items = array_slice($items, 0, 3);
+                                            foreach ($shown_items as $itm):
+                                                $desc = $itm['desc'] ?? 'Item';
+                                                $qty = (float)($itm['qty'] ?? 1);
+                                                $rate = (float)($itm['rate'] ?? 0);
+                                                $tot = (float)($itm['total'] ?? ($qty * $rate));
+                                            ?>
+                                                <div style="font-size: 11.5px; color: var(--adm-text-secondary); display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed rgba(255,255,255,0.04); padding-bottom: 2px;">
+                                                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px;" title="<?php echo htmlspecialchars($desc); ?>">
+                                                        • <?php echo htmlspecialchars($desc); ?>
+                                                    </span>
+                                                    <span style="font-family: monospace; color: var(--adm-text-muted); white-space: nowrap;">
+                                                        <?php echo $qty; ?> × ₹<?php echo number_format($rate, 0); ?> = <strong style="color: #FFFFFF;">₹<?php echo number_format($tot, 0); ?></strong>
+                                                    </span>
+                                                </div>
+                                            <?php endforeach; ?>
+                                            <?php if ($item_count > 3): ?>
+                                                <div style="font-size: 10.5px; color: var(--adm-gold); font-style: italic;">
+                                                    + <?php echo ($item_count - 3); ?> more line items...
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+
+                                    <!-- Taxable & GST Rate -->
+                                    <td style="vertical-align: top; text-align: right;">
+                                        <div style="font-size: 12px; color: var(--adm-text-muted);">
+                                            Subtotal: <span style="font-family: monospace; color: #FFFFFF;">₹<?php echo number_format($ci['subtotal'], 2); ?></span>
+                                        </div>
+                                        <?php if ($ci['discount_amount'] > 0): ?>
+                                            <div style="font-size: 11.5px; color: #22c55e;">
+                                                - Disc: ₹<?php echo number_format($ci['discount_amount'], 2); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                        <div style="margin-top: 4px; font-size: 12px; color: var(--adm-text-secondary);">
+                                            Taxable: <strong style="font-family: monospace; color: #FFFFFF;">₹<?php echo number_format($ci['taxable_amount'], 2); ?></strong>
+                                        </div>
+                                        <div style="margin-top: 4px;">
+                                            <span class="adm-badge" style="background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); font-size: 10.5px; padding: 2px 7px;">
+                                                GST: <?php echo (float)$ci['gst_percentage']; ?>%
+                                                <?php echo ($ci['gst_type'] === 'inter') ? '(IGST)' : '(CGST+SGST)'; ?>
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 11.5px; color: var(--adm-text-secondary); margin-top: 2px; font-family: monospace;">
+                                            Tax: ₹<?php echo number_format($ci['tax_amount'], 2); ?>
+                                        </div>
+                                    </td>
+
+                                    <!-- Grand Total & Dues -->
+                                    <td style="vertical-align: top; text-align: right;">
+                                        <div style="font-size: 16px; font-weight: 700; color: var(--adm-gold); font-family: monospace;">
+                                            ₹<?php echo number_format($ci['grand_total'], 2); ?>
+                                        </div>
+                                        <div style="margin-top: 5px; display: inline-block;">
+                                            <span class="adm-badge" style="background: <?php echo $status_bg; ?>; color: <?php echo $status_color; ?>; border: 1px solid <?php echo $status_color; ?>40; font-size: 11px; padding: 2px 9px; font-weight: 600; text-transform: uppercase;">
+                                                <?php echo htmlspecialchars($ci['payment_status']); ?>
+                                            </span>
+                                        </div>
+                                        <div style="font-size: 11.5px; color: var(--adm-text-muted); margin-top: 4px;">
+                                            Paid: <span style="font-family: monospace; color: #22c55e;">₹<?php echo number_format($ci['advance_paid'], 2); ?></span>
+                                        </div>
+                                        <?php if ($ci['balance_due'] > 0): ?>
+                                            <div style="font-size: 12px; color: #ef4444; font-weight: 600; margin-top: 2px;">
+                                                Due: <span style="font-family: monospace;">₹<?php echo number_format($ci['balance_due'], 2); ?></span>
+                                            </div>
+                                        <?php else: ?>
+                                            <div style="font-size: 11px; color: #22c55e; margin-top: 2px;">
+                                                <i class="fa-solid fa-check"></i> Settled
+                                            </div>
+                                        <?php endif; ?>
+                                        <div style="font-size: 11px; color: var(--adm-text-muted); margin-top: 2px; text-transform: uppercase;">
+                                            <?php echo htmlspecialchars($ci['payment_method'] ?: 'Cash'); ?>
+                                        </div>
+                                    </td>
+
+                                    <!-- Actions & Print -->
+                                    <td style="vertical-align: top; text-align: center;">
+                                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                                            <!-- Primary Print Button -->
+                                            <a href="print_custom_bill.php?id=<?php echo $ci['id']; ?>" 
+                                               target="_blank" 
+                                               class="adm-btn adm-btn-primary" 
+                                               style="padding: 6px 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;"
+                                               title="Print Luxury Tax Bill (A4 / Thermal)">
+                                                <i class="fa-solid fa-print"></i>
+                                                <span>Print Bill</span>
+                                            </a>
+
+                                            <div style="display: flex; gap: 4px;">
+                                                <!-- Edit Bill Button -->
+                                                <a href="custom_bill.php?id=<?php echo $ci['id']; ?>" 
+                                                   class="adm-btn adm-btn-secondary" 
+                                                   style="flex: 1; padding: 4px 6px; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;"
+                                                   title="Edit this custom bill">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                                <span>Edit</span>
+                                            </a>
+
+                                                <!-- Clone Bill Button -->
+                                                <a href="custom_bill.php?clone=<?php echo $ci['id']; ?>" 
+                                                   class="adm-btn" 
+                                                   style="flex: 1; padding: 4px 6px; font-size: 11px; background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;"
+                                                   title="Duplicate / Create similar bill">
+                                                    <i class="fa-solid fa-copy"></i>
+                                                    <span>Clone</span>
+                                                </a>
+                                            </div>
+
+                                            <!-- Direct WhatsApp & Delete -->
+                                            <div style="display: flex; gap: 4px;">
+                                                <?php if (!empty($phone_clean)): ?>
+                                                    <?php 
+                                                    $sec_token = substr(hash('sha256', (string)$ci['invoice_no'] . 'ff_sanctuary_folio_secret'), 0, 16);
+                                                    $bill_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['PHP_SELF']), '/\\') . "/print_custom_bill.php?id={$ci['id']}&token={$sec_token}";
+                                                    $wa_url = "https://api.whatsapp.com/send?phone=91{$phone_clean}&text=" . urlencode("Greetings from Food Forest Sanctuary!\n\nHere is your bespoke invoice #{$ci['invoice_no']} for ₹" . number_format($ci['grand_total'], 2) . ".\n\nView/Download your bill:\n{$bill_link}\n\nThank you!");
+                                                    ?>
+                                                    <a href="<?php echo $wa_url; ?>" 
+                                                       target="_blank" 
+                                                       class="adm-btn" 
+                                                       style="flex: 1; padding: 4px; font-size: 10.5px; background: rgba(37, 211, 102, 0.12); color: #25D366; border: 1px solid rgba(37, 211, 102, 0.25); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 3px;"
+                                                       title="Share via WhatsApp">
+                                                        <i class="fa-brands fa-whatsapp"></i> Share
+                                                    </a>
+                                                <?php endif; ?>
+
+                                                <!-- Delete Form Trigger -->
+                                                <form method="POST" action="billing.php?tab=custom_invoices" style="flex: 1; margin: 0;" onsubmit="return confirm('Are you sure you want to permanently delete custom invoice <?php echo htmlspecialchars($ci['invoice_no']); ?>?');">
+                                                    <input type="hidden" name="action" value="delete_custom_invoice">
+                                                    <input type="hidden" name="custom_invoice_id" value="<?php echo $ci['id']; ?>">
+                                                    <button type="submit" 
+                                                            class="adm-btn" 
+                                                            style="width: 100%; padding: 4px; font-size: 10.5px; background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: center; gap: 3px; cursor: pointer;"
+                                                            title="Delete this custom invoice">
+                                                        <i class="fa-solid fa-trash-can"></i> Del
+                                                    </button>
+                                                </form>
+                                            </div>
+
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div style="padding: 60px 30px; text-align: center; color: var(--adm-text-muted);">
+                    <i class="fa-solid fa-file-invoice-dollar" style="font-size: 42px; color: var(--adm-gold); margin-bottom: 12px; opacity: 0.6;"></i>
+                    <h4 style="color: #FFFFFF; font-size: 18px; margin-bottom: 6px;">No Custom Invoices Found</h4>
+                    <p style="font-size: 13.5px; max-width: 480px; margin: 0 auto 18px;">
+                        Generate bespoke bills for non-stay visitors, corporate retreats, restaurant dining, safari treks, or walk-in purchases with custom line items and tax rates.
+                    </p>
+                    <a href="custom_bill.php" class="adm-btn adm-btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 20px; font-weight: 600;">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Create First Custom Bill</span>
+                    </a>
+                </div>
+            <?php endif; ?>
+
+        <?php else: ?>
+
+            <?php if (!empty($billing_records)): ?>
             <div class="adm-table-responsive">
                 <table class="adm-table" style="width: 100%; text-align: left;">
                     <thead>
@@ -842,6 +1146,8 @@ $currency = get_setting('currency_symbol', '₹');
                     <span>Show All Reservations</span>
                 </a>
             </div>
+        <?php endif; ?>
+
         <?php endif; ?>
 
     </div>
@@ -1199,7 +1505,7 @@ function openBillEditModal(booking) {
     document.getElementById('modalGstNumber').value = p.guest_gst_number || booking.gst_number || '';
     document.getElementById('modalBillingName').value = p.billing_name || booking.billing_name || '';
     document.getElementById('modalBillingAddress').value = p.billing_address || booking.billing_address || '';
-    document.getElementById('modalGstPercentage').value = (p.gst_percentage > 0 ? p.gst_percentage : (systemDefaultGstRate || 5));
+    document.getElementById('modalGstPercentage').value = (p.gst_percentage !== undefined && p.gst_percentage !== null && p.gst_percentage !== '') ? p.gst_percentage : (systemDefaultGstRate !== undefined ? systemDefaultGstRate : 5);
 
     document.getElementById('modalDiscount').value = p.discount_amount || 0;
     document.getElementById('modalTax').value = p.tax_amount || 0;

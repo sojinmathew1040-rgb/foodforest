@@ -24,6 +24,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <!-- FontAwesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
+    <!-- Cropper.js for Interactive 16:9 Walkthrough Stage Photo Cropping -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+    <!-- Three.js for 360° Panorama Live WebGL Admin Framing Preview -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
     <?php $persisted_theme = get_setting('admin_theme', 'dark'); ?>
     <!-- Instant Theme Bootstrap (Prevents White/Dark Theme Flash) -->
     <script>

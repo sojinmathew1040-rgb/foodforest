@@ -83,22 +83,24 @@ $billing_name = $booking['billing_name'] ?? '';
 $billing_address = $booking['billing_address'] ?? '';
 $has_b2b_details = ($billing_type === 'gst_with_address' || (!empty($guest_gstin) && !empty($billing_address)));
 
-$system_gst_rate = (float)get_setting('gst_rate_percentage', '5');
-if ($system_gst_rate <= 0) $system_gst_rate = 5.00;
+$raw_r_cottage = get_setting('gst_rate_cottage', null);
+$gst_rate_cottage = ($raw_r_cottage !== null && $raw_r_cottage !== '' && is_numeric($raw_r_cottage)) ? max(0.0, (float)$raw_r_cottage) : 12.00;
 
-$gst_percentage = (float)($booking['gst_percentage'] ?? 0.00);
-if ($gst_percentage <= 0) {
-    $gst_percentage = $system_gst_rate;
-}
+$raw_r_food = get_setting('gst_rate_food', null);
+$gst_rate_food = ($raw_r_food !== null && $raw_r_food !== '' && is_numeric($raw_r_food)) ? max(0.0, (float)$raw_r_food) : 5.00;
+
+$raw_system_gst = get_setting('gst_rate_percentage', null);
+$system_gst_rate = ($raw_system_gst !== null && $raw_system_gst !== '' && is_numeric($raw_system_gst)) ? max(0.0, (float)$raw_system_gst) : $gst_rate_cottage;
+
+$gst_percentage = (isset($booking['gst_percentage']) && $booking['gst_percentage'] !== '' && is_numeric($booking['gst_percentage'])) 
+    ? (float)$booking['gst_percentage'] 
+    : $gst_rate_cottage;
 
 $taxable_subtotal = $room_amount + $food_amount;
-$gst_amount = (float)($booking['gst_amount'] ?? 0.00);
-if ($gst_amount <= 0) {
-    $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
-}
-if ($total_amount <= $taxable_subtotal) {
-    $total_amount = $taxable_subtotal + $gst_amount;
-}
+$stay_gst = round($room_amount * ($gst_rate_cottage / 100), 2);
+$food_gst = round($food_amount * ($gst_rate_food / 100), 2);
+$gst_amount = round($stay_gst + $food_gst, 2);
+$total_amount = $taxable_subtotal + $gst_amount;
 
 // Resolve meal serving slot for each item (breakfast, lunch, snacks, dinner)
 $grouped_food = [
@@ -139,7 +141,9 @@ foreach ($food_items as $fi) {
 if ($food_amount <= 0 && $total_verified_food_calc > 0) {
     $food_amount = $total_verified_food_calc;
     $taxable_subtotal = $room_amount + $food_amount;
-    $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
+    $stay_gst = round($room_amount * ($gst_rate_cottage / 100), 2);
+    $food_gst = round($food_amount * ($gst_rate_food / 100), 2);
+    $gst_amount = round($stay_gst + $food_gst, 2);
     $total_amount = $taxable_subtotal + $gst_amount;
 }
 
@@ -1252,22 +1256,41 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                                     <td style="color: #475569; font-weight: 600; border-top: 1px dashed #E2E8F0; padding-top: 6px;">Taxable Subtotal:</td>
                                     <td style="text-align: right; font-weight: 600; border-top: 1px dashed #E2E8F0; padding-top: 6px;"><?php echo $currency . number_format($taxable_subtotal, 2); ?></td>
                                 </tr>
-                                <tr>
-                                    <td style="color: #0284C7; font-size: 13px;">
-                                        CGST (<?php echo number_format($gst_percentage / 2, 2); ?>%):
-                                    </td>
-                                    <td style="text-align: right; color: #0284C7; font-weight: 600;">
-                                        +<?php echo $currency . number_format($gst_amount / 2, 2); ?>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="color: #0284C7; font-size: 13px;">
-                                        SGST (<?php echo number_format($gst_percentage / 2, 2); ?>%):
-                                    </td>
-                                    <td style="text-align: right; color: #0284C7; font-weight: 600;">
-                                        +<?php echo $currency . number_format($gst_amount / 2, 2); ?>
-                                    </td>
-                                </tr>
+                                <?php if ($food_amount > 0 && $gst_rate_cottage != $gst_rate_food): ?>
+                                    <tr>
+                                        <td style="color: #0284C7; font-size: 13px;">
+                                            Cottage Stay GST (<?php echo number_format($gst_rate_cottage, 0); ?>%):
+                                        </td>
+                                        <td style="text-align: right; color: #0284C7; font-weight: 600;">
+                                            +<?php echo $currency . number_format($stay_gst, 2); ?>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #D97706; font-size: 13px;">
+                                            Dining / Food GST (<?php echo number_format($gst_rate_food, 0); ?>%):
+                                        </td>
+                                        <td style="text-align: right; color: #D97706; font-weight: 600;">
+                                            +<?php echo $currency . number_format($food_gst, 2); ?>
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <tr>
+                                        <td style="color: #0284C7; font-size: 13px;">
+                                            CGST (<?php echo number_format($gst_percentage / 2, 2); ?>%):
+                                        </td>
+                                        <td style="text-align: right; color: #0284C7; font-weight: 600;">
+                                            +<?php echo $currency . number_format($gst_amount / 2, 2); ?>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color: #0284C7; font-size: 13px;">
+                                            SGST (<?php echo number_format($gst_percentage / 2, 2); ?>%):
+                                        </td>
+                                        <td style="text-align: right; color: #0284C7; font-weight: 600;">
+                                            +<?php echo $currency . number_format($gst_amount / 2, 2); ?>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
                                 <tr class="total-row">
                                     <td class="font-serif" style="font-size: 18px; font-weight: 700; color: var(--primary);">Grand Total (GST Incl.):</td>
                                     <td class="font-serif grand-total-val"><?php echo $currency . number_format($total_amount, 2); ?></td>

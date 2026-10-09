@@ -2,9 +2,8 @@
 // =========================================================================
 // Food Forest Sanctuary — Kitchen & Chef Orders Hub
 // =========================================================================
-$page_title = 'Kitchen & Chef Orders';
-$page_subtitle = 'Live food prep schedules, guest meal selections & kitchen batch management';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/auth.php';
+require_admin_auth();
 
 $pdo = get_db();
 ensure_food_menu_table_exists($pdo);
@@ -160,29 +159,81 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     }
                 }
             }
-        } elseif ($action === 'quick_add_dish') {
+        } elseif ($action === 'quick_add_batch_dishes' || $action === 'quick_add_dish') {
             $booking_id = (int)($_POST['booking_id'] ?? 0);
-            $dish_id = (int)($_POST['dish_id'] ?? 0);
-            $qty = max(1, (int)($_POST['dish_qty'] ?? 1));
-            $chosen_meal = strtolower(trim($_POST['dish_meal_time'] ?? 'lunch'));
+            $raw_items = $_POST['items_payload'] ?? ($_POST['items'] ?? '');
+            $items_to_add = [];
 
-            if ($booking_id > 0 && $dish_id > 0) {
-                // Fetch dish
-                $dstmt = $pdo->prepare("SELECT * FROM food_menu WHERE id = ?");
-                $dstmt->execute([$dish_id]);
-                $dish = $dstmt->fetch(PDO::FETCH_ASSOC);
+            if (!empty($raw_items)) {
+                if (is_string($raw_items)) {
+                    $decoded = json_decode($raw_items, true);
+                    if (is_array($decoded)) {
+                        $items_to_add = $decoded;
+                    }
+                } elseif (is_array($raw_items)) {
+                    $items_to_add = $raw_items;
+                }
+            }
 
-                if ($dish) {
-                    $bstmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
-                    $bstmt->execute([$booking_id]);
-                    $b = $bstmt->fetch(PDO::FETCH_ASSOC);
+            // Fallback for single dish (backwards compatibility)
+            if (empty($items_to_add)) {
+                $single_dish_id = (int)($_POST['dish_id'] ?? 0);
+                if ($single_dish_id > 0) {
+                    $items_to_add[] = [
+                        'dish_id' => $single_dish_id,
+                        'quantity' => max(1, (int)($_POST['dish_qty'] ?? 1)),
+                        'meal_time' => strtolower(trim($_POST['dish_meal_time'] ?? 'lunch'))
+                    ];
+                }
+            }
 
-                    if ($b) {
-                        $f_items = !empty($b['food_items']) ? json_decode($b['food_items'], true) : [];
-                        if (!is_array($f_items)) $f_items = [];
+            if ($booking_id > 0 && !empty($items_to_add)) {
+                $bstmt = $pdo->prepare("SELECT * FROM bookings WHERE id = ?");
+                $bstmt->execute([$booking_id]);
+                $b = $bstmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($b) {
+                    $f_items = !empty($b['food_items']) ? json_decode($b['food_items'], true) : [];
+                    if (!is_array($f_items)) $f_items = [];
+
+                    $dstmt = $pdo->prepare("SELECT * FROM food_menu WHERE id = ?");
+                    $added_summary_names = [];
+                    $total_batch_qty = 0;
+                    $batch_added_subtotal = 0;
+                    $kitchen_notes = trim($_POST['kitchen_notes'] ?? '');
+
+                    foreach ($items_to_add as $it) {
+                        $dish_id = (int)($it['dishId'] ?? ($it['dish_id'] ?? ($it['id'] ?? 0)));
+                        $qty = max(1, min(50, (int)($it['quantity'] ?? ($it['qty'] ?? 1))));
+                        $chosen_meal = strtolower(trim($it['mealSlot'] ?? ($it['meal_time'] ?? ($it['dish_meal_time'] ?? 'lunch'))));
+                        if (strpos($chosen_meal, 'snack') !== false || strpos($chosen_meal, 'tea') !== false) {
+                            $chosen_meal = 'snacks';
+                        } elseif (strpos($chosen_meal, 'break') !== false || strpos($chosen_meal, 'morn') !== false) {
+                            $chosen_meal = 'breakfast';
+                        } elseif (strpos($chosen_meal, 'din') !== false || strpos($chosen_meal, 'night') !== false) {
+                            $chosen_meal = 'dinner';
+                        } elseif (strpos($chosen_meal, 'lunch') !== false || strpos($chosen_meal, 'noon') !== false) {
+                            $chosen_meal = 'lunch';
+                        }
+                        if (!in_array($chosen_meal, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+                            $chosen_meal = 'lunch';
+                        }
+                        $item_notes = trim($it['special_notes'] ?? ($it['notes'] ?? $kitchen_notes));
+
+                        if ($dish_id <= 0) continue;
+
+                        $dstmt->execute([$dish_id]);
+                        $dish = $dstmt->fetch(PDO::FETCH_ASSOC);
+                        if (!$dish) continue;
 
                         $price = (float)$dish['price'];
-                        $subtotal = $qty * $price;
+                        $subtotal = round($qty * $price, 2);
+                        $batch_added_subtotal += $subtotal;
+                        $total_batch_qty += $qty;
+                        $added_summary_names[] = "{$qty}x {$dish['heading']}";
+
+                        $inclusions = !empty($dish['inclusions']) ? json_decode($dish['inclusions'], true) : [];
+                        if (!is_array($inclusions)) $inclusions = [];
 
                         $f_items[] = [
                             'id' => (int)$dish['id'],
@@ -195,15 +246,33 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             'subtotal' => $subtotal,
                             'meal_time' => $chosen_meal,
                             'dietary_type' => $dish['dietary_type'] ?? 'veg',
-                            'inclusions' => []
+                            'inclusions' => $inclusions,
+                            'special_notes' => $item_notes,
+                            'ordered_at' => date('Y-m-d H:i:s'),
+                            'status' => 'selected',
+                            'served' => false
                         ];
+                    }
 
+                    if ($total_batch_qty <= 0) {
+                        if ($is_ajax) {
+                            header('Content-Type: application/json');
+                            echo json_encode([
+                                'success' => false,
+                                'message' => 'No valid dishes found in cart to dispatch. Please choose dishes from the menu.'
+                            ]);
+                            exit;
+                        }
+                        $alert_message = 'No valid dishes found in cart to dispatch. Please choose dishes from the menu.';
+                        $alert_type = 'error';
+                    } else {
+                        // Recalculate total food amount
                         $new_food_total = 0.00;
                         foreach ($f_items as $fi) {
                             $new_food_total += (float)($fi['subtotal'] ?? (($fi['price'] ?? 0) * ($fi['quantity'] ?? 1)));
                         }
 
-                        // Recalculate billing components with 5% GST
+                        // Recalculate billing components with GST settings
                         $room_amt = (float)($b['room_amount'] ?? 0);
                         $extra_chg = (float)($b['extra_charges'] ?? 0);
                         $disc_amt = (float)($b['discount_amount'] ?? 0);
@@ -226,8 +295,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
                         $gross = $room_amt + $new_food_total + $act_total + $cust_total + $extra_chg;
                         $taxable = max(0, $gross - $disc_amt);
-                        $gst_pct = (float)($b['gst_percentage'] > 0 ? $b['gst_percentage'] : 5.00);
-                        $new_gst = round($taxable * ($gst_pct / 100), 2);
+                        $raw_r_cottage = get_setting('gst_rate_cottage', null);
+                        $r_cottage = ($raw_r_cottage !== null && $raw_r_cottage !== '' && is_numeric($raw_r_cottage)) ? max(0.0, (float)$raw_r_cottage) : 5.00;
+                        $raw_r_food = get_setting('gst_rate_food', null);
+                        $r_food = ($raw_r_food !== null && $raw_r_food !== '' && is_numeric($raw_r_food)) ? max(0.0, (float)$raw_r_food) : 0.00;
+                        $raw_r_other = get_setting('gst_rate_other', null);
+                        $r_other = ($raw_r_other !== null && $raw_r_other !== '' && is_numeric($raw_r_other)) ? max(0.0, (float)$raw_r_other) : 0.00;
+
+                        $stay_gst = round(max(0, $room_amt - min($disc_amt, $room_amt)) * ($r_cottage / 100), 2);
+                        $food_gst = round($new_food_total * ($r_food / 100), 2);
+                        $other_gst = round(($act_total + $cust_total + $extra_chg) * ($r_other / 100), 2);
+                        $new_gst = round($stay_gst + $food_gst + $other_gst, 2);
                         $new_grand_total = round($taxable + $new_gst, 2);
 
                         $upd = $pdo->prepare("UPDATE bookings SET food_items = ?, food_amount = ?, food_status = 'selected', gst_amount = ?, tax_amount = ?, total_amount = ? WHERE id = ?");
@@ -240,43 +318,82 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             $booking_id
                         ]);
 
-                        $alert_message = "Added {$qty}x {$dish['heading']} ({$chosen_meal}) to Reservation #{$booking_id} (#{$b['reference_code']}). Bill updated with ₹" . number_format($subtotal, 2) . ".";
+                        $summary_txt = implode(', ', array_slice($added_summary_names, 0, 3));
+                        if (count($added_summary_names) > 3) {
+                            $summary_txt .= ' and ' . (count($added_summary_names) - 3) . ' more';
+                        }
+                        $alert_message = "Dispatched {$total_batch_qty} items ({$summary_txt}) to Reservation #{$b['reference_code']}. Folio updated with ₹" . number_format($batch_added_subtotal, 2) . ".";
+
+                        if ($is_ajax) {
+                            header('Content-Type: application/json');
+                            echo json_encode([
+                                'success' => true,
+                                'message' => $alert_message,
+                                'booking_id' => $booking_id,
+                                'reference_code' => $b['reference_code'],
+                                'food_total' => $new_food_total,
+                                'grand_total' => $new_grand_total,
+                                'food_items' => $f_items,
+                                'items_count' => count($items_to_add)
+                            ]);
+                            exit;
+                        }
                     }
+                }
+            } else {
+                if ($is_ajax) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => false, 'message' => 'Please select an in-house room and add at least one dish to the cart.']);
+                    exit;
                 }
             }
         }
     }
 }
 
+$page_title = 'Kitchen & Chef Orders';
+$page_subtitle = 'Live food prep schedules, guest meal selections & kitchen batch management';
+require_once __DIR__ . '/includes/header.php';
+
 // -------------------------------------------------------------
 // 3. Query Bookings with Food for Date Range
 // -------------------------------------------------------------
-// A booking is active on the given dates if checkin_date <= to_date AND checkout_date >= from_date
-$sql = "SELECT id, reference_code, guest_name, guest_phone, guest_email, villa_type, adults_count, kids_count, 
-               checkin_date, checkout_date, nights, status, food_status, food_amount, food_items, special_notes 
-        FROM bookings 
-        WHERE status != 'cancelled' 
-          AND checkin_date <= :to_date 
-          AND checkout_date >= :from_date 
-        ORDER BY checkin_date ASC, id ASC";
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute([
-    ':from_date' => $from_date,
-    ':to_date' => $to_date
-]);
+if ($filter === 'today' || $filter === 'all_active') {
+    // Strictly in-house guests currently staying at the estate (exclude completed/past and future arrivals)
+    $sql = "SELECT id, reference_code, guest_name, guest_phone, guest_email, villa_type, adults_count, kids_count, 
+                   checkin_date, checkout_date, nights, status, food_status, food_amount, food_items, special_notes 
+            FROM bookings 
+            WHERE status = 'inhouse' 
+            ORDER BY checkin_date ASC, id ASC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+} else {
+    // For tomorrow / this week / custom date range: active bookings (in-house or upcoming confirmed), excluding past completed and cancelled
+    $sql = "SELECT id, reference_code, guest_name, guest_phone, guest_email, villa_type, adults_count, kids_count, 
+                   checkin_date, checkout_date, nights, status, food_status, food_amount, food_items, special_notes 
+            FROM bookings 
+            WHERE status IN ('inhouse', 'confirmed') 
+              AND checkin_date <= :to_date 
+              AND checkout_date >= :from_date 
+            ORDER BY checkin_date ASC, id ASC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':from_date' => $from_date,
+        ':to_date' => $to_date
+    ]);
+}
 $all_matching_bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch all active non-cancelled reservations for the walk-in modal cottage selector
+// Fetch strictly in-house reservations for the walk-in / order dispatch cottage selector (no past, no future)
 $inhouse_sql = "SELECT id, reference_code, guest_name, guest_phone, villa_type, checkin_date, checkout_date 
                 FROM bookings 
-                WHERE status != 'cancelled' 
-                  AND checkout_date >= CURDATE() 
+                WHERE status = 'inhouse' 
                 ORDER BY checkin_date ASC, id ASC";
 $all_inhouse_bookings = $pdo->query($inhouse_sql)->fetchAll(PDO::FETCH_ASSOC);
-if (empty($all_inhouse_bookings)) {
-    $all_inhouse_bookings = $all_matching_bookings;
-}
+
+// Multi-tier Food GST rate for calculations
+$raw_r_food = get_setting('gst_rate_food', null);
+$gst_rate_food = ($raw_r_food !== null && $raw_r_food !== '' && is_numeric($raw_r_food)) ? max(0.0, (float)$raw_r_food) : 0.00;
 
 // Load all dishes for quick add dropdown
 $all_dishes = $pdo->query("SELECT id, heading, category, price, default_meal_time, dietary_type FROM food_menu WHERE is_active = 1 ORDER BY category ASC, heading ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -568,20 +685,65 @@ foreach ($all_matching_bookings as $b) {
         <?php endforeach; ?>
     </div>
 
-    <!-- Chef's Kitchen Preparation Batch Summary (Aggregated Prep List) -->
-    <div class="adm-card" style="margin-bottom: 28px; background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.15); border-radius: 12px; padding: 20px; box-shadow: 0 3px 10px rgba(0,0,0,0.03);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1.5px solid #F1F5F9; padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-            <div>
-                <h3 class="font-serif" style="margin: 0; font-size: 1.35rem; color: #1C3826; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-fire-burner" style="color: #D97706;"></i>
-                    Chef's Preparation Batch Summary
-                </h3>
-                <span class="font-sans" style="font-size: 12px; color: #64748B;">Aggregated dish quantities needed by kitchen staff for current shift</span>
-            </div>
-            <span style="font-size: 12px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 4px 10px; border-radius: 6px;">
-                <i class="fa-solid fa-clipboard-check"></i> <?php echo ($meal_filter === 'all') ? 'All Shifts' : (ucfirst($meal_filter) . ' Shift'); ?>
+    <!-- Master Quick Section Toggle & Accordion Controls Bar -->
+    <div class="adm-card kitchen-sections-quicknav" style="margin-bottom: 20px; padding: 12px 18px; background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 11.5px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fa-solid fa-sliders"></i> Quick View Sections:
             </span>
+            <button type="button" onclick="toggleKitchenMainSection('prep_summary', true, true);" class="adm-btn-section-shortcut" id="shortcut_btn_prep_summary" title="Toggle Chef Preparation Batch Summary">
+                <i class="fa-solid fa-fire-burner" style="color: #D97706;"></i>
+                <span>1. Batch Prep (<?php echo $total_portions; ?> Portions)</span>
+            </button>
+            <button type="button" onclick="toggleKitchenMainSection('order_tickets', true, true);" class="adm-btn-section-shortcut" id="shortcut_btn_order_tickets" title="Toggle Guest Order Tickets">
+                <i class="fa-solid fa-receipt" style="color: #059669;"></i>
+                <span>2. Order Tickets (<?php echo count($kitchen_bookings); ?> Rooms)</span>
+            </button>
+            <button type="button" onclick="toggleKitchenMainSection('walkin_order', true, true);" class="adm-btn-section-shortcut order-btn-highlight" id="shortcut_btn_walkin_order" title="Open Multi-Item Order Creator">
+                <i class="fa-solid fa-cart-shopping" style="color: #0E7490;"></i>
+                <span>3. Take Food Order (Multi-Item Cart)</span>
+            </button>
         </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <button type="button" onclick="expandAllKitchenSections();" class="adm-btn" style="padding: 5px 12px; font-size: 11.5px; background: #FFFFFF; color: #1E293B; border: 1px solid #CBD5E1; border-radius: 6px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Expand all sections">
+                <i class="fa-solid fa-angles-down"></i> Expand All
+            </button>
+            <button type="button" onclick="collapseAllKitchenSections();" class="adm-btn" style="padding: 5px 12px; font-size: 11.5px; background: #FFFFFF; color: #1E293B; border: 1px solid #CBD5E1; border-radius: 6px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Collapse all sections">
+                <i class="fa-solid fa-angles-up"></i> Collapse All
+            </button>
+        </div>
+    </div>
+
+    <!-- 1. Chef's Kitchen Preparation Batch Summary (Aggregated Prep List) -->
+    <div class="adm-card kitchen-collapsible-card" id="section_prep_summary" style="margin-bottom: 22px; background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.15); border-radius: 12px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.03);">
+        <div class="kitchen-section-header" id="header_prep_summary" onclick="toggleKitchenMainSection('prep_summary');" style="cursor: pointer; user-select: none; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: #FFFFFF; transition: background 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #FEF3C7; color: #D97706; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+                    <i class="fa-solid fa-fire-burner"></i>
+                </div>
+                <div>
+                    <h3 class="font-serif" style="margin: 0; font-size: 1.35rem; color: #1C3826; display: flex; align-items: center; gap: 8px;">
+                        Chef's Preparation Batch Summary
+                    </h3>
+                    <span class="font-sans" style="font-size: 12px; color: #64748B;">Aggregated dish quantities needed by kitchen staff for current shift</span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-size: 12px; font-weight: 700; color: #92400E; background: #FEF3C7; border: 1px solid #FDE68A; padding: 4px 10px; border-radius: 6px;">
+                    <i class="fa-solid fa-utensils"></i> <?php echo $total_portions; ?> Portions
+                </span>
+                <span style="font-size: 12px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 4px 10px; border-radius: 6px;">
+                    <i class="fa-solid fa-clipboard-check"></i> <?php echo ($meal_filter === 'all') ? 'All Shifts' : (ucfirst($meal_filter) . ' Shift'); ?>
+                </span>
+                <button type="button" class="section-toggle-btn" id="btn_toggle_prep_summary" onclick="event.stopPropagation(); toggleKitchenMainSection('prep_summary');">
+                    <span id="txt_toggle_prep_summary">Expand</span>
+                    <i class="fa-solid fa-chevron-down toggle-icon" id="icon_toggle_prep_summary"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Collapsible Content for Preparation Summary -->
+        <div class="kitchen-section-body" id="body_prep_summary" style="display: none; padding: 20px; border-top: 1.5px solid #F1F5F9; background: #FFFFFF;">
 
         <?php
         $any_prep_found = false;
@@ -656,17 +818,36 @@ foreach ($all_matching_bookings as $b) {
                 </div>
             <?php endif; ?>
         </div>
+        </div>
     </div>
 
-    <!-- Detailed Orders by Guest & Room (Order Cards) -->
-    <div style="margin-bottom: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-            <h3 class="font-serif" style="margin: 0; font-size: 1.4rem; color: #1C3826; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-receipt" style="color: var(--accent-gold);"></i>
-                Guest &amp; Room Order Tickets (<?php echo count($kitchen_bookings); ?>)
-            </h3>
-            <span style="font-size: 12px; color: #64748B;">Individual vouchers with dining slots, room numbers &amp; concierge contacts</span>
+    <!-- 2. Detailed Orders by Guest & Room (Order Cards) -->
+    <div class="adm-card kitchen-collapsible-card" id="section_order_tickets" style="margin-bottom: 22px; background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.15); border-radius: 12px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.03);">
+        <div class="kitchen-section-header" id="header_order_tickets" onclick="toggleKitchenMainSection('order_tickets');" style="cursor: pointer; user-select: none; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: #FFFFFF; transition: background 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #ECFDF5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+                    <i class="fa-solid fa-receipt"></i>
+                </div>
+                <div>
+                    <h3 class="font-serif" style="margin: 0; font-size: 1.35rem; color: #1C3826; display: flex; align-items: center; gap: 8px;">
+                        Guest &amp; Room Order Tickets
+                    </h3>
+                    <span class="font-sans" style="font-size: 12px; color: #64748B;">Individual vouchers with dining slots, room numbers &amp; concierge contacts</span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-size: 12px; font-weight: 700; color: #1C3826; background: rgba(28, 56, 38, 0.1); border: 1px solid rgba(28, 56, 38, 0.2); padding: 4px 10px; border-radius: 6px;">
+                    <i class="fa-solid fa-bed"></i> <?php echo count($kitchen_bookings); ?> Active Room Tickets
+                </span>
+                <button type="button" class="section-toggle-btn" id="btn_toggle_order_tickets" onclick="event.stopPropagation(); toggleKitchenMainSection('order_tickets');">
+                    <span id="txt_toggle_order_tickets">Expand</span>
+                    <i class="fa-solid fa-chevron-down toggle-icon" id="icon_toggle_order_tickets"></i>
+                </button>
+            </div>
         </div>
+
+        <!-- Collapsible Content for Order Tickets -->
+        <div class="kitchen-section-body" id="body_order_tickets" style="display: none; padding: 20px; border-top: 1.5px solid #F1F5F9; background: #F8FAF8;">
 
         <?php if (empty($kitchen_bookings)): ?>
             <div class="adm-card" style="padding: 40px; text-align: center; background: #FFFFFF; border-radius: 12px; border: 1.5px dashed #CBD5E1;">
@@ -837,7 +1018,7 @@ foreach ($all_matching_bookings as $b) {
                                                     × <?php echo $dish_qty; ?>
                                                 </td>
                                                 <td style="padding: 7px 10px; text-align: right; color: #64748B;">
-                                                    ₹<?php echo number_format($dish_sub, 0); ?>
+                                                    <?php echo ($dish_sub <= 0) ? '<span style="color: #059669; font-weight: 600; font-size: 11px;">Complimentary</span>' : ('₹' . number_format($dish_sub, 0)); ?>
                                                 </td>
                                                 <td style="padding: 7px 10px; text-align: center;">
                                                     <select onchange="updateSingleDishStatus(<?php echo $kb['id']; ?>, <?php echo $dish_idx; ?>, this.value);" style="font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid #CBD5E1; background: #FFFFFF; cursor: pointer;">
@@ -876,61 +1057,88 @@ foreach ($all_matching_bookings as $b) {
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+        </div>
     </div>
 
-    <!-- Walk-in / Instant Dish Order Creator Box for Kitchen Staff -->
-    <div class="adm-card" style="background: #FFFFFF; border: 1.5px solid rgba(14, 116, 144, 0.35); border-radius: 12px; padding: 22px; box-shadow: 0 4px 14px rgba(14, 116, 144, 0.08); margin-top: 25px;">
+    <!-- 3. Walk-in / Multi-Item Order Creator for In-House Guests -->
+    <div id="kitchen_walkin_section" class="adm-card kitchen-collapsible-card" style="margin-bottom: 22px; background: #FFFFFF; border: 1.5px solid rgba(14, 116, 144, 0.35); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 14px rgba(14, 116, 144, 0.08);">
         
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; border-bottom: 1px solid #E2E8F0; padding-bottom: 12px;">
-            <div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-plus-circle" style="color: #0E7490; font-size: 20px;"></i>
-                    <h4 class="font-serif" style="margin: 0; font-size: 1.25rem; color: #0E7490;">Add Extra Walk-in Dish to In-House Guest Ticket</h4>
+        <div class="kitchen-section-header" id="header_walkin_order" onclick="toggleKitchenMainSection('walkin_order');" style="cursor: pointer; user-select: none; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: #F0FDFA; transition: background 0.2s ease;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: #CCFBF1; color: #0E7490; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+                    <i class="fa-solid fa-cart-flatbed-suitcase"></i>
                 </div>
-                <p class="font-sans" style="font-size: 12.5px; color: #64748B; margin: 4px 0 0 0;">
-                    Select the guest room, expand any meal category below using the <strong>[ + ]</strong> button, pick your dish, and record it directly into their kitchen ticket and checkout bill.
-                </p>
+                <div>
+                    <h4 class="font-serif" style="margin: 0; font-size: 1.3rem; color: #0E7490; display: flex; align-items: center; gap: 8px;">
+                        Book &amp; Dispatch In-House Guest Food Orders (Multi-Item Cart)
+                    </h4>
+                    <p class="font-sans" style="font-size: 12px; color: #64748B; margin: 3px 0 0 0;">
+                        Select guest room, add dishes with quantities to cart, and book directly into their kitchen ticket and folio bill.
+                    </p>
+                </div>
             </div>
             
-            <div style="display: flex; gap: 8px;">
-                <button type="button" onclick="expandAllMenuCategories();" class="adm-btn" style="padding: 5px 10px; font-size: 11.5px; background: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    <i class="fa-solid fa-square-plus"></i> Expand All
-                </button>
-                <button type="button" onclick="collapseAllMenuCategories();" class="adm-btn" style="padding: 5px 10px; font-size: 11.5px; background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    <i class="fa-solid fa-square-minus"></i> Collapse All
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-size: 12px; font-weight: 700; color: #0E7490; background: #E0F2FE; border: 1px solid #BAE6FD; padding: 4px 10px; border-radius: 6px;">
+                    <i class="fa-solid fa-bell-concierge"></i> Take Room Order
+                </span>
+                <button type="button" class="section-toggle-btn" id="btn_toggle_walkin_order" onclick="event.stopPropagation(); toggleKitchenMainSection('walkin_order');">
+                    <span id="txt_toggle_walkin_order">Expand</span>
+                    <i class="fa-solid fa-chevron-down toggle-icon" id="icon_toggle_walkin_order"></i>
                 </button>
             </div>
         </div>
 
-        <form id="walkin_dish_form" method="POST" action="kitchen.php?filter=<?php echo urlencode($filter); ?>&from_date=<?php echo urlencode($from_date); ?>&to_date=<?php echo urlencode($to_date); ?>&meal=<?php echo urlencode($meal_filter); ?>" style="margin-bottom: 18px;">
-            <?php echo csrf_field(); ?>
-            <input type="hidden" name="action" value="quick_add_dish">
-            <input type="hidden" name="dish_id" id="selected_dish_id" value="" required>
+        <!-- Collapsible Content for Walk-in Order Creator -->
+        <div class="kitchen-section-body" id="body_walkin_order" style="display: none; padding: 22px; border-top: 1.5px solid #CCFBF1; background: #FFFFFF;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; border-bottom: 1px solid #E2E8F0; padding-bottom: 10px;">
+                <span style="font-size: 12px; font-weight: 700; color: #0E7490; text-transform: uppercase;">
+                    <i class="fa-solid fa-utensils"></i> Menu Items &amp; Categories (66 Dishes)
+                </span>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" onclick="expandAllMenuCategories();" class="adm-btn" style="padding: 5px 10px; font-size: 11.5px; background: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        <i class="fa-solid fa-square-plus"></i> Expand All Categories
+                    </button>
+                    <button type="button" onclick="collapseAllMenuCategories();" class="adm-btn" style="padding: 5px 10px; font-size: 11.5px; background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                        <i class="fa-solid fa-square-minus"></i> Collapse All Categories
+                    </button>
+                </div>
+            </div>
 
-            <!-- Top Selection Bar: In-House Guest & Order Confirmation Controls -->
-            <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: flex-end;">
+        <form id="walkin_dish_form" method="POST" action="kitchen.php?filter=<?php echo urlencode($filter); ?>&from_date=<?php echo urlencode($from_date); ?>&to_date=<?php echo urlencode($to_date); ?>&meal=<?php echo urlencode($meal_filter); ?>" style="margin-bottom: 18px;" onsubmit="return handleFormDirectSubmit(event);">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="action" value="quick_add_batch_dishes">
+            <input type="hidden" name="items_payload" id="walkin_items_payload" value="[]">
+
+            <!-- Top Selection Bar: In-House Guest & Order Controls -->
+            <div style="background: #F8FAFC; border: 1.5px solid #CBD5E1; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; align-items: flex-end;">
                 
                 <!-- 1. Select In-House Guest -->
-                <div>
+                <div style="grid-column: span 1;">
                     <label style="font-size: 12px; font-weight: 700; color: #1E293B; display: block; margin-bottom: 4px;">
                         1. Select In-House Room / Guest *
                     </label>
-                    <select name="booking_id" id="walkin_booking_select" required class="adm-form-input font-sans" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1.5px solid #94A3B8; font-size: 13px; font-weight: 600; color: #0F172A; background: #FFFFFF;">
+                    <select name="booking_id" id="walkin_booking_select" required class="adm-form-input font-sans" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1.5px solid #94A3B8; font-size: 13px; font-weight: 600; color: #0F172A; background: #FFFFFF; transition: all 0.2s ease;">
                         <option value="">-- Choose In-House Room / Cottage --</option>
-                        <?php foreach ($all_inhouse_bookings as $mb): ?>
-                            <option value="<?php echo $mb['id']; ?>">
-                                [#<?php echo htmlspecialchars($mb['reference_code']); ?>] <?php echo htmlspecialchars($mb['guest_name']); ?> (<?php echo format_chalet_label($mb['villa_type']); ?> — <?php echo date('d M', strtotime($mb['checkin_date'])); ?> to <?php echo date('d M', strtotime($mb['checkout_date'])); ?>)
-                            </option>
-                        <?php endforeach; ?>
+                        <?php if (empty($all_inhouse_bookings)): ?>
+                            <option value="" disabled>-- No In-House Guests Currently Checked In --</option>
+                        <?php else: ?>
+                            <?php foreach ($all_inhouse_bookings as $mb): ?>
+                                <option value="<?php echo $mb['id']; ?>">
+                                    [#<?php echo htmlspecialchars($mb['reference_code']); ?>] <?php echo htmlspecialchars($mb['guest_name']); ?> (<?php echo format_chalet_label($mb['villa_type']); ?> — <?php echo date('d M', strtotime($mb['checkin_date'])); ?> to <?php echo date('d M', strtotime($mb['checkout_date'])); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </select>
                 </div>
 
-                <!-- 2. Serving Meal Slot -->
+                <!-- 2. Serving Meal Slot (Default for added items) -->
                 <div>
                     <label style="font-size: 12px; font-weight: 700; color: #1E293B; display: block; margin-bottom: 4px;">
-                        2. Serving Meal Time *
+                        2. Default Serving Meal Time *
                     </label>
-                    <select name="dish_meal_time" id="quick_meal_select" required class="adm-form-input font-sans" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1.5px solid #94A3B8; font-size: 13px; font-weight: 600; color: #0F172A; background: #FFFFFF;">
+                    <select name="dish_meal_time" id="quick_meal_select" onchange="onGlobalMealSlotChange(this.value);" required class="adm-form-input font-sans" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1.5px solid #94A3B8; font-size: 13px; font-weight: 600; color: #0F172A; background: #FFFFFF;">
                         <option value="breakfast">☀️ Breakfast (09:00 AM – 10:00 AM)</option>
                         <option value="lunch" selected>🍛 Lunch (12:30 PM – 02:30 PM)</option>
                         <option value="snacks">☕ Evening Snacks (04:30 PM – 06:30 PM)</option>
@@ -938,40 +1146,84 @@ foreach ($all_matching_bookings as $b) {
                     </select>
                 </div>
 
-                <!-- 3. Quantity -->
-                <div style="max-width: 140px;">
-                    <label style="font-size: 12px; font-weight: 700; color: #1E293B; display: block; margin-bottom: 4px;">
-                        3. Quantity *
-                    </label>
-                    <div style="display: flex; align-items: center;">
-                        <button type="button" onclick="decrementDishQty();" style="width: 34px; height: 38px; border: 1px solid #CBD5E1; background: #F1F5F9; border-radius: 6px 0 0 6px; cursor: pointer; font-weight: 700; font-size: 15px;">−</button>
-                        <input type="number" name="dish_qty" id="walkin_dish_qty" value="1" min="1" max="50" required class="adm-form-input font-sans" style="width: 60px; height: 38px; padding: 0; text-align: center; border-radius: 0; border-left: none; border-right: none; border-top: 1px solid #CBD5E1; border-bottom: 1px solid #CBD5E1; font-size: 14px; font-weight: 700;">
-                        <button type="button" onclick="incrementDishQty();" style="width: 34px; height: 38px; border: 1px solid #CBD5E1; background: #F1F5F9; border-radius: 0 6px 6px 0; cursor: pointer; font-weight: 700; font-size: 15px;">+</button>
-                    </div>
-                </div>
-
-                <!-- 4. Submit Button -->
+                <!-- 3. Special Instructions -->
                 <div>
-                    <button type="submit" id="walkin_submit_btn" class="adm-btn-action" style="width: 100%; height: 38px; padding: 0 18px; background: #0E7490; color: #fff; border: none; border-radius: 6px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 2px 6px rgba(14, 116, 144, 0.3);">
-                        <i class="fa-solid fa-plus"></i>
-                        <span id="walkin_btn_label">Add to Ticket</span>
-                    </button>
+                    <label style="font-size: 12px; font-weight: 700; color: #1E293B; display: block; margin-bottom: 4px;">
+                        3. Chef / Kitchen Notes (Optional)
+                    </label>
+                    <input type="text" name="kitchen_notes" id="walkin_kitchen_notes" placeholder="e.g. Less spicy, deliver hot to cottage patio..." class="adm-form-input font-sans" style="width: 100%; padding: 8.5px 10px; border-radius: 6px; border: 1.5px solid #CBD5E1; font-size: 13px; color: #0F172A; background: #FFFFFF;">
                 </div>
             </div>
 
-            <!-- Active Selected Dish Banner -->
-            <div id="selected_dish_banner" style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; display: none; align-items: center; justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-circle-check" style="color: #059669; font-size: 18px;"></i>
-                    <div>
-                        <span style="font-size: 11px; font-weight: 700; color: #047857; text-transform: uppercase;">Selected Dish:</span>
-                        <div id="selected_dish_name" style="font-size: 14px; font-weight: 700; color: #064E3B;"></div>
+            <!-- Interactive Kitchen Order Cart / Tray Box -->
+            <div id="kitchen_order_cart_panel" style="background: #F0FDFA; border: 1.5px solid #0D9488; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(13, 148, 136, 0.08);">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-basket-shopping" style="color: #0E7490; font-size: 17px;"></i>
+                        <span style="font-size: 13.5px; font-weight: 700; color: #0F172A;">Kitchen Order Cart</span>
+                        <span id="kitchen_cart_count_badge" style="background: #0E7490; color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">0 Dishes</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" onclick="clearKitchenCart();" id="btn_clear_kitchen_cart" style="display: none; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; padding: 4px 10px; border-radius: 5px; font-size: 11.5px; font-weight: 600; cursor: pointer;">
+                            <i class="fa-solid fa-trash-can"></i> Clear Cart
+                        </button>
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span id="selected_dish_price_badge" style="font-size: 13px; font-weight: 700; color: #065F46; background: #D1FAE5; padding: 3px 10px; border-radius: 20px;"></span>
-                    <button type="button" onclick="clearSelectedDish();" style="background: none; border: none; color: #94A3B8; cursor: pointer; font-size: 16px;" title="Clear Selection">&times;</button>
+
+                <!-- Empty State -->
+                <div id="kitchen_cart_empty_state" style="text-align: center; padding: 20px 14px; background: #FFFFFF; border: 1px dashed #99F6E4; border-radius: 8px; color: #64748B;">
+                    <i class="fa-solid fa-utensils" style="font-size: 24px; color: #94A3B8; margin-bottom: 6px; display: block;"></i>
+                    <strong style="color: #0F172A; font-size: 13.5px;">Your order cart is currently empty</strong>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748B;">
+                        Scroll down to the menu categories below and tap <strong>[+ Add]</strong> on Masala Dosa, Puttu, Tea, Curry, etc. to pick multiple items with quantities.
+                    </p>
                 </div>
+
+                <!-- Populated Cart Table -->
+                <div id="kitchen_cart_table_wrap" style="display: none; background: #FFFFFF; border: 1px solid #CCFBF1; border-radius: 8px; overflow-x: auto; margin-bottom: 12px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left;">
+                        <thead>
+                            <tr style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0; color: #475569; font-weight: 700;">
+                                <th style="padding: 10px 12px;">Dish Name</th>
+                                <th style="padding: 10px 10px; width: 190px;">Serving Meal Time</th>
+                                <th style="padding: 10px 10px; width: 130px; text-align: center;">Quantity</th>
+                                <th style="padding: 10px 10px; width: 90px; text-align: right;">Rate</th>
+                                <th style="padding: 10px 12px; width: 100px; text-align: right;">Subtotal</th>
+                                <th style="padding: 10px 10px; width: 45px; text-align: center;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="kitchen_cart_table_body">
+                            <!-- Populated via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Cart Summary & Dispatch Button -->
+                <div id="kitchen_cart_footer_bar" style="display: none; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 6px;">
+                    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                        <div style="font-size: 12px; color: #475569;">
+                            Items: <strong id="cart_total_items_qty" style="color: #0F172A;">0</strong>
+                        </div>
+                        <div style="font-size: 12px; color: #475569;">
+                            Food Subtotal: <strong id="cart_food_subtotal_text" style="color: #0E7490;">₹0.00</strong>
+                        </div>
+                        <div style="font-size: 12px; color: #475569;">
+                            Est. <?php echo ($gst_rate_food > 0) ? ($gst_rate_food . '%') : '0%'; ?> GST: <strong id="cart_gst_text" style="color: #64748B;">₹0.00</strong>
+                        </div>
+                        <div style="font-size: 13.5px; color: #047857; font-weight: 700;">
+                            Net Added to Bill: <strong id="cart_grand_total_text" style="color: #065F46; font-size: 15px;">₹0.00</strong>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button type="button" id="btn_dispatch_kitchen_cart" onclick="dispatchKitchenCartOrder();" style="height: 42px; padding: 0 22px; background: #0E7490; color: #FFFFFF; border: none; border-radius: 6px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 3px 10px rgba(14, 116, 144, 0.35); transition: background 0.2s ease;">
+                            <i class="fa-solid fa-bell-concierge"></i>
+                            <span id="dispatch_cart_btn_label">Book &amp; Dispatch Order to Ticket</span>
+                        </button>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Quick Dish Search Bar -->
@@ -985,7 +1237,7 @@ foreach ($all_matching_bookings as $b) {
         <?php
         // Organize all 66 dishes into categorized groups
         $categories_meta = [
-            'breakfast' => ['title' => 'Breakfast (പ്രഭാതഭക്ഷണം)', 'icon' => 'fa-mug-saucer', 'color' => '#D97706', 'bg' => '#FEF3C7', 'default_open' => true],
+            'breakfast' => ['title' => 'Breakfast (പ്രഭാതഭക്ഷണം)', 'icon' => 'fa-mug-saucer', 'color' => '#D97706', 'bg' => '#FEF3C7', 'default_open' => false],
             'lunch' => ['title' => 'Lunch (ഉച്ചഭക്ഷണം)', 'icon' => 'fa-bowl-rice', 'color' => '#059669', 'bg' => '#D1FAE5', 'default_open' => false],
             'snacks' => ['title' => 'Evening Specials & Snacks (ചായ & ലഘുഭക്ഷണം)', 'icon' => 'fa-cookie-bite', 'color' => '#EA580C', 'bg' => '#FFEDD5', 'default_open' => false],
             'juices' => ['title' => 'Healthy Juices (ഹെൽത്തി ജ്യൂസുകൾ)', 'icon' => 'fa-glass-water', 'color' => '#0284C7', 'bg' => '#E0F2FE', 'default_open' => false],
@@ -1047,7 +1299,8 @@ foreach ($all_matching_bookings as $b) {
                                  data-dish-price="<?php echo (float)$dish['price']; ?>"
                                  data-dish-meal="<?php echo htmlspecialchars($dish['default_meal_time']); ?>"
                                  data-dish-category="<?php echo htmlspecialchars($dish['category']); ?>"
-                                 onclick="selectDishForWalkin(this);"
+                                 data-dish-diet="<?php echo htmlspecialchars($dish['dietary_type'] ?? 'veg'); ?>"
+                                 onclick="onDishCardClicked(<?php echo $dish['id']; ?>);"
                                  style="background: #FFFFFF; border: 1.5px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                 
                                 <div style="display: flex; align-items: flex-start; gap: 8px; flex: 1;">
@@ -1062,13 +1315,15 @@ foreach ($all_matching_bookings as $b) {
                                     </div>
                                 </div>
 
-                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;" onclick="event.stopPropagation();">
                                     <span style="font-size: 12.5px; font-weight: 700; color: #0E7490;">
                                         ₹<?php echo number_format($dish['price'], 0); ?>
                                     </span>
-                                    <button type="button" class="dish-select-btn" style="padding: 2px 8px; font-size: 11px; font-weight: 700; background: #F1F5F9; color: #0E7490; border: 1px solid #CBD5E1; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
-                                        <i class="fa-solid fa-plus"></i> Select
-                                    </button>
+                                    <div id="dish_ctrl_box_<?php echo $dish['id']; ?>">
+                                        <button type="button" class="dish-select-btn" onclick="addDishToCart(<?php echo $dish['id']; ?>);" style="padding: 3px 10px; font-size: 11px; font-weight: 700; background: #F0FDFA; color: #0E7490; border: 1px solid #99F6E4; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s ease;">
+                                            <i class="fa-solid fa-plus"></i> Add
+                                        </button>
+                                    </div>
                                 </div>
 
                             </div>
@@ -1078,7 +1333,21 @@ foreach ($all_matching_bookings as $b) {
                 </div>
             <?php endforeach; ?>
         </div>
+        </div>
 
+    </div>
+
+    <!-- Floating Bottom Quick-Cart Dock (Appears when scrolled past cart) -->
+    <div id="floating_kitchen_cart_dock" style="display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 9998; background: #0E7490; color: #FFFFFF; border: 1.5px solid #0891B2; padding: 10px 22px; border-radius: 30px; box-shadow: 0 10px 30px rgba(14, 116, 144, 0.45); align-items: center; gap: 16px; font-family: var(--font-sans); transition: all 0.25s ease;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-basket-shopping" style="font-size: 16px; color: #A5F3FC;"></i>
+            <span style="font-size: 13px; font-weight: 700;"><span id="dock_item_count">0</span> items in Cart</span>
+            <span style="color: rgba(255,255,255,0.4);">•</span>
+            <span id="dock_total_amount" style="font-size: 14px; font-weight: 800; color: #ECFDF5;">₹0.00</span>
+        </div>
+        <button type="button" onclick="scrollToKitchenCart();" style="background: #FFFFFF; color: #0E7490; border: none; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+            <i class="fa-solid fa-arrow-up"></i> Review Cart &amp; Book
+        </button>
     </div>
 
 </div>
@@ -1116,33 +1385,526 @@ foreach ($all_matching_bookings as $b) {
     box-shadow: 0 3px 8px rgba(14, 116, 144, 0.12) !important;
     transform: translateY(-1px);
 }
-.dish-item-card.is-selected {
-    border-color: #059669 !important;
-    background: #ECFDF5 !important;
-    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.25) !important;
+.dish-item-card.is-in-cart {
+    border-color: #0E7490 !important;
+    background: #F0FDFA !important;
+    box-shadow: 0 2px 10px rgba(14, 116, 144, 0.2) !important;
 }
-.dish-item-card.is-selected .dish-select-btn {
-    background: #059669 !important;
-    color: #FFFFFF !important;
-    border-color: #059669 !important;
+.dish-cart-stepper {
+    display: inline-flex;
+    align-items: center;
+    background: #0E7490;
+    color: #FFFFFF;
+    border-radius: 5px;
+    overflow: hidden;
+    height: 26px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.dish-cart-stepper button {
+    width: 24px;
+    height: 26px;
+    background: transparent;
+    border: none;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+.dish-cart-stepper button:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+.dish-cart-stepper span {
+    min-width: 22px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 12.5px;
 }
 .cat-toggle-btn {
     pointer-events: none;
 }
-.dish-select-btn {
-    pointer-events: none;
+
+/* Collapsible Kitchen Sections */
+.kitchen-section-header {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s ease, filter 0.2s ease;
+}
+.kitchen-section-header:hover {
+    filter: brightness(0.97);
+}
+.section-toggle-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1.5px solid #CBD5E1;
+    background: #FFFFFF;
+    color: #334155;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.section-toggle-btn:hover {
+    border-color: #0E7490;
+    color: #0E7490;
+    background: #F0FDFA;
+}
+.section-toggle-btn.is-open {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: #7DD3FC;
+}
+.section-toggle-btn .toggle-icon {
+    transition: transform 0.25s ease;
+}
+.section-toggle-btn.is-open .toggle-icon {
+    transform: rotate(180deg);
+}
+.adm-btn-section-shortcut {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #FFFFFF;
+    color: #334155;
+    border: 1px solid #CBD5E1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+.adm-btn-section-shortcut:hover {
+    border-color: #0E7490;
+    color: #0E7490;
+    background: #F0FDFA;
+}
+.adm-btn-section-shortcut.active-shortcut {
+    background: #1C3826;
+    color: #FFFFFF;
+    border-color: #1C3826;
+}
+.adm-btn-section-shortcut.active-shortcut i {
+    color: #FBBF24 !important;
+}
+.adm-btn-section-shortcut.order-btn-highlight {
+    background: #F0FDFA;
+    border-color: #99F6E4;
+    color: #0E7490;
+    font-weight: 700;
+}
+.adm-btn-section-shortcut.order-btn-highlight:hover {
+    background: #0E7490;
+    color: #FFFFFF;
+}
+.adm-btn-section-shortcut.order-btn-highlight:hover i {
+    color: #FFFFFF !important;
+}
+
+@media print {
+    .kitchen-section-body {
+        display: block !important;
+    }
+    .section-toggle-btn, .kitchen-sections-quicknav, #floating_kitchen_cart_dock {
+        display: none !important;
+    }
 }
 </style>
 
 <script>
-// Quantity Steppers
-function incrementDishQty() {
-    var q = document.getElementById('walkin_dish_qty');
-    if (q) q.value = Math.min(50, (parseInt(q.value, 10) || 1) + 1);
+// Food Dishes Dictionary
+var allFoodDishesMap = <?php 
+    $dishes_dict = [];
+    foreach ($all_dishes as $d) {
+        $dishes_dict[$d['id']] = $d;
+    }
+    echo json_encode($dishes_dict, JSON_UNESCAPED_UNICODE); 
+?>;
+
+// Kitchen Order Cart State
+var kitchenCart = [];
+var foodGstRate = <?php echo json_encode($gst_rate_food); ?>;
+
+// Global default meal slot
+function getSelectedMealSlot() {
+    var sel = document.getElementById('quick_meal_select');
+    return sel ? sel.value : 'lunch';
 }
-function decrementDishQty() {
-    var q = document.getElementById('walkin_dish_qty');
-    if (q) q.value = Math.max(1, (parseInt(q.value, 10) || 1) - 1);
+
+function onGlobalMealSlotChange(newSlot) {
+    // Optional: could notify or update new additions
+}
+
+// Add Dish to Cart (or increment qty if already present)
+function addDishToCart(dishId) {
+    dishId = parseInt(dishId, 10);
+    var dish = allFoodDishesMap[dishId];
+    if (!dish) return;
+
+    var existing = kitchenCart.find(function(it) {
+        return it.dishId === dishId;
+    });
+
+    var defSlot = getSelectedMealSlot() || dish.default_meal_time || 'lunch';
+
+    if (existing) {
+        existing.quantity = Math.min(50, existing.quantity + 1);
+    } else {
+        kitchenCart.push({
+            dishId: dishId,
+            dishName: dish.heading,
+            price: parseFloat(dish.price) || 0,
+            quantity: 1,
+            mealSlot: defSlot,
+            dietaryType: dish.dietary_type || 'veg',
+            category: dish.category || 'lunch'
+        });
+    }
+
+    renderKitchenCart();
+    showKitchenToast('✓ Added ' + dish.heading + ' to cart', true);
+}
+
+// Clicking card body
+function onDishCardClicked(dishId) {
+    addDishToCart(dishId);
+}
+
+// Adjust quantity of item in cart
+function adjustDishCartQty(dishId, delta) {
+    dishId = parseInt(dishId, 10);
+    var idx = kitchenCart.findIndex(function(it) {
+        return it.dishId === dishId;
+    });
+    if (idx === -1) return;
+
+    var newQty = kitchenCart[idx].quantity + delta;
+    if (newQty <= 0) {
+        var removedName = kitchenCart[idx].dishName;
+        kitchenCart.splice(idx, 1);
+        showKitchenToast('Removed ' + removedName + ' from cart', false);
+    } else {
+        kitchenCart[idx].quantity = Math.min(50, newQty);
+    }
+
+    renderKitchenCart();
+}
+
+// Change item meal slot in table
+function changeCartItemMealSlot(dishId, newSlot) {
+    dishId = parseInt(dishId, 10);
+    var item = kitchenCart.find(function(it) {
+        return it.dishId === dishId;
+    });
+    if (item) {
+        item.mealSlot = newSlot;
+        renderKitchenCart();
+    }
+}
+
+// Remove item from cart
+function removeCartItem(dishId) {
+    adjustDishCartQty(dishId, -999);
+}
+
+// Clear entire kitchen cart
+function clearKitchenCart(showToast) {
+    if (showToast === undefined) showToast = true;
+    if (kitchenCart.length === 0) return;
+    kitchenCart = [];
+    renderKitchenCart();
+    if (showToast) {
+        showKitchenToast('Cart cleared', false);
+    }
+}
+
+// Render Cart UI and sync all dish card states
+function renderKitchenCart() {
+    var totalCount = 0;
+    var totalQty = 0;
+    var foodSubtotal = 0;
+
+    var tbody = document.getElementById('kitchen_cart_table_body');
+    var emptyBox = document.getElementById('kitchen_cart_empty_state');
+    var tableWrap = document.getElementById('kitchen_cart_table_wrap');
+    var footerBar = document.getElementById('kitchen_cart_footer_bar');
+    var countBadge = document.getElementById('kitchen_cart_count_badge');
+    var clearBtn = document.getElementById('btn_clear_kitchen_cart');
+    var payloadInput = document.getElementById('walkin_items_payload');
+
+    var dock = document.getElementById('floating_kitchen_cart_dock');
+    var dockCount = document.getElementById('dock_item_count');
+    var dockTotal = document.getElementById('dock_total_amount');
+
+    if (tbody) {
+        var html = '';
+        kitchenCart.forEach(function(item) {
+            totalCount++;
+            totalQty += item.quantity;
+            var lineSubtotal = item.quantity * item.price;
+            foodSubtotal += lineSubtotal;
+
+            var isVeg = (item.dietaryType === 'veg');
+            var dotColor = isVeg ? '#16A34A' : '#DC2626';
+
+            html += '<tr style="border-bottom: 1px solid #F1F5F9;">';
+            
+            // Name
+            html += '<td style="padding: 9px 12px; font-weight: 600; color: #1E293B;">';
+            html += '<span style="color:' + dotColor + '; font-size:11px; margin-right:6px;">●</span>';
+            html += item.dishName;
+            html += '</td>';
+
+            // Meal Slot Dropdown
+            html += '<td style="padding: 9px 10px;">';
+            html += '<select onchange="changeCartItemMealSlot(' + item.dishId + ', this.value);" style="font-size:12px; font-weight:600; padding:4px 8px; border-radius:5px; border:1.5px solid #CBD5E1; background:#FFFFFF; color:#0F172A; width:100%;">';
+            var slots = [
+                { id: 'breakfast', label: '☀️ Breakfast' },
+                { id: 'lunch', label: '🍛 Lunch' },
+                { id: 'snacks', label: '☕ Evening Snacks' },
+                { id: 'dinner', label: '🌙 Dinner' }
+            ];
+            slots.forEach(function(s) {
+                var sel = (item.mealSlot === s.id) ? ' selected' : '';
+                html += '<option value="' + s.id + '"' + sel + '>' + s.label + '</option>';
+            });
+            html += '</select>';
+            html += '</td>';
+
+            // Quantity Stepper
+            html += '<td style="padding: 9px 10px; text-align: center;">';
+            html += '<div style="display:inline-flex; align-items:center; border:1px solid #CBD5E1; border-radius:5px; overflow:hidden; background:#F8FAFC;">';
+            html += '<button type="button" onclick="adjustDishCartQty(' + item.dishId + ', -1);" style="width:28px; height:28px; border:none; background:transparent; font-weight:700; color:#475569; cursor:pointer;">−</button>';
+            html += '<span style="width:28px; text-align:center; font-weight:700; font-size:13px; color:#0F172A;">' + item.quantity + '</span>';
+            html += '<button type="button" onclick="adjustDishCartQty(' + item.dishId + ', 1);" style="width:28px; height:28px; border:none; background:transparent; font-weight:700; color:#475569; cursor:pointer;">+</button>';
+            html += '</div>';
+            html += '</td>';
+
+            // Unit Price
+            html += '<td style="padding: 9px 10px; text-align: right; color:#64748B; font-weight:600;">₹' + item.price.toLocaleString('en-IN') + '</td>';
+
+            // Subtotal
+            html += '<td style="padding: 9px 12px; text-align: right; font-weight:700; color:#0E7490;">₹' + lineSubtotal.toLocaleString('en-IN') + '</td>';
+
+            // Delete
+            html += '<td style="padding: 9px 10px; text-align: center;">';
+            html += '<button type="button" onclick="removeCartItem(' + item.dishId + ');" style="background:none; border:none; color:#EF4444; font-size:16px; cursor:pointer; padding:4px;" title="Remove dish">&times;</button>';
+            html += '</td>';
+
+            html += '</tr>';
+        });
+
+        tbody.innerHTML = html;
+    }
+
+    // Toggle states
+    if (totalCount > 0) {
+        if (emptyBox) emptyBox.style.display = 'none';
+        if (tableWrap) tableWrap.style.display = 'block';
+        if (footerBar) footerBar.style.display = 'flex';
+        if (clearBtn) clearBtn.style.display = 'inline-flex';
+    } else {
+        if (emptyBox) emptyBox.style.display = 'block';
+        if (tableWrap) tableWrap.style.display = 'none';
+        if (footerBar) footerBar.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+    }
+
+    // Stats
+    var gst = Math.round((foodSubtotal * (foodGstRate / 100)) * 100) / 100;
+    var grandTotal = Math.round((foodSubtotal + gst) * 100) / 100;
+
+    if (countBadge) countBadge.textContent = totalCount + (totalCount === 1 ? ' Dish' : ' Dishes');
+    var itemsQtyEl = document.getElementById('cart_total_items_qty');
+    if (itemsQtyEl) itemsQtyEl.textContent = totalCount + ' dishes (' + totalQty + ' portions)';
+
+    var subEl = document.getElementById('cart_food_subtotal_text');
+    if (subEl) subEl.textContent = '₹' + foodSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    var gstEl = document.getElementById('cart_gst_text');
+    if (gstEl) gstEl.textContent = '₹' + gst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    var totEl = document.getElementById('cart_grand_total_text');
+    if (totEl) totEl.textContent = '₹' + grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    var btnLbl = document.getElementById('dispatch_cart_btn_label');
+    if (btnLbl) {
+        btnLbl.textContent = 'Book & Dispatch ' + totalCount + ' Dishes (₹' + grandTotal.toLocaleString('en-IN') + ') to Ticket';
+    }
+
+    if (payloadInput) {
+        payloadInput.value = JSON.stringify(kitchenCart);
+    }
+
+    // Update Floating Dock
+    if (dock && dockCount && dockTotal) {
+        dockCount.textContent = totalCount;
+        dockTotal.textContent = '₹' + grandTotal.toLocaleString('en-IN');
+        checkFloatingDockVisibility();
+    }
+
+    // Synchronize All Menu Cards in Accordion
+    syncDishCardsUI();
+}
+
+// Synchronize Dish Cards in Accordion to reflect cart items and quantities
+function syncDishCardsUI() {
+    var cartMap = {};
+    kitchenCart.forEach(function(it) {
+        cartMap[it.dishId] = it.quantity;
+    });
+
+    document.querySelectorAll('.dish-item-card').forEach(function(card) {
+        var dishId = parseInt(card.getAttribute('data-dish-id'), 10);
+        var ctrlBox = document.getElementById('dish_ctrl_box_' + dishId);
+        var inCartQty = cartMap[dishId] || 0;
+
+        if (inCartQty > 0) {
+            card.classList.add('is-in-cart');
+            if (ctrlBox) {
+                ctrlBox.innerHTML = '<div class="dish-cart-stepper" onclick="event.stopPropagation();">' +
+                    '<button type="button" onclick="adjustDishCartQty(' + dishId + ', -1);" title="Decrease">−</button>' +
+                    '<span>' + inCartQty + '</span>' +
+                    '<button type="button" onclick="adjustDishCartQty(' + dishId + ', 1);" title="Increase">+</button>' +
+                    '</div>';
+            }
+        } else {
+            card.classList.remove('is-in-cart');
+            if (ctrlBox) {
+                ctrlBox.innerHTML = '<button type="button" class="dish-select-btn" onclick="event.stopPropagation(); addDishToCart(' + dishId + ');" style="padding: 3px 10px; font-size: 11px; font-weight: 700; background: #F0FDFA; color: #0E7490; border: 1px solid #99F6E4; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s ease;">' +
+                    '<i class="fa-solid fa-plus"></i> Add' +
+                    '</button>';
+            }
+        }
+    });
+}
+
+// Scroll to cart panel
+function scrollToKitchenCart() {
+    var p = document.getElementById('kitchen_order_cart_panel');
+    if (p) {
+        p.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+// Check Floating Dock visibility on scroll
+function checkFloatingDockVisibility() {
+    var dock = document.getElementById('floating_kitchen_cart_dock');
+    var cartPanel = document.getElementById('kitchen_order_cart_panel');
+    if (!dock || !cartPanel) return;
+
+    if (kitchenCart.length === 0) {
+        dock.style.display = 'none';
+        return;
+    }
+
+    var rect = cartPanel.getBoundingClientRect();
+    if (rect.bottom < 100) {
+        dock.style.display = 'flex';
+    } else {
+        dock.style.display = 'none';
+    }
+}
+window.addEventListener('scroll', checkFloatingDockVisibility, { passive: true });
+
+// Dispatch Cart Order via AJAX
+async function dispatchKitchenCartOrder() {
+    var roomSelect = document.getElementById('walkin_booking_select');
+    if (!roomSelect || !roomSelect.value) {
+        if (roomSelect) {
+            roomSelect.style.borderColor = '#EF4444';
+            roomSelect.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.25)';
+            roomSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            roomSelect.focus();
+            setTimeout(function() {
+                roomSelect.style.borderColor = '';
+                roomSelect.style.boxShadow = '';
+            }, 3000);
+        }
+        showKitchenToast('Please choose an in-house room / resident guest first!', false);
+        return;
+    }
+
+    if (kitchenCart.length === 0) {
+        showKitchenToast('Your cart is empty! Pick dishes with [+] from the menu below.', false);
+        return;
+    }
+
+    var btn = document.getElementById('btn_dispatch_kitchen_cart');
+    var origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Booking &amp; Dispatching...';
+    }
+
+    var notesInput = document.getElementById('walkin_kitchen_notes');
+    var notes = notesInput ? notesInput.value.trim() : '';
+
+    try {
+        var formData = new FormData();
+        formData.append('csrf_token', '<?php echo csrf_token(); ?>');
+        formData.append('action', 'quick_add_batch_dishes');
+        formData.append('booking_id', roomSelect.value);
+        formData.append('kitchen_notes', notes);
+        formData.append('items_payload', JSON.stringify(kitchenCart));
+
+        var res = await fetch('kitchen.php?filter=<?php echo urlencode($filter); ?>&from_date=<?php echo urlencode($from_date); ?>&to_date=<?php echo urlencode($to_date); ?>&meal=<?php echo urlencode($meal_filter); ?>', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        });
+
+        var data = await res.json();
+        if (data.success) {
+            clearKitchenCart(false);
+            if (notesInput) notesInput.value = '';
+            showKitchenToast('✓ ' + (data.message || 'Order successfully added to guest ticket!'), true);
+            
+            // Reload page smoothly to display the updated live ticket and preparation summary
+            setTimeout(function() {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showKitchenToast(data.message || 'Error dispatching order', false);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }
+    } catch (err) {
+        // Fallback to normal form submit if fetch fails
+        var form = document.getElementById('walkin_dish_form');
+        if (form) {
+            form.submit();
+        }
+    }
+}
+
+// Fallback form submit
+function handleFormDirectSubmit(e) {
+    var roomSelect = document.getElementById('walkin_booking_select');
+    if (!roomSelect || !roomSelect.value) {
+        e.preventDefault();
+        roomSelect.focus();
+        showKitchenToast('Please choose an in-house room / resident guest first!', false);
+        return false;
+    }
+    if (kitchenCart.length === 0) {
+        e.preventDefault();
+        showKitchenToast('Please add at least one dish to the cart.', false);
+        return false;
+    }
+    var payloadInput = document.getElementById('walkin_items_payload');
+    if (payloadInput) {
+        payloadInput.value = JSON.stringify(kitchenCart);
+    }
+    return true;
 }
 
 // Toggle Single Category Accordion with Plus/Minus
@@ -1190,6 +1952,75 @@ function expandAllMenuCategories() {
     });
 }
 
+// =========================================================================
+// Main Kitchen Section Collapsible Controls (Chef Preparation, Tickets, Walk-in)
+// =========================================================================
+function toggleKitchenMainSection(secKey, forceOpen, autoScroll) {
+    var body = document.getElementById('body_' + secKey);
+    var btn = document.getElementById('btn_toggle_' + secKey);
+    var txt = document.getElementById('txt_toggle_' + secKey);
+    var header = document.getElementById('header_' + secKey);
+    var shortcut = document.getElementById('shortcut_btn_' + secKey);
+    if (!body) return;
+
+    var isCurrentlyOpen = (body.style.display !== 'none');
+    var shouldOpen = (typeof forceOpen === 'boolean') ? forceOpen : !isCurrentlyOpen;
+
+    if (shouldOpen) {
+        body.style.display = 'block';
+        if (btn) {
+            btn.classList.add('is-open');
+            if (txt) txt.textContent = 'Collapse';
+        }
+        if (shortcut) {
+            shortcut.classList.add('active-shortcut');
+        }
+        try {
+            sessionStorage.setItem('ff_kitchen_sec_' + secKey, 'open');
+        } catch(e) {}
+
+        if (autoScroll) {
+            setTimeout(function() {
+                var el = document.getElementById('section_' + secKey) || document.getElementById('kitchen_' + secKey) || header;
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 80);
+        }
+    } else {
+        body.style.display = 'none';
+        if (btn) {
+            btn.classList.remove('is-open');
+            if (txt) txt.textContent = 'Expand';
+        }
+        if (shortcut) {
+            shortcut.classList.remove('active-shortcut');
+        }
+        try {
+            sessionStorage.setItem('ff_kitchen_sec_' + secKey, 'closed');
+        } catch(e) {}
+    }
+}
+
+function expandAllKitchenSections() {
+    ['prep_summary', 'order_tickets', 'walkin_order'].forEach(function(k) {
+        toggleKitchenMainSection(k, true, false);
+    });
+}
+
+function collapseAllKitchenSections() {
+    ['prep_summary', 'order_tickets', 'walkin_order'].forEach(function(k) {
+        toggleKitchenMainSection(k, false, false);
+    });
+}
+
+// Auto-expand section if requested in URL anchor or query
+document.addEventListener('DOMContentLoaded', function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var hash = window.location.hash;
+    if (urlParams.get('open') === 'order' || urlParams.get('action') === 'order' || hash === '#kitchen_walkin_section') {
+        toggleKitchenMainSection('walkin_order', true, true);
+    }
+});
+
 // Collapse All Categories
 function collapseAllMenuCategories() {
     document.querySelectorAll('.cat-accordion-body').forEach(function(b) {
@@ -1204,78 +2035,6 @@ function collapseAllMenuCategories() {
     document.querySelectorAll('.cat-accordion-header').forEach(function(h) {
         h.style.borderBottom = 'none';
     });
-}
-
-// Select Dish from Accordion
-function selectDishForWalkin(cardEl) {
-    if (!cardEl) return;
-    
-    // Clear other selections
-    document.querySelectorAll('.dish-item-card').forEach(function(c) {
-        c.classList.remove('is-selected');
-        var b = c.querySelector('.dish-select-btn');
-        if (b) b.innerHTML = '<i class="fa-solid fa-plus"></i> Select';
-    });
-
-    // Mark current as selected
-    cardEl.classList.add('is-selected');
-    var btn = cardEl.querySelector('.dish-select-btn');
-    if (btn) btn.innerHTML = '<i class="fa-solid fa-check"></i> Selected';
-
-    var dishId = cardEl.getAttribute('data-dish-id');
-    var dishName = cardEl.getAttribute('data-dish-name');
-    var dishPrice = cardEl.getAttribute('data-dish-price');
-    var defMeal = cardEl.getAttribute('data-dish-meal');
-
-    // Update form hidden dish id
-    var hiddenInput = document.getElementById('selected_dish_id');
-    if (hiddenInput) hiddenInput.value = dishId;
-
-    // Update meal time select
-    var mealSel = document.getElementById('quick_meal_select');
-    if (defMeal && mealSel) {
-        mealSel.value = defMeal;
-    }
-
-    // Show banner
-    var banner = document.getElementById('selected_dish_banner');
-    var bannerName = document.getElementById('selected_dish_name');
-    var bannerPrice = document.getElementById('selected_dish_price_badge');
-    var btnLabel = document.getElementById('walkin_btn_label');
-
-    if (banner && bannerName && bannerPrice) {
-        banner.style.display = 'flex';
-        bannerName.innerText = dishName;
-        bannerPrice.innerText = '₹' + parseFloat(dishPrice).toLocaleString('en-IN');
-    }
-
-    if (btnLabel) {
-        btnLabel.innerText = 'Add "' + dishName + '" to Ticket';
-    }
-
-    // Check if guest room is selected, if not highlight it
-    var roomSel = document.getElementById('walkin_booking_select');
-    if (roomSel && !roomSel.value) {
-        roomSel.focus();
-    }
-}
-
-// Clear selected dish
-function clearSelectedDish() {
-    var hiddenInput = document.getElementById('selected_dish_id');
-    if (hiddenInput) hiddenInput.value = '';
-
-    document.querySelectorAll('.dish-item-card').forEach(function(c) {
-        c.classList.remove('is-selected');
-        var b = c.querySelector('.dish-select-btn');
-        if (b) b.innerHTML = '<i class="fa-solid fa-plus"></i> Select';
-    });
-
-    var banner = document.getElementById('selected_dish_banner');
-    if (banner) banner.style.display = 'none';
-
-    var btnLabel = document.getElementById('walkin_btn_label');
-    if (btnLabel) btnLabel.innerText = 'Add to Ticket';
 }
 
 // Real-time Search Across 66 Dishes

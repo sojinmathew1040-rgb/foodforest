@@ -928,6 +928,168 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         <div style="width: 100%; background: #07120B; min-height: 100vh;">
             <?php require_once __DIR__ . '/../includes/footer.php'; ?>
         </div>
+
+    <?php elseif ($section === 'gst'): ?>
+        <!-- CARD 21: GST TAX RATES & INVOICING LIVE PREVIEW -->
+        <?php
+        $preview_gst_num = $s['gst_number'] ?? '32AAECF1234M1Z5';
+        $preview_gst_legal = $s['gst_legal_name'] ?? 'Food Forest Eco Sanctuary';
+        $preview_gst_state = $s['gst_state_name'] ?? 'Kerala';
+        $preview_gst_code = $s['gst_state_code'] ?? '32';
+        $preview_r_cottage = (float)($s['gst_rate_cottage'] ?? 12);
+        $preview_r_food = (float)($s['gst_rate_food'] ?? 5);
+        $preview_r_other = (float)($s['gst_rate_other'] ?? 18);
+        $preview_sac_cottage = $s['gst_sac_cottage'] ?? '996311';
+        $preview_sac_food = $s['gst_sac_food'] ?? '996331';
+        $preview_sac_other = $s['gst_sac_other'] ?? '998555';
+
+        // Sample figures
+        $sample_v_cottage = 7500.00;
+        $sample_tax_cottage = round($sample_v_cottage * ($preview_r_cottage / 100), 2);
+
+        $sample_v_food = 1600.00;
+        $sample_tax_food = round($sample_v_food * ($preview_r_food / 100), 2);
+
+        $sample_v_other = 1000.00;
+        $sample_tax_other = round($sample_v_other * ($preview_r_other / 100), 2);
+
+        $sample_taxable_total = $sample_v_cottage + $sample_v_food + $sample_v_other;
+        $sample_gst_total = $sample_tax_cottage + $sample_tax_food + $sample_tax_other;
+        $sample_net_total = $sample_taxable_total + $sample_gst_total;
+        ?>
+        <div style="padding: 40px 24px; background: #0C1A11; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;">
+            <div style="background: #FFFFFF; color: #1E293B; max-width: 680px; width: 100%; border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,0.45); overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif;">
+                
+                <!-- Invoice Header -->
+                <div style="background: #101F15; color: #FFFFFF; padding: 24px 28px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #C5A059;">
+                    <div>
+                        <span style="font-size: 10px; color: #C5A059; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; display: block;">Official GST Tax Invoice</span>
+                        <h2 style="font-family: 'Cinzel', serif; font-size: 20px; margin: 4px 0 0; color: #FFFFFF;"><?php echo htmlspecialchars($preview_gst_legal); ?></h2>
+                        <span style="font-size: 11.5px; color: #CBD5E1; margin-top: 4px; display: block;">Kanthalloor High Ranges, Idukki District, <?php echo htmlspecialchars($preview_gst_state); ?> (State Code: <?php echo htmlspecialchars($preview_gst_code); ?>)</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <span class="adm-badge" style="background: rgba(197, 160, 89, 0.2); color: #C5A059; border: 1px solid rgba(197, 160, 89, 0.4); font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;">
+                            ORIGINAL FOR RECIPIENT
+                        </span>
+                        <div style="font-family: monospace; font-size: 12px; color: #F1F5F9; margin-top: 8px; font-weight: 600;">
+                            GSTIN: <?php echo htmlspecialchars($preview_gst_num); ?>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sub-bar -->
+                <div style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0; padding: 12px 28px; display: flex; justify-content: space-between; font-size: 11.5px; color: #64748B;">
+                    <div>Invoice No: <strong style="color: #0F172A; font-family: monospace;">FF-INV-<?php echo date('Ym'); ?>-0142</strong></div>
+                    <div>Date: <strong style="color: #0F172A;"><?php echo date('d M Y'); ?></strong></div>
+                    <div>Regime: <strong style="color: #059669;">Multi-Tier Category Rates</strong></div>
+                </div>
+
+                <!-- Line Items Table -->
+                <div style="padding: 22px 28px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #E2E8F0; text-align: left; font-size: 10.5px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <th style="padding: 8px 0;">Billing Category &amp; Description</th>
+                                <th style="padding: 8px 10px; text-align: center;">SAC Code</th>
+                                <th style="padding: 8px 10px; text-align: right;">Taxable (₹)</th>
+                                <th style="padding: 8px 10px; text-align: center;">GST %</th>
+                                <th style="padding: 8px 0; text-align: right;">Tax (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Category 1: Stay -->
+                            <tr style="border-bottom: 1px solid #F1F5F9;">
+                                <td style="padding: 10px 0;">
+                                    <strong style="color: #0F172A; display: block;">🏡 Mudhouse / Cottage Villa Stay</strong>
+                                    <span style="font-size: 10.5px; color: #64748B;">Accommodation tariff (Stay Bill)</span>
+                                </td>
+                                <td style="padding: 10px; text-align: center; font-family: monospace; font-size: 11px; color: #64748B;"><?php echo htmlspecialchars($preview_sac_cottage); ?></td>
+                                <td style="padding: 10px; text-align: right; font-weight: 600;">₹<?php echo number_format($sample_v_cottage, 2); ?></td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <span style="background: rgba(14, 165, 233, 0.12); color: #0284c7; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 11px;">
+                                        <?php echo $preview_r_cottage; ?>%
+                                    </span>
+                                </td>
+                                <td style="padding: 10px 0; text-align: right; font-weight: 700; color: #0284c7;">₹<?php echo number_format($sample_tax_cottage, 2); ?></td>
+                            </tr>
+
+                            <!-- Category 2: Food -->
+                            <tr style="border-bottom: 1px solid #F1F5F9;">
+                                <td style="padding: 10px 0;">
+                                    <strong style="color: #0F172A; display: block;">🍲 Organic Orchard Living Gastronomy</strong>
+                                    <span style="font-size: 10.5px; color: #64748B;">In-Cottage dining &amp; kitchen orders (Other Bill)</span>
+                                </td>
+                                <td style="padding: 10px; text-align: center; font-family: monospace; font-size: 11px; color: #64748B;"><?php echo htmlspecialchars($preview_sac_food); ?></td>
+                                <td style="padding: 10px; text-align: right; font-weight: 600;">₹<?php echo number_format($sample_v_food, 2); ?></td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <span style="background: rgba(245, 158, 11, 0.12); color: #d97706; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 11px;">
+                                        <?php echo $preview_r_food; ?>%
+                                    </span>
+                                </td>
+                                <td style="padding: 10px 0; text-align: right; font-weight: 700; color: #d97706;">₹<?php echo number_format($sample_tax_food, 2); ?></td>
+                            </tr>
+
+                            <!-- Category 3: Other -->
+                            <tr style="border-bottom: 2px solid #E2E8F0;">
+                                <td style="padding: 10px 0;">
+                                    <strong style="color: #0F172A; display: block;">✨ Curated Experiences &amp; Extra Services</strong>
+                                    <span style="font-size: 10.5px; color: #64748B;">High-range farm treks &amp; campfire rituals (Other Bill)</span>
+                                </td>
+                                <td style="padding: 10px; text-align: center; font-family: monospace; font-size: 11px; color: #64748B;"><?php echo htmlspecialchars($preview_sac_other); ?></td>
+                                <td style="padding: 10px; text-align: right; font-weight: 600;">₹<?php echo number_format($sample_v_other, 2); ?></td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <span style="background: rgba(168, 85, 247, 0.12); color: #9333ea; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 11px;">
+                                        <?php echo $preview_r_other; ?>%
+                                    </span>
+                                </td>
+                                <td style="padding: 10px 0; text-align: right; font-weight: 700; color: #9333ea;">₹<?php echo number_format($sample_tax_other, 2); ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Tax Summary & Totals -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 18px; gap: 20px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 240px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; font-size: 11px;">
+                            <strong style="color: #0F172A; display: block; margin-bottom: 6px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Statutory Tax Breakdown</strong>
+                            <div style="display: flex; justify-content: space-between; color: #64748B; margin-bottom: 4px;">
+                                <span>Cottage CGST (<?php echo $preview_r_cottage/2; ?>%) + SGST (<?php echo $preview_r_cottage/2; ?>%):</span>
+                                <strong style="color: #0F172A;">₹<?php echo number_format($sample_tax_cottage, 2); ?></strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; color: #64748B; margin-bottom: 4px;">
+                                <span>Dining CGST (<?php echo $preview_r_food/2; ?>%) + SGST (<?php echo $preview_r_food/2; ?>%):</span>
+                                <strong style="color: #0F172A;">₹<?php echo number_format($sample_tax_food, 2); ?></strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; color: #64748B;">
+                                <span>Services CGST (<?php echo $preview_r_other/2; ?>%) + SGST (<?php echo $preview_r_other/2; ?>%):</span>
+                                <strong style="color: #0F172A;">₹<?php echo number_format($sample_tax_other, 2); ?></strong>
+                            </div>
+                        </div>
+
+                        <div style="width: 240px; font-size: 12px;">
+                            <div style="display: flex; justify-content: space-between; color: #64748B; margin-bottom: 6px;">
+                                <span>Taxable Subtotal:</span>
+                                <strong>₹<?php echo number_format($sample_taxable_total, 2); ?></strong>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; color: #059669; margin-bottom: 6px; font-weight: 600;">
+                                <span>Combined GST:</span>
+                                <span>+₹<?php echo number_format($sample_gst_total, 2); ?></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; border-top: 2px solid #0F172A; padding-top: 8px; font-size: 15px; font-weight: 700; color: #101F15;">
+                                <span>Net Invoice Total:</span>
+                                <span>₹<?php echo number_format($sample_net_total, 2); ?></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div style="margin-top: 22px; padding-top: 14px; border-top: 1px dashed #CBD5E1; font-size: 10.5px; color: #64748B; line-height: 1.5;">
+                        <i class="fa-solid fa-circle-info" style="color: #C5A059;"></i> <?php echo htmlspecialchars($s['gst_invoice_notes'] ?? 'All accommodation, dining and curated farm experiences are subject to applicable GST under CGST/SGST Acts.'); ?>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
     <?php endif; ?>
 
 </div>

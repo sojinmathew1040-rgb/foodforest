@@ -54,6 +54,7 @@ function get_db() {
         ensure_users_and_guest_columns($pdo);
         ensure_billing_columns($pdo);
         ensure_booking_gst_columns($pdo);
+        ensure_custom_invoices_table_exists($pdo);
 
         return $pdo;
     } catch (PDOException $e) {
@@ -397,7 +398,16 @@ function ensure_default_settings(PDO $pdo) {
         'footer_legal3_title' => 'Guest Etiquette',
         'footer_legal3_url' => '#',
         'footer_staff_label' => 'Staff Portal',
-        'footer_staff_url' => 'admin/'
+        'footer_staff_url' => 'admin/',
+        
+        // Operations: Guest In-Cottage Food Ordering
+        'food_ordering_enabled' => '1',
+
+        // Multi-Tier GST Tax Regimes (Food, Cottage, Other Expenses)
+        'gst_rate_cottage' => '12',
+        'gst_rate_food' => '5',
+        'gst_rate_other' => '18',
+        'gst_legal_name' => 'Food Forest Eco Sanctuary'
     ];
 
     try {
@@ -423,9 +433,9 @@ if (!function_exists('e')) {
 /**
  * Retrieve a site setting by key, with optional fallback.
  */
-function get_setting($key, $default = '') {
+function get_setting($key, $default = '', $refresh = false) {
     static $settings_cache = null;
-    if ($settings_cache === null) {
+    if ($settings_cache === null || $refresh) {
         try {
             $pdo = get_db();
             ensure_default_settings($pdo);
@@ -438,7 +448,24 @@ function get_setting($key, $default = '') {
             return $default;
         }
     }
+    if ($key === null) {
+        return $settings_cache;
+    }
     return $settings_cache[$key] ?? $default;
+}
+
+/**
+ * Update or persist a site setting by key.
+ */
+function set_setting($key, $val, $pdo = null) {
+    if (!$pdo) {
+        $pdo = get_db();
+    }
+    $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+    $res = $stmt->execute([$key, (string)$val]);
+    // Immediately invalidate and reload the in-memory cache
+    get_setting(null, '', true);
+    return $res;
 }
 
 /**
@@ -557,16 +584,46 @@ function get_all_rooms($only_available = false) {
         $rooms = $pdo->query($sql)->fetchAll();
         foreach ($rooms as &$rm) {
             $photos_arr = [];
+            $photos_meta = [];
             if (!empty($rm['photos'])) {
                 $dec = json_decode($rm['photos'], true);
                 if (is_array($dec)) {
-                    $photos_arr = array_values(array_filter($dec));
+                    foreach ($dec as $p_idx => $p_item) {
+                        if (is_array($p_item)) {
+                            $u = trim($p_item['url'] ?? '');
+                            if ($u !== '') {
+                                $photos_arr[] = $u;
+                                $photos_meta[] = [
+                                    'url' => $u,
+                                    'title' => trim($p_item['title'] ?? ''),
+                                    'description' => trim($p_item['description'] ?? ''),
+                                    'order' => isset($p_item['order']) ? (int)$p_item['order'] : ($p_idx + 1)
+                                ];
+                            }
+                        } elseif (is_string($p_item) && trim($p_item) !== '') {
+                            $u = trim($p_item);
+                            $photos_arr[] = $u;
+                            $photos_meta[] = [
+                                'url' => $u,
+                                'title' => '',
+                                'description' => '',
+                                'order' => $p_idx + 1
+                            ];
+                        }
+                    }
                 }
             }
             if (empty($photos_arr) && !empty($rm['image_url'])) {
                 $photos_arr = [$rm['image_url']];
+                $photos_meta = [[
+                    'url' => $rm['image_url'],
+                    'title' => 'Primary Suite Photo',
+                    'description' => '',
+                    'order' => 1
+                ]];
             }
             $rm['photos_list'] = $photos_arr;
+            $rm['photos_meta_list'] = $photos_meta;
 
             // Photos for Left Suite / Cottage
             $left_arr = [];
@@ -592,6 +649,10 @@ function get_all_rooms($only_available = false) {
     } catch (Exception $e) {
         return [];
     }
+}
+
+function get_rooms($only_available = false) {
+    return get_all_rooms($only_available);
 }
 
 /**
@@ -1196,7 +1257,9 @@ function ensure_rooms_pricing_columns(PDO $pdo) {
         // 9. Check & Add photos, photos_left, photos_right to rooms table
         $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'photos'")->fetchAll();
         if (empty($cols)) {
-            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `photos` TEXT NULL AFTER `image_url`");
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `photos` LONGTEXT NULL AFTER `image_url`");
+        } else {
+            $pdo->exec("ALTER TABLE `rooms` MODIFY COLUMN `photos` LONGTEXT NULL");
         }
         $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'photos_left'")->fetchAll();
         if (empty($cols)) {
@@ -3527,18 +3590,98 @@ function get_booking_billing_details($pdo, $identifier) {
         $is_gst_bill = true;
         $is_b2b_gst = ($billing_type === 'gst_with_address' || (!empty($b['gst_number']) && !empty($b['billing_name'])));
         
-        $system_gst_rate = (float)get_setting('gst_rate_percentage', '5');
-        if ($system_gst_rate <= 0) $system_gst_rate = 5.00;
-        $gst_percentage = (float)($b['gst_percentage'] > 0 ? $b['gst_percentage'] : $system_gst_rate);
-        if ($gst_percentage <= 0) $gst_percentage = 5.00;
+        // Multi-Tier GST Tax Rates (Food, Cottage/Stay, Other Expenses)
+        $raw_rate_cottage = get_setting('gst_rate_cottage', null);
+        $gst_rate_cottage = ($raw_rate_cottage !== null && $raw_rate_cottage !== '' && is_numeric($raw_rate_cottage)) 
+            ? max(0.0, (float)$raw_rate_cottage) 
+            : 12.00;
 
-        if (!empty($b['gst_amount']) && (float)$b['gst_amount'] > 0) {
-            $gst_amount = (float)$b['gst_amount'];
-        } elseif (!empty($b['tax_amount']) && (float)$b['tax_amount'] > 0) {
-            $gst_amount = (float)$b['tax_amount'];
+        $raw_rate_food = get_setting('gst_rate_food', null);
+        $gst_rate_food = ($raw_rate_food !== null && $raw_rate_food !== '' && is_numeric($raw_rate_food)) 
+            ? max(0.0, (float)$raw_rate_food) 
+            : 5.00;
+
+        $raw_rate_other = get_setting('gst_rate_other', null);
+        $gst_rate_other = ($raw_rate_other !== null && $raw_rate_other !== '' && is_numeric($raw_rate_other)) 
+            ? max(0.0, (float)$raw_rate_other) 
+            : 18.00;
+
+        $raw_system_rate = get_setting('gst_rate_percentage', null);
+        $system_gst_rate = ($raw_system_rate !== null && $raw_system_rate !== '' && is_numeric($raw_system_rate)) 
+            ? max(0.0, (float)$raw_system_rate) 
+            : $gst_rate_cottage;
+
+        $gst_percentage = (isset($b['gst_percentage']) && $b['gst_percentage'] !== '' && is_numeric($b['gst_percentage'])) 
+            ? max(0.0, (float)$b['gst_percentage']) 
+            : $gst_rate_cottage;
+
+        // Separate Stay Bill (Accommodation only) vs Other Bill (Food & Incidentals)
+        $stay_gross = $room_amount;
+        $other_food_total = $food_total;
+        $other_activities_total = $activities_total;
+        $other_custom_total = $custom_total + $extra_charges;
+        $other_gross = $other_food_total + $other_activities_total + $other_custom_total;
+
+        $stay_discount = min($discount_amount, $stay_gross);
+        $other_discount = max(0, $discount_amount - $stay_discount);
+
+        $stay_taxable = max(0, $stay_gross - $stay_discount);
+
+        // Apportion other discount proportionally between food and other services
+        $food_share = ($other_gross > 0) ? ($other_food_total / $other_gross) : 0;
+        $food_discount = round($other_discount * $food_share, 2);
+        $other_services_discount = max(0, $other_discount - $food_discount);
+
+        $food_taxable = max(0, $other_food_total - $food_discount);
+        $other_services_taxable = max(0, ($other_activities_total + $other_custom_total) - $other_services_discount);
+        $other_taxable = max(0, $other_gross - $other_discount);
+
+        if ($is_gst_bill) {
+            // 1. Stay (Cottage / Accommodation) GST
+            $stay_gst = round($stay_taxable * ($gst_rate_cottage / 100), 2);
+            $stay_cgst = round($stay_gst / 2, 2);
+            $stay_sgst = round($stay_gst - $stay_cgst, 2);
+
+            // 2. Food & Dining GST
+            $food_gst = round($food_taxable * ($gst_rate_food / 100), 2);
+            $food_cgst = round($food_gst / 2, 2);
+            $food_sgst = round($food_gst - $food_cgst, 2);
+
+            // 3. Other Expenses & Incidentals GST
+            $other_services_gst = round($other_services_taxable * ($gst_rate_other / 100), 2);
+            $other_services_cgst = round($other_services_gst / 2, 2);
+            $other_services_sgst = round($other_services_gst - $other_services_cgst, 2);
+
+            // Combined Other Bill GST (Food + Other Services)
+            $other_gst = round($food_gst + $other_services_gst, 2);
+            $other_cgst = round($food_cgst + $other_services_cgst, 2);
+            $other_sgst = round($food_sgst + $other_services_sgst, 2);
         } else {
-            $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
+            $stay_gst = 0.00;
+            $stay_cgst = 0.00;
+            $stay_sgst = 0.00;
+            $food_gst = 0.00;
+            $food_cgst = 0.00;
+            $food_sgst = 0.00;
+            $other_services_gst = 0.00;
+            $other_services_cgst = 0.00;
+            $other_services_sgst = 0.00;
+            $other_gst = 0.00;
+            $other_cgst = 0.00;
+            $other_sgst = 0.00;
         }
+
+        $stay_total = $stay_taxable + $stay_gst;
+        $other_total = $other_taxable + $other_gst;
+
+        $stay_advance_paid = min($stay_total, $advance_paid);
+        $other_advance_paid = max(0, $advance_paid - $stay_advance_paid);
+
+        $stay_balance_due = max(0, $stay_total - $stay_advance_paid);
+        $other_balance_due = max(0, $other_total - $other_advance_paid);
+
+        $multi_tier_gst_total = round($stay_gst + $other_gst, 2);
+        $gst_amount = $multi_tier_gst_total;
         $tax_amount = $gst_amount;
 
         $net_total = max(0, $taxable_subtotal + $tax_amount);
@@ -3553,41 +3696,14 @@ function get_booking_billing_details($pdo, $identifier) {
             $payment_status = 'partial';
         }
 
-        // Separate Stay Bill (Accommodation only) vs Other Bill (Food & Incidentals)
-        $stay_gross = $room_amount;
-        $other_food_total = $food_total;
-        $other_activities_total = $activities_total;
-        $other_custom_total = $custom_total + $extra_charges;
-        $other_gross = $other_food_total + $other_activities_total + $other_custom_total;
-
-        $stay_discount = min($discount_amount, $stay_gross);
-        $other_discount = max(0, $discount_amount - $stay_discount);
-
-        $stay_taxable = max(0, $stay_gross - $stay_discount);
-        $other_taxable = max(0, $other_gross - $other_discount);
-
-        if ($is_gst_bill) {
-            $stay_gst = round($stay_taxable * ($gst_percentage / 100), 2);
-            $other_gst = round($other_taxable * ($gst_percentage / 100), 2);
-        } else {
-            $stay_gst = 0.00;
-            $other_gst = 0.00;
-        }
-
-        $stay_total = $stay_taxable + $stay_gst;
-        $other_total = $other_taxable + $other_gst;
-
-        $stay_advance_paid = min($stay_total, $advance_paid);
-        $other_advance_paid = max(0, $advance_paid - $stay_advance_paid);
-
-        $stay_balance_due = max(0, $stay_total - $stay_advance_paid);
-        $other_balance_due = max(0, $other_total - $other_advance_paid);
-
         $b['parsed'] = [
             'stay_gross' => $stay_gross,
             'stay_discount' => $stay_discount,
             'stay_taxable' => $stay_taxable,
             'stay_gst' => $stay_gst,
+            'stay_cgst' => $stay_cgst,
+            'stay_sgst' => $stay_sgst,
+            'stay_gst_rate' => $gst_rate_cottage,
             'stay_total' => $stay_total,
             'stay_advance_paid' => $stay_advance_paid,
             'stay_balance_due' => $stay_balance_due,
@@ -3597,11 +3713,26 @@ function get_booking_billing_details($pdo, $identifier) {
             'other_gross' => $other_gross,
             'other_discount' => $other_discount,
             'other_taxable' => $other_taxable,
+            'food_taxable' => $food_taxable,
+            'food_gst' => $food_gst,
+            'food_cgst' => $food_cgst,
+            'food_sgst' => $food_sgst,
+            'food_gst_rate' => $gst_rate_food,
+            'other_services_taxable' => $other_services_taxable,
+            'other_services_gst' => $other_services_gst,
+            'other_services_cgst' => $other_services_cgst,
+            'other_services_sgst' => $other_services_sgst,
+            'other_services_gst_rate' => $gst_rate_other,
             'other_gst' => $other_gst,
+            'other_cgst' => $other_cgst,
+            'other_sgst' => $other_sgst,
             'other_total' => $other_total,
             'other_advance_paid' => $other_advance_paid,
             'other_balance_due' => $other_balance_due,
             'other_items_count' => count($food_items) + count($activities) + count($custom_items),
+            'gst_rate_cottage' => $gst_rate_cottage,
+            'gst_rate_food' => $gst_rate_food,
+            'gst_rate_other' => $gst_rate_other,
             'nights' => $nights,
             'rate_per_night' => $rate_per_night,
             'adults_count' => $adults_count,
@@ -3651,6 +3782,155 @@ function get_booking_billing_details($pdo, $identifier) {
         return $b;
     } catch (Exception $e) {
         return null;
+    }
+}
+
+/**
+ * Ensure custom_invoices table exists in MySQL database
+ */
+function ensure_custom_invoices_table_exists(PDO $pdo) {
+    static $checked = false;
+    if ($checked) return;
+
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `custom_invoices` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `invoice_no` VARCHAR(60) NOT NULL UNIQUE,
+            `invoice_date` DATETIME NOT NULL,
+            `customer_name` VARCHAR(150) NOT NULL,
+            `customer_phone` VARCHAR(30) NULL,
+            `customer_email` VARCHAR(100) NULL,
+            `customer_address` TEXT NULL,
+            `is_gst_bill` TINYINT(1) DEFAULT 1,
+            `gstin` VARCHAR(30) NULL,
+            `business_name` VARCHAR(150) NULL,
+            `gst_address` TEXT NULL,
+            `items_json` LONGTEXT NOT NULL,
+            `subtotal` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            `discount_amount` DECIMAL(10,2) DEFAULT 0.00,
+            `taxable_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            `gst_percentage` DECIMAL(5,2) DEFAULT 5.00,
+            `gst_type` VARCHAR(20) DEFAULT 'intra_state',
+            `cgst_amount` DECIMAL(10,2) DEFAULT 0.00,
+            `sgst_amount` DECIMAL(10,2) DEFAULT 0.00,
+            `igst_amount` DECIMAL(10,2) DEFAULT 0.00,
+            `tax_amount` DECIMAL(10,2) DEFAULT 0.00,
+            `grand_total` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+            `advance_paid` DECIMAL(10,2) DEFAULT 0.00,
+            `balance_due` DECIMAL(10,2) DEFAULT 0.00,
+            `payment_method` VARCHAR(50) DEFAULT 'cash',
+            `payment_status` VARCHAR(30) DEFAULT 'paid',
+            `notes` TEXT NULL,
+            `show_bank_details` TINYINT(1) DEFAULT 1,
+            `show_qr_code` TINYINT(1) DEFAULT 1,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_invoice_no (`invoice_no`),
+            INDEX idx_customer_name (`customer_name`),
+            INDEX idx_created_at (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $checked = true;
+    } catch (Exception $e) {
+        error_log('custom_invoices table migration error: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Generate next sequential custom invoice number: FF-CUST-YYYYMM-XXXX
+ */
+function get_next_custom_invoice_number(PDO $pdo) {
+    try {
+        ensure_custom_invoices_table_exists($pdo);
+        $prefix = 'FF-CUST-' . date('Ym') . '-';
+        $stmt = $pdo->prepare("SELECT invoice_no FROM custom_invoices WHERE invoice_no LIKE ? ORDER BY id DESC LIMIT 1");
+        $stmt->execute([$prefix . '%']);
+        $last = $stmt->fetchColumn();
+
+        if ($last) {
+            $parts = explode('-', $last);
+            $seq = (int)end($parts);
+            $nextSeq = str_pad((string)($seq + 1), 4, '0', STR_PAD_LEFT);
+        } else {
+            // Count total existing to start nicely
+            $total = (int)$pdo->query("SELECT COUNT(*) FROM custom_invoices")->fetchColumn();
+            $nextSeq = str_pad((string)($total + 1), 4, '0', STR_PAD_LEFT);
+        }
+
+        return $prefix . $nextSeq;
+    } catch (Exception $e) {
+        return 'FF-CUST-' . date('Ym') . '-0001';
+    }
+}
+
+/**
+ * Retrieve parsed custom invoice record by ID or invoice number
+ */
+function get_custom_invoice(PDO $pdo, $identifier) {
+    try {
+        ensure_custom_invoices_table_exists($pdo);
+        if (is_numeric($identifier)) {
+            $stmt = $pdo->prepare("SELECT * FROM custom_invoices WHERE id = ?");
+            $stmt->execute([(int)$identifier]);
+        } else {
+            $stmt = $pdo->prepare("SELECT * FROM custom_invoices WHERE invoice_no = ?");
+            $stmt->execute([trim($identifier)]);
+        }
+        $inv = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$inv) return null;
+
+        $items = [];
+        if (!empty($inv['items_json'])) {
+            $dec = json_decode($inv['items_json'], true);
+            if (is_array($dec)) $items = $dec;
+        }
+        $inv['items'] = $items;
+
+        $gst_p = (float)($inv['gst_percentage'] ?? 0);
+        $inv['cgst_percentage'] = ($inv['gst_type'] === 'intra_state') ? round($gst_p / 2, 2) : 0;
+        $inv['sgst_percentage'] = ($inv['gst_type'] === 'intra_state') ? round($gst_p / 2, 2) : 0;
+        $inv['igst_percentage'] = ($inv['gst_type'] === 'inter_state') ? $gst_p : 0;
+        $inv['token'] = substr(hash('sha256', (string)$inv['invoice_no'] . 'ff_sanctuary_folio_secret'), 0, 16);
+
+        return $inv;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
+/**
+ * Retrieve list of custom invoices for admin billing hub
+ */
+function get_all_custom_invoices(PDO $pdo, $search = '', $limit = 100) {
+    try {
+        ensure_custom_invoices_table_exists($pdo);
+        $sql = "SELECT * FROM custom_invoices WHERE 1=1";
+        $params = [];
+
+        if (!empty($search)) {
+            $sql .= " AND (invoice_no LIKE ? OR customer_name LIKE ? OR customer_phone LIKE ? OR gstin LIKE ? OR business_name LIKE ?)";
+            $like = "%$search%";
+            $params = [$like, $like, $like, $like, $like];
+        }
+
+        $sql .= " ORDER BY invoice_date DESC, id DESC LIMIT " . (int)$limit;
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as &$r) {
+            $items = [];
+            if (!empty($r['items_json'])) {
+                $dec = json_decode($r['items_json'], true);
+                if (is_array($dec)) $items = $dec;
+            }
+            $r['items'] = $items;
+            $r['token'] = substr(hash('sha256', (string)$r['invoice_no'] . 'ff_sanctuary_folio_secret'), 0, 16);
+        }
+
+        return $rows;
+    } catch (Exception $e) {
+        return [];
     }
 }
 ?>

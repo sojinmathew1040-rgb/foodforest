@@ -2249,12 +2249,30 @@ document.addEventListener("DOMContentLoaded", () => {
         let foodSetsCount = 0;
         const selectedFoodList = [];
         const isAllFoodSkipped = document.getElementById('toggle-skip-all-food')?.checked || false;
+        const isCompBfast = (!isAllFoodSkipped && document.getElementById('chk-complimentary-breakfast')?.checked) || false;
 
         if (!isAllFoodSkipped) {
+            if (isCompBfast) {
+                selectedFoodList.push({
+                    name: 'Complimentary Sanctuary Breakfast',
+                    category: 'breakfast',
+                    meal_time: 'breakfast',
+                    qty: guestsCount,
+                    price: 0,
+                    subtotal: 0,
+                    is_complimentary: true
+                });
+                foodSetsCount += 1;
+            }
+
             document.querySelectorAll('.modal-dish-card').forEach(card => {
+                const category = card.getAttribute('data-dish-category');
+                if (isCompBfast && category === 'breakfast') {
+                    // Do not include individual à la carte breakfast items when complimentary breakfast is active
+                    return;
+                }
                 const qtyInput = card.querySelector('.dish-qty-input');
                 const qty = parseInt(qtyInput?.value || "0", 10);
-                const category = card.getAttribute('data-dish-category');
                 const name = card.getAttribute('data-dish-name') || 'Signature Dish';
                 const price = parseFloat(card.getAttribute('data-dish-price') || "0");
                 const mealTimeInp = card.querySelector('.dish-meal-time-val');
@@ -2403,6 +2421,14 @@ document.addEventListener("DOMContentLoaded", () => {
             const badge = document.getElementById('cat-badge-selected-' + cat);
             const block = document.getElementById('modal-cat-block-' + cat);
             const data = categoryTotals[cat];
+            if (cat === 'breakfast' && isCompBfast) {
+                if (badge) {
+                    badge.style.display = 'inline-flex';
+                    badge.innerHTML = `<i class="fa-solid fa-gift" style="color: #059669;"></i> <span class="badge-num" style="color: #059669; font-weight: 700;">Complimentary (Free)</span>`;
+                }
+                if (block) block.classList.add('has-selected');
+                return;
+            }
             if (badge) {
                 if (data.qty > 0) {
                     badge.style.display = 'inline-flex';
@@ -2633,7 +2659,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Header click & keyboard listener
     document.querySelectorAll('.meal-cat-header-row').forEach(row => {
         row.addEventListener('click', function(e) {
-            if (e.target.closest('.meal-skip-btn') || e.target.closest('.cat-skip-checkbox')) {
+            if (e.target.closest('.meal-skip-btn') || e.target.closest('.cat-skip-checkbox') || e.target.closest('.meal-complimentary-btn') || e.target.closest('.cat-complimentary-checkbox')) {
                 return;
             }
             const cat = this.getAttribute('data-cat');
@@ -2641,7 +2667,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         row.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.key === ' ') {
-                if (e.target.closest('.meal-skip-btn')) return;
+                if (e.target.closest('.meal-skip-btn') || e.target.closest('.meal-complimentary-btn')) return;
                 e.preventDefault();
                 const cat = this.getAttribute('data-cat');
                 toggleMealCategory(cat);
@@ -2709,6 +2735,48 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // Complimentary Breakfast Checkbox Toggle
+    const chkCompBfast = document.getElementById('chk-complimentary-breakfast');
+    if (chkCompBfast) {
+        chkCompBfast.addEventListener('change', function() {
+            const block = document.getElementById('modal-cat-block-breakfast');
+            const grid = document.getElementById('dishes-grid-breakfast');
+            const banner = document.getElementById('banner-complimentary-breakfast');
+            const skipChk = document.querySelector('.cat-skip-checkbox[data-target-cat="breakfast"]');
+            const btnWrap = this.closest('.meal-complimentary-btn');
+
+            if (this.checked) {
+                // If skip was checked, uncheck skip and restore opacity
+                if (skipChk && skipChk.checked) {
+                    skipChk.checked = false;
+                    if (block) block.style.opacity = '1';
+                }
+                // Reset all individual à la carte breakfast dish quantities to 0
+                if (grid) {
+                    grid.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
+                    grid.querySelectorAll('.modal-dish-card').forEach(card => {
+                        card.style.borderColor = 'rgba(28, 56, 38, 0.14)';
+                        card.style.background = '#FFFFFF';
+                    });
+                    grid.style.display = 'none'; // Hide dish selection grid when complimentary is active
+                }
+                if (banner) banner.style.display = 'flex';
+                if (block) {
+                    block.classList.add('has-complimentary');
+                    block.style.opacity = '1';
+                }
+                if (btnWrap) btnWrap.classList.add('active');
+                toggleMealCategory('breakfast', true); // Expand panel so the complimentary banner is prominent
+            } else {
+                if (grid) grid.style.display = 'grid';
+                if (banner) banner.style.display = 'none';
+                if (block) block.classList.remove('has-complimentary');
+                if (btnWrap) btnWrap.classList.remove('active');
+            }
+            recalculateBookingSummary();
+        });
+    }
+
     // Meal Category Skip Checkboxes
     document.querySelectorAll('.cat-skip-checkbox').forEach(chk => {
         chk.addEventListener('change', function() {
@@ -2718,6 +2786,18 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!block) return;
 
             if (this.checked) {
+                if (cat === 'breakfast') {
+                    const compChk = document.getElementById('chk-complimentary-breakfast');
+                    const banner = document.getElementById('banner-complimentary-breakfast');
+                    const compBtn = compChk?.closest('.meal-complimentary-btn');
+                    if (compChk && compChk.checked) {
+                        compChk.checked = false;
+                        if (compBtn) compBtn.classList.remove('active');
+                    }
+                    if (banner) banner.style.display = 'none';
+                    block.classList.remove('has-complimentary');
+                    if (grid) grid.style.display = 'grid';
+                }
                 if (grid) {
                     grid.style.opacity = '0.35';
                     grid.style.pointerEvents = 'none';
@@ -2744,6 +2824,19 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!container) return;
 
             if (this.checked) {
+                const compChk = document.getElementById('chk-complimentary-breakfast');
+                const banner = document.getElementById('banner-complimentary-breakfast');
+                const compBtn = compChk?.closest('.meal-complimentary-btn');
+                if (compChk && compChk.checked) {
+                    compChk.checked = false;
+                    if (compBtn) compBtn.classList.remove('active');
+                }
+                if (banner) banner.style.display = 'none';
+                const bfastBlock = document.getElementById('modal-cat-block-breakfast');
+                if (bfastBlock) bfastBlock.classList.remove('has-complimentary');
+                const bfastGrid = document.getElementById('dishes-grid-breakfast');
+                if (bfastGrid) bfastGrid.style.display = 'grid';
+
                 container.style.opacity = '0.4';
                 container.style.pointerEvents = 'none';
                 container.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
@@ -3124,12 +3217,29 @@ document.addEventListener("DOMContentLoaded", () => {
         // Food Items Collection
         const foodItems = [];
         const isAllFoodSkipped = document.getElementById('toggle-skip-all-food')?.checked || false;
+        const isCompBfast = (!isAllFoodSkipped && document.getElementById('chk-complimentary-breakfast')?.checked) || false;
 
         if (!isAllFoodSkipped) {
+            if (isCompBfast) {
+                foodItems.push({
+                    id: 0,
+                    category: 'breakfast',
+                    category_title: 'Complimentary Estate Breakfast',
+                    meal_time: 'breakfast',
+                    heading: 'Complimentary Sanctuary Breakfast',
+                    subtitle: "Chef's Daily Estate Morning Spread (Included in Stay)",
+                    price: 0,
+                    quantity: guestsCount,
+                    subtotal: 0,
+                    is_complimentary: true
+                });
+            }
+
             document.querySelectorAll('.modal-dish-card').forEach(card => {
+                const cat = card.getAttribute('data-dish-category');
+                if (isCompBfast && cat === 'breakfast') return;
                 const qtyInput = card.querySelector('.dish-qty-input');
                 const qty = parseInt(qtyInput?.value || "0", 10);
-                const cat = card.getAttribute('data-dish-category');
                 const price = parseFloat(card.getAttribute('data-dish-price') || "0");
                 const mealTimeInp = card.querySelector('.dish-meal-time-val');
                 const mealTime = mealTimeInp ? mealTimeInp.value : (card.getAttribute('data-default-meal') || cat || 'breakfast');
@@ -3185,6 +3295,7 @@ document.addEventListener("DOMContentLoaded", () => {
             checkout: checkout,
             addons: addonsList.join(', '),
             notes: guestNotes,
+            complimentary_breakfast: isCompBfast,
             food_items: foodItems,
             food_skipped: isAllFoodSkipped || (foodItems.length === 0),
             billing_type: billingType,

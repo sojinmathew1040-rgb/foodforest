@@ -316,8 +316,21 @@ if ($method === 'POST') {
 
         $discount_amt = max(0, (float)($booking['discount_amount'] ?? 0));
         $taxable_subtotal = max(0, $room_amt + $food_total + $act_total + $custom_total - $discount_amt);
-        $gst_percentage = (float)($booking['gst_percentage'] > 0 ? $booking['gst_percentage'] : 5.00);
-        $gst_amount = round($taxable_subtotal * ($gst_percentage / 100), 2);
+
+        $raw_r_cottage = get_setting('gst_rate_cottage', null);
+        $r_cottage = ($raw_r_cottage !== null && $raw_r_cottage !== '' && is_numeric($raw_r_cottage)) ? max(0.0, (float)$raw_r_cottage) : 12.00;
+        $raw_r_food = get_setting('gst_rate_food', null);
+        $r_food = ($raw_r_food !== null && $raw_r_food !== '' && is_numeric($raw_r_food)) ? max(0.0, (float)$raw_r_food) : 5.00;
+        $raw_r_other = get_setting('gst_rate_other', null);
+        $r_other = ($raw_r_other !== null && $raw_r_other !== '' && is_numeric($raw_r_other)) ? max(0.0, (float)$raw_r_other) : 18.00;
+
+        $stay_taxable = max(0, $room_amt - min($discount_amt, $room_amt));
+        $stay_gst = round($stay_taxable * ($r_cottage / 100), 2);
+        $food_gst = round($food_total * ($r_food / 100), 2);
+        $other_gst = round(($act_total + $custom_total) * ($r_other / 100), 2);
+
+        $gst_amount = round($stay_gst + $food_gst + $other_gst, 2);
+        $gst_percentage = $r_cottage;
         $grand_total = $taxable_subtotal + $gst_amount;
 
         $upd = $pdo->prepare("UPDATE bookings SET 

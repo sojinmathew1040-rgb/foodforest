@@ -26,8 +26,14 @@ try {
     ensure_booking_gst_columns($pdo);
 
     if ($action === 'get_menu') {
+        $food_ordering_enabled = get_setting('food_ordering_enabled', '1');
+        if (($food_ordering_enabled === '0' || $food_ordering_enabled === 'false') && !is_admin_logged_in()) {
+            echo json_encode(['success' => false, 'ordering_disabled' => true, 'menu' => [], 'message' => 'Guest food ordering is currently paused by estate concierge.']);
+            exit;
+        }
+
         // Return full active food menu grouped by category
-        $stmt = $pdo->query("SELECT id, category, heading, subtitle, price, dietary_type, default_meal_time, inclusions, is_spicy, prep_time_minutes 
+        $stmt = $pdo->query("SELECT id, category, heading, subtitle, price, dietary_type, default_meal_time, inclusions 
                              FROM food_menu 
                              WHERE is_active = 1 
                              ORDER BY category ASC, heading ASC");
@@ -43,6 +49,19 @@ try {
     if ($action !== 'order' && $action !== 'quick_add' && $action !== 'batch_order' && $action !== 'cancel_item' && $action !== 'cancel_order' && $action !== 'update_food_status' && $action !== 'update_status') {
         echo json_encode(['success' => false, 'message' => 'Invalid action specified.']);
         exit;
+    }
+
+    // Check if in-cottage food ordering is enabled on the estate for guests
+    if (in_array($action, ['order', 'quick_add', 'batch_order']) && !is_admin_logged_in()) {
+        $food_ordering_enabled = get_setting('food_ordering_enabled', '1');
+        if ($food_ordering_enabled === '0' || $food_ordering_enabled === 'false') {
+            echo json_encode([
+                'success' => false,
+                'ordering_disabled' => true,
+                'message' => 'Guest in-cottage food ordering is currently disabled by estate management. Please contact the front desk or concierge for dining requests.'
+            ]);
+            exit;
+        }
     }
 
     // 1. Resolve Booking
@@ -299,8 +318,18 @@ try {
 
         $gross = $room_amt + $new_food_total + $act_total + $cust_total + $extra_chg;
         $taxable = max(0, $gross - $disc_amt);
-        $gst_pct = (float)($booking['gst_percentage'] > 0 ? $booking['gst_percentage'] : 5.00);
-        $new_gst = round($taxable * ($gst_pct / 100), 2);
+        $raw_r_cottage = get_setting('gst_rate_cottage', null);
+        $r_cottage = ($raw_r_cottage !== null && $raw_r_cottage !== '' && is_numeric($raw_r_cottage)) ? max(0.0, (float)$raw_r_cottage) : 12.00;
+        $raw_r_food = get_setting('gst_rate_food', null);
+        $r_food = ($raw_r_food !== null && $raw_r_food !== '' && is_numeric($raw_r_food)) ? max(0.0, (float)$raw_r_food) : 5.00;
+        $raw_r_other = get_setting('gst_rate_other', null);
+        $r_other = ($raw_r_other !== null && $raw_r_other !== '' && is_numeric($raw_r_other)) ? max(0.0, (float)$raw_r_other) : 18.00;
+
+        $stay_gst = round(max(0, $room_amt - min($disc_amt, $room_amt)) * ($r_cottage / 100), 2);
+        $food_gst = round($new_food_total * ($r_food / 100), 2);
+        $other_gst = round(($act_total + $cust_total + $extra_chg) * ($r_other / 100), 2);
+        $new_gst = round($stay_gst + $food_gst + $other_gst, 2);
+        $gst_pct = $r_food;
         $new_grand_total = round($taxable + $new_gst, 2);
         $new_balance_due = max(0, $new_grand_total - $adv_paid);
         $food_status = empty($f_items) ? 'none' : ($booking['food_status'] ?? 'selected');
@@ -484,8 +513,18 @@ try {
 
     $gross = $room_amt + $new_food_total + $act_total + $cust_total + $extra_chg;
     $taxable = max(0, $gross - $disc_amt);
-    $gst_pct = (float)($booking['gst_percentage'] > 0 ? $booking['gst_percentage'] : 5.00);
-    $new_gst = round($taxable * ($gst_pct / 100), 2);
+    $raw_r_cottage = get_setting('gst_rate_cottage', null);
+    $r_cottage = ($raw_r_cottage !== null && $raw_r_cottage !== '' && is_numeric($raw_r_cottage)) ? max(0.0, (float)$raw_r_cottage) : 12.00;
+    $raw_r_food = get_setting('gst_rate_food', null);
+    $r_food = ($raw_r_food !== null && $raw_r_food !== '' && is_numeric($raw_r_food)) ? max(0.0, (float)$raw_r_food) : 5.00;
+    $raw_r_other = get_setting('gst_rate_other', null);
+    $r_other = ($raw_r_other !== null && $raw_r_other !== '' && is_numeric($raw_r_other)) ? max(0.0, (float)$raw_r_other) : 18.00;
+
+    $stay_gst = round(max(0, $room_amt - min($disc_amt, $room_amt)) * ($r_cottage / 100), 2);
+    $food_gst = round($new_food_total * ($r_food / 100), 2);
+    $other_gst = round(($act_total + $cust_total + $extra_chg) * ($r_other / 100), 2);
+    $new_gst = round($stay_gst + $food_gst + $other_gst, 2);
+    $gst_pct = $r_food;
     $new_grand_total = round($taxable + $new_gst, 2);
     $new_balance_due = max(0, $new_grand_total - $adv_paid);
 

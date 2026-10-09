@@ -56,7 +56,7 @@ $today_kitchen_orders_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings
         </li>
 
         <li class="adm-nav-item">
-            <a href="billing.php" class="adm-nav-link <?php echo (in_array($current_script, ['billing.php', 'print_bill.php'])) ? 'active' : ''; ?>" title="Billing & Invoices">
+            <a href="billing.php" class="adm-nav-link <?php echo (in_array($current_script, ['billing.php', 'print_bill.php', 'custom_bill.php'])) ? 'active' : ''; ?>" title="Billing & Invoices">
                 <i class="fa-solid fa-receipt"></i>
                 <span>Billing & Invoices</span>
                 <?php if ($inhouse_count > 0): ?>

@@ -5023,6 +5023,101 @@ body.theme-light.adm-body {
     letter-spacing: 0.5px;
 }
 
+/* =============================================================
+   16:9 Walkthrough Cropper & 360 Panorama Framing Modals
+   ============================================================= */
+.adm-cropper-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(2, 6, 4, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.adm-cropper-modal-dialog {
+    background: #0B1910;
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 860px;
+    max-height: 94vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+    animation: admModalFadeIn 0.25s ease-out;
+}
+
+@keyframes admModalFadeIn {
+    from { opacity: 0; transform: scale(0.97) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.adm-cropper-modal-header {
+    padding: 16px 22px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+}
+
+.adm-cropper-modal-body {
+    padding: 20px 22px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.adm-cropper-modal-footer {
+    padding: 14px 22px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+}
+
+.adm-crop-ratio-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #A1B5A9;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.adm-crop-ratio-btn:hover {
+    background: rgba(197, 160, 89, 0.15);
+    color: #FFFFFF;
+    border-color: rgba(197, 160, 89, 0.4);
+}
+
+.adm-crop-ratio-btn.active {
+    background: rgba(197, 160, 89, 0.25);
+    border-color: var(--adm-gold);
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(197, 160, 89, 0.25);
+}
+
+
 
 
 

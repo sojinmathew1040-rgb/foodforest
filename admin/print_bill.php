@@ -7,6 +7,15 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
 
 $pdo = get_db();
+// If custom invoice is requested, route to dedicated custom invoice print engine
+if (!empty($_GET['custom_id']) || !empty($_GET['custom_ref'])) {
+    $c_param = !empty($_GET['custom_id']) ? 'id=' . (int)$_GET['custom_id'] : 'ref=' . urlencode($_GET['custom_ref']);
+    if (!empty($_GET['token'])) $c_param .= '&token=' . urlencode($_GET['token']);
+    if (!empty($_GET['auto_print'])) $c_param .= '&auto_print=1';
+    header("Location: print_custom_bill.php?" . $c_param);
+    exit;
+}
+
 $ref_code = trim($_GET['ref'] ?? '');
 $booking_id = (int)($_GET['id'] ?? ($_GET['booking_id'] ?? 0));
 $token = trim($_GET['token'] ?? '');
@@ -62,18 +71,25 @@ if (!in_array($bill_type, ['stay', 'other', 'combined'])) {
 $is_gst = !empty($p['is_gst_bill']);
 $bill_date = date('d M Y, h:i A');
 
-// Generate Specific Invoice Number & Title (All folios are Tax Invoices with 5% GST)
+// Generate Specific Invoice Number & Title (Multi-Tier Category Rates)
 if ($bill_type === 'stay') {
     $invoice_no = 'FF-STAY-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
-    $bill_title_text = "TAX INVOICE (GST 5%) — ACCOMMODATION & STAY";
+    $stay_rate_disp = ($p['stay_gst_rate'] ?? 12);
+    $bill_title_text = "TAX INVOICE (GST {$stay_rate_disp}%) — ACCOMMODATION & STAY";
     $bill_category_badge = "🏡 PROPERTY STAY TAX INVOICE";
 } elseif ($bill_type === 'other') {
     $invoice_no = 'FF-OTHER-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
-    $bill_title_text = "TAX INVOICE (GST 5%) — GASTRONOMY & INCIDENTALS";
+    $food_rate_disp = ($p['food_gst_rate'] ?? 0);
+    $other_rate_disp = ($p['other_services_gst_rate'] ?? 0);
+    if ($food_rate_disp == $other_rate_disp) {
+        $bill_title_text = "TAX INVOICE (GST {$food_rate_disp}%) — GASTRONOMY & INCIDENTALS";
+    } else {
+        $bill_title_text = "TAX INVOICE (FOOD {$food_rate_disp}% / EXTRAS {$other_rate_disp}%) — GASTRONOMY & INCIDENTALS";
+    }
     $bill_category_badge = "🍽️ OTHER BILL TAX INVOICE (FOOD & SERVICES)";
 } else {
     $invoice_no = 'FF-INV-' . date('Ym', strtotime($booking['created_at'])) . '-' . str_pad((string)$booking['id'], 4, '0', STR_PAD_LEFT);
-    $bill_title_text = "TAX INVOICE (GST 5%) — CONSOLIDATED MASTER";
+    $bill_title_text = "TAX INVOICE — CONSOLIDATED MASTER";
     $bill_category_badge = "📑 CONSOLIDATED MASTER TAX INVOICE";
 }
 
@@ -109,7 +125,7 @@ if ($bill_type === 'stay') {
         $wa_msg .= "• Concession / Discount: -{$currency}" . number_format($p['stay_discount'], 2) . "\n";
     }
     if ($is_gst && $p['stay_gst'] > 0) {
-        $wa_msg .= "• Stay GST ({$p['gst_percentage']}%): +{$currency}" . number_format($p['stay_gst'], 2) . "\n";
+        $wa_msg .= "• Stay GST ({$p['stay_gst_rate']}%): +{$currency}" . number_format($p['stay_gst'], 2) . "\n";
     }
     $wa_msg .= "─────────────────────\n";
     $wa_msg .= "*PROPERTY STAY TOTAL*: {$currency}" . number_format($p['stay_total'], 2) . "\n";
@@ -141,8 +157,19 @@ if ($bill_type === 'stay') {
     if ($p['other_discount'] > 0) {
         $wa_msg .= "• Concession / Discount: -{$currency}" . number_format($p['other_discount'], 2) . "\n";
     }
-    if ($is_gst && $p['other_gst'] > 0) {
-        $wa_msg .= "• GST ({$p['gst_percentage']}%): +{$currency}" . number_format($p['other_gst'], 2) . "\n";
+    if ($is_gst) {
+        if ($p['other_gst'] > 0) {
+            if ($p['food_gst'] > 0 && $p['other_services_gst'] > 0) {
+                $wa_msg .= "• Food GST ({$p['food_gst_rate']}%): +{$currency}" . number_format($p['food_gst'], 2) . "\n";
+                $wa_msg .= "• Services GST ({$p['other_services_gst_rate']}%): +{$currency}" . number_format($p['other_services_gst'], 2) . "\n";
+            } elseif ($p['food_gst'] > 0) {
+                $wa_msg .= "• Food GST ({$p['food_gst_rate']}%): +{$currency}" . number_format($p['food_gst'], 2) . "\n";
+            } else {
+                $wa_msg .= "• Services GST ({$p['other_services_gst_rate']}%): +{$currency}" . number_format($p['other_services_gst'], 2) . "\n";
+            }
+        } else {
+            $wa_msg .= "• GST (0%): {$currency}0.00\n";
+        }
     }
     $wa_msg .= "─────────────────────\n";
     $wa_msg .= "*OTHER BILL GRAND TOTAL*: {$currency}" . number_format($p['other_total'], 2) . "\n";
@@ -1296,7 +1323,24 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                     <tr>
                         <td>Billing Type:</td>
                         <td style="font-weight: 700; color: #059669;">
-                            <?php echo !empty($p['is_b2b_gst']) ? 'B2B GST Tax Invoice (' . $p['gst_percentage'] . '%)' : 'GST Tax Invoice (' . $p['gst_percentage'] . '%)'; ?>
+                            <?php 
+                            if ($bill_type === 'stay') {
+                                $disp_rate = ($p['stay_gst_rate'] ?? $p['gst_percentage']) . '%';
+                            } elseif ($bill_type === 'other') {
+                                if (($p['food_gst_rate'] ?? 0) == ($p['other_services_gst_rate'] ?? 0)) {
+                                    $disp_rate = ($p['food_gst_rate'] ?? 0) . '%';
+                                } else {
+                                    $disp_rate = 'Food ' . ($p['food_gst_rate'] ?? 0) . '% / Extras ' . ($p['other_services_gst_rate'] ?? 0) . '%';
+                                }
+                            } else {
+                                if (($p['stay_gst_rate'] ?? 0) == ($p['food_gst_rate'] ?? 0) && ($p['food_gst_rate'] ?? 0) == ($p['other_services_gst_rate'] ?? 0)) {
+                                    $disp_rate = ($p['stay_gst_rate'] ?? $p['gst_percentage']) . '%';
+                                } else {
+                                    $disp_rate = 'Stay ' . ($p['stay_gst_rate'] ?? 0) . '% / Food ' . ($p['food_gst_rate'] ?? 0) . '% / Extras ' . ($p['other_services_gst_rate'] ?? 0) . '%';
+                                }
+                            }
+                            echo !empty($p['is_b2b_gst']) ? 'B2B GST Tax Invoice (' . $disp_rate . ')' : 'GST Tax Invoice (' . $disp_rate . ')';
+                            ?>
                         </td>
                     </tr>
                     <tr>
@@ -1505,10 +1549,18 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                     <?php echo (int)($fi['quantity'] ?? 1); ?>
                                 </td>
                                 <td style="text-align: right; color: var(--text-muted);">
-                                    <?php echo $currency . number_format((float)($fi['price'] ?? 0), 2); ?>
+                                    <?php echo ((float)($fi['price'] ?? 0) <= 0) ? '<span style="color: #059669; font-weight: 600;">Complimentary</span>' : ($currency . number_format((float)($fi['price'] ?? 0), 2)); ?>
                                 </td>
                                 <td style="text-align: right; font-weight: 700; color: <?php echo !$is_served ? '#DC2626' : 'var(--primary)'; ?>;">
-                                    <?php echo $is_served ? ($currency . number_format((float)($fi['subtotal'] ?? (($fi['price'] ?? 0) * ($fi['quantity'] ?? 1))), 2)) : ($currency . '0.00'); ?>
+                                    <?php 
+                                        if (!$is_served) {
+                                            echo $currency . '0.00';
+                                        } elseif ((float)($fi['price'] ?? 0) <= 0) {
+                                            echo '<span style="color: #059669;">' . $currency . '0.00</span>';
+                                        } else {
+                                            echo $currency . number_format((float)($fi['subtotal'] ?? (($fi['price'] ?? 0) * ($fi['quantity'] ?? 1))), 2);
+                                        }
+                                    ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -1707,15 +1759,15 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                 </td>
                             </tr>
                             <tr>
-                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo $p['cgst_percentage']; ?>%):</td>
+                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo number_format($p['stay_gst_rate'] / 2, 2); ?>%):</td>
                                 <td class="amount-cell" style="color: #059669;">
-                                    +<?php echo $currency . number_format($p['stay_gst'] / 2, 2); ?>
+                                    +<?php echo $currency . number_format($p['stay_cgst'], 2); ?>
                                 </td>
                             </tr>
                             <tr>
-                                <td style="color: var(--text-muted);">State GST (SGST <?php echo $p['sgst_percentage']; ?>%):</td>
+                                <td style="color: var(--text-muted);">State GST (SGST <?php echo number_format($p['stay_gst_rate'] / 2, 2); ?>%):</td>
                                 <td class="amount-cell" style="color: #059669;">
-                                    +<?php echo $currency . number_format($p['stay_gst'] / 2, 2); ?>
+                                    +<?php echo $currency . number_format($p['stay_sgst'], 2); ?>
                                 </td>
                             </tr>
                         <tr class="grand-total-row">
@@ -1772,18 +1824,67 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                     <?php echo $currency . number_format($p['other_taxable'], 2); ?>
                                 </td>
                             </tr>
+                        <?php 
+                        $has_food_charge = ($p['other_food_total'] > 0);
+                        $has_svc_charge = ($p['other_services_taxable'] > 0 || $p['other_activities_total'] > 0 || $p['other_custom_total'] > 0);
+                        $different_nonzero_rates = ($has_food_charge && $has_svc_charge && ($p['food_gst_rate'] != $p['other_services_gst_rate']) && ($p['food_gst'] > 0 || $p['other_services_gst'] > 0));
+                        ?>
+                        <?php if ($different_nonzero_rates): ?>
                             <tr>
-                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo $p['cgst_percentage']; ?>%):</td>
+                                <td style="color: var(--text-muted);">Food GST (<?php echo $p['food_gst_rate']; ?>%):</td>
                                 <td class="amount-cell" style="color: #059669;">
-                                    +<?php echo $currency . number_format($p['other_gst'] / 2, 2); ?>
+                                    +<?php echo $currency . number_format($p['food_gst'], 2); ?>
                                 </td>
                             </tr>
                             <tr>
-                                <td style="color: var(--text-muted);">State GST (SGST <?php echo $p['sgst_percentage']; ?>%):</td>
+                                <td style="color: var(--text-muted);">Services GST (<?php echo $p['other_services_gst_rate']; ?>%):</td>
                                 <td class="amount-cell" style="color: #059669;">
-                                    +<?php echo $currency . number_format($p['other_gst'] / 2, 2); ?>
+                                    +<?php echo $currency . number_format($p['other_services_gst'], 2); ?>
                                 </td>
                             </tr>
+                        <?php elseif ($has_food_charge && !$has_svc_charge): ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo number_format($p['food_gst_rate'] / 2, 2); ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['food_cgst'], 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">State GST (SGST <?php echo number_format($p['food_gst_rate'] / 2, 2); ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['food_sgst'], 2); ?>
+                                </td>
+                            </tr>
+                        <?php elseif ($has_svc_charge && !$has_food_charge): ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo number_format($p['other_services_gst_rate'] / 2, 2); ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['other_services_cgst'], 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">State GST (SGST <?php echo number_format($p['other_services_gst_rate'] / 2, 2); ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['other_services_sgst'], 2); ?>
+                                </td>
+                            </tr>
+                        <?php else: ?>
+                            <?php 
+                            $eff_rate = ($p['food_gst_rate'] == $p['other_services_gst_rate']) ? $p['food_gst_rate'] : (($p['food_taxable'] > 0) ? $p['food_gst_rate'] : $p['other_services_gst_rate']);
+                            ?>
+                            <tr>
+                                <td style="color: var(--text-muted);">Central GST (CGST <?php echo number_format($eff_rate / 2, 2); ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['other_cgst'], 2); ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="color: var(--text-muted);">State GST (SGST <?php echo number_format($eff_rate / 2, 2); ?>%):</td>
+                                <td class="amount-cell" style="color: #059669;">
+                                    +<?php echo $currency . number_format($p['other_sgst'], 2); ?>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
                         <tr class="grand-total-row">
                             <td class="grand-total-label">Other Bill Grand Total:</td>
                             <td class="grand-total-val"><?php echo $currency . number_format($p['other_total'], 2); ?></td>

@@ -738,8 +738,9 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="sac-avail-pill font-sans" id="sac-avail-pill"><i class="fa-solid fa-circle"></i> Available</span>
                         </div>
 
-                        <div class="sac-gallery-wrap">
+                        <div class="sac-gallery-wrap" style="position: relative;">
                             <img src="assets/images/01 (25).jpeg" alt="Chalet" id="sac-main-img" class="sac-img">
+                            <div class="sac-photo-caption font-sans" id="sac-photo-caption" style="display: none; position: absolute; bottom: 8px; left: 10px; max-width: calc(100% - 110px); background: rgba(7, 16, 11, 0.82); backdrop-filter: blur(4px); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(197, 160, 89, 0.35); font-size: 11px; color: #FFFFFF; z-index: 5; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; pointer-events: none;"></div>
                             <div class="sac-gallery-nav">
                                 <button type="button" class="sac-nav-btn" id="sac-gal-prev"><i class="fa-solid fa-chevron-left"></i></button>
                                 <span class="sac-gal-indicator font-sans" id="sac-gal-indicator">1 / 3</span>

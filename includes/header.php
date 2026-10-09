@@ -81,6 +81,8 @@ $is_home = (basename($_SERVER['PHP_SELF']) == 'index.php' || basename($_SERVER['
 $nav_prefix = $is_home ? '' : 'index.php';
 $is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
 $is_menu_page = (basename($_SERVER['PHP_SELF']) == 'menu.php');
+$walkthrough_enabled = (get_setting('walkthrough_360_enabled', '1') !== '0');
+$villas_nav_link = $walkthrough_enabled ? ($nav_prefix . '#rooms-experience') : 'booking.php';
 ?>
     <!-- Luxury Header Wrapper (Coordinates Top Announcement & Main Navigation) -->
     <div class="site-header-wrapper <?php echo !$is_home ? 'solid-header' : ''; ?>" id="site-header-wrapper">
@@ -128,7 +130,7 @@ $is_menu_page = (basename($_SERVER['PHP_SELF']) == 'menu.php');
                 <!-- Editorial Nav Links -->
                 <nav class="nav-links font-sans">
                     <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
-                    <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="nav-item magnetic" data-strength="10">Villas & Stays</a>
+                    <a href="<?php echo $villas_nav_link; ?>" class="nav-item magnetic" data-strength="10">Villas &amp; Stays</a>
                     <a href="booking.php" class="nav-item magnetic <?php echo $is_booking_page ? 'active nav-item-booking' : ''; ?>" data-strength="10"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
                     <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
                     <a href="menu.php" class="nav-item magnetic <?php echo $is_menu_page ? 'active nav-item-booking' : ''; ?>" data-strength="10">Our Menu</a>
@@ -157,7 +159,7 @@ $is_menu_page = (basename($_SERVER['PHP_SELF']) == 'menu.php');
     <div class="mobile-menu font-serif">
         <div class="mobile-menu-links">
             <a href="<?php echo $nav_prefix; ?>#welcome" class="mobile-link">The Sanctuary</a>
-            <a href="<?php echo $nav_prefix; ?>#rooms-experience" class="mobile-link">Villas & Stays</a>
+            <a href="<?php echo $villas_nav_link; ?>" class="mobile-link">Villas &amp; Stays</a>
             <a href="booking.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-map-location-dot"></i> Interactive Map Booking</a>
             <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Activities</a>
             <a href="menu.php" class="mobile-link" <?php echo $is_menu_page ? 'style="color: #C5A059;"' : ''; ?>>Our Menu</a>

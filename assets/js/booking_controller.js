@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sacGalPrev = document.getElementById('sac-gal-prev');
     const sacGalNext = document.getElementById('sac-gal-next');
     const sacGalIndicator = document.getElementById('sac-gal-indicator');
+    const sacPhotoCaption = document.getElementById('sac-photo-caption');
     const sacTitle = document.getElementById('sac-title');
     const sacDesc = document.getElementById('sac-desc');
     const sacBookedWarning = document.getElementById('sac-booked-warning');
@@ -129,6 +130,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (sacGalIndicator) {
             sacGalIndicator.innerText = `${currentPhotoIdx + 1} / ${currentPhotos.length}`;
+        }
+
+        if (sacPhotoCaption) {
+            let cap = '';
+            if (currentRoom && currentRoom.photos_meta_list && currentRoom.photos_meta_list[currentPhotoIdx]) {
+                const meta = currentRoom.photos_meta_list[currentPhotoIdx];
+                if (meta && meta.title && meta.title.trim() !== '') {
+                    cap = meta.title;
+                }
+            }
+            if (cap) {
+                sacPhotoCaption.innerText = cap;
+                sacPhotoCaption.style.display = 'block';
+            } else {
+                sacPhotoCaption.style.display = 'none';
+            }
         }
     }
 

@@ -14,22 +14,27 @@ $page_subtitle = 'Card-by-card control of estate parameters, frontend copy, medi
 
 $pdo = get_db();
 
-// Handle instant AJAX toggle for menu images or highlights ON/OFF
-if (isset($_POST['action']) && in_array($_POST['action'], ['toggle_menu_images', 'toggle_menu_highlights'])) {
+// Handle instant AJAX toggle for menu images, highlights, or food ordering ON/OFF
+if (isset($_POST['action']) && in_array($_POST['action'], ['toggle_menu_images', 'toggle_menu_highlights', 'toggle_food_ordering'])) {
     header('Content-Type: application/json');
     $action = $_POST['action'];
-    $setting_key = ($action === 'toggle_menu_highlights') ? 'menu_show_highlights' : 'menu_show_images';
-    $val = '0';
-    if (isset($_POST['value'])) {
-        $val = (!empty($_POST['value']) && ($_POST['value'] === '1' || $_POST['value'] == 1)) ? '1' : '0';
-    } elseif (isset($_POST['show_images'])) {
-        $val = (!empty($_POST['show_images']) && ($_POST['show_images'] === '1' || $_POST['show_images'] == 1)) ? '1' : '0';
-    } elseif (isset($_POST['show_highlights'])) {
-        $val = (!empty($_POST['show_highlights']) && ($_POST['show_highlights'] === '1' || $_POST['show_highlights'] == 1)) ? '1' : '0';
+    if ($action === 'toggle_food_ordering') {
+        $setting_key = 'food_ordering_enabled';
+        $val = (!empty($_POST['value']) && ($_POST['value'] === '1' || $_POST['value'] == 1)) ? '1' : (!empty($_POST['enabled']) ? '1' : '0');
+    } else {
+        $setting_key = ($action === 'toggle_menu_highlights') ? 'menu_show_highlights' : 'menu_show_images';
+        $val = '0';
+        if (isset($_POST['value'])) {
+            $val = (!empty($_POST['value']) && ($_POST['value'] === '1' || $_POST['value'] == 1)) ? '1' : '0';
+        } elseif (isset($_POST['show_images'])) {
+            $val = (!empty($_POST['show_images']) && ($_POST['show_images'] === '1' || $_POST['show_images'] == 1)) ? '1' : '0';
+        } elseif (isset($_POST['show_highlights'])) {
+            $val = (!empty($_POST['show_highlights']) && ($_POST['show_highlights'] === '1' || $_POST['show_highlights'] == 1)) ? '1' : '0';
+        }
     }
     $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
     $stmt->execute([$setting_key, $val]);
-    echo json_encode(['success' => true, 'key' => $setting_key, 'value' => $val]);
+    echo json_encode(['success' => true, 'key' => $setting_key, 'value' => $val, 'enabled' => ($val === '1')]);
     exit;
 }
 
@@ -134,14 +139,15 @@ $tab_titles = [
     'backup' => 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE',
     'bank' => 'CARD 17 • BANK DETAILS & UPI QR CODE',
     'footer' => 'CARD 18 • FOOTER & ECO TRUST PILLARS',
-    'media' => 'CARD 19 • MEDIA & IMAGE OPTIMIZATION (AUTO-COMPRESS & RESIZE)'
+    'media' => 'CARD 19 • MEDIA & IMAGE OPTIMIZATION (AUTO-COMPRESS & RESIZE)',
+    'gst' => 'CARD 21 • GST TAX RATES & SEPARATE BILLING CONFIGURATION'
 ];
 if (!array_key_exists($active_tab, $tab_titles)) {
     $active_tab = 'climate';
 }
 
-// Support direct 1-click GET item deletion actions with CSRF token
-if (isset($_GET['action']) && in_array($_GET['action'], ['delete_room', 'delete_exp', 'delete_menu', 'delete_season', 'delete_spot', 'delete_gal', 'delete_testimonial'])) {
+// Support direct 1-click GET item deletion / approval actions with CSRF token
+if (isset($_GET['action']) && in_array($_GET['action'], ['delete_room', 'delete_exp', 'delete_menu', 'delete_season', 'delete_spot', 'delete_gal', 'delete_testimonial', 'approve_testimonial', 'reject_testimonial'])) {
     if (verify_csrf_token($_GET['csrf_token'] ?? '')) {
         $action = $_GET['action'];
         $item_id = (int)($_GET['id'] ?? 0);
@@ -181,10 +187,20 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['delete_room', 'delete_
                 $del->execute([$item_id]);
                 $alert_message = 'Guest reflection testimonial permanently removed.';
                 $active_tab = 'testimonials';
+            } elseif ($action === 'approve_testimonial') {
+                $upd = $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE id = ?");
+                $upd->execute([$item_id]);
+                $alert_message = 'Guest reflection approved and published live to sanctuary website!';
+                $active_tab = 'testimonials';
+            } elseif ($action === 'reject_testimonial') {
+                $upd = $pdo->prepare("UPDATE testimonials SET status = 'rejected', is_active = 0 WHERE id = ?");
+                $upd->execute([$item_id]);
+                $alert_message = 'Guest reflection rejected / archived.';
+                $active_tab = 'testimonials';
             }
         }
     } else {
-        $alert_message = 'Security validation failed for deletion request.';
+        $alert_message = 'Security validation failed for request.';
         $alert_type = 'error';
     }
 }
@@ -978,9 +994,32 @@ ensure_experiences_details_columns($pdo);
                     $min_guests = max(1, intval($_POST['new_room_min_guests'] ?? 2));
                     $single_rate = floatval($_POST['new_room_single_rate'] ?? $rate);
 
-                    $ins = $pdo->prepare("INSERT INTO rooms (slug, stay_type, structure_type, title, rate_per_night, single_room_rate, extra_guest_rate, extra_child_rate, elevation, min_guests, base_guests, max_guests, description, amenities, image_url, interior_360_url, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
-                    $ins->execute([$slug, $stay_type, $structure_type, $title, $rate, $single_rate, $extra_rate, $extra_child_rate, $el, $min_guests, $base_guests, $cap, $desc, $amenities, $img, $pano_360]);
-                    $alert_message = 'New villa / cottage dwelling successfully registered and published with minimum & maximum occupancy, dynamic pricing & 360° tour!';
+                    // Multi-photo gallery upload for new room
+                    $new_room_gallery = [];
+                    if (!empty($_FILES['new_room_gallery_files']['name'])) {
+                        $up_paths = handle_multi_image_upload($_FILES['new_room_gallery_files'], 'room_gal');
+                        foreach ($up_paths as $p_seq => $up_path) {
+                            $new_room_gallery[] = [
+                                'url' => $up_path,
+                                'title' => '',
+                                'description' => '',
+                                'order' => $p_seq + 1
+                            ];
+                        }
+                    }
+                    if (empty($new_room_gallery) && !empty($img)) {
+                        $new_room_gallery[] = [
+                            'url' => $img,
+                            'title' => 'Primary Suite Photo',
+                            'description' => '',
+                            'order' => 1
+                        ];
+                    }
+                    $photos_json = !empty($new_room_gallery) ? json_encode(array_values($new_room_gallery), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+
+                    $ins = $pdo->prepare("INSERT INTO rooms (slug, stay_type, structure_type, title, rate_per_night, single_room_rate, extra_guest_rate, extra_child_rate, elevation, min_guests, base_guests, max_guests, description, amenities, image_url, photos, interior_360_url, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                    $ins->execute([$slug, $stay_type, $structure_type, $title, $rate, $single_rate, $extra_rate, $extra_child_rate, $el, $min_guests, $base_guests, $cap, $desc, $amenities, $img, $photos_json, $pano_360]);
+                    $alert_message = 'New villa / cottage dwelling successfully registered and published with minimum & maximum occupancy, dynamic pricing, photo gallery & 360° tour!';
                 } else {
                     $alert_message = 'Villa title and valid nightly rate are required.';
                     $alert_type = 'error';
@@ -994,9 +1033,9 @@ ensure_experiences_details_columns($pdo);
                     }
                 }
 
-                // Update rooms & tariffs & 360 panoramas & tour stages
+                // Update rooms & tariffs & 360 panoramas & tour stages & multi-photo gallery
                 if (isset($_POST['room_id']) && is_array($_POST['room_id'])) {
-                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, single_room_rate = ?, extra_guest_rate = ?, extra_child_rate = ?, min_guests = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, interior_360_url = ?, tour_stages_json = ?, is_available = ? WHERE id = ?");
+                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, single_room_rate = ?, extra_guest_rate = ?, extra_child_rate = ?, min_guests = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, photos = ?, interior_360_url = ?, tour_stages_json = ?, is_available = ? WHERE id = ?");
                     foreach ($_POST['room_id'] as $idx => $rid) {
                         $t = trim($_POST['room_title'][$idx] ?? '');
                         $st = trim($_POST['room_stay_type'][$idx] ?? 'treehouse');
@@ -1011,32 +1050,46 @@ ensure_experiences_details_columns($pdo);
                         $cap = max($base_guests, intval($_POST['room_capacity'][$idx] ?? 4));
                         $d = trim($_POST['room_desc'][$idx] ?? '');
                         $img = trim($_POST['room_image'][$idx] ?? '');
-                        $pano_360 = trim($_POST['room_interior_360'][$idx] ?? '');
                         $is_avail = (isset($_POST['room_available_' . $rid]) || (isset($_POST['room_available'][$idx]) && $_POST['room_available'][$idx] == '1')) ? 1 : 0;
 
-                        // Construct 360 Tour Stages & Milestones JSON
-                        $progLabels = [
-                            trim($_POST['room_tour_prog_label_1'][$idx] ?? 'Exterior'),
-                            trim($_POST['room_tour_prog_label_2'][$idx] ?? 'Panoramic Bay'),
-                            trim($_POST['room_tour_prog_label_3'][$idx] ?? 'Forest Deck'),
-                            trim($_POST['room_tour_prog_label_4'][$idx] ?? 'Master Suite'),
-                            trim($_POST['room_tour_prog_label_5'][$idx] ?? 'Stone Hearth'),
-                        ];
-                        $stages = [];
-                        for ($s_i = 1; $s_i <= 5; $s_i++) {
-                            $stages[] = [
-                                'pill' => trim($_POST["room_tour_stage_pill_{$s_i}"][$idx] ?? ''),
-                                'heading' => trim($_POST["room_tour_stage_heading_{$s_i}"][$idx] ?? ''),
-                                'text' => trim($_POST["room_tour_stage_text_{$s_i}"][$idx] ?? '')
-                            ];
+                        // Fetch existing 360 data to preserve if not submitted from this form
+                        $stmt_curr_room = $pdo->prepare("SELECT interior_360_url, tour_stages_json FROM rooms WHERE id = ?");
+                        $stmt_curr_room->execute([(int)$rid]);
+                        $curr_room_row = $stmt_curr_room->fetch();
+
+                        if (isset($_POST['room_interior_360'][$idx])) {
+                            $pano_360 = trim($_POST['room_interior_360'][$idx]);
+                        } else {
+                            $pano_360 = $curr_room_row['interior_360_url'] ?? '';
                         }
-                        $tour_data = [
-                            'badge' => trim($_POST['room_tour_badge'][$idx] ?? 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR'),
-                            'subtitle' => trim($_POST['room_tour_subtitle'][$idx] ?? 'Scroll down to fly from the misty forest canopy directly inside the 360° suite.'),
-                            'progressLabels' => $progLabels,
-                            'stages' => $stages
-                        ];
-                        $tour_stages_json = json_encode($tour_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+                        if (isset($_POST['room_tour_prog_label_1'][$idx])) {
+                            // Construct 360 Tour Stages & Milestones JSON
+                            $progLabels = [
+                                trim($_POST['room_tour_prog_label_1'][$idx] ?? 'Exterior'),
+                                trim($_POST['room_tour_prog_label_2'][$idx] ?? 'Panoramic Bay'),
+                                trim($_POST['room_tour_prog_label_3'][$idx] ?? 'Forest Deck'),
+                                trim($_POST['room_tour_prog_label_4'][$idx] ?? 'Master Suite'),
+                                trim($_POST['room_tour_prog_label_5'][$idx] ?? 'Stone Hearth'),
+                            ];
+                            $stages = [];
+                            for ($s_i = 1; $s_i <= 5; $s_i++) {
+                                $stages[] = [
+                                    'pill' => trim($_POST["room_tour_stage_pill_{$s_i}"][$idx] ?? ''),
+                                    'heading' => trim($_POST["room_tour_stage_heading_{$s_i}"][$idx] ?? ''),
+                                    'text' => trim($_POST["room_tour_stage_text_{$s_i}"][$idx] ?? '')
+                                ];
+                            }
+                            $tour_data = [
+                                'badge' => trim($_POST['room_tour_badge'][$idx] ?? 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR'),
+                                'subtitle' => trim($_POST['room_tour_subtitle'][$idx] ?? 'Scroll down to fly from the misty forest canopy directly inside the 360° suite.'),
+                                'progressLabels' => $progLabels,
+                                'stages' => $stages
+                            ];
+                            $tour_stages_json = json_encode($tour_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                        } else {
+                            $tour_stages_json = $curr_room_row['tour_stages_json'] ?? null;
+                        }
 
                         // Check primary exterior photo upload
                         if (isset($_FILES['room_image_file'])) {
@@ -1045,6 +1098,58 @@ ensure_experiences_details_columns($pdo);
                                 $img = $up['path'];
                             }
                         }
+
+                        // Collect multi-photo gallery items for this room (ordered as arranged by admin)
+                        $room_gallery = [];
+                        if (isset($_POST['room_photo_url'][$rid]) && is_array($_POST['room_photo_url'][$rid])) {
+                            $p_urls = $_POST['room_photo_url'][$rid];
+                            $p_titles = $_POST['room_photo_title'][$rid] ?? [];
+                            $p_descs = $_POST['room_photo_desc'][$rid] ?? [];
+
+                            foreach ($p_urls as $p_i => $p_u) {
+                                $clean_u = trim($p_u);
+                                if ($clean_u !== '') {
+                                    $room_gallery[] = [
+                                        'url' => $clean_u,
+                                        'title' => trim($p_titles[$p_i] ?? ''),
+                                        'description' => trim($p_descs[$p_i] ?? ''),
+                                        'order' => count($room_gallery) + 1
+                                    ];
+                                }
+                            }
+                        }
+
+                        // Handle direct multi-file upload for this room (if files submitted via standard file input)
+                        $field_name = 'room_gallery_files_' . $rid;
+                        if (!empty($_FILES[$field_name]['name'])) {
+                            $uploaded_paths = handle_multi_image_upload($_FILES[$field_name], 'room_gal');
+                            foreach ($uploaded_paths as $up_p) {
+                                $already = false;
+                                foreach ($room_gallery as $rg) {
+                                    if ($rg['url'] === $up_p) { $already = true; break; }
+                                }
+                                if (!$already) {
+                                    $room_gallery[] = [
+                                        'url' => $up_p,
+                                        'title' => '',
+                                        'description' => '',
+                                        'order' => count($room_gallery) + 1
+                                    ];
+                                }
+                            }
+                        }
+
+                        // Fallback: if gallery empty and room has primary image
+                        if (empty($room_gallery) && !empty($img)) {
+                            $room_gallery[] = [
+                                'url' => $img,
+                                'title' => 'Primary Suite Photo',
+                                'description' => '',
+                                'order' => 1
+                            ];
+                        }
+
+                        $photos_json = !empty($room_gallery) ? json_encode(array_values($room_gallery), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
 
                         // Check single 360 photo upload
                         if (isset($_FILES['room_360_file'])) {
@@ -1088,11 +1193,11 @@ ensure_experiences_details_columns($pdo);
 
                         $upd_room->execute([
                             $t, $st, $structure_type, $el, $rate, $single_rate, $extra_rate, $extra_child_rate,
-                            $min_guests, $base_guests, $cap, $d, $img, $pano_360, $tour_stages_json, $is_avail, (int)$rid
+                            $min_guests, $base_guests, $cap, $d, $img, $photos_json, $pano_360, $tour_stages_json, $is_avail, (int)$rid
                         ]);
                     }
                 }
-                $alert_message = 'Villas, single & duplex cottages, dynamic tariffs, 360° panoramas & tour scroll stages successfully updated.';
+                $alert_message = 'Villas, single & duplex cottages, dynamic tariffs, suite photo galleries, 360° panoramas & tour scroll stages successfully updated.';
             }
         }
 
@@ -1210,22 +1315,32 @@ ensure_experiences_details_columns($pdo);
             $action = $_POST['action'] ?? '';
 
             if (!empty($_POST['delete_testimonial_id']) || $action === 'delete_testimonial') {
-                $del_id = (int)($_POST['delete_testimonial_id'] ?? $_POST['testimonial_id'] ?? 0);
+                $del_id = (int)($_POST['delete_testimonial_id'] ?? $_POST['single_target_id'] ?? $_POST['testimonial_id'] ?? 0);
                 if ($del_id > 0) {
                     $pdo->prepare("DELETE FROM testimonials WHERE id = ?")->execute([$del_id]);
                     $alert_message = 'Guest reflection testimonial deleted successfully.';
                 }
             } elseif ($action === 'approve_testimonial') {
-                $app_id = (int)($_POST['testimonial_id'] ?? 0);
+                $app_id = (int)($_POST['single_target_id'] ?? $_POST['testimonial_id'] ?? 0);
                 if ($app_id > 0) {
                     $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE id = ?")->execute([$app_id]);
                     $alert_message = 'Guest reflection approved and published to live website!';
                 }
+                if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true, 'id' => $app_id, 'action' => 'approved', 'message' => $alert_message]);
+                    exit;
+                }
             } elseif ($action === 'reject_testimonial') {
-                $rej_id = (int)($_POST['testimonial_id'] ?? 0);
+                $rej_id = (int)($_POST['single_target_id'] ?? $_POST['testimonial_id'] ?? 0);
                 if ($rej_id > 0) {
                     $pdo->prepare("UPDATE testimonials SET status = 'rejected', is_active = 0 WHERE id = ?")->execute([$rej_id]);
                     $alert_message = 'Guest reflection marked as rejected / archived.';
+                }
+                if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true, 'id' => $rej_id, 'action' => 'rejected', 'message' => $alert_message]);
+                    exit;
                 }
             } elseif ($action === 'sync_google_reviews') {
                 // Google Maps Review Sync / Importer
@@ -1554,6 +1669,35 @@ ensure_experiences_details_columns($pdo);
 
             $alert_message = 'Automatic image compression, max dimensions & optimization preferences successfully saved.';
         }
+
+        // 21. GST Tax Rates & Invoicing Configuration Card
+        elseif ($form_type === 'gst_settings') {
+            $keys = [
+                'gst_number',
+                'gst_legal_name',
+                'gst_rate_cottage',
+                'gst_rate_food',
+                'gst_rate_other',
+                'gst_rate_percentage',
+                'gst_state_name',
+                'gst_state_code',
+                'gst_sac_cottage',
+                'gst_sac_food',
+                'gst_sac_other',
+                'gst_invoice_notes'
+            ];
+            $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
+            foreach ($keys as $k) {
+                if (isset($_POST[$k])) {
+                    $stmt->execute([$k, trim($_POST[$k])]);
+                }
+            }
+            if (isset($_POST['gst_rate_cottage'])) {
+                // Keep default fallback rate in sync with cottage stay rate
+                $stmt->execute(['gst_rate_percentage', trim($_POST['gst_rate_cottage'])]);
+            }
+            $alert_message = 'Multi-tier GST tax percentages, separate billing categories & statutory invoice parameters successfully updated.';
+        }
     }
 }
 
@@ -1566,19 +1710,10 @@ while ($row = $settings_stmt->fetch()) {
 
 // Fetch database records for dynamic card editing
 ensure_rooms_360_column($pdo);
-$all_rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+ensure_rooms_pricing_columns($pdo);
+$all_rooms = get_rooms(false);
 foreach ($all_rooms as &$rm) {
-    $rm_gallery = [];
-    if (!empty($rm['gallery_images'])) {
-        $dec = json_decode($rm['gallery_images'], true);
-        if (is_array($dec)) {
-            $rm_gallery = array_values(array_filter($dec));
-        }
-    }
-    if (empty($rm_gallery) && !empty($rm['image_url'])) {
-        $rm_gallery = [$rm['image_url']];
-    }
-    $rm['gallery_list'] = $rm_gallery;
+    $rm['gallery_list'] = $rm['photos_list'] ?? [];
 }
 unset($rm);
 
@@ -1995,6 +2130,8 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                 <option value="backup" <?php echo ($active_tab === 'backup') ? 'selected' : ''; ?>>16 • MySQL Database Backup</option>
                 <option value="bank" <?php echo ($active_tab === 'bank') ? 'selected' : ''; ?>>17 • Bank Details & UPI QR</option>
                 <option value="footer" <?php echo ($active_tab === 'footer') ? 'selected' : ''; ?>>18 • Footer & Eco Pillars</option>
+                <option value="media" <?php echo ($active_tab === 'media') ? 'selected' : ''; ?>>19 • Media & Image Optimizer</option>
+                <option value="gst" <?php echo ($active_tab === 'gst') ? 'selected' : ''; ?>>21 • GST Tax Rates & Invoicing</option>
             </select>
         </div>
 
@@ -4964,83 +5101,56 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 <img id="new_room_preview" src="../assets/images/treehouse_exterior.png" alt="Room Preview" onerror="this.src='../assets/images/treehouse_exterior.png';">
                             </div>
                             <div class="adm-uploader-controls">
-                                <div class="adm-uploader-btn-wrap">
+                                <div class="adm-uploader-btn-wrap" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                                     <label class="adm-uploader-btn" for="new_room_image_file">
                                         <i class="fa-solid fa-arrow-up-from-bracket"></i> Choose Photo from Device
                                     </label>
-                                    <input type="file" name="new_room_image_file" id="new_room_image_file" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'new_room_preview', 'new_room_info');">
+                                    <button type="button" class="adm-btn-action" style="padding: 7px 12px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);" onclick="openWalkthroughCropperFromExisting('new_room_preview', 'new_room_image_file', 'new_room_info');" title="Crop & adjust 16:9 frame of current photo">
+                                        <i class="fa-solid fa-crop-simple"></i> Crop / Frame 16:9
+                                    </button>
+                                    <input type="file" name="new_room_image_file" id="new_room_image_file" class="adm-uploader-input" accept="image/*" onchange="openWalkthroughCropper(this, 'new_room_preview', 'new_room_info');">
                                     <span id="new_room_info" class="adm-file-info-badge"></span>
                                 </div>
                                 <div class="adm-uploader-hint">
-                                    <i class="fa-solid fa-circle-info"></i> Exterior shot shown on listing card.
+                                    <i class="fa-solid fa-circle-info"></i> 16:9 widescreen exterior photo for public 360 walkthrough stage &amp; card.
                                 </div>
                                 <input type="hidden" name="new_room_image" value="assets/images/treehouse_exterior.png">
                             </div>
                         </div>
                     </div>
 
-                    <!-- 360 Walkthrough Panorama Options -->
+                    <!-- Suite Photo Gallery (Bulk Upload) -->
                     <div class="adm-form-group" style="background: rgba(16, 31, 21, 0.4); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 10px; padding: 16px; margin-bottom: 14px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                            <label class="adm-form-label" style="color: var(--adm-gold); margin: 0; font-weight: 700; display: flex; align-items: center; gap: 6px;">
-                                <i class="fa-solid fa-arrows-spin"></i> 360° Interior Suite Walkthrough (Optional)
-                            </label>
-                            <div style="display: flex; gap: 6px;">
-                                <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3);" onclick="toggle360Mode('new-mode-single', 'new-mode-stitch');">
-                                    <i class="fa-solid fa-image"></i> Single 360 / PANO
-                                </button>
-                                <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3);" onclick="toggle360Mode('new-mode-stitch', 'new-mode-single');">
-                                    <i class="fa-solid fa-wand-magic-sparkles"></i> 3-Photo Auto-Stitcher
-                                </button>
+                        <label class="adm-form-label" style="color: var(--adm-gold); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-images"></i> Suite Photo Gallery (Bulk Upload)
+                        </label>
+                        <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-bottom: 10px;">
+                            Select multiple interior &amp; exterior photos (portrait or landscape). You can configure individual titles, descriptions &amp; ordering after publishing.
+                        </span>
+                        <div class="adm-uploader-card adm-uploader-compact">
+                            <div class="adm-uploader-controls" style="width: 100%;">
+                                <div class="adm-uploader-btn-wrap">
+                                    <label class="adm-uploader-btn" for="new_room_gallery_files">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i> Choose Multiple Photos
+                                    </label>
+                                    <input type="file" name="new_room_gallery_files[]" id="new_room_gallery_files" class="adm-uploader-input" accept="image/*" multiple onchange="var info = document.getElementById('new_room_gal_info'); if (this.files && this.files.length > 0) { info.style.display='inline-flex'; info.innerText = this.files.length + ' photo(s) selected'; } else { info.style.display='none'; }">
+                                    <span id="new_room_gal_info" class="adm-file-info-badge"></span>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Mode 1: Single 360 -->
-                        <div id="new-mode-single">
-                            <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-bottom: 8px;">
-                                Upload a single mobile phone PANO or 360° equirectangular photo:
+                    <!-- Note: 360 Walkthrough managed centrally in Estate Settings -->
+                    <div style="background: rgba(16, 31, 21, 0.4); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-arrows-spin" style="color: var(--adm-gold); font-size: 16px;"></i>
+                            <span style="font-size: 11.5px; color: var(--adm-text-secondary); line-height: 1.4;">
+                                360° Walkthrough panoramas &amp; tour covers are configured in the dedicated <strong style="color: #FFFFFF;">Estate Settings → 360° Walkthrough</strong> card.
                             </span>
-                            <div class="adm-uploader-card adm-uploader-compact">
-                                <div class="adm-uploader-controls" style="width: 100%;">
-                                    <div class="adm-uploader-btn-wrap">
-                                        <label class="adm-uploader-btn" for="new_room_360_file">
-                                            <i class="fa-solid fa-camera"></i> Choose 360 / PANO Photo
-                                        </label>
-                                        <input type="file" name="new_room_360_file" id="new_room_360_file" class="adm-uploader-input" accept="image/*">
-                                    </div>
-                                </div>
-                            </div>
                         </div>
-
-                        <!-- Mode 2: 3-Photo Auto Stitcher -->
-                        <div id="new-mode-stitch" style="display: none; background: rgba(7, 18, 11, 0.85); border: 1px dashed rgba(46, 204, 113, 0.4); border-radius: 8px; padding: 12px;">
-                            <span style="font-size: 11.5px; font-weight: 700; color: #2ecc71; display: block; margin-bottom: 6px;">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> 3-Angle Phone Camera Auto-Stitcher
-                            </span>
-                            <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-bottom: 10px;">
-                                Upload 3 normal photos from your phone (Left angle, Center angle, Right angle). The system will automatically align, blend seams, and generate the 360° sphere.
-                            </span>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; text-align: center;">
-                                    <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">1. LEFT ANGLE</span>
-                                    <label class="adm-uploader-btn" for="new_stitch_l" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">Upload</label>
-                                    <input type="file" name="new_room_stitch_left" id="new_stitch_l" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'nbadge_l');">
-                                    <span id="nbadge_l" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
-                                </div>
-                                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; text-align: center;">
-                                    <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">2. CENTER ANGLE</span>
-                                    <label class="adm-uploader-btn" for="new_stitch_c" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">Upload</label>
-                                    <input type="file" name="new_room_stitch_center" id="new_stitch_c" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'nbadge_c');">
-                                    <span id="nbadge_c" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
-                                </div>
-                                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; text-align: center;">
-                                    <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">3. RIGHT ANGLE</span>
-                                    <label class="adm-uploader-btn" for="new_stitch_r" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">Upload</label>
-                                    <input type="file" name="new_room_stitch_right" id="new_stitch_r" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'nbadge_r');">
-                                    <span id="nbadge_r" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
-                                </div>
-                            </div>
-                        </div>
+                        <a href="settings.php#adm-walkthrough-card" target="_blank" class="adm-btn-action gold" style="padding: 4px 10px; font-size: 11px; text-decoration: none;">
+                            <i class="fa-solid fa-sliders"></i> Tour Settings
+                        </a>
                     </div>
 
                     <div class="adm-form-group" style="margin-bottom: 16px;">
@@ -5286,7 +5396,12 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                 </div>
 
                                 <div class="adm-form-group">
-                                    <label class="adm-form-label">Primary Suite Photo</label>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <label class="adm-form-label" style="margin: 0;">Primary Suite Photo (Walkthrough Stage 1 Exterior)</label>
+                                        <button type="button" class="adm-btn-action" style="padding: 3px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);" onclick="openWalkthroughCropperFromExisting('room_prev_<?php echo $room['id']; ?>', 'room_file_<?php echo $room['id']; ?>', 'room_info_<?php echo $room['id']; ?>');" title="Crop & adjust 16:9 frame of current photo">
+                                            <i class="fa-solid fa-crop-simple"></i> Crop / Frame 16:9
+                                        </button>
+                                    </div>
                                     <div class="adm-uploader-card adm-uploader-compact">
                                         <div class="adm-uploader-preview-box">
                                             <img id="room_prev_<?php echo $room['id']; ?>" src="<?php echo admin_img_src($room['image_url']); ?>" alt="Room" onerror="this.src='../assets/images/treehouse_exterior.png';">
@@ -5296,7 +5411,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                                 <label class="adm-uploader-btn" for="room_file_<?php echo $room['id']; ?>">
                                                     <i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Photo
                                                 </label>
-                                                <input type="file" name="room_image_file[<?php echo $idx; ?>]" id="room_file_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'room_prev_<?php echo $room['id']; ?>', 'room_info_<?php echo $room['id']; ?>');">
+                                                <input type="file" name="room_image_file[<?php echo $idx; ?>]" id="room_file_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="openWalkthroughCropper(this, 'room_prev_<?php echo $room['id']; ?>', 'room_info_<?php echo $room['id']; ?>');">
                                                 <span id="room_info_<?php echo $room['id']; ?>" class="adm-file-info-badge"></span>
                                             </div>
                                             <input type="hidden" name="room_image[]" value="<?php echo e($room['image_url']); ?>">
@@ -5304,185 +5419,137 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                     </div>
                                 </div>
 
-                                <!-- 360° Interior Walkthrough Panorama & 3-Photo Auto-Stitcher -->
-                                <div class="adm-form-group" style="background: rgba(16, 31, 21, 0.4); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 10px; padding: 16px; margin-top: 14px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                                <!-- Suite Photo Gallery & Showcase (Multiple Photos) -->
+                                <div class="adm-room-gallery-section" style="background: rgba(16, 31, 21, 0.45); border: 1px solid rgba(197, 160, 89, 0.28); border-radius: 12px; padding: 18px; margin-top: 14px; margin-bottom: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                                         <div>
-                                            <label class="adm-form-label" style="color: var(--adm-gold); margin-bottom: 2px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
-                                                <i class="fa-solid fa-arrows-spin"></i> 360° Interior Suite Walkthrough
+                                            <label class="adm-form-label" style="color: var(--adm-gold); margin: 0; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                                <i class="fa-solid fa-images"></i> Suite Photo Gallery &amp; Showcase (Multiple Photos)
+                                                <span id="room_photo_count_badge_<?php echo $room['id']; ?>" class="adm-badge" style="background: rgba(197, 160, 89, 0.18); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35); font-size: 10.5px; padding: 2px 8px;">
+                                                    <?php echo count($room['photos_meta_list'] ?? []); ?> Photos
+                                                </span>
                                             </label>
-                                            <span style="font-size: 11px; color: var(--adm-text-secondary);">Rendered on public website 3D WebGL sphere</span>
-                                        </div>
-                                        <div style="display: flex; gap: 6px;">
-                                            <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3);" onclick="toggle360Mode('mode-single-<?php echo $room['id']; ?>', 'mode-stitch-<?php echo $room['id']; ?>');">
-                                                <i class="fa-solid fa-image"></i> Single 360 / PANO
-                                            </button>
-                                            <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3);" onclick="toggle360Mode('mode-stitch-<?php echo $room['id']; ?>', 'mode-single-<?php echo $room['id']; ?>');">
-                                                <i class="fa-solid fa-wand-magic-sparkles"></i> 3-Photo Auto-Stitcher
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Current 360 Preview Strip -->
-                                    <div style="margin-bottom: 12px;">
-                                        <div style="display: flex; align-items: center; gap: 12px; background: rgba(6, 17, 10, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 14px;">
-                                            <div style="width: 105px; height: 52px; border-radius: 6px; overflow: hidden; border: 1px solid var(--adm-gold); flex-shrink: 0; background: #000;">
-                                                <img id="room_360_prev_<?php echo $room['id']; ?>" src="<?php echo admin_img_src($room['interior_360_url'] ?? 'assets/images/treehouse_360_pano.jpg'); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_360_pano.jpg';">
-                                            </div>
-                                            <div style="flex: 1; min-width: 0;">
-                                                <div style="font-size: 12px; font-weight: 700; color: #FFFFFF; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                                                    <?php echo htmlspecialchars(basename($room['interior_360_url'] ?? 'treehouse_360_pano.jpg')); ?>
-                                                </div>
-                                                <div style="font-size: 10.5px; color: #2ecc71; margin-top: 2px;">
-                                                    <i class="fa-solid fa-circle-check"></i> Active 360° Sphere Texture
-                                                </div>
-                                            </div>
-                                            <a href="../<?php echo htmlspecialchars($room['interior_360_url'] ?? 'assets/images/treehouse_360_pano.jpg'); ?>" target="_blank" class="adm-btn-site-preview" style="padding: 4px 10px; font-size: 11px;" title="Open full panorama image in new tab">
-                                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <input type="hidden" name="room_interior_360[]" value="<?php echo e($room['interior_360_url'] ?? ''); ?>">
-
-                                    <!-- MODE 1: Single 360 / PANO Upload -->
-                                    <div id="mode-single-<?php echo $room['id']; ?>" class="room-360-pane">
-                                        <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-bottom: 6px;">
-                                            <i class="fa-solid fa-circle-info" style="color: var(--adm-gold);"></i> Upload a single 360° photo or mobile phone PANO shot (2:1 aspect ratio recommended):
-                                        </span>
-                                        <div class="adm-uploader-card adm-uploader-compact">
-                                            <div class="adm-uploader-controls" style="width: 100%;">
-                                                <div class="adm-uploader-btn-wrap">
-                                                    <label class="adm-uploader-btn" for="room_360_file_<?php echo $room['id']; ?>">
-                                                        <i class="fa-solid fa-camera"></i> Choose 360 / PANO Photo
-                                                    </label>
-                                                    <input type="file" name="room_360_file[<?php echo $idx; ?>]" id="room_360_file_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="previewUploadImage(this, 'room_360_prev_<?php echo $room['id']; ?>', 'room_360_info_<?php echo $room['id']; ?>');">
-                                                    <span id="room_360_info_<?php echo $room['id']; ?>" class="adm-file-info-badge"></span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- MODE 2: 3-Photo Auto-Stitcher (Left + Center + Right) -->
-                                    <div id="mode-stitch-<?php echo $room['id']; ?>" class="room-360-pane" style="display: none; background: rgba(7, 18, 11, 0.85); border: 1px dashed rgba(46, 204, 113, 0.4); border-radius: 8px; padding: 12px;">
-                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                            <span style="font-size: 11.5px; font-weight: 700; color: #2ecc71;">
-                                                <i class="fa-solid fa-wand-magic-sparkles"></i> 3-Photo Auto Panorama Generator
+                                            <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-top: 2px;">
+                                                Bulk upload photos (portrait or landscape). Customize heading title, description &amp; set exact display order for guests.
                                             </span>
-                                            <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); font-size: 9.5px;">SMARTPHONE READY</span>
                                         </div>
-                                        <p style="font-size: 11px; color: var(--adm-text-secondary); margin: 0 0 10px; line-height: 1.4;">
-                                            Stand in the center of the room. Take 3 normal photos turning from left to right. Upload all 3 below — the system automatically scales, edge-feathers, and wraps them into a 360° panorama when you save.
-                                        </p>
-                                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                                            <!-- Left Photo -->
-                                            <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); text-align: center;">
-                                                <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">1. LEFT ANGLE</span>
-                                                <label class="adm-uploader-btn" for="stitch_l_<?php echo $room['id']; ?>" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">
-                                                    <i class="fa-solid fa-arrow-left"></i> Upload
-                                                </label>
-                                                <input type="file" name="room_stitch_left[<?php echo $idx; ?>]" id="stitch_l_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'sbadge_l_<?php echo $room['id']; ?>');">
-                                                <span id="sbadge_l_<?php echo $room['id']; ?>" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
-                                            </div>
-
-                                            <!-- Center Photo -->
-                                            <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); text-align: center;">
-                                                <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">2. CENTER ANGLE</span>
-                                                <label class="adm-uploader-btn" for="stitch_c_<?php echo $room['id']; ?>" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">
-                                                    <i class="fa-solid fa-crosshairs"></i> Upload
-                                                </label>
-                                                <input type="file" name="room_stitch_center[<?php echo $idx; ?>]" id="stitch_c_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'sbadge_c_<?php echo $room['id']; ?>');">
-                                                <span id="sbadge_c_<?php echo $room['id']; ?>" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
-                                            </div>
-
-                                            <!-- Right Photo -->
-                                            <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); text-align: center;">
-                                                <span style="font-size: 10px; font-weight: 700; color: var(--adm-gold); display: block; margin-bottom: 4px;">3. RIGHT ANGLE</span>
-                                                <label class="adm-uploader-btn" for="stitch_r_<?php echo $room['id']; ?>" style="font-size: 10.5px; padding: 5px; width: 100%; justify-content: center;">
-                                                    <i class="fa-solid fa-arrow-right"></i> Upload
-                                                </label>
-                                                <input type="file" name="room_stitch_right[<?php echo $idx; ?>]" id="stitch_r_<?php echo $room['id']; ?>" class="adm-uploader-input" accept="image/*" onchange="updateStitchBadge(this, 'sbadge_r_<?php echo $room['id']; ?>');">
-                                                <span id="sbadge_r_<?php echo $room['id']; ?>" style="font-size: 9.5px; color: #2ecc71; display: none; margin-top: 3px;"></span>
-                                            </div>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <label class="adm-uploader-btn" for="room_bulk_file_<?php echo $room['id']; ?>" style="cursor: pointer; padding: 6px 14px; font-size: 11.5px; background: rgba(197, 160, 89, 0.18); border: 1px solid var(--adm-gold); color: var(--adm-gold); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;">
+                                                <i class="fa-solid fa-cloud-arrow-up"></i> + Bulk Upload Photos
+                                            </label>
+                                            <input type="file" id="room_bulk_file_<?php echo $room['id']; ?>" name="room_gallery_files_<?php echo $room['id']; ?>[]" class="adm-uploader-input" accept="image/*" multiple onchange="handleRoomPhotosBulkSelect(this, '<?php echo $room['id']; ?>');">
                                         </div>
+                                    </div>
+
+                                    <!-- Upload Status Progress Banner -->
+                                    <div id="room_upload_status_<?php echo $room['id']; ?>" style="display: none; background: rgba(46, 204, 113, 0.12); border: 1px solid rgba(46, 204, 113, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 11.5px; color: #2ecc71; align-items: center; gap: 10px;">
+                                        <i class="fa-solid fa-spinner fa-spin"></i>
+                                        <span class="status-text">Uploading &amp; optimizing selected photos...</span>
+                                    </div>
+
+                                    <!-- Photos Reorderable List Container -->
+                                    <div id="room_photos_list_<?php echo $room['id']; ?>" class="adm-room-photos-list" style="display: flex; flex-direction: column; gap: 12px;">
+                                        <?php 
+                                        $meta_photos = $room['photos_meta_list'] ?? [];
+                                        if (empty($meta_photos) && !empty($room['photos_list'])) {
+                                            foreach ($room['photos_list'] as $p_i => $p_u) {
+                                                $meta_photos[] = ['url' => $p_u, 'title' => '', 'description' => '', 'order' => $p_i + 1];
+                                            }
+                                        }
+                                        ?>
+                                        <?php if (empty($meta_photos)): ?>
+                                            <div class="adm-no-photos-empty" style="text-align: center; padding: 22px 16px; background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; color: var(--adm-text-secondary); font-size: 12px;">
+                                                <i class="fa-regular fa-images" style="font-size: 26px; color: var(--adm-gold); display: block; margin-bottom: 6px; opacity: 0.6;"></i>
+                                                No gallery photos added yet. Click <strong>+ Bulk Upload Photos</strong> above to add portrait or landscape suite images.
+                                            </div>
+                                        <?php else: ?>
+                                            <?php foreach ($meta_photos as $p_order => $p_item): 
+                                                $p_url = $p_item['url'] ?? '';
+                                                $p_title = $p_item['title'] ?? '';
+                                                $p_desc = $p_item['description'] ?? '';
+                                                $p_seq = $p_order + 1;
+                                            ?>
+                                                <!-- Individual Photo Card Item -->
+                                                <div class="adm-room-photo-card" data-room-id="<?php echo $room['id']; ?>" style="background: rgba(6, 17, 10, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;">
+                                                    <!-- Drag handle & Order Badge -->
+                                                    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
+                                                        <span class="adm-room-photo-order-badge" style="background: var(--adm-gold); color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(197, 160, 89, 0.3);">
+                                                            <?php echo $p_seq; ?>
+                                                        </span>
+                                                        <span style="font-size: 9px; color: var(--adm-text-secondary); font-weight: 700; text-transform: uppercase;">ORDER</span>
+                                                    </div>
+
+                                                    <!-- Photo Thumbnail & Aspect Preview -->
+                                                    <div style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid rgba(197, 160, 89, 0.3); flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                                                        <img src="<?php echo admin_img_src($p_url); ?>" alt="Suite Photo" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" onerror="this.src='../assets/images/treehouse_exterior.png';" onload="detectImgOrientation(this);">
+                                                        <a href="../<?php echo htmlspecialchars($p_url); ?>" target="_blank" title="View Full High-Res Photo" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);">
+                                                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                                        </a>
+                                                        <span class="room-photo-orientation-badge" style="position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.75); color: #2ecc71; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; border: 1px solid rgba(46, 204, 113, 0.3);">
+                                                            PHOTO
+                                                        </span>
+                                                    </div>
+
+                                                    <!-- Title & Description Inputs -->
+                                                    <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+                                                        <div>
+                                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                                                                <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold);">
+                                                                    <i class="fa-solid fa-heading"></i> Photo Main Heading / Title
+                                                                </span>
+                                                                <span style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
+                                                                    <?php echo htmlspecialchars(basename($p_url)); ?>
+                                                                </span>
+                                                            </div>
+                                                            <input type="text" name="room_photo_title[<?php echo $room['id']; ?>][]" class="adm-form-control" style="font-size: 12px; padding: 7px 10px;" value="<?php echo htmlspecialchars($p_title); ?>" placeholder="e.g. Master Bedroom &amp; Valley View Balcony">
+                                                        </div>
+                                                        <div>
+                                                            <span style="font-size: 11px; font-weight: 700; color: #A1B5A9; display: block; margin-bottom: 3px;">
+                                                                <i class="fa-solid fa-align-left"></i> Photo Story / Description
+                                                            </span>
+                                                            <textarea name="room_photo_desc[<?php echo $room['id']; ?>][]" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with floor-to-ceiling panoramic glass."><?php echo htmlspecialchars($p_desc); ?></textarea>
+                                                        </div>
+                                                        <input type="hidden" name="room_photo_url[<?php echo $room['id']; ?>][]" value="<?php echo htmlspecialchars($p_url); ?>">
+                                                    </div>
+
+                                                    <!-- Reordering & Delete Actions -->
+                                                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+                                                        <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, -1);" title="Move Up (Display earlier to guests)">
+                                                            <i class="fa-solid fa-arrow-up"></i>
+                                                        </button>
+                                                        <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, 1);" title="Move Down (Display later to guests)">
+                                                            <i class="fa-solid fa-arrow-down"></i>
+                                                        </button>
+                                                        <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this);" title="Delete this photo from gallery">
+                                                            <i class="fa-solid fa-trash-can"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
 
-                                <?php $t_stages = get_room_tour_stages($room); ?>
-                                <!-- 360° Scroll Walkthrough Tour Stages & Milestones Customizer -->
-                                <div class="adm-form-group" style="background: rgba(16, 31, 21, 0.55); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 18px; margin-top: 16px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                                <input type="hidden" name="room_interior_360[]" value="<?php echo e($room['interior_360_url'] ?? ''); ?>">
+
+                                <!-- 360° Walkthrough Managed in Estate Settings Notice -->
+                                <div style="background: rgba(16, 31, 21, 0.4); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 10px; padding: 14px 18px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+                                    <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                                        <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; border: 1px solid rgba(197, 160, 89, 0.3);">
+                                            <i class="fa-solid fa-arrows-spin"></i>
+                                        </div>
                                         <div>
-                                            <label class="adm-form-label" style="color: var(--adm-gold); margin-bottom: 2px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                                <i class="fa-solid fa-layer-group" style="color: var(--adm-gold);"></i> 360° Scroll Tour Stages &amp; Milestone Data
-                                            </label>
-                                            <span style="font-size: 11px; color: var(--adm-text-secondary);">Customize the 5 interactive overlay cards, badge pills, headings, story descriptions, and bottom milestone indicators displayed while scrolling.</span>
-                                        </div>
-                                        <button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3);" onclick="const pane = document.getElementById('tour-stages-pane-<?php echo $room['id']; ?>'); pane.style.display = (pane.style.display === 'none' ? 'block' : 'none');">
-                                            <i class="fa-solid fa-pen-to-square"></i> Toggle Stages Editor
-                                        </button>
-                                    </div>
-
-                                    <div id="tour-stages-pane-<?php echo $room['id']; ?>" style="display: block;">
-                                        <!-- Tour Header Subtitle -->
-                                        <div style="margin-bottom: 14px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-                                            <label class="adm-form-label" style="font-size: 11.5px; color: var(--adm-gold);">Tour Header Subtitle / Tagline:</label>
-                                            <input type="text" name="room_tour_subtitle[<?php echo $idx; ?>]" class="adm-form-control" style="font-size: 12px;" value="<?php echo htmlspecialchars($t_stages['subtitle'] ?? ''); ?>" placeholder="Scroll down to fly from the misty forest canopy directly inside the 360° suite.">
-                                        </div>
-
-                                        <!-- 5 Milestone Labels (Bottom Pill Bar) -->
-                                        <div style="margin-bottom: 16px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
-                                            <label class="adm-form-label" style="font-size: 11.5px; color: var(--adm-gold); margin-bottom: 6px; display: block;">
-                                                <i class="fa-solid fa-bars-progress"></i> Bottom Milestone Progress Bar (5 Steps):
-                                            </label>
-                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
-                                                <?php for ($m_i = 1; $m_i <= 5; $m_i++): ?>
-                                                    <div>
-                                                        <span style="font-size: 10px; color: #A1B5A9; font-weight: 700; display: block; margin-bottom: 3px;">Step 0<?php echo $m_i; ?> Label</span>
-                                                        <input type="text" name="room_tour_prog_label_<?php echo $m_i; ?>[<?php echo $idx; ?>]" class="adm-form-control" style="font-size: 11px; padding: 6px 8px;" value="<?php echo htmlspecialchars($t_stages['progressLabels'][$m_i - 1] ?? ''); ?>" required>
-                                                    </div>
-                                                <?php endfor; ?>
+                                            <div style="font-size: 12.5px; font-weight: 700; color: #FFFFFF; margin-bottom: 2px;">
+                                                360° Walkthrough Tour &amp; Panorama
+                                            </div>
+                                            <div style="font-size: 11px; color: var(--adm-text-secondary); line-height: 1.4;">
+                                                360° virtual walkthroughs for Woodhouse &amp; Mudhouse are configured in the dedicated <strong style="color: #FFFFFF;">Estate Settings → 360° Walkthrough Tour</strong> (with live homepage toggle &amp; interactive photo cropper).
                                             </div>
                                         </div>
-
-                                        <!-- 5 Interactive Tour Stage Cards -->
-                                        <label class="adm-form-label" style="font-size: 11.5px; color: var(--adm-gold); margin-bottom: 8px; display: block;">
-                                            <i class="fa-solid fa-rectangle-list"></i> 5 Story Stages (Overlay Cards while Scrolling):
-                                        </label>
-                                        <div style="display: flex; flex-direction: column; gap: 10px;">
-                                            <?php 
-                                            $stg_default_names = [
-                                                1 => 'Stage 01: Exterior Sanctuary / Front View',
-                                                2 => 'Stage 02: 180° Valley Glasswork / Bay Window',
-                                                3 => 'Stage 03: Misty Balcony / Canopy Deck / Veranda',
-                                                4 => 'Stage 04: Artisan Bed / Living Suite',
-                                                5 => 'Stage 05: Stone Fireplace / Forest Hearth'
-                                            ];
-                                            for ($stg_i = 1; $stg_i <= 5; $stg_i++): 
-                                                $stg = $t_stages['stages'][$stg_i - 1] ?? ['pill' => '', 'heading' => '', 'text' => ''];
-                                            ?>
-                                                <div style="background: rgba(6, 17, 10, 0.8); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 8px; padding: 12px;">
-                                                    <div style="font-size: 11.5px; font-weight: 700; color: #2ecc71; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
-                                                        <span><i class="fa-solid fa-circle-dot" style="color: var(--adm-gold); margin-right: 5px;"></i> <?php echo $stg_default_names[$stg_i] ?? "Stage 0{$stg_i}"; ?></span>
-                                                        <span class="adm-badge" style="background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); font-size: 9px;">360 SCROLL STEP <?php echo $stg_i; ?></span>
-                                                    </div>
-                                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
-                                                        <div>
-                                                            <span style="font-size: 10.5px; color: #A1B5A9; display: block; margin-bottom: 3px;">Top Pill Badge / Tag:</span>
-                                                            <input type="text" name="room_tour_stage_pill_<?php echo $stg_i; ?>[<?php echo $idx; ?>]" class="adm-form-control" style="font-size: 11px;" value="<?php echo htmlspecialchars($stg['pill'] ?? ''); ?>" placeholder='<i class="fa-solid fa-mountain-sun"></i> 01 • 180° VALLEY GLASSWORK'>
-                                                        </div>
-                                                        <div>
-                                                            <span style="font-size: 10.5px; color: #A1B5A9; display: block; margin-bottom: 3px;">Stage Main Heading:</span>
-                                                            <input type="text" name="room_tour_stage_heading_<?php echo $stg_i; ?>[<?php echo $idx; ?>]" class="adm-form-control" style="font-size: 11px; font-weight: 600;" value="<?php echo htmlspecialchars($stg['heading'] ?? ''); ?>" placeholder="Floor-to-Ceiling Curved Bay Window" required>
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <span style="font-size: 10.5px; color: #A1B5A9; display: block; margin-bottom: 3px;">Story Description Text:</span>
-                                                        <textarea name="room_tour_stage_text_<?php echo $stg_i; ?>[<?php echo $idx; ?>]" rows="2" class="adm-form-control" style="font-size: 11px; resize: vertical;" placeholder="An expansive architectural curved window framing floating clouds, high-altitude tea valleys, and morning mountain mist." required><?php echo htmlspecialchars($stg['text'] ?? ''); ?></textarea>
-                                                    </div>
-                                                </div>
-                                            <?php endfor; ?>
-                                        </div>
                                     </div>
+                                    <a href="settings.php#adm-walkthrough-card" target="_blank" class="adm-btn-action gold" style="padding: 7px 14px; font-size: 11.5px; text-decoration: none; border-radius: 6px; white-space: nowrap;">
+                                        <i class="fa-solid fa-sliders"></i> Configure 360° Tour
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -5495,7 +5562,235 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <span>SAVE VILLAS & TARIFFS CONFIGURATION</span>
                     </button>
                 </div>
-            </form>
+        <!-- =============================================================
+             MODAL 1: WALKTHROUGH STAGE 16:9 INTERACTIVE PHOTO CROPPER
+             ============================================================= -->
+        <div id="walkthrough-crop-modal" class="adm-cropper-modal-overlay" style="display: none;">
+            <div class="adm-cropper-modal-dialog">
+                <div class="adm-cropper-modal-header">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="adm-setting-card-icon gold" style="width: 38px; height: 38px; font-size: 15px;">
+                            <i class="fa-solid fa-crop-simple"></i>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 16px; color: #FFFFFF; font-family: var(--adm-font-title); letter-spacing: 0.5px;">
+                                360 WALKTHROUGH STAGE &amp; EXTERIOR PHOTO FRAMING
+                            </h3>
+                            <p style="margin: 2px 0 0; font-size: 11.5px; color: var(--adm-text-secondary);">
+                                Crop and adjust your photo for the 16:9 cinematic walkthrough stage. Automatically fits 4:3, 1:1, or wide images.
+                            </p>
+                        </div>
+                    </div>
+                    <button type="button" class="adm-drawer-close" onclick="closeWalkthroughCropper();" title="Close Modal">✕</button>
+                </div>
+
+                <div class="adm-cropper-modal-body">
+                    <!-- Aspect Ratio Toolbar -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; background: rgba(6, 17, 10, 0.7); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(197, 160, 89, 0.2);">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase;">Aspect Ratio:</span>
+                            <button type="button" class="adm-crop-ratio-btn active" data-ratio="1.7777777778" onclick="setCropperRatio(16/9, this);">
+                                <i class="fa-solid fa-film"></i> 16:9 Widescreen (Walkthrough Stage)
+                            </button>
+                            <button type="button" class="adm-crop-ratio-btn" data-ratio="1.3333333333" onclick="setCropperRatio(4/3, this);">
+                                <i class="fa-solid fa-image"></i> 4:3 Standard
+                            </button>
+                            <button type="button" class="adm-crop-ratio-btn" data-ratio="1" onclick="setCropperRatio(1, this);">
+                                <i class="fa-solid fa-square"></i> 1:1 Square
+                            </button>
+                            <button type="button" class="adm-crop-ratio-btn" data-ratio="NaN" onclick="setCropperRatio(NaN, this);">
+                                <i class="fa-solid fa-vector-square"></i> Free Aspect
+                            </button>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button type="button" class="adm-btn-action" style="padding: 5px 10px; font-size: 11px;" onclick="if(activeCropperInstance) activeCropperInstance.rotate(-90);" title="Rotate 90° Left">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </button>
+                            <button type="button" class="adm-btn-action" style="padding: 5px 10px; font-size: 11px;" onclick="if(activeCropperInstance) activeCropperInstance.rotate(90);" title="Rotate 90° Right">
+                                <i class="fa-solid fa-rotate-right"></i>
+                            </button>
+                            <button type="button" class="adm-btn-action" style="padding: 5px 10px; font-size: 11px;" onclick="if(activeCropperInstance) activeCropperInstance.reset();" title="Reset Crop Frame">
+                                <i class="fa-solid fa-arrows-rotate"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Cropper Image Canvas Container -->
+                    <div style="position: relative; width: 100%; height: 420px; background: #060E08; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;">
+                        <img id="cropper-target-img" src="" alt="Crop Target" style="max-width: 100%; max-height: 100%; display: block;">
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 11px; color: var(--adm-text-secondary);">
+                        <span><i class="fa-solid fa-circle-info" style="color: var(--adm-gold);"></i> Drag corner handles to resize. Drag image to reposition within the 16:9 walkthrough frame.</span>
+                        <span id="cropper-dims-indicator" style="font-family: monospace; color: #2ecc71; font-weight: 700;">1920 × 1080 (16:9)</span>
+                    </div>
+                </div>
+
+                <div class="adm-cropper-modal-footer">
+                    <button type="button" class="adm-btn-action" style="background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.15);" onclick="closeWalkthroughCropper();">
+                        Cancel / Keep Original
+                    </button>
+                    <button type="button" class="adm-btn-action gold" style="padding: 10px 24px; font-weight: 700;" onclick="confirmWalkthroughCrop();">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Apply 16:9 Crop to Walkthrough</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- =============================================================
+             MODAL 2: 360° PANORAMA FRAMING & HEIGHT ADJUSTER
+             ============================================================= -->
+        <div id="pano360-framing-modal" class="adm-cropper-modal-overlay" style="display: none;">
+            <div class="adm-cropper-modal-dialog" style="max-width: 1100px;">
+                <div class="adm-cropper-modal-header">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="adm-setting-card-icon emerald" style="width: 38px; height: 38px; font-size: 15px;">
+                            <i class="fa-solid fa-arrows-spin"></i>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 16px; color: #FFFFFF; font-family: var(--adm-font-title); letter-spacing: 0.5px;">
+                                360° PANORAMA FRAMING &amp; HEIGHT ALIGNMENT
+                            </h3>
+                            <p style="margin: 2px 0 0; font-size: 11.5px; color: var(--adm-text-secondary);">
+                                Preview ceiling and floor boundaries. Adjust vertical height and framing so the panorama is wide and not cropped inside the 360° sphere.
+                            </p>
+                        </div>
+                    </div>
+                    <button type="button" class="adm-drawer-close" onclick="closePano360Modal();" title="Close Modal">✕</button>
+                </div>
+
+                <div class="adm-cropper-modal-body">
+                    <!-- Info Bar -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(6, 17, 10, 0.7); padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(46, 204, 113, 0.25); margin-bottom: 12px; font-size: 11.5px; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <span style="color: var(--adm-text-secondary);">Source Image: </span>
+                            <strong id="p360-source-meta" style="color: #FFFFFF; font-family: monospace;">Loading...</strong>
+                        </div>
+                        <div>
+                            <span style="color: var(--adm-text-secondary);">Target Standard: </span>
+                            <strong style="color: #2ecc71; font-family: monospace;">2:1 Equirectangular Sphere (360° × 180°)</strong>
+                        </div>
+                    </div>
+
+                    <!-- Two-Column Side-by-Side: Left = 2:1 Framing Canvas, Right = Live 360 WebGL Viewer -->
+                    <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; margin-bottom: 14px;">
+                        <!-- Left: 2:1 Framing Canvas with Zenith/Nadir Lines -->
+                        <div style="background: rgba(4, 12, 7, 0.9); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 11.5px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase;">
+                                    <i class="fa-solid fa-map"></i> 2:1 Equirectangular Canvas
+                                </span>
+                                <span style="font-size: 10px; color: var(--adm-text-secondary);">Golden lines = Ceiling &amp; Floor bounds</span>
+                            </div>
+
+                            <div style="position: relative; width: 100%; aspect-ratio: 2/1; background: #000; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15);">
+                                <canvas id="p360-preview-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                                
+                                <!-- Visual boundary guides -->
+                                <div style="position: absolute; top: 0; left: 0; width: 100%; padding: 3px 8px; background: rgba(0,0,0,0.65); border-bottom: 1px dashed rgba(197, 160, 89, 0.8); font-size: 9.5px; color: var(--adm-gold); font-weight: 700; pointer-events: none;">
+                                    ▲ TOP CEILING / ZENITH (+90°)
+                                </div>
+                                <div style="position: absolute; top: 50%; left: 0; width: 100%; transform: translateY(-50%); border-top: 1px dashed rgba(56, 189, 248, 0.7); pointer-events: none;">
+                                    <span style="font-size: 8.5px; background: rgba(0,0,0,0.7); color: #38bdf8; padding: 1px 6px; border-radius: 2px; margin-left: 8px;">HORIZON (0° EYE LEVEL)</span>
+                                </div>
+                                <div style="position: absolute; bottom: 0; left: 0; width: 100%; padding: 3px 8px; background: rgba(0,0,0,0.65); border-top: 1px dashed rgba(197, 160, 89, 0.8); font-size: 9.5px; color: var(--adm-gold); font-weight: 700; pointer-events: none;">
+                                    ▼ BOTTOM FLOOR / NADIR (-90°)
+                                </div>
+                            </div>
+
+                            <!-- Framing Mode Selection -->
+                            <div style="margin-top: 10px;">
+                                <span style="font-size: 11px; font-weight: 700; color: #FFFFFF; display: block; margin-bottom: 5px;">Framing Mode:</span>
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 11px; color: #E0E8E3; cursor: pointer; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(46, 204, 113, 0.3);">
+                                        <input type="radio" name="p360_fit_mode" value="preserve_full" checked onchange="updatePano360Render();" style="margin-top: 2px;">
+                                        <div>
+                                            <strong style="color: #2ecc71;">Preserve 100% Full Height (Recommended)</strong>
+                                            <div style="font-size: 10px; color: var(--adm-text-secondary); margin-top: 1px;">Preserves all vertical room details without stretching; ambient blend fills zenith &amp; nadir.</div>
+                                        </div>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 11px; color: #E0E8E3; cursor: pointer; background: rgba(255,255,255,0.03); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);">
+                                        <input type="radio" name="p360_fit_mode" value="stretch_fit" onchange="updatePano360Render();" style="margin-top: 2px;">
+                                        <div>
+                                            <strong>Scale &amp; Fit to 2:1 Frame</strong>
+                                            <div style="font-size: 10px; color: var(--adm-text-secondary); margin-top: 1px;">Fits width &amp; height directly into 2:1 frame.</div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Vertical Shift Slider -->
+                            <div style="margin-top: 12px; background: rgba(0,0,0,0.3); padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold);">
+                                        <i class="fa-solid fa-arrows-up-down"></i> Vertical Position (Y-Shift):
+                                    </span>
+                                    <span id="p360-yshift-label" style="font-family: monospace; font-size: 11px; color: #38bdf8;">0% (Centered)</span>
+                                </div>
+                                <input type="range" id="p360-yshift-slider" min="-50" max="50" value="0" step="1" oninput="updatePano360Render();" style="width: 100%; accent-color: var(--adm-gold);">
+                                <div style="display: flex; justify-content: space-between; font-size: 9.5px; color: var(--adm-text-secondary); margin-top: 2px;">
+                                    <span>▲ Show More Ceiling</span>
+                                    <span onclick="document.getElementById('p360-yshift-slider').value=0; updatePano360Render();" style="cursor: pointer; color: var(--adm-gold); text-decoration: underline;">Reset Center</span>
+                                    <span>▼ Show More Floor</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: LIVE Interactive 360 Mini-Viewer -->
+                        <div style="background: rgba(4, 12, 7, 0.9); border: 1px solid rgba(46, 204, 113, 0.3); border-radius: 8px; padding: 12px; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 11.5px; font-weight: 700; color: #2ecc71; text-transform: uppercase;">
+                                    <i class="fa-solid fa-globe"></i> Live 360° Sphere Mini-Viewer
+                                </span>
+                                <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; font-size: 9.5px;">
+                                    INTERACTIVE DRAG PREVIEW
+                                </span>
+                            </div>
+
+                            <div style="position: relative; width: 100%; aspect-ratio: 4/3; background: #0A150F; border-radius: 6px; overflow: hidden; border: 1px solid rgba(46, 204, 113, 0.4);">
+                                <canvas id="p360-sphere-canvas" style="width: 100%; height: 100%; display: block; cursor: grab;"></canvas>
+                                
+                                <div style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); padding: 4px 8px; border-radius: 4px; font-size: 10px; color: #FFFFFF; pointer-events: none; border: 1px solid rgba(255,255,255,0.15);">
+                                    <i class="fa-solid fa-arrows-up-down-left-right" style="color: var(--adm-gold);"></i> Drag around to check ceiling &amp; floor
+                                </div>
+
+                                <div style="position: absolute; top: 8px; right: 8px; display: flex; gap: 4px;">
+                                    <button type="button" class="adm-btn-action" style="padding: 4px 8px; font-size: 10px; background: rgba(0,0,0,0.7);" onclick="resetPano360Viewer();" title="Reset Viewer Angle">
+                                        <i class="fa-solid fa-rotate-left"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Viewer FOV / Zoom Control -->
+                            <div style="margin-top: 12px; background: rgba(0,0,0,0.3); padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                    <span style="font-size: 11px; font-weight: 700; color: #2ecc71;">
+                                        <i class="fa-solid fa-magnifying-glass-plus"></i> Lens Field of View (FOV):
+                                    </span>
+                                    <span id="p360-fov-label" style="font-family: monospace; font-size: 11px; color: #FFFFFF;">85° (Ultra-Wide)</span>
+                                </div>
+                                <input type="range" id="p360-fov-slider" min="60" max="95" value="85" step="1" oninput="updatePano360FOV(this.value);" style="width: 100%; accent-color: #2ecc71;">
+                                <div style="display: flex; justify-content: space-between; font-size: 9.5px; color: var(--adm-text-secondary); margin-top: 2px;">
+                                    <span>60° (Standard)</span>
+                                    <span style="color: #2ecc71; font-weight: 700;">85° (Recommended Wide)</span>
+                                    <span>95° (Ultra-Wide)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="adm-cropper-modal-footer">
+                    <button type="button" class="adm-btn-action" style="background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.15);" onclick="closePano360Modal();">
+                        Cancel
+                    </button>
+                    <button type="button" class="adm-btn-action emerald" style="padding: 10px 24px; font-weight: 700;" onclick="confirmPano360Crop();">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span>Apply 360° Panorama Framing</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -6072,8 +6367,13 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                         <!-- Left Column: Avatar + Info -->
                                         <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
                                             <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
-                                                <?php if (!empty($t['avatar_url'])): ?>
-                                                    <img src="../<?php echo e($t['avatar_url']); ?>" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://lh3.googleusercontent.com/a/default-user=s120';">
+                                                <?php if (!empty($t['avatar_url'])): 
+                                                    $av_src = $t['avatar_url'];
+                                                    if (!preg_match('/^https?:\/\//i', $av_src)) {
+                                                        $av_src = '../' . ltrim($av_src, '/');
+                                                    }
+                                                ?>
+                                                    <img src="<?php echo e($av_src); ?>" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://lh3.googleusercontent.com/a/default-user=s120';">
                                                 <?php else: ?>
                                                     <span style="color: var(--adm-gold); font-weight: 700; font-size: 12px;"><?php echo strtoupper(substr(trim($t['guest_name']), 0, 2)); ?></span>
                                                 <?php endif; ?>
@@ -7771,6 +8071,359 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     }
     </script>
     <?php endif; ?>
+
+    <!-- -------------------------------------------------------------
+         PANEL 21: GST TAX RATES & SEPARATE BILLING CONFIGURATION
+         ------------------------------------------------------------- -->
+    <?php if ($active_tab === 'gst'): ?>
+    <div class="adm-card adm-settings-tab-pane is-active" style="display: block !important;" id="pane-gst">
+        <form action="edit_section.php?section=gst" method="POST">
+            <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+            <input type="hidden" name="form_type" value="gst_settings">
+            <input type="hidden" name="active_tab" value="gst">
+
+            <div class="adm-card-header" style="border-bottom: 1px solid var(--adm-border); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div class="adm-setting-card-icon gold" style="background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="adm-badge" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.4); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
+                                <span class="adm-pulse-dot" style="width: 5px; height: 5px; background: #2ecc71; margin-right: 4px;"></span> EDITING SECTION
+                            </span>
+                            <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 21</span>
+                        </div>
+                        <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">ESTATE GST TAX RATES &amp; SEPARATE BILLING</h3>
+                        <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Configure distinct GST percentages for Cottages, Food &amp; Other expenses across all guest bills &amp; folios.</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <a href="print_bill.php?ref=DEMO&type=stay" target="_blank" class="adm-btn-action outline" style="padding: 10px 16px; font-size: 12px;" title="View bill template">
+                        <i class="fa-solid fa-receipt"></i> Sample Bill Folio
+                    </a>
+                    <button type="submit" class="adm-btn-action gold" style="padding: 10px 22px; font-weight: 700; font-size: 13px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>SAVE GST SETTINGS</span>
+                    </button>
+                </div>
+            </div>
+
+            <div style="padding: 24px;">
+
+                <!-- Section 1: Estate Legal & GST Identification -->
+                <div style="border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 16px; margin-bottom: 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-id-card" style="margin-right: 6px;"></i> 1. Official Estate GST Identification &amp; Entity Details
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">These legal identifiers are printed on all official Tax Invoices, Guest Folios, and Digital Receipts.</p>
+                </div>
+
+                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 28px;">
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Estate GSTIN / Tax ID Number</label>
+                        <input type="text" name="gst_number" id="gst_number_field" class="adm-form-control" style="font-family: monospace; letter-spacing: 1px; text-transform: uppercase;" value="<?php echo e($s['gst_number'] ?? '32AAECF1234M1Z5'); ?>" required>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">15-character statutory GST identification number (e.g. 32AAECF1234M1Z5).</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Registered Legal Business Name</label>
+                        <input type="text" name="gst_legal_name" class="adm-form-control" value="<?php echo e($s['gst_legal_name'] ?? 'Food Forest Eco Sanctuary'); ?>" required>
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Entity name registered with GST department / Ministry of Corporate Affairs.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">State / Union Territory</label>
+                        <input type="text" name="gst_state_name" class="adm-form-control" value="<?php echo e($s['gst_state_name'] ?? 'Kerala'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Place of business supply (e.g. Kerala).</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">GST State Code</label>
+                        <input type="text" name="gst_state_code" class="adm-form-control" style="font-family: monospace;" value="<?php echo e($s['gst_state_code'] ?? '32'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">Two-digit state numeric code (e.g. 32 for Kerala, 33 for Tamil Nadu, 29 for Karnataka).</small>
+                    </div>
+                </div>
+
+                <!-- Section 2: Multi-Tier Tax Rates Configuration -->
+                <div style="border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 16px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-percent" style="margin-right: 6px;"></i> 2. Multi-Tier GST Tax Rates (%) — Separate Category Billing
+                            </h4>
+                            <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Configure distinct percentage rates for Accommodation, Food &amp; Other services as requested by estate management.</p>
+                        </div>
+                        <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.35); font-size: 11px; padding: 4px 10px;">
+                            <i class="fa-solid fa-arrows-split-up-and-left"></i> Multi-Category Separate Invoicing Active
+                        </span>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 20px; margin-bottom: 28px;">
+
+                    <!-- Rate Card 1: Cottage Stay GST -->
+                    <div style="background: rgba(14, 165, 233, 0.05); border: 1.5px solid rgba(14, 165, 233, 0.35); border-radius: 12px; padding: 20px; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #38BDF8; letter-spacing: 0.5px; text-transform: uppercase;">
+                                <i class="fa-solid fa-house-chimney"></i> CATEGORY A: STAY
+                            </span>
+                            <span class="adm-badge" style="background: rgba(14, 165, 233, 0.15); color: #38BDF8; border: 1px solid rgba(14, 165, 233, 0.3); font-size: 10px;">
+                                Property Stay Bill
+                            </span>
+                        </div>
+                        <h4 style="font-size: 15px; color: #FFFFFF; margin: 0 0 6px;">Cottage / Accommodation GST %</h4>
+                        <p style="font-size: 11.5px; color: var(--adm-text-secondary); margin: 0 0 16px; line-height: 1.4;">
+                            Applied to base villa tariff, extra guest charges &amp; accommodation nights on the Stay Bill.
+                        </p>
+
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <div style="position: relative; flex: 1;">
+                                <input type="number" step="0.01" min="0" max="100" name="gst_rate_cottage" id="rate_cottage_input" class="adm-form-control" style="font-size: 18px; font-weight: 700; text-align: center; color: #38BDF8; padding-right: 32px;" value="<?php echo e($s['gst_rate_cottage'] ?? '12'); ?>" oninput="updateGstSim();" required>
+                                <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #38BDF8; font-weight: 700; font-size: 16px;">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Quick Slabs -->
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+                            <span style="font-size: 10px; color: var(--adm-text-muted); align-self: center;">Quick slabs:</span>
+                            <button type="button" onclick="setRateField('rate_cottage_input', 5);" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #FFF; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer;">5%</button>
+                            <button type="button" onclick="setRateField('rate_cottage_input', 12);" style="background: rgba(14, 165, 233, 0.2); border: 1px solid rgba(14, 165, 233, 0.4); color: #38BDF8; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer; font-weight: 700;">12% (Standard)</button>
+                            <button type="button" onclick="setRateField('rate_cottage_input', 18);" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #FFF; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer;">18%</button>
+                        </div>
+
+                        <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--adm-text-muted); display: flex; justify-content: space-between;">
+                            <span>CGST: <strong id="lbl_cottage_cgst" style="color: #FFF;">6.00%</strong></span>
+                            <span>SGST: <strong id="lbl_cottage_sgst" style="color: #FFF;">6.00%</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Rate Card 2: Food & Dining GST -->
+                    <div style="background: rgba(245, 158, 11, 0.05); border: 1.5px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 20px; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #F59E0B; letter-spacing: 0.5px; text-transform: uppercase;">
+                                <i class="fa-solid fa-utensils"></i> CATEGORY B: DINING
+                            </span>
+                            <span class="adm-badge" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 10px;">
+                                Other Bill (Food)
+                            </span>
+                        </div>
+                        <h4 style="font-size: 15px; color: #FFFFFF; margin: 0 0 6px;">Food &amp; Gastronomy GST %</h4>
+                        <p style="font-size: 11.5px; color: var(--adm-text-secondary); margin: 0 0 16px; line-height: 1.4;">
+                            Applied to restaurant meals, kitchen dining &amp; resident cottage food orders on the Other Bill.
+                        </p>
+
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <div style="position: relative; flex: 1;">
+                                <input type="number" step="0.01" min="0" max="100" name="gst_rate_food" id="rate_food_input" class="adm-form-control" style="font-size: 18px; font-weight: 700; text-align: center; color: #F59E0B; padding-right: 32px;" value="<?php echo e($s['gst_rate_food'] ?? '5'); ?>" oninput="updateGstSim();" required>
+                                <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #F59E0B; font-weight: 700; font-size: 16px;">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Quick Slabs -->
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+                            <span style="font-size: 10px; color: var(--adm-text-muted); align-self: center;">Quick slabs:</span>
+                            <button type="button" onclick="setRateField('rate_food_input', 0);" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #FFF; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer;">0% (Exempt)</button>
+                            <button type="button" onclick="setRateField('rate_food_input', 5);" style="background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); color: #F59E0B; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer; font-weight: 700;">5% (Standard F&amp;B)</button>
+                            <button type="button" onclick="setRateField('rate_food_input', 12);" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #FFF; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer;">12%</button>
+                        </div>
+
+                        <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--adm-text-muted); display: flex; justify-content: space-between;">
+                            <span>CGST: <strong id="lbl_food_cgst" style="color: #FFF;">2.50%</strong></span>
+                            <span>SGST: <strong id="lbl_food_sgst" style="color: #FFF;">2.50%</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Rate Card 3: Other Expenses & Experiences GST -->
+                    <div style="background: rgba(168, 85, 247, 0.05); border: 1.5px solid rgba(168, 85, 247, 0.35); border-radius: 12px; padding: 20px; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #C084FC; letter-spacing: 0.5px; text-transform: uppercase;">
+                                <i class="fa-solid fa-sparkles"></i> CATEGORY C: SERVICES
+                            </span>
+                            <span class="adm-badge" style="background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 10px;">
+                                Other Bill (Extras)
+                            </span>
+                        </div>
+                        <h4 style="font-size: 15px; color: #FFFFFF; margin: 0 0 6px;">Other Expenses &amp; Extras GST %</h4>
+                        <p style="font-size: 11.5px; color: var(--adm-text-secondary); margin: 0 0 16px; line-height: 1.4;">
+                            Applied to curated experiences, plantation treks, campfire &amp; custom extras on the Other Bill.
+                        </p>
+
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <div style="position: relative; flex: 1;">
+                                <input type="number" step="0.01" min="0" max="100" name="gst_rate_other" id="rate_other_input" class="adm-form-control" style="font-size: 18px; font-weight: 700; text-align: center; color: #C084FC; padding-right: 32px;" value="<?php echo e($s['gst_rate_other'] ?? '18'); ?>" oninput="updateGstSim();" required>
+                                <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #C084FC; font-weight: 700; font-size: 16px;">%</span>
+                            </div>
+                        </div>
+
+                        <!-- Quick Slabs -->
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+                            <span style="font-size: 10px; color: var(--adm-text-muted); align-self: center;">Quick slabs:</span>
+                            <button type="button" onclick="setRateField('rate_other_input', 5);" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #FFF; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer;">5%</button>
+                            <button type="button" onclick="setRateField('rate_other_input', 12);" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #FFF; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer;">12%</button>
+                            <button type="button" onclick="setRateField('rate_other_input', 18);" style="background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.4); color: #C084FC; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; cursor: pointer; font-weight: 700;">18% (Standard)</button>
+                        </div>
+
+                        <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--adm-text-muted); display: flex; justify-content: space-between;">
+                            <span>CGST: <strong id="lbl_other_cgst" style="color: #FFF;">9.00%</strong></span>
+                            <span>SGST: <strong id="lbl_other_sgst" style="color: #FFF;">9.00%</strong></span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Section 3: Statutory Service Accounting Codes (SAC / HSN) -->
+                <div style="border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 16px; margin-bottom: 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-barcode" style="margin-right: 6px;"></i> 3. Statutory Service Accounting Codes (SAC / HSN)
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Standard 6-digit SAC codes printed on GST B2B/B2C invoices as required by the Central Board of Indirect Taxes &amp; Customs (CBIC).</p>
+                </div>
+
+                <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 28px;">
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Cottage / Accommodation SAC Code</label>
+                        <input type="text" name="gst_sac_cottage" class="adm-form-control" style="font-family: monospace;" value="<?php echo e($s['gst_sac_cottage'] ?? '996311'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">SAC 996311: Room or unit accommodation services provided by hotels/homestays.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Food &amp; Gastronomy SAC Code</label>
+                        <input type="text" name="gst_sac_food" class="adm-form-control" style="font-family: monospace;" value="<?php echo e($s['gst_sac_food'] ?? '996331'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">SAC 996331: Services provided by restaurants, cafes, and room service.</small>
+                    </div>
+
+                    <div class="adm-form-group">
+                        <label class="adm-form-label">Experiences &amp; Other Extras SAC Code</label>
+                        <input type="text" name="gst_sac_other" class="adm-form-control" style="font-family: monospace;" value="<?php echo e($s['gst_sac_other'] ?? '998555'); ?>">
+                        <small style="color: var(--adm-text-muted); font-size: 11px;">SAC 998555: Tour guide, eco-trek, and recreational farm services.</small>
+                    </div>
+                </div>
+
+                <!-- Section 4: Invoicing Remarks & Legal Terms -->
+                <div style="border-bottom: 1px solid rgba(197, 160, 89, 0.2); padding-bottom: 16px; margin-bottom: 20px;">
+                    <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-file-contract" style="margin-right: 6px;"></i> 4. Statutory Invoice Notes &amp; Legal Terms
+                    </h4>
+                    <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Printed at the foot of all GST Tax Invoices and digital PDF folios.</p>
+                </div>
+
+                <div class="adm-form-group" style="margin-bottom: 28px;">
+                    <label class="adm-form-label">GST Tax Invoice Terms &amp; Conditions</label>
+                    <textarea name="gst_invoice_notes" class="adm-form-control" rows="3" style="font-size: 12px; line-height: 1.5;"><?php echo e($s['gst_invoice_notes'] ?? 'All accommodation, dining and curated farm experiences are subject to applicable GST under CGST/SGST Acts. Invoices generated are valid tax invoices for input tax credit (ITC) claims where valid Buyer GSTIN is furnished.'); ?></textarea>
+                    <small style="color: var(--adm-text-muted); font-size: 11px;">Statutory notes displayed on printed A4 and digital bills.</small>
+                </div>
+
+                <!-- Section 5: Real-time Live GST Simulation Calculator -->
+                <div style="background: linear-gradient(135deg, rgba(16, 31, 21, 0.8) 0%, rgba(9, 20, 14, 0.95) 100%); border: 1.5px solid var(--adm-gold-border); border-radius: 14px; padding: 22px 24px; margin-top: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h4 style="font-family: var(--adm-font-title); font-size: 14px; color: var(--adm-gold); margin: 0 0 4px; letter-spacing: 0.5px;">
+                                <i class="fa-solid fa-calculator" style="margin-right: 6px;"></i> Live Multi-Tier GST Bill Simulator
+                            </h4>
+                            <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 0;">Test how configured percentages calculate taxes across Stay, Dining &amp; Extras:</p>
+                        </div>
+                        <span class="adm-badge gold" style="font-size: 11px; padding: 3px 8px;">
+                            Interactive Preview
+                        </span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px;">
+                        <div>
+                            <label style="font-size: 11px; color: #38BDF8; font-weight: 600; display: block; margin-bottom: 4px;">Sample Villa Stay (₹)</label>
+                            <input type="number" id="sim_stay" value="6500" class="adm-form-control" style="font-weight: 700;" oninput="updateGstSim();">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #F59E0B; font-weight: 600; display: block; margin-bottom: 4px;">Sample Food Order (₹)</label>
+                            <input type="number" id="sim_food" value="1200" class="adm-form-control" style="font-weight: 700;" oninput="updateGstSim();">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #C084FC; font-weight: 600; display: block; margin-bottom: 4px;">Sample Extras / Treks (₹)</label>
+                            <input type="number" id="sim_other" value="800" class="adm-form-control" style="font-weight: 700;" oninput="updateGstSim();">
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.4); border-radius: 10px; padding: 14px 18px; border: 1px solid rgba(255,255,255,0.08);">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; font-size: 12.5px;">
+                            <div>
+                                <span style="color: #94A3B8; font-size: 11px; display: block;">Stay Bill Tax:</span>
+                                <strong style="color: #38BDF8;" id="sim_res_stay">₹780.00 (12%)</strong>
+                                <small style="display: block; color: #64748B; font-size: 10px;" id="sim_res_stay_split">CGST ₹390 + SGST ₹390</small>
+                            </div>
+                            <div>
+                                <span style="color: #94A3B8; font-size: 11px; display: block;">Food GST:</span>
+                                <strong style="color: #F59E0B;" id="sim_res_food">₹60.00 (5%)</strong>
+                                <small style="display: block; color: #64748B; font-size: 10px;" id="sim_res_food_split">CGST ₹30 + SGST ₹30</small>
+                            </div>
+                            <div>
+                                <span style="color: #94A3B8; font-size: 11px; display: block;">Extras GST:</span>
+                                <strong style="color: #C084FC;" id="sim_res_other">₹144.00 (18%)</strong>
+                                <small style="display: block; color: #64748B; font-size: 10px;" id="sim_res_other_split">CGST ₹72 + SGST ₹72</small>
+                            </div>
+                            <div style="border-left: 1px solid rgba(255,255,255,0.1); padding-left: 14px;">
+                                <span style="color: var(--adm-gold); font-size: 11px; display: block; font-weight: 700;">TOTAL GST / TAX:</span>
+                                <strong style="color: #2ecc71; font-size: 15px;" id="sim_res_total_gst">₹984.00</strong>
+                                <small style="display: block; color: #EAEFED; font-size: 11px; margin-top: 2px;">Grand Total: <strong id="sim_res_grand_total">₹9,484.00</strong></small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </form>
+    </div>
+
+    <script>
+    function setRateField(fieldId, val) {
+        var el = document.getElementById(fieldId);
+        if (el) {
+            el.value = val;
+            updateGstSim();
+        }
+    }
+
+    function updateGstSim() {
+        var elCottage = document.getElementById('rate_cottage_input');
+        var elFood = document.getElementById('rate_food_input');
+        var elOther = document.getElementById('rate_other_input');
+        if (!elCottage && !elFood && !elOther) return;
+
+        var rCottage = parseFloat(elCottage ? elCottage.value : 12) || 0;
+        var rFood = parseFloat(elFood ? elFood.value : 5) || 0;
+        var rOther = parseFloat(elOther ? elOther.value : 18) || 0;
+
+        // Update split labels in rate cards
+        if (document.getElementById('lbl_cottage_cgst')) document.getElementById('lbl_cottage_cgst').textContent = (rCottage / 2).toFixed(2) + '%';
+        if (document.getElementById('lbl_cottage_sgst')) document.getElementById('lbl_cottage_sgst').textContent = (rCottage / 2).toFixed(2) + '%';
+        if (document.getElementById('lbl_food_cgst')) document.getElementById('lbl_food_cgst').textContent = (rFood / 2).toFixed(2) + '%';
+        if (document.getElementById('lbl_food_sgst')) document.getElementById('lbl_food_sgst').textContent = (rFood / 2).toFixed(2) + '%';
+        if (document.getElementById('lbl_other_cgst')) document.getElementById('lbl_other_cgst').textContent = (rOther / 2).toFixed(2) + '%';
+        if (document.getElementById('lbl_other_sgst')) document.getElementById('lbl_other_sgst').textContent = (rOther / 2).toFixed(2) + '%';
+
+        // Simulator calculation
+        var vStay = parseFloat(document.getElementById('sim_stay') ? document.getElementById('sim_stay').value : 6500) || 0;
+        var vFood = parseFloat(document.getElementById('sim_food') ? document.getElementById('sim_food').value : 1200) || 0;
+        var vOther = parseFloat(document.getElementById('sim_other') ? document.getElementById('sim_other').value : 800) || 0;
+
+        var gstStay = (vStay * (rCottage / 100));
+        var gstFood = (vFood * (rFood / 100));
+        var gstOther = (vOther * (rOther / 100));
+        var totalGst = gstStay + gstFood + gstOther;
+        var grandTotal = vStay + vFood + vOther + totalGst;
+
+        if (document.getElementById('sim_res_stay')) document.getElementById('sim_res_stay').textContent = '₹' + gstStay.toFixed(2) + ' (' + rCottage + '%)';
+        if (document.getElementById('sim_res_stay_split')) document.getElementById('sim_res_stay_split').textContent = 'CGST ₹' + (gstStay / 2).toFixed(2) + ' + SGST ₹' + (gstStay / 2).toFixed(2);
+
+        if (document.getElementById('sim_res_food')) document.getElementById('sim_res_food').textContent = '₹' + gstFood.toFixed(2) + ' (' + rFood + '%)';
+        if (document.getElementById('sim_res_food_split')) document.getElementById('sim_res_food_split').textContent = 'CGST ₹' + (gstFood / 2).toFixed(2) + ' + SGST ₹' + (gstFood / 2).toFixed(2);
+
+        if (document.getElementById('sim_res_other')) document.getElementById('sim_res_other').textContent = '₹' + gstOther.toFixed(2) + ' (' + rOther + '%)';
+        if (document.getElementById('sim_res_other_split')) document.getElementById('sim_res_other_split').textContent = 'CGST ₹' + (gstOther / 2).toFixed(2) + ' + SGST ₹' + (gstOther / 2).toFixed(2);
+
+        if (document.getElementById('sim_res_total_gst')) document.getElementById('sim_res_total_gst').textContent = '₹' + totalGst.toFixed(2);
+        if (document.getElementById('sim_res_grand_total')) document.getElementById('sim_res_grand_total').textContent = '₹' + grandTotal.toFixed(2);
+    }
+    document.addEventListener('DOMContentLoaded', updateGstSim);
+    </script>
+    <?php endif; ?>
     </div> <!-- End .adm-settings-panels-container -->
     </div> <!-- End .adm-editor-col -->
 
@@ -8098,6 +8751,764 @@ function deleteStayCategory(catKey, catLabel, villaCount) {
         form.submit();
     }
 }
+
+// -------------------------------------------------------------------------
+// Food Forest — Suite Photo Gallery Management Functions
+// Handles Bulk Upload, Portrait / Landscape detection, Sequencing & Ordering
+// -------------------------------------------------------------------------
+function detectImgOrientation(img) {
+    if (!img || !img.parentNode) return;
+    var badge = img.parentNode.querySelector('.room-photo-orientation-badge');
+    if (!badge) return;
+    var w = img.naturalWidth || img.width || 0;
+    var h = img.naturalHeight || img.height || 0;
+    if (h > w && h > 0) {
+        badge.innerText = 'PORTRAIT';
+        badge.style.color = '#c084fc';
+        badge.style.borderColor = 'rgba(192, 132, 252, 0.4)';
+        badge.style.background = 'rgba(168, 85, 247, 0.2)';
+    } else if (w === h && w > 0) {
+        badge.innerText = 'SQUARE';
+        badge.style.color = '#38bdf8';
+        badge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+        badge.style.background = 'rgba(56, 189, 248, 0.2)';
+    } else {
+        badge.innerText = 'LANDSCAPE';
+        badge.style.color = '#2ecc71';
+        badge.style.borderColor = 'rgba(46, 204, 113, 0.4)';
+        badge.style.background = 'rgba(46, 204, 113, 0.2)';
+    }
+}
+
+function moveRoomPhotoCard(btn, dir) {
+    var card = btn.closest('.adm-room-photo-card');
+    if (!card) return;
+    var container = card.closest('.adm-room-photos-list');
+    if (!container) return;
+    
+    if (dir === -1) {
+        var prev = card.previousElementSibling;
+        if (prev && prev.classList.contains('adm-room-photo-card')) {
+            container.insertBefore(card, prev);
+            highlightMovedCard(card);
+        }
+    } else if (dir === 1) {
+        var next = card.nextElementSibling;
+        if (next && next.classList.contains('adm-room-photo-card')) {
+            container.insertBefore(next, card);
+            highlightMovedCard(card);
+        }
+    }
+    updateRoomPhotoIndices(container);
+}
+
+function highlightMovedCard(card) {
+    card.style.transition = 'all 0.3s ease';
+    card.style.borderColor = 'var(--adm-gold)';
+    card.style.boxShadow = '0 0 14px rgba(197, 160, 89, 0.45)';
+    setTimeout(function() {
+        card.style.borderColor = 'rgba(255,255,255,0.08)';
+        card.style.boxShadow = 'none';
+    }, 600);
+}
+
+function removeRoomPhotoCard(btn) {
+    var card = btn.closest('.adm-room-photo-card');
+    if (!card) return;
+    var container = card.closest('.adm-room-photos-list');
+    if (!container) return;
+    
+    if (confirm('Remove this photo from the suite gallery?')) {
+        card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.95)';
+        setTimeout(function() {
+            card.remove();
+            updateRoomPhotoIndices(container);
+        }, 200);
+    }
+}
+
+function updateRoomPhotoIndices(container) {
+    var cards = container.querySelectorAll('.adm-room-photo-card');
+    var roomId = container.id.replace('room_photos_list_', '');
+    var countBadge = document.getElementById('room_photo_count_badge_' + roomId);
+    if (countBadge) {
+        countBadge.innerText = cards.length + ' Photos';
+    }
+    cards.forEach(function(c, i) {
+        var orderBadge = c.querySelector('.adm-room-photo-order-badge');
+        if (orderBadge) {
+            orderBadge.innerText = (i + 1);
+        }
+    });
+
+    var emptyState = container.querySelector('.adm-no-photos-empty');
+    if (cards.length === 0) {
+        if (!emptyState) {
+            var div = document.createElement('div');
+            div.className = 'adm-no-photos-empty';
+            div.style = 'text-align: center; padding: 22px 16px; background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; color: var(--adm-text-secondary); font-size: 12px;';
+            div.innerHTML = '<i class="fa-regular fa-images" style="font-size: 26px; color: var(--adm-gold); display: block; margin-bottom: 6px; opacity: 0.6;"></i>No gallery photos added yet. Click <strong>+ Bulk Upload Photos</strong> above to add portrait or landscape suite images.';
+            container.appendChild(div);
+        }
+    } else if (emptyState) {
+        emptyState.remove();
+    }
+}
+
+function handleRoomPhotosBulkSelect(input, roomId) {
+    if (!input.files || input.files.length === 0) return;
+    
+    var files = input.files;
+    var count = files.length;
+    var statusBanner = document.getElementById('room_upload_status_' + roomId);
+    var container = document.getElementById('room_photos_list_' + roomId);
+    
+    if (statusBanner) {
+        statusBanner.style.display = 'flex';
+        var txt = statusBanner.querySelector('.status-text');
+        if (txt) txt.innerText = 'Uploading & auto-compressing ' + count + ' photo(s)... Please wait.';
+    }
+    
+    var formData = new FormData();
+    for (var i = 0; i < files.length; i++) {
+        formData.append('room_photos[]', files[i]);
+    }
+    
+    fetch('api_upload_room_photos.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (statusBanner) statusBanner.style.display = 'none';
+        if (!data.success) {
+            alert('Upload note: ' + (data.error || 'Failed to process photos'));
+            return;
+        }
+        
+        var emptyState = container.querySelector('.adm-no-photos-empty');
+        if (emptyState) emptyState.remove();
+        
+        (data.photos || []).forEach(function(photo) {
+            var card = createRoomPhotoCardElement(roomId, photo);
+            container.appendChild(card);
+        });
+        
+        updateRoomPhotoIndices(container);
+        input.value = '';
+    })
+    .catch(function(err) {
+        if (statusBanner) statusBanner.style.display = 'none';
+        console.error('Upload error:', err);
+        alert('Could not upload photos. Please check server permissions.');
+    });
+}
+
+function createRoomPhotoCardElement(roomId, photo) {
+    var card = document.createElement('div');
+    card.className = 'adm-room-photo-card';
+    card.dataset.roomId = roomId;
+    card.style = 'background: rgba(6, 17, 10, 0.85); border: 1px solid rgba(46, 204, 113, 0.4); border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;';
+    
+    var orientationUpper = (photo.orientation || 'landscape').toUpperCase();
+    var badgeColor = orientationUpper === 'PORTRAIT' ? '#c084fc' : (orientationUpper === 'SQUARE' ? '#38bdf8' : '#2ecc71');
+    var badgeBg = orientationUpper === 'PORTRAIT' ? 'rgba(168, 85, 247, 0.2)' : (orientationUpper === 'SQUARE' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(46, 204, 113, 0.2)');
+    var badgeBorder = orientationUpper === 'PORTRAIT' ? 'rgba(192, 132, 252, 0.4)' : (orientationUpper === 'SQUARE' ? 'rgba(56, 189, 248, 0.4)' : 'rgba(46, 204, 113, 0.4)');
+    
+    var escapedTitle = (photo.title || '').replace(/"/g, '&quot;');
+    var escapedDesc = (photo.description || '').replace(/"/g, '&quot;');
+    var cleanFilename = photo.filename || (photo.url ? photo.url.split('/').pop() : 'photo.jpg');
+
+    card.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
+            <span class="adm-room-photo-order-badge" style="background: var(--adm-gold); color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(197, 160, 89, 0.3);">
+                #
+            </span>
+            <span style="font-size: 9px; color: var(--adm-text-secondary); font-weight: 700; text-transform: uppercase;">ORDER</span>
+        </div>
+        <div style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid rgba(197, 160, 89, 0.3); flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+            <img src="../${photo.url}" alt="Suite Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
+            <a href="../${photo.url}" target="_blank" title="View Full High-Res Photo" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            </a>
+            <span class="room-photo-orientation-badge" style="position: absolute; bottom: 4px; left: 4px; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px;">
+                ${orientationUpper}
+            </span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold);">
+                        <i class="fa-solid fa-heading"></i> Photo Main Heading / Title
+                    </span>
+                    <span style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
+                        ${cleanFilename}
+                    </span>
+                </div>
+                <input type="text" name="room_photo_title[${roomId}][]" class="adm-form-control" style="font-size: 12px; padding: 7px 10px;" value="${escapedTitle}" placeholder="e.g. Master Bedroom & Valley View Balcony">
+            </div>
+            <div>
+                <span style="font-size: 11px; font-weight: 700; color: #A1B5A9; display: block; margin-bottom: 3px;">
+                    <i class="fa-solid fa-align-left"></i> Photo Story / Description
+                </span>
+                <textarea name="room_photo_desc[${roomId}][]" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with floor-to-ceiling panoramic glass.">${escapedDesc}</textarea>
+            </div>
+            <input type="hidden" name="room_photo_url[${roomId}][]" value="${photo.url}">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+            <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, -1);" title="Move Up (Display earlier to guests)">
+                <i class="fa-solid fa-arrow-up"></i>
+            </button>
+            <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, 1);" title="Move Down (Display later to guests)">
+                <i class="fa-solid fa-arrow-down"></i>
+            </button>
+            <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this);" title="Delete this photo from gallery">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    `;
+    return card;
+}
+
+/* =========================================================================
+   16:9 Walkthrough Cropper & 360 Panorama Framing JavaScript Handlers
+   ========================================================================= */
+var activeCropperInstance = null;
+var activeCropContext = null;
+
+function openWalkthroughCropper(input, prevId, infoId) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        initWalkthroughCropperWithUrl(e.target.result, {
+            input: input,
+            prevId: prevId,
+            infoId: infoId,
+            filename: file.name,
+            mime: file.type || 'image/jpeg'
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
+function openWalkthroughCropperFromExisting(prevId, inputId, infoId) {
+    var prevImg = document.getElementById(prevId);
+    if (!prevImg || !prevImg.src) {
+        alert('No photo found to frame.');
+        return;
+    }
+    var inputEl = document.getElementById(inputId);
+    initWalkthroughCropperWithUrl(prevImg.src, {
+        input: inputEl,
+        prevId: prevId,
+        infoId: infoId,
+        filename: 'exterior_16x9.jpg',
+        mime: 'image/jpeg'
+    });
+}
+
+function initWalkthroughCropperWithUrl(imgUrl, ctx) {
+    activeCropContext = ctx;
+    var modal = document.getElementById('walkthrough-crop-modal');
+    var targetImg = document.getElementById('cropper-target-img');
+    if (!modal || !targetImg) return;
+
+    if (activeCropperInstance) {
+        activeCropperInstance.destroy();
+        activeCropperInstance = null;
+    }
+
+    targetImg.src = imgUrl;
+    modal.style.display = 'flex';
+
+    targetImg.onload = function() {
+        if (typeof Cropper === 'undefined') {
+            console.warn('Cropper.js not loaded');
+            return;
+        }
+        if (activeCropperInstance) activeCropperInstance.destroy();
+
+        activeCropperInstance = new Cropper(targetImg, {
+            aspectRatio: 16 / 9,
+            viewMode: 1,
+            autoCropArea: 0.95,
+            responsive: true,
+            background: false,
+            zoomable: true,
+            movable: true,
+            rotatable: true,
+            scalable: false,
+            crop: function(e) {
+                var dims = document.getElementById('cropper-dims-indicator');
+                if (dims) {
+                    var w = Math.round(e.detail.width);
+                    var h = Math.round(e.detail.height);
+                    var ratio = (w / h).toFixed(2);
+                    dims.innerText = w + ' × ' + h + ' px (' + (ratio === '1.78' ? '16:9 Widescreen' : ratio + ':1') + ')';
+                }
+            }
+        });
+    };
+}
+
+function setCropperRatio(ratio, btn) {
+    if (activeCropperInstance) {
+        activeCropperInstance.setAspectRatio(ratio);
+    }
+    document.querySelectorAll('.adm-crop-ratio-btn').forEach(function(b) {
+        b.classList.remove('active');
+    });
+    if (btn) btn.classList.add('active');
+}
+
+function closeWalkthroughCropper() {
+    var modal = document.getElementById('walkthrough-crop-modal');
+    if (modal) modal.style.display = 'none';
+    if (activeCropperInstance) {
+        activeCropperInstance.destroy();
+        activeCropperInstance = null;
+    }
+    activeCropContext = null;
+}
+
+function confirmWalkthroughCrop() {
+    if (!activeCropperInstance || !activeCropContext) {
+        closeWalkthroughCropper();
+        return;
+    }
+
+    var canvas = activeCropperInstance.getCroppedCanvas({
+        maxWidth: 2560,
+        maxHeight: 1440,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+    });
+
+    if (!canvas) {
+        alert('Could not render cropped frame. Please try again.');
+        return;
+    }
+
+    canvas.toBlob(function(blob) {
+        if (!blob) {
+            closeWalkthroughCropper();
+            return;
+        }
+
+        var baseName = (activeCropContext.filename || 'exterior.jpg').replace(/\.[^/.]+$/, "");
+        var newFilename = baseName + '_16x9.jpg';
+        var croppedFile = new File([blob], newFilename, { type: 'image/jpeg' });
+
+        if (activeCropContext.input) {
+            try {
+                var dt = new DataTransfer();
+                dt.items.add(croppedFile);
+                activeCropContext.input.files = dt.files;
+            } catch (err) {
+                console.warn('DataTransfer not supported:', err);
+            }
+        }
+
+        if (activeCropContext.prevId) {
+            var prevEl = document.getElementById(activeCropContext.prevId);
+            if (prevEl) {
+                prevEl.src = canvas.toDataURL('image/jpeg', 0.92);
+            }
+        }
+
+        if (activeCropContext.infoId) {
+            var infoEl = document.getElementById(activeCropContext.infoId);
+            if (infoEl) {
+                var sizeKb = Math.round(croppedFile.size / 1024);
+                infoEl.innerHTML = '<i class="fa-solid fa-check" style="color: #2ecc71;"></i> Framed 16:9 (' + canvas.width + '×' + canvas.height + ', ' + sizeKb + 'KB)';
+                infoEl.style.display = 'inline-block';
+            }
+        }
+
+        closeWalkthroughCropper();
+    }, 'image/jpeg', 0.92);
+}
+
+/* =========================================================================
+   360° Panorama Framing & Height Alignment Modal Handlers
+   ========================================================================= */
+var activePanoContext = null;
+var panoSourceImg = null;
+var panoThree = {
+    renderer: null,
+    scene: null,
+    camera: null,
+    sphere: null,
+    texture: null,
+    animId: null,
+    isDragging: false,
+    prevMouseX: 0,
+    prevMouseY: 0,
+    rotX: 0,
+    rotY: 0
+};
+
+function openPano360FramingModal(input, prevId, infoId) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        initPano360ModalWithImage(e.target.result, {
+            input: input,
+            prevId: prevId,
+            infoId: infoId,
+            filename: file.name
+        });
+    };
+    reader.readAsDataURL(file);
+}
+
+function openPano360FramingFromExisting(prevId, inputId, infoId) {
+    var prevImg = document.getElementById(prevId);
+    if (!prevImg || !prevImg.src) {
+        alert('No 360 panorama image found to adjust.');
+        return;
+    }
+    var inputEl = document.getElementById(inputId);
+    initPano360ModalWithImage(prevImg.src, {
+        input: inputEl,
+        prevId: prevId,
+        infoId: infoId,
+        filename: 'interior_360_pano.jpg'
+    });
+}
+
+function initPano360ModalWithImage(srcUrl, ctx) {
+    activePanoContext = ctx;
+    var modal = document.getElementById('pano360-framing-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    var ySlider = document.getElementById('p360-yshift-slider');
+    if (ySlider) ySlider.value = 0;
+    var fovSlider = document.getElementById('p360-fov-slider');
+    if (fovSlider) fovSlider.value = 85;
+    var fovLabel = document.getElementById('p360-fov-label');
+    if (fovLabel) fovLabel.innerText = '85° (Ultra-Wide)';
+    var meta = document.getElementById('p360-source-meta');
+    if (meta) meta.innerText = 'Loading image...';
+
+    panoSourceImg = new Image();
+    panoSourceImg.crossOrigin = 'anonymous';
+    panoSourceImg.onload = function() {
+        var w = panoSourceImg.naturalWidth || panoSourceImg.width;
+        var h = panoSourceImg.naturalHeight || panoSourceImg.height;
+        var aspect = (w / h).toFixed(2);
+        if (meta) {
+            meta.innerText = w + ' × ' + h + ' px (Aspect ' + aspect + ':1' + (Math.abs(aspect - 2.0) < 0.1 ? ' ~ Perfect 2:1 Equirectangular' : ' • Needs Framing') + ')';
+        }
+
+        initPano360ThreeViewer();
+        updatePano360Render();
+    };
+    panoSourceImg.src = srcUrl;
+}
+
+function initPano360ThreeViewer() {
+    var canvas = document.getElementById('p360-sphere-canvas');
+    if (!canvas || typeof THREE === 'undefined') return;
+
+    var container = canvas.parentElement;
+    var width = container.clientWidth || 380;
+    var height = container.clientHeight || 285;
+
+    if (!panoThree.renderer) {
+        panoThree.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+        panoThree.renderer.setSize(width, height);
+        panoThree.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+        panoThree.scene = new THREE.Scene();
+        panoThree.camera = new THREE.PerspectiveCamera(85, width / height, 0.1, 500);
+        panoThree.camera.position.set(0, 0, 0);
+
+        var geom = new THREE.SphereGeometry(100, 48, 32);
+        geom.scale(-1, 1, 1);
+        panoThree.material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        panoThree.sphere = new THREE.Mesh(geom, panoThree.material);
+        panoThree.scene.add(panoThree.sphere);
+
+        function onPointerDown(e) {
+            panoThree.isDragging = true;
+            panoThree.prevMouseX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+            panoThree.prevMouseY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+            canvas.style.cursor = 'grabbing';
+        }
+        function onPointerMove(e) {
+            if (!panoThree.isDragging) return;
+            var clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+            var clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+            var deltaX = clientX - panoThree.prevMouseX;
+            var deltaY = clientY - panoThree.prevMouseY;
+            panoThree.prevMouseX = clientX;
+            panoThree.prevMouseY = clientY;
+
+            panoThree.rotY -= deltaX * 0.005;
+            panoThree.rotX -= deltaY * 0.005;
+            panoThree.rotX = Math.max(-1.45, Math.min(1.45, panoThree.rotX));
+        }
+        function onPointerUp() {
+            panoThree.isDragging = false;
+            canvas.style.cursor = 'grab';
+        }
+
+        canvas.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', onPointerUp);
+
+        canvas.addEventListener('touchstart', onPointerDown, { passive: true });
+        window.addEventListener('touchmove', onPointerMove, { passive: true });
+        window.addEventListener('touchend', onPointerUp);
+    } else {
+        panoThree.renderer.setSize(width, height);
+        panoThree.camera.aspect = width / height;
+        panoThree.camera.updateProjectionMatrix();
+    }
+
+    panoThree.rotX = 0;
+    panoThree.rotY = 0;
+
+    if (panoThree.animId) cancelAnimationFrame(panoThree.animId);
+
+    function animate() {
+        if (!document.getElementById('pano360-framing-modal') || document.getElementById('pano360-framing-modal').style.display === 'none') {
+            return;
+        }
+        panoThree.animId = requestAnimationFrame(animate);
+
+        panoThree.camera.rotation.order = 'YXZ';
+        panoThree.camera.rotation.y = panoThree.rotY;
+        panoThree.camera.rotation.x = panoThree.rotX;
+
+        panoThree.renderer.render(panoThree.scene, panoThree.camera);
+    }
+    animate();
+}
+
+function updatePano360FOV(val) {
+    var fov = parseFloat(val) || 85;
+    if (panoThree.camera) {
+        panoThree.camera.fov = fov;
+        panoThree.camera.updateProjectionMatrix();
+    }
+    var label = document.getElementById('p360-fov-label');
+    if (label) {
+        label.innerText = fov + '° (' + (fov >= 85 ? 'Ultra-Wide' : fov >= 75 ? 'Wide' : 'Standard') + ')';
+    }
+}
+
+function resetPano360Viewer() {
+    panoThree.rotX = 0;
+    panoThree.rotY = 0;
+    updatePano360FOV(85);
+    var slider = document.getElementById('p360-fov-slider');
+    if (slider) slider.value = 85;
+}
+
+function updatePano360Render() {
+    if (!panoSourceImg) return;
+    var canvas = document.getElementById('p360-preview-canvas');
+    if (!canvas) return;
+
+    var ctx = canvas.getContext('2d');
+    var targetW = 1024;
+    var targetH = 512;
+    canvas.width = targetW;
+    canvas.height = targetH;
+
+    var fitModeInput = document.querySelector('input[name="p360_fit_mode"]:checked');
+    var fitMode = fitModeInput ? fitModeInput.value : 'preserve_full';
+    var yShiftInput = document.getElementById('p360-yshift-slider');
+    var yShiftPercent = yShiftInput ? (parseInt(yShiftInput.value, 10) || 0) : 0;
+
+    var shiftLabel = document.getElementById('p360-yshift-label');
+    if (shiftLabel) {
+        shiftLabel.innerText = yShiftPercent === 0 ? '0% (Centered)' : (yShiftPercent > 0 ? '+' + yShiftPercent + '% (Down/Ceiling)' : yShiftPercent + '% (Up/Floor)');
+    }
+
+    var imgW = panoSourceImg.naturalWidth || panoSourceImg.width;
+    var imgH = panoSourceImg.naturalHeight || panoSourceImg.height;
+
+    ctx.fillStyle = '#060E08';
+    ctx.fillRect(0, 0, targetW, targetH);
+
+    if (fitMode === 'stretch_fit') {
+        var drawY = (yShiftPercent / 100) * targetH;
+        ctx.drawImage(panoSourceImg, 0, drawY, targetW, targetH);
+    } else {
+        var scale = targetW / imgW;
+        var drawW = targetW;
+        var drawH = imgH * scale;
+
+        var centerY = (targetH - drawH) / 2;
+        var offsetY = (yShiftPercent / 100) * (targetH * 0.4);
+        var finalY = centerY + offsetY;
+
+        var tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 1;
+        tempCanvas.height = 2;
+        var tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(panoSourceImg, 0, 0, 1, 2);
+        var topColorData = tempCtx.getImageData(0, 0, 1, 1).data;
+        var botColorData = tempCtx.getImageData(0, 1, 1, 1).data;
+        var topRgba = 'rgba(' + topColorData[0] + ',' + topColorData[1] + ',' + topColorData[2] + ', 0.95)';
+        var botRgba = 'rgba(' + botColorData[0] + ',' + botColorData[1] + ',' + botColorData[2] + ', 0.95)';
+
+        if (finalY > 0) {
+            var gradTop = ctx.createLinearGradient(0, 0, 0, finalY);
+            gradTop.addColorStop(0, '#0a150e');
+            gradTop.addColorStop(1, topRgba);
+            ctx.fillStyle = gradTop;
+            ctx.fillRect(0, 0, targetW, finalY + 2);
+        }
+
+        var imgBottom = finalY + drawH;
+        if (imgBottom < targetH) {
+            var gradBot = ctx.createLinearGradient(0, imgBottom - 2, 0, targetH);
+            gradBot.addColorStop(0, botRgba);
+            gradBot.addColorStop(1, '#050a07');
+            ctx.fillStyle = gradBot;
+            ctx.fillRect(0, imgBottom - 2, targetW, targetH - imgBottom + 2);
+        }
+
+        ctx.drawImage(panoSourceImg, 0, finalY, drawW, drawH);
+    }
+
+    if (panoThree.sphere && typeof THREE !== 'undefined') {
+        if (!panoThree.texture) {
+            panoThree.texture = new THREE.CanvasTexture(canvas);
+            panoThree.material.map = panoThree.texture;
+            panoThree.material.needsUpdate = true;
+        } else {
+            panoThree.texture.needsUpdate = true;
+        }
+    }
+}
+
+function closePano360Modal() {
+    var modal = document.getElementById('pano360-framing-modal');
+    if (modal) modal.style.display = 'none';
+    if (panoThree.animId) {
+        cancelAnimationFrame(panoThree.animId);
+        panoThree.animId = null;
+    }
+    activePanoContext = null;
+    panoSourceImg = null;
+}
+
+function confirmPano360Crop() {
+    if (!panoSourceImg || !activePanoContext) {
+        closePano360Modal();
+        return;
+    }
+
+    var masterW = Math.max(2048, Math.min(4096, (panoSourceImg.naturalWidth || panoSourceImg.width || 2048)));
+    var masterH = Math.round(masterW / 2);
+
+    var exportCanvas = document.createElement('canvas');
+    exportCanvas.width = masterW;
+    exportCanvas.height = masterH;
+    var ctx = exportCanvas.getContext('2d');
+
+    var fitModeInput = document.querySelector('input[name="p360_fit_mode"]:checked');
+    var fitMode = fitModeInput ? fitModeInput.value : 'preserve_full';
+    var yShiftInput = document.getElementById('p360-yshift-slider');
+    var yShiftPercent = yShiftInput ? (parseInt(yShiftInput.value, 10) || 0) : 0;
+
+    var imgW = panoSourceImg.naturalWidth || panoSourceImg.width;
+    var imgH = panoSourceImg.naturalHeight || panoSourceImg.height;
+
+    ctx.fillStyle = '#060E08';
+    ctx.fillRect(0, 0, masterW, masterH);
+
+    if (fitMode === 'stretch_fit') {
+        var drawY = (yShiftPercent / 100) * masterH;
+        ctx.drawImage(panoSourceImg, 0, drawY, masterW, masterH);
+    } else {
+        var scale = masterW / imgW;
+        var drawW = masterW;
+        var drawH = imgH * scale;
+        var centerY = (masterH - drawH) / 2;
+        var offsetY = (yShiftPercent / 100) * (masterH * 0.4);
+        var finalY = centerY + offsetY;
+
+        var tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 1;
+        tempCanvas.height = 2;
+        var tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(panoSourceImg, 0, 0, 1, 2);
+        var topColorData = tempCtx.getImageData(0, 0, 1, 1).data;
+        var botColorData = tempCtx.getImageData(0, 1, 1, 1).data;
+        var topRgba = 'rgba(' + topColorData[0] + ',' + topColorData[1] + ',' + topColorData[2] + ', 0.95)';
+        var botRgba = 'rgba(' + botColorData[0] + ',' + botColorData[1] + ',' + botColorData[2] + ', 0.95)';
+
+        if (finalY > 0) {
+            var gradTop = ctx.createLinearGradient(0, 0, 0, finalY);
+            gradTop.addColorStop(0, '#0a150e');
+            gradTop.addColorStop(1, topRgba);
+            ctx.fillStyle = gradTop;
+            ctx.fillRect(0, 0, masterW, finalY + 4);
+        }
+
+        var imgBottom = finalY + drawH;
+        if (imgBottom < masterH) {
+            var gradBot = ctx.createLinearGradient(0, imgBottom - 4, 0, masterH);
+            gradBot.addColorStop(0, botRgba);
+            gradBot.addColorStop(1, '#050a07');
+            ctx.fillStyle = gradBot;
+            ctx.fillRect(0, imgBottom - 4, masterW, masterH - imgBottom + 4);
+        }
+
+        ctx.drawImage(panoSourceImg, 0, finalY, drawW, drawH);
+    }
+
+    exportCanvas.toBlob(function(blob) {
+        if (!blob) {
+            closePano360Modal();
+            return;
+        }
+
+        var baseName = (activePanoContext.filename || 'interior_pano.jpg').replace(/\.[^/.]+$/, "");
+        var newFilename = baseName + '_framed2x1.jpg';
+        var framedFile = new File([blob], newFilename, { type: 'image/jpeg' });
+
+        if (activePanoContext.input) {
+            try {
+                var dt = new DataTransfer();
+                dt.items.add(framedFile);
+                activePanoContext.input.files = dt.files;
+            } catch (err) {
+                console.warn('DataTransfer not supported:', err);
+            }
+        }
+
+        if (activePanoContext.prevId) {
+            var prevEl = document.getElementById(activePanoContext.prevId);
+            if (prevEl) {
+                prevEl.src = exportCanvas.toDataURL('image/jpeg', 0.9);
+            }
+        }
+
+        if (activePanoContext.infoId) {
+            var infoEl = document.getElementById(activePanoContext.infoId);
+            if (infoEl) {
+                var sizeKb = Math.round(framedFile.size / 1024);
+                infoEl.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #2ecc71;"></i> 2:1 Framed (' + masterW + '×' + masterH + ', ' + sizeKb + 'KB)';
+                infoEl.style.display = 'inline-block';
+            }
+        }
+
+        closePano360Modal();
+    }, 'image/jpeg', 0.92);
+}
+
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

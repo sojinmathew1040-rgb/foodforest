@@ -1,19 +1,61 @@
 <?php
 require_once __DIR__ . '/../admin/includes/db.php';
+
+// Check if 360 Walkthrough Tour is enabled in Estate Settings
+if (function_exists('get_setting') && get_setting('walkthrough_360_enabled', '1') === '0') {
+    return; // Walkthrough disabled by administrator - hide section completely from homepage
+}
+
 $rooms_list = get_all_rooms();
 $treehouse = null;
 $mudhouse = null;
 
-foreach ($rooms_list as $r) {
-    $stay_t = $r['stay_type'] ?? '';
-    $slug = $r['slug'] ?? '';
-    $title = $r['title'] ?? '';
+// Check if specific rooms are assigned in Estate Settings for Walkthrough
+$wh_room_id = (int)get_setting('walkthrough_woodhouse_room_id', 0);
+$mh_room_id = (int)get_setting('walkthrough_mudhouse_room_id', 0);
 
-    if ($stay_t === 'treehouse' || stripos($slug, 'tree') !== false || stripos($title, 'tree') !== false) {
-        if (!$treehouse) $treehouse = $r;
+if ($wh_room_id > 0) {
+    foreach ($rooms_list as $r) {
+        if ((int)$r['id'] === $wh_room_id) {
+            $treehouse = $r;
+            break;
+        }
     }
-    if ($stay_t === 'mudhouse' || stripos($slug, 'mud') !== false || stripos($title, 'mud') !== false) {
-        if (!$mudhouse) $mudhouse = $r;
+}
+
+if ($mh_room_id > 0) {
+    foreach ($rooms_list as $r) {
+        if ((int)$r['id'] === $mh_room_id) {
+            $mudhouse = $r;
+            break;
+        }
+    }
+}
+
+// Fallback search by stay_type or title if not explicitly assigned
+if (!$treehouse) {
+    foreach ($rooms_list as $r) {
+        $stay_t = $r['stay_type'] ?? '';
+        $slug = $r['slug'] ?? '';
+        $title = $r['title'] ?? '';
+
+        if ($stay_t === 'treehouse' || stripos($slug, 'tree') !== false || stripos($title, 'tree') !== false || stripos($title, 'wood') !== false) {
+            $treehouse = $r;
+            break;
+        }
+    }
+}
+
+if (!$mudhouse) {
+    foreach ($rooms_list as $r) {
+        $stay_t = $r['stay_type'] ?? '';
+        $slug = $r['slug'] ?? '';
+        $title = $r['title'] ?? '';
+
+        if ($stay_t === 'mudhouse' || stripos($slug, 'mud') !== false || stripos($title, 'mud') !== false) {
+            $mudhouse = $r;
+            break;
+        }
     }
 }
 
@@ -50,6 +92,25 @@ if (!$mudhouse) {
         'image_url' => 'assets/images/mudhouse_exterior.png',
         'interior_360_url' => 'assets/images/mudhouse_360_pano.jpg'
     ];
+}
+
+// Apply custom 360 panorama or cover photo if saved in Estate Settings
+$custom_wh_pano = get_setting('walkthrough_woodhouse_pano', '');
+if (!empty($custom_wh_pano)) {
+    $treehouse['interior_360_url'] = $custom_wh_pano;
+}
+$custom_wh_cover = get_setting('walkthrough_woodhouse_cover', '');
+if (!empty($custom_wh_cover)) {
+    $treehouse['image_url'] = $custom_wh_cover;
+}
+
+$custom_mh_pano = get_setting('walkthrough_mudhouse_pano', '');
+if (!empty($custom_mh_pano)) {
+    $mudhouse['interior_360_url'] = $custom_mh_pano;
+}
+$custom_mh_cover = get_setting('walkthrough_mudhouse_cover', '');
+if (!empty($custom_mh_cover)) {
+    $mudhouse['image_url'] = $custom_mh_cover;
 }
 
 // Determine default active stay
@@ -114,6 +175,20 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
         <div class="mobile-tour-hint font-sans" id="mobile-tour-hint">
             <span class="hint-icon"><i class="fa-solid fa-arrows-up-down-left-right"></i></span>
             <span>Drag around to explore 360°</span>
+        </div>
+
+        <!-- 360° Immersive Quick Controls (Wide-Angle / Zoom / Reset) -->
+        <div class="tour-quick-controls font-sans" id="tour-quick-controls" style="opacity: 0; pointer-events: none; transition: opacity 0.4s ease;">
+            <button type="button" class="tour-ctrl-btn" id="tour-btn-zoom-out" title="Ultra-Wide Angle / Zoom Out (Full Height View)" aria-label="Ultra-Wide Angle">
+                <i class="fa-solid fa-magnifying-glass-minus"></i>
+                <span class="tour-ctrl-label">WIDE</span>
+            </button>
+            <button type="button" class="tour-ctrl-btn" id="tour-btn-zoom-in" title="Zoom In on Details" aria-label="Zoom In">
+                <i class="fa-solid fa-magnifying-glass-plus"></i>
+            </button>
+            <button type="button" class="tour-ctrl-btn" id="tour-btn-reset-view" title="Reset to Center Eye-Level" aria-label="Reset View">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
         </div>
 
         <!-- Stage 1: Exterior Front View (Visible initially) -->
