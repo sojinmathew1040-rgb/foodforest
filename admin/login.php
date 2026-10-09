@@ -142,12 +142,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </button>
         </form>
 
-        <!-- Default Credentials Quick Helper -->
-        <div class="adm-login-hint">
-            <i class="fa-solid fa-key" style="color: var(--adm-gold); margin-right: 4px;"></i>
-            Default Credentials: User: <code>admin</code> • Key: <code>admin123</code>
-        </div>
-
         <div class="adm-login-footer-links">
             <a href="../index.php"><i class="fa-solid fa-arrow-left"></i> Return to Main Sanctuary Website</a>
         </div>

@@ -12,8 +12,9 @@ $f_concierge_prefix = get_setting('footer_concierge_badge_text', 'Estate Concier
 $f_instagram = get_setting('instagram_url', '#');
 $f_facebook = get_setting('facebook_url', '#');
 $f_youtube = get_setting('youtube_url', '#');
-$site_name = get_setting('site_name', 'FOOD FOREST');
+$site_name = get_setting('site_name', get_setting('estate_name', 'FOOD FOREST'));
 $site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
+$site_logo = get_setting('site_logo', '');
 
 // Top Badges
 $b1_icon = get_setting('footer_badge1_icon', 'fa-solid fa-seedling');
@@ -112,9 +113,14 @@ $f_staff_url = get_setting('footer_staff_url', 'admin/');
             <div class="container footer-grid">
                 <!-- Brand Bio -->
                 <div class="footer-brand">
-                    <a href="#" class="logo font-serif">
-                        <span class="logo-main"><?php echo htmlspecialchars($site_name); ?></span>
-                        <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
+                    <a href="#" class="logo font-serif" style="display: inline-flex; align-items: center; gap: 10px; text-decoration: none;">
+                        <?php if (!empty($site_logo)): ?>
+                            <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="<?php echo htmlspecialchars($site_name); ?>" class="site-footer-logo-img" style="max-height: 40px; width: auto; object-fit: contain; vertical-align: middle;">
+                        <?php endif; ?>
+                        <span style="display: flex; flex-direction: column;">
+                            <span class="logo-main"><?php echo htmlspecialchars($site_name); ?></span>
+                            <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
+                        </span>
                     </a>
                     <p class="footer-tagline font-sans">
                         <?php echo htmlspecialchars($f_tagline); ?>

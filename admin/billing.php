@@ -381,50 +381,6 @@ $currency = get_setting('currency_symbol', '₹');
         </div>
     <?php endif; ?>
 
-    <!-- Top KPI Stats Bar -->
-    <div class="adm-grid adm-grid-4" style="margin-bottom: 28px;">
-        
-        <div class="adm-stat-card" style="border-left: 3px solid var(--adm-emerald);">
-            <div class="adm-stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34D399;">
-                <i class="fa-solid fa-hotel"></i>
-            </div>
-            <div class="adm-stat-meta">
-                <span class="adm-stat-label">Currently In-House</span>
-                <div class="adm-stat-value"><?php echo $kpi_inhouse_count; ?> <span style="font-size: 13px; font-weight: 500; color: var(--adm-text-muted);">Stays Active</span></div>
-            </div>
-        </div>
-
-        <div class="adm-stat-card" style="border-left: 3px solid var(--adm-gold);">
-            <div class="adm-stat-icon" style="background: rgba(197, 160, 89, 0.15); color: var(--adm-gold);">
-                <i class="fa-solid fa-door-open"></i>
-            </div>
-            <div class="adm-stat-meta">
-                <span class="adm-stat-label">Today's Check-Outs</span>
-                <div class="adm-stat-value"><?php echo $kpi_today_cout_count; ?> <span style="font-size: 13px; font-weight: 500; color: var(--adm-text-muted);">Departures</span></div>
-            </div>
-        </div>
-
-        <div class="adm-stat-card" style="border-left: 3px solid #EF4444;">
-            <div class="adm-stat-icon" style="background: rgba(239, 68, 68, 0.15); color: #F87171;">
-                <i class="fa-solid fa-hand-holding-dollar"></i>
-            </div>
-            <div class="adm-stat-meta">
-                <span class="adm-stat-label">Pending Balance Dues</span>
-                <div class="adm-stat-value"><?php echo $currency . number_format($kpi_pending_dues, 0); ?></div>
-            </div>
-        </div>
-
-        <div class="adm-stat-card" style="border-left: 3px solid #6366F1;">
-            <div class="adm-stat-icon" style="background: rgba(99, 102, 241, 0.15); color: #818CF8;">
-                <i class="fa-solid fa-chart-line"></i>
-            </div>
-            <div class="adm-stat-meta">
-                <span class="adm-stat-label">This Month's Bookings</span>
-                <div class="adm-stat-value"><?php echo $currency . number_format($kpi_month_revenue, 0); ?></div>
-            </div>
-        </div>
-
-    </div>
 
     <!-- Main Navigation Filter Tabs -->
     <div class="adm-tab-bar" style="margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">

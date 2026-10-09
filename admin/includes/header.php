@@ -13,7 +13,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title><?php echo isset($page_title) ? e($page_title) . ' — ' : ''; ?>Estate Concierge Admin | Food Forest Kanthalloor</title>
 
     <!-- Google Fonts: Cinzel, Cormorant Garamond, Plus Jakarta Sans -->
@@ -1622,6 +1622,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     window.switchSettingsTab = switchSettingsTab;
     </script>
     <script src="assets/js/live_preview.js?v=<?php echo time(); ?>" defer></script>
+    <script src="assets/js/admin_profile.js?v=<?php echo time(); ?>" defer></script>
 </head>
 <body class="adm-body">
 
@@ -1657,18 +1658,87 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <span class="adm-hide-mob">Live Site</span>
                 </a>
 
-                <!-- User Profile Monogram -->
-                <div class="adm-topbar-user" title="<?php echo e($admin['full_name'] ?? 'Admin'); ?> (Master Concierge)">
-                    <div class="adm-user-avatar">
-                        <i class="fa-solid fa-user-shield"></i>
-                    </div>
-                    <div class="adm-user-meta adm-hide-mob">
-                        <span class="adm-user-name"><?php echo e($admin['full_name'] ?? 'Sanctuary Master'); ?></span>
-                        <span class="adm-user-role">Concierge Admin</span>
+                <!-- User Profile & Account Settings Menu -->
+                <div class="adm-topbar-user-wrapper" id="adm-topbar-user-wrapper">
+                    <button type="button" class="adm-topbar-user" id="adm-topbar-user-btn" aria-haspopup="true" aria-expanded="false" title="Account Settings & User Management">
+                        <div class="adm-user-avatar" id="adm-topbar-avatar" style="overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                            <?php if (!empty($admin['avatar_url'])): ?>
+                                <?php if (strpos($admin['avatar_url'], 'preset:') === 0): ?>
+                                    <i class="fa-solid fa-user-shield"></i>
+                                <?php else: ?>
+                                    <img src="<?php echo (strpos($admin['avatar_url'], 'http') === 0 || strpos($admin['avatar_url'], 'data:') === 0 ? e($admin['avatar_url']) : '../' . ltrim(e($admin['avatar_url']), '/')); ?>" alt="<?php echo e($admin['full_name'] ?? 'Admin'); ?>" id="adm-topbar-avatar-img" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block;">
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <i class="fa-solid fa-user-shield" id="adm-topbar-avatar-icon"></i>
+                            <?php endif; ?>
+                        </div>
+                        <div class="adm-user-meta adm-hide-mob">
+                            <span class="adm-user-name" id="adm-topbar-name"><?php echo e($admin['full_name'] ?? 'Sanctuary Master'); ?></span>
+                            <span class="adm-user-role"><?php echo e($admin['role'] ?? 'Concierge Admin'); ?></span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down adm-user-caret"></i>
+                    </button>
+
+                    <!-- Luxury User Dropdown Popup -->
+                    <div class="adm-user-dropdown" id="adm-user-dropdown" role="menu">
+                        <div class="adm-user-dropdown-header">
+                            <div class="adm-dropdown-avatar" id="adm-dropdown-avatar-wrap">
+                                <?php if (!empty($admin['avatar_url']) && strpos($admin['avatar_url'], 'preset:') !== 0): ?>
+                                    <img src="<?php echo (strpos($admin['avatar_url'], 'http') === 0 || strpos($admin['avatar_url'], 'data:') === 0 ? e($admin['avatar_url']) : '../' . ltrim(e($admin['avatar_url']), '/')); ?>" alt="<?php echo e($admin['full_name'] ?? 'Admin'); ?>" id="adm-dropdown-avatar-img">
+                                <?php else: ?>
+                                    <div class="adm-dropdown-avatar-fallback"><i class="fa-solid fa-user-shield"></i></div>
+                                <?php endif; ?>
+                                <span class="adm-status-dot-online" title="Active Concierge Session"></span>
+                            </div>
+                            <div class="adm-dropdown-details">
+                                <div class="adm-dropdown-name" id="adm-dropdown-name"><?php echo e($admin['full_name'] ?? 'Administrator'); ?></div>
+                                <div class="adm-dropdown-user-handle" id="adm-dropdown-handle">@<?php echo e($admin['username'] ?? 'admin'); ?></div>
+                                <div class="adm-dropdown-badge"><?php echo e($admin['role'] ?? 'Master Concierge'); ?></div>
+                            </div>
+                        </div>
+
+                        <div class="adm-dropdown-divider"></div>
+
+                        <div class="adm-dropdown-menu-list">
+                            <button type="button" class="adm-dropdown-item" onclick="openProfileModal('profile');" role="menuitem">
+                                <div class="adm-dropdown-item-icon gold"><i class="fa-solid fa-user-gear"></i></div>
+                                <div class="adm-dropdown-item-text">
+                                    <span class="title">My Profile &amp; Picture</span>
+                                    <span class="sub">Change username, photo &amp; name</span>
+                                </div>
+                            </button>
+
+                            <button type="button" class="adm-dropdown-item" onclick="openProfileModal('password');" role="menuitem">
+                                <div class="adm-dropdown-item-icon blue"><i class="fa-solid fa-key"></i></div>
+                                <div class="adm-dropdown-item-text">
+                                    <span class="title">Change Password</span>
+                                    <span class="sub">Update security credentials</span>
+                                </div>
+                            </button>
+
+                            <button type="button" class="adm-dropdown-item" onclick="openProfileModal('users');" role="menuitem">
+                                <div class="adm-dropdown-item-icon emerald"><i class="fa-solid fa-users-gear"></i></div>
+                                <div class="adm-dropdown-item-text">
+                                    <span class="title">Manage All Users &amp; Staff</span>
+                                    <span class="sub">Change passwords, usernames &amp; photos</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div class="adm-dropdown-divider"></div>
+
+                        <div class="adm-dropdown-footer">
+                            <a href="logout.php" class="adm-dropdown-logout-btn" onclick="return confirm('Confirm log out from Food Forest Admin?');">
+                                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                                <span>Sign Out</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
         </header>
+
+        <?php require_once __DIR__ . '/profile_modal.php'; ?>
 
         <!-- Main Content Area Begins -->
         <main class="adm-content-body">

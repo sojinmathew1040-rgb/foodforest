@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title>Food Forest — Luxury Eco-Farmstay & Sanctuary | Kanthalloor, Kerala</title>
 
     <!-- SEO Meta Tags -->
@@ -65,8 +65,9 @@ if ($is_logged_client) {
 } elseif ($is_guest_client) {
     $client_label = 'My Booking';
 }
-$site_name = get_setting('site_name', 'FOOD FOREST');
+$site_name = get_setting('site_name', get_setting('estate_name', 'FOOD FOREST'));
 $site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
+$site_logo = get_setting('site_logo', '');
 
 // Compute minimum starting room rate dynamically from database
 $all_header_rooms = get_all_rooms(true);
@@ -83,6 +84,16 @@ $is_booking_page = (basename($_SERVER['PHP_SELF']) == 'booking.php');
 $is_menu_page = (basename($_SERVER['PHP_SELF']) == 'menu.php');
 $walkthrough_enabled = (get_setting('walkthrough_360_enabled', '1') !== '0');
 $villas_nav_link = $walkthrough_enabled ? ($nav_prefix . '#rooms-experience') : 'booking.php';
+$nav_menu_items = get_navigation_menu();
+$resolve_nav_url = function($raw_url, $item_id = 0) use ($is_home, $nav_prefix, $walkthrough_enabled, $villas_nav_link) {
+    if ($item_id === 2 && !$walkthrough_enabled) {
+        return 'booking.php';
+    }
+    if (strpos($raw_url, '#') === 0) {
+        return $is_home ? $raw_url : ($nav_prefix . $raw_url);
+    }
+    return $raw_url;
+};
 ?>
     <!-- Luxury Header Wrapper (Coordinates Top Announcement & Main Navigation) -->
     <div class="site-header-wrapper <?php echo !$is_home ? 'solid-header' : ''; ?>" id="site-header-wrapper">
@@ -121,22 +132,36 @@ $villas_nav_link = $walkthrough_enabled ? ($nav_prefix . '#rooms-experience') : 
         <!-- Main Luxury Header -->
         <header class="main-header" id="site-header">
             <div class="header-container">
-                <!-- Brand Logo -->
-                <a href="index.php" class="logo font-serif magnetic" data-strength="15">
-                    <span class="logo-main"><?php echo htmlspecialchars($site_name); ?></span>
-                    <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
+                <a href="index.php" class="logo font-serif magnetic" data-strength="15" style="display: inline-flex; align-items: center; gap: 10px; text-decoration: none;">
+                    <?php if (!empty($site_logo)): ?>
+                        <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="<?php echo htmlspecialchars($site_name); ?>" class="site-header-logo-img" style="max-height: 42px; width: auto; object-fit: contain; vertical-align: middle;">
+                    <?php endif; ?>
+                    <span style="display: flex; flex-direction: column;">
+                        <span class="logo-main"><?php echo htmlspecialchars($site_name); ?></span>
+                        <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
+                    </span>
                 </a>
 
-                <!-- Editorial Nav Links -->
+                <!-- Editorial Nav Links (Dynamic from Navigation Menu CMS) -->
                 <nav class="nav-links font-sans">
-                    <a href="<?php echo $nav_prefix; ?>#welcome" class="nav-item magnetic" data-strength="10">The Sanctuary</a>
-                    <a href="<?php echo $villas_nav_link; ?>" class="nav-item magnetic" data-strength="10">Villas &amp; Stays</a>
-                    <a href="booking.php" class="nav-item magnetic <?php echo $is_booking_page ? 'active nav-item-booking' : ''; ?>" data-strength="10"><i class="fa-solid fa-map-location-dot"></i> Map Booking</a>
-                    <a href="<?php echo $nav_prefix; ?>#experiences" class="nav-item magnetic" data-strength="10">Activities</a>
-                    <a href="menu.php" class="nav-item magnetic <?php echo $is_menu_page ? 'active nav-item-booking' : ''; ?>" data-strength="10">Our Menu</a>
-                    <a href="<?php echo $nav_prefix; ?>#sanctuary" class="nav-item magnetic" data-strength="10">Landscape</a>
-                    <a href="<?php echo $nav_prefix; ?>#gallery" class="nav-item magnetic" data-strength="10">Gallery</a>
-                    <a href="<?php echo $nav_prefix; ?>#testimonials" class="nav-item magnetic" data-strength="10">Guest Stories</a>
+                    <?php foreach ($nav_menu_items as $n_item): ?>
+                        <?php if (!empty($n_item['show_in_desktop'])): 
+                            $item_href = $resolve_nav_url($n_item['url'], (int)$n_item['id']);
+                            $is_active = false;
+                            if ($is_booking_page && strpos($n_item['url'], 'booking.php') !== false) $is_active = true;
+                            if ($is_menu_page && strpos($n_item['url'], 'menu.php') !== false) $is_active = true;
+                        ?>
+                            <a href="<?php echo htmlspecialchars($item_href); ?>" 
+                               class="nav-item magnetic <?php echo $is_active ? 'active nav-item-booking' : ''; ?>" 
+                               data-strength="10"
+                               <?php echo !empty($n_item['highlight']) ? 'style="color: var(--accent-gold);"' : ''; ?>>
+                                <?php if (!empty($n_item['icon'])): ?>
+                                    <i class="<?php echo htmlspecialchars($n_item['icon']); ?>" style="margin-right: 4px;"></i>
+                                <?php endif; ?>
+                                <span><?php echo htmlspecialchars($n_item['label']); ?></span>
+                            </a>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
                 </nav>
 
                 <!-- Header Actions -->
@@ -155,19 +180,26 @@ $villas_nav_link = $walkthrough_enabled ? ($nav_prefix . '#rooms-experience') : 
         </header>
     </div>
 
-    <!-- Mobile Menu Overlay -->
+    <!-- Mobile Menu Overlay (Dynamic from Navigation Menu CMS) -->
     <div class="mobile-menu font-serif">
         <div class="mobile-menu-links">
-            <a href="<?php echo $nav_prefix; ?>#welcome" class="mobile-link">The Sanctuary</a>
-            <a href="<?php echo $villas_nav_link; ?>" class="mobile-link">Villas &amp; Stays</a>
-            <a href="booking.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-map-location-dot"></i> Interactive Map Booking</a>
-            <a href="<?php echo $nav_prefix; ?>#experiences" class="mobile-link">Activities</a>
-            <a href="menu.php" class="mobile-link" <?php echo $is_menu_page ? 'style="color: #C5A059;"' : ''; ?>>Our Menu</a>
-            <a href="<?php echo $nav_prefix; ?>#sanctuary" class="mobile-link">Landscape</a>
-            <a href="<?php echo $nav_prefix; ?>#gallery" class="mobile-link">Gallery</a>
-            <a href="<?php echo $nav_prefix; ?>#testimonials" class="mobile-link">Guest Stories</a>
-            <a href="guest_portal.php" class="mobile-link" style="color: #C5A059;"><i class="fa-solid fa-key"></i> Guest Portal / My Bookings</a>
-            <a href="<?php echo $nav_prefix; ?>#contact" class="mobile-link">Contact</a>
+            <?php foreach ($nav_menu_items as $n_item): 
+                $item_href = $resolve_nav_url($n_item['url'], (int)$n_item['id']);
+                $is_item_active = false;
+                if ($is_menu_page && strpos($n_item['url'], 'menu.php') !== false) $is_item_active = true;
+                if ($is_booking_page && strpos($n_item['url'], 'booking.php') !== false) $is_item_active = true;
+                $style_attr = '';
+                if (!empty($n_item['highlight']) || $is_item_active) {
+                    $style_attr = 'style="color: #C5A059;"';
+                }
+            ?>
+                <a href="<?php echo htmlspecialchars($item_href); ?>" class="mobile-link" <?php echo $style_attr; ?>>
+                    <?php if (!empty($n_item['icon'])): ?>
+                        <i class="<?php echo htmlspecialchars($n_item['icon']); ?>" style="margin-right: 6px;"></i>
+                    <?php endif; ?>
+                    <?php echo htmlspecialchars($n_item['label']); ?>
+                </a>
+            <?php endforeach; ?>
             <a href="booking.php" class="mobile-link btn-mobile-book font-sans" style="text-decoration: none; text-align: center;">
                 <i class="fa-solid fa-calendar-check"></i> Book Chalet Online
             </a>

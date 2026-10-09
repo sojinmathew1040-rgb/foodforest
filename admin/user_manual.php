@@ -181,14 +181,14 @@ $current_gallery = (int)$pdo->query("SELECT COUNT(*) FROM gallery")->fetchColumn
                 </div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <a href="edit_section.php?section=estate" class="adm-btn-action outline" style="padding: 7px 14px; font-size: 12px;">
-                    <i class="fa-solid fa-leaf"></i> <span>Estate Info (Card 13)</span>
+                <a href="settings.php?open_general=branding" class="adm-btn-action outline" style="padding: 7px 14px; font-size: 12px;">
+                    <i class="fa-solid fa-leaf"></i> <span>Estate Branding & Logo</span>
                 </a>
                 <a href="edit_section.php?section=whatsapp" class="adm-btn-action outline" style="padding: 7px 14px; font-size: 12px;">
                     <i class="fa-brands fa-whatsapp"></i> <span>WhatsApp (Card 12)</span>
                 </a>
                 <a href="edit_section.php?section=bank" class="adm-btn-action gold" style="padding: 7px 14px; font-size: 12px;">
-                    <i class="fa-solid fa-building-columns"></i> <span>Bank & UPI QR (Card 17)</span>
+                    <i class="fa-solid fa-building-columns"></i> <span>Bank & UPI QR (Card 14)</span>
                 </a>
             </div>
         </div>
@@ -198,9 +198,9 @@ $current_gallery = (int)$pdo->query("SELECT COUNT(*) FROM gallery")->fetchColumn
                 <i class="fa-solid fa-circle-arrow-right" style="color: var(--adm-gold);"></i> ആദ്യം എന്റർ ചെയ്യേണ്ട വിവരങ്ങൾ:
             </p>
             <ul style="padding-left: 20px; margin: 0 0 12px;">
-                <li><strong>Estate Title & Check-In/Out Hours</strong>: എസ്റ്റേറ്റിന്റെ പേര്, ടാഗ್‌ലൈൻ, ചെക്ക്-ഇൻ (2:00 PM), ചെക്ക്-ഔട്ട് (11:00 AM) സമയം എന്നിവ <a href="edit_section.php?section=estate" style="color:var(--adm-gold);">Card 13</a>-ൽ നൽകുക.</li>
+                <li><strong>Estate Title & Check-In/Out Hours</strong>: എസ്റ്റേറ്റിന്റെ പേര്, ലോഗോ, ടാഗ്‌ലൈൻ, ചെക്ക്-ഇൻ (2:00 PM), ചെക്ക്-ഔട്ട് (11:00 AM) സമയം എന്നിവ <a href="settings.php?open_general=branding" style="color:var(--adm-gold);">General Settings Hub</a>-ൽ നൽകുക.</li>
                 <li><strong>WhatsApp Concierge Number & Phone</strong>: കസ്റ്റമേഴ്‌സിന് മെസ്സേജ് അയക്കാനും കോൺസിയർജ് ഹോട്ട്ലൈനിനുമായി ഫോൺ നമ്പറും വിലാസവും <a href="edit_section.php?section=whatsapp" style="color:var(--adm-gold);">Card 12</a>-ൽ നൽകുക.</li>
-                <li><strong>Bank Details & Payment QR Code</strong>: എസ്റ്റേറ്റിന്റെ ഔദ്യോഗിക ബാങ്ക് അക്കൗണ്ട് നമ്പർ, IFSC കോഡ്, അക്കൗണ്ട് ഉടമയുടെ പേര്, ബ്രാഞ്ച്, UPI VPA ID (GPay/PhonePe), പേയ്മെന്റ് QR കോഡ് ഇമേജ് എന്നിവ <a href="edit_section.php?section=bank" style="color:var(--adm-gold);">Card 17</a>-ൽ അപ്‌ലോഡ് ചെയ്തു നൽകുക. ഇതോടെ ബില്ലുകളിൽ ബാങ്ക് വിവരങ്ങളും ക്യുആർ കോഡും ഓട്ടോമാറ്റിക്കായി പ്രിന്റ് ആകും.</li>
+                <li><strong>Bank Details & Payment QR Code</strong>: എസ്റ്റേറ്റിന്റെ ഔദ്യോഗിക ബാങ്ക് അക്കൗണ്ട് നമ്പർ, IFSC കോഡ്, അക്കൗണ്ട് ഉടമയുടെ പേര്, ബ്രാഞ്ച്, UPI VPA ID (GPay/PhonePe), പേയ്മെന്റ് QR കോഡ് ഇമേജ് എന്നിവ <a href="edit_section.php?section=bank" style="color:var(--adm-gold);">Card 14</a>-ൽ അപ്‌ലോഡ് ചെയ്തു നൽകുക. ഇതോടെ ബില്ലുകളിൽ ബാങ്ക് വിവരങ്ങളും ക്യുആർ കോഡും ഓട്ടോമാറ്റിക്കായി പ്രിന്റ് ആകും.</li>
             </ul>
         </div>
     </div>

@@ -105,7 +105,12 @@ body::before {
 
 @media(max-width: 768px) {
     .section-padding {
-        padding: 85px 0;
+        padding: 40px 0 !important;
+    }
+}
+@media(max-width: 480px) {
+    .section-padding {
+        padding: 34px 0 !important;
     }
 }
 
@@ -3266,7 +3271,8 @@ body.in-walkthrough .sticky-booking-pill {
 }
 
 .gallery-header-text {
-    flex: 1 1 500px;
+    flex: 1 1 320px;
+    max-width: 720px;
 }
 
 .gallery-header-action {
@@ -5342,7 +5348,8 @@ select.form-input::-ms-expand,
 }
 @media(max-width: 576px) {
     .footer-badges-banner {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px 14px;
     }
 }
 
@@ -5385,7 +5392,8 @@ select.form-input::-ms-expand,
 }
 @media(max-width: 600px) {
     .footer-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px 14px;
     }
 }
 
@@ -5829,7 +5837,8 @@ select.form-input::-ms-expand,
 }
 
 .testimonials-header-text {
-    flex: 1 1 550px;
+    flex: 1 1 320px;
+    max-width: 720px;
 }
 
 .testimonials-slider-controls {
@@ -8670,6 +8679,50 @@ body.page-booking #sticky-booking-pill {
     font-size: 0.88rem;
 }
 
+/* Renovation & Opening Soon Cards & CTAs */
+.is-renovation-card {
+    border-color: rgba(245, 158, 11, 0.5);
+    background: linear-gradient(180deg, #FFFFFF 0%, #FFFBEB 100%);
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.08);
+}
+.is-renovation-card .chalet-card-media img {
+    filter: grayscale(15%);
+    opacity: 0.94;
+}
+.is-opening-soon-card {
+    border-color: rgba(56, 189, 248, 0.5);
+    background: linear-gradient(180deg, #FFFFFF 0%, #F0F9FF 100%);
+    box-shadow: 0 8px 24px rgba(56, 189, 248, 0.08);
+}
+.is-maintenance-card {
+    border-color: rgba(239, 68, 68, 0.35);
+    opacity: 0.88;
+}
+.status-btn-renovation {
+    background: rgba(245, 158, 11, 0.16) !important;
+    color: #D97706 !important;
+    border: 1px solid rgba(245, 158, 11, 0.5) !important;
+    cursor: not-allowed !important;
+    font-weight: 700 !important;
+}
+.status-btn-opening {
+    background: rgba(56, 189, 248, 0.16) !important;
+    color: #0284C7 !important;
+    border: 1px solid rgba(56, 189, 248, 0.5) !important;
+    cursor: not-allowed !important;
+    font-weight: 700 !important;
+}
+.sac-avail-pill.sac-renovation {
+    background: rgba(245, 158, 11, 0.18) !important;
+    color: #D97706 !important;
+    border: 1px solid rgba(245, 158, 11, 0.45) !important;
+}
+.sac-avail-pill.sac-opening-soon {
+    background: rgba(56, 189, 248, 0.18) !important;
+    color: #0284C7 !important;
+    border: 1px solid rgba(56, 189, 248, 0.45) !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1100px) {
     .booking-controls-grid {
@@ -9274,6 +9327,324 @@ html, body {
 }
 
 @media (max-width: 768px) {
+    /* Mobile Global Spacing & Blank Space Compaction */
+    .section-padding {
+        padding: 40px 0 !important;
+    }
+
+    .welcome-section {
+        padding: 36px 0 !important;
+        min-height: auto !important;
+    }
+
+    .welcome-grid {
+        gap: 22px !important;
+    }
+
+    .why-mudhouse-section {
+        padding: 36px 0 !important;
+        min-height: auto !important;
+    }
+
+    .why-grid {
+        gap: 22px !important;
+    }
+
+    .why-img {
+        max-height: 280px !important;
+    }
+
+    .sanctuary-section {
+        padding: 30px 0 34px !important;
+    }
+
+    .sanctuary-header {
+        margin-bottom: 12px !important;
+    }
+
+    .sanctuary-view-switcher {
+        margin: 8px auto 16px !important;
+    }
+
+    .gallery-header-bar {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        margin-bottom: 20px !important;
+    }
+
+    .gallery-header-text {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-height: 0 !important;
+        margin-bottom: 2px !important;
+    }
+
+    .gallery-header-action {
+        width: 100% !important;
+        margin-bottom: 0 !important;
+    }
+
+    .testimonials-header-bar {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        margin-bottom: 18px !important;
+    }
+
+    .testimonials-header-text {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-height: 0 !important;
+        margin-bottom: 2px !important;
+    }
+
+    .testimonials-header-actions {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        margin-top: 4px !important;
+    }
+
+    .testimonials-carousel-container {
+        padding: 6px 0 14px !important;
+    }
+
+    /* Multi-Column Mobile Footer Layout (Eliminate Lengthy Vertical Stacking) */
+    .footer-badges-banner {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px 14px !important;
+        padding-bottom: 18px !important;
+        margin-bottom: 18px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .footer-badge-item {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .footer-badge-item i {
+        font-size: 1.15rem !important;
+        color: var(--accent-gold) !important;
+        margin-top: 2px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .footer-badge-item strong {
+        font-size: 0.82rem !important;
+        line-height: 1.2 !important;
+        display: block !important;
+        margin-bottom: 2px !important;
+    }
+
+    .footer-badge-item p {
+        font-size: 0.68rem !important;
+        line-height: 1.25 !important;
+        color: rgba(248, 246, 240, 0.6) !important;
+        margin: 0 !important;
+    }
+
+    .footer-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 18px 14px !important;
+    }
+
+    /* Row 1: Brand Info (Full Width / Span 2 Columns) */
+    .footer-brand {
+        grid-column: span 2 !important;
+    }
+
+    .footer-brand .logo-main {
+        font-size: 1.45rem !important;
+        letter-spacing: 2px !important;
+    }
+
+    .footer-brand .logo-sub {
+        font-size: 0.58rem !important;
+        letter-spacing: 1.8px !important;
+    }
+
+    .footer-tagline {
+        font-size: 0.76rem !important;
+        line-height: 1.45 !important;
+        margin: 6px 0 10px !important;
+        max-width: 100% !important;
+        color: rgba(248, 246, 240, 0.7) !important;
+    }
+
+    .footer-concierge-badge {
+        font-size: 0.66rem !important;
+        padding: 4px 10px !important;
+        margin-bottom: 10px !important;
+        gap: 6px !important;
+    }
+
+    .social-links {
+        display: flex !important;
+        gap: 8px !important;
+    }
+
+    .social-icon {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 12px !important;
+    }
+
+    /* Row 2, Column 1: The Sanctuary Navigation Links */
+    .footer-links {
+        grid-column: 1 / 2 !important;
+        min-width: 0 !important;
+    }
+
+    .footer-title {
+        font-size: 1.05rem !important;
+        margin-bottom: 10px !important;
+        padding-bottom: 4px !important;
+    }
+
+    .footer-title::after {
+        width: 18px !important;
+        height: 1px !important;
+    }
+
+    .footer-links ul {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+        padding-left: 0 !important;
+        margin: 0 !important;
+    }
+
+    .footer-links a {
+        font-size: 0.76rem !important;
+        line-height: 1.35 !important;
+        display: block !important;
+        color: rgba(248, 246, 240, 0.75) !important;
+        transition: color 0.2s ease !important;
+    }
+
+    /* Row 2, Column 2: Direct Concierge & Contact */
+    .footer-contact {
+        grid-column: 2 / 3 !important;
+        min-width: 0 !important;
+    }
+
+    .footer-contact ul {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+        padding-left: 0 !important;
+        margin: 0 !important;
+    }
+
+    .footer-contact li {
+        font-size: 0.72rem !important;
+        line-height: 1.35 !important;
+        gap: 6px !important;
+        word-break: break-word !important;
+        color: rgba(248, 246, 240, 0.75) !important;
+    }
+
+    .footer-contact i {
+        font-size: 11px !important;
+        margin-top: 2px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .footer-reserve-btn {
+        margin-top: 8px !important;
+        padding: 8px 10px !important;
+        font-size: 0.68rem !important;
+        width: 100% !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        letter-spacing: 0.04em !important;
+    }
+
+    /* Row 3: Sanctuary Gazette Newsletter (Full Width / Span 2 Columns) */
+    .footer-newsletter {
+        grid-column: span 2 !important;
+        margin-top: 2px !important;
+    }
+
+    .footer-newsletter p {
+        font-size: 0.76rem !important;
+        line-height: 1.4 !important;
+        margin-bottom: 8px !important;
+    }
+
+    .newsletter-input-group {
+        border-radius: 4px !important;
+        overflow: hidden !important;
+    }
+
+    .newsletter-input-group input {
+        padding: 8px 12px !important;
+        font-size: 0.78rem !important;
+    }
+
+    .newsletter-submit {
+        padding: 0 16px !important;
+        font-size: 0.8rem !important;
+    }
+
+    /* Footer Bottom Credits */
+    .footer-bottom {
+        margin-top: 18px !important;
+        padding-top: 14px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        gap: 8px !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .footer-bottom .copyright {
+        font-size: 0.68rem !important;
+        color: rgba(248, 246, 240, 0.55) !important;
+        margin: 0 !important;
+    }
+
+    .footer-bottom .footer-meta {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 10px 14px !important;
+    }
+
+    .footer-bottom .footer-meta a {
+        font-size: 0.68rem !important;
+        color: rgba(248, 246, 240, 0.65) !important;
+    }
+
+    .page-hero-header {
+        padding: 88px 0 32px !important;
+    }
+
+    .booking-page-main {
+        padding-top: 84px !important;
+        padding-bottom: 40px !important;
+        min-height: auto !important;
+    }
+
+    .booking-hero-section {
+        margin-bottom: 18px !important;
+    }
+
+    .booking-page-subtitle {
+        margin-bottom: 18px !important;
+    }
+
+    .dining-section {
+        padding: 36px 0 !important;
+    }
+
     /* Mobile Typography Scaling */
     .section-title {
         font-size: clamp(1.85rem, 5.5vw, 2.6rem) !important;
@@ -9529,6 +9900,10 @@ html, body {
         padding-right: 14px;
     }
 
+    .section-padding {
+        padding: 34px 0 !important;
+    }
+
     .hero-booking-bar {
         grid-template-columns: 1fr;
         gap: 10px;
@@ -9604,22 +9979,54 @@ html, body {
     }
 
     .sticky-booking-pill {
-        width: calc(100vw - 20px);
-        left: 10px;
-        bottom: 12px;
-        padding: 8px 12px;
-        flex-direction: column;
-        gap: 8px;
-        align-items: stretch;
+        width: calc(100% - 24px) !important;
+        max-width: 440px !important;
+        left: 50% !important;
+        right: auto !important;
+        bottom: max(14px, env(safe-area-inset-bottom, 14px)) !important;
+        transform: translate(-50%, 150%) !important;
+        padding: 8px 14px !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 12px !important;
+        border-radius: 40px !important;
+        box-sizing: border-box !important;
+    }
+
+    .sticky-booking-pill.visible {
+        transform: translate(-50%, 0) !important;
     }
 
     .sticky-booking-pill .pill-info {
-        text-align: center;
+        text-align: left !important;
+        min-width: 0 !important;
+        flex: 1 !important;
+    }
+
+    .sticky-booking-pill .pill-title {
+        font-size: 0.9rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    .sticky-booking-pill .pill-rates {
+        display: block !important;
+        font-size: 0.68rem !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        color: var(--accent-gold-light) !important;
     }
 
     .sticky-booking-pill .pill-btn {
-        width: 100%;
-        justify-content: center;
+        width: auto !important;
+        flex-shrink: 0 !important;
+        padding: 8px 14px !important;
+        font-size: 0.72rem !important;
+        letter-spacing: 0.08em !important;
+        white-space: nowrap !important;
     }
 }
 

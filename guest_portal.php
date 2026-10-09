@@ -32,6 +32,9 @@ $pdo = get_db();
 ensure_food_menu_table_exists($pdo);
 ensure_users_and_guest_columns($pdo);
 ensure_booking_gst_columns($pdo);
+$site_name = get_setting('site_name', get_setting('estate_name', 'FOOD FOREST'));
+$site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
+$site_logo = get_setting('site_logo', '');
 
 // 2. Fetch Reservations if Authenticated
 $bookings_list = [];
@@ -1775,10 +1778,14 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
             <!-- Brand Emblem & Title -->
             <div class="guest-sidebar-brand">
                 <div class="guest-sidebar-logo">
-                    <i class="fa-solid fa-seedling"></i>
+                    <?php if (!empty($site_logo)): ?>
+                        <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="<?php echo htmlspecialchars($site_name); ?>" style="max-height: 28px; max-width: 28px; object-fit: contain;">
+                    <?php else: ?>
+                        <i class="fa-solid fa-seedling"></i>
+                    <?php endif; ?>
                 </div>
                 <div class="guest-sidebar-brand-text">
-                    <span class="guest-sidebar-title">FOOD FOREST</span>
+                    <span class="guest-sidebar-title"><?php echo htmlspecialchars($site_name); ?></span>
                     <span class="guest-sidebar-badge">RESIDENT GUEST HUB</span>
                 </div>
                 <button type="button" class="guest-sidebar-close-mob" id="guest-sidebar-close-mob" onclick="toggleGuestSidebar()">
@@ -3403,8 +3410,8 @@ window.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// 3. 5-Minute Inactivity Auto-Lock Countdown Timer
-var INACTIVITY_LIMIT_SECONDS = 300; // 5 Minutes
+// 3. Inactivity Auto-Lock Countdown Timer
+var INACTIVITY_LIMIT_SECONDS = <?php echo max(60, ((int)get_setting('client_session_timeout_minutes', 15)) * 60); ?>;
 var remainingSeconds = INACTIVITY_LIMIT_SECONDS;
 var countdownEl = document.getElementById('inactivity-countdown');
 

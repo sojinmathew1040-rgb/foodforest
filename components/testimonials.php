@@ -699,4 +699,65 @@
     color: #FFFFFF !important;
     box-shadow: 0 4px 14px rgba(66, 133, 244, 0.25) !important;
 }
+
+@media (max-width: 768px) {
+    .testimonials-header-bar {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        margin-bottom: 18px !important;
+    }
+    .testimonials-header-text {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-height: 0 !important;
+        margin-bottom: 2px !important;
+    }
+    .testimonials-desc {
+        margin-top: 6px !important;
+        margin-bottom: 0 !important;
+    }
+    .testimonials-header-actions {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        margin-top: 4px !important;
+    }
+    .btn-share-reflection {
+        padding: 8px 16px;
+        font-size: 0.74rem;
+    }
+    .testimonials-filter-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        margin-bottom: 16px !important;
+        padding-bottom: 12px !important;
+    }
+    .testimonials-filter-pills {
+        display: flex !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        flex-wrap: nowrap !important;
+        scrollbar-width: none !important;
+        padding-bottom: 4px !important;
+        width: 100% !important;
+    }
+    .testimonials-filter-pills::-webkit-scrollbar {
+        display: none;
+    }
+    .testimonial-filter-pill {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+        padding: 7px 14px !important;
+        font-size: 0.76rem !important;
+    }
+    .google-rating-live-pill {
+        align-self: flex-start;
+        width: fit-content;
+        font-size: 0.76rem;
+        padding: 6px 14px;
+    }
+}
 </style>

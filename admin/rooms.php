@@ -108,7 +108,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             array_unshift($current_photos, $image_url);
         }
 
-        $is_available = isset($_POST['is_available']) ? 1 : 0;
+        $raw_status = trim($_POST['availability_status'] ?? '');
+        if (empty($raw_status)) {
+            $raw_status = isset($_POST['is_available']) ? 'available' : 'maintenance';
+        }
+        $allowed_statuses = ['available', 'closed_renovation', 'opening_soon', 'maintenance'];
+        if (!in_array($raw_status, $allowed_statuses)) {
+            $raw_status = 'available';
+        }
+        $availability_status = $raw_status;
+        $is_available = ($availability_status === 'available') ? 1 : 0;
 
         $stmt = $pdo->prepare("UPDATE rooms SET 
             title = ?, 
@@ -129,7 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             photos = ?, 
             photos_left = ?, 
             photos_right = ?, 
-            is_available = ? 
+            is_available = ?, 
+            availability_status = ? 
             WHERE id = ?");
             
         $stmt->execute([
@@ -152,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             !empty($current_photos_left) ? json_encode(array_values($current_photos_left)) : null,
             !empty($current_photos_right) ? json_encode(array_values($current_photos_right)) : null,
             $is_available, 
+            $availability_status,
             $villa_id
         ]);
 
@@ -203,10 +214,24 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
                     <span class="adm-villa-elevation" style="font-size: 11.5px; color: var(--adm-gold); font-weight: 700; text-transform: uppercase; letter-spacing: 1px;"><?php echo e($room['elevation']); ?></span>
                 </div>
                 <div>
-                    <?php if ($room['is_available']): ?>
-                        <span class="adm-badge confirmed" style="background: rgba(34, 197, 94, 0.2); color: #4ADE80; border: 1px solid rgba(34, 197, 94, 0.4); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;"><i class="fa-solid fa-circle-check"></i> Bookable</span>
+                    <?php 
+                    $cur_status = $room['availability_status'] ?? (!empty($room['is_available']) ? 'available' : 'maintenance');
+                    if ($cur_status === 'closed_renovation'): ?>
+                        <span class="adm-badge" style="background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.45); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;">
+                            <i class="fa-solid fa-person-digging"></i> Closed for Renovation
+                        </span>
+                    <?php elseif ($cur_status === 'opening_soon'): ?>
+                        <span class="adm-badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.45); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;">
+                            <i class="fa-solid fa-sparkles"></i> Opening Soon
+                        </span>
+                    <?php elseif ($cur_status === 'available'): ?>
+                        <span class="adm-badge confirmed" style="background: rgba(34, 197, 94, 0.2); color: #4ADE80; border: 1px solid rgba(34, 197, 94, 0.4); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;">
+                            <i class="fa-solid fa-circle-check"></i> Bookable
+                        </span>
                     <?php else: ?>
-                        <span class="adm-badge cancelled" style="background: rgba(239, 68, 68, 0.2); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.4); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;"><i class="fa-solid fa-ban"></i> Blocked</span>
+                        <span class="adm-badge cancelled" style="background: rgba(239, 68, 68, 0.2); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.4); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;">
+                            <i class="fa-solid fa-wrench"></i> Offline / Maintenance
+                        </span>
                     <?php endif; ?>
                 </div>
             </div>
@@ -517,11 +542,30 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
                     </small>
                 </div>
 
-                <div class="adm-form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px; margin-bottom: 18px;">
-                    <input type="checkbox" name="is_available" id="avail-<?php echo $room['id']; ?>" value="1" <?php echo $room['is_available'] ? 'checked' : ''; ?> style="width: 18px; height: 18px; accent-color: var(--adm-gold); cursor: pointer;">
-                    <label for="avail-<?php echo $room['id']; ?>" style="cursor: pointer; font-size: 12.5px; color: #FFFFFF; font-weight: 600;">
-                        Open for Online Reservations (Active on Booking System)
+                <?php 
+                $room_curr_status = $room['availability_status'] ?? (!empty($room['is_available']) ? 'available' : 'maintenance');
+                ?>
+                <div class="adm-form-group" style="margin-top: 10px; margin-bottom: 18px; background: rgba(0,0,0,0.28); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 12px 14px;">
+                    <label class="adm-label" style="font-size: 12px; color: var(--adm-gold); font-weight: 700; display: block; margin-bottom: 6px;">
+                        <i class="fa-solid fa-shield-halved"></i> Property Availability &amp; Booking Status
                     </label>
+                    <select name="availability_status" class="adm-input" style="width: 100%; padding: 8px 10px; font-size: 12.5px; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.4); color: #FFFFFF; border-radius: 6px; font-weight: 600;">
+                        <option value="available" <?php echo ($room_curr_status === 'available') ? 'selected' : ''; ?>>
+                            🟢 Open for Online Reservations (Active &amp; Bookable)
+                        </option>
+                        <option value="closed_renovation" <?php echo ($room_curr_status === 'closed_renovation') ? 'selected' : ''; ?>>
+                            🚧 Closed for Renovation (Bookings Blocked)
+                        </option>
+                        <option value="opening_soon" <?php echo ($room_curr_status === 'opening_soon') ? 'selected' : ''; ?>>
+                            ✨ Opening Soon (Bookings Blocked)
+                        </option>
+                        <option value="maintenance" <?php echo ($room_curr_status === 'maintenance') ? 'selected' : ''; ?>>
+                            🔴 Temporarily Offline / Maintenance (Bookings Blocked)
+                        </option>
+                    </select>
+                    <small style="font-size: 11px; color: #94A3B8; display: block; margin-top: 6px; line-height: 1.4;">
+                        Setting to <strong>Closed for Renovation</strong> or <strong>Opening Soon</strong> displays that notice to guests on the website and strictly disables reservations for this property.
+                    </small>
                 </div>
 
                 <button type="submit" class="adm-btn-action gold" style="width: 100%; justify-content: center; padding: 11px; background: linear-gradient(135deg, #C5A059 0%, #A68037 100%); color: #0B1810; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">

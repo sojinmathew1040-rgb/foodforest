@@ -25,24 +25,24 @@ $current_page_file = basename($_SERVER['PHP_SELF']);
         <span>Stays</span>
     </a>
 
-    <a href="billing.php" class="adm-mob-dock-item <?php echo (in_array($current_page_file, ['billing.php', 'print_bill.php'])) ? 'active' : ''; ?>">
+    <a href="kitchen.php" class="adm-mob-dock-item <?php echo ($current_page_file === 'kitchen.php') ? 'active' : ''; ?>">
         <div class="adm-mob-dock-icon">
-            <i class="fa-solid fa-receipt"></i>
-            <?php if (isset($inhouse_count) && $inhouse_count > 0): ?>
-                <span class="adm-mob-dock-badge green"><?php echo $inhouse_count; ?></span>
+            <i class="fa-solid fa-kitchen-set"></i>
+            <?php if (isset($today_kitchen_orders_count) && $today_kitchen_orders_count > 0): ?>
+                <span class="adm-mob-dock-badge" style="background:#F59E0B; color:#051109;"><?php echo $today_kitchen_orders_count; ?></span>
             <?php endif; ?>
         </div>
-        <span>Billing</span>
+        <span>Kitchen</span>
     </a>
 
-    <a href="calendar.php" class="adm-mob-dock-item <?php echo ($current_page_file === 'calendar.php') ? 'active' : ''; ?>">
+    <a href="reports.php" class="adm-mob-dock-item <?php echo ($current_page_file === 'reports.php') ? 'active' : ''; ?>">
         <div class="adm-mob-dock-icon">
-            <i class="fa-solid fa-calendar-days"></i>
+            <i class="fa-solid fa-chart-pie"></i>
         </div>
-        <span>Calendar</span>
+        <span>Reports</span>
     </a>
 
-    <button type="button" class="adm-mob-dock-item <?php echo (in_array($current_page_file, ['edit_section.php', 'settings.php', 'inquiries.php', 'user_manual.php', 'channel_sync.php'])) ? 'active' : ''; ?>" id="btn-mob-more-menu" aria-label="Open Full Admin Menu">
+    <button type="button" class="adm-mob-dock-item <?php echo (in_array($current_page_file, ['edit_section.php', 'settings.php', 'inquiries.php', 'user_manual.php', 'channel_sync.php', 'billing.php', 'calendar.php'])) ? 'active' : ''; ?>" id="btn-mob-more-menu" aria-label="Open Full Admin Menu">
         <div class="adm-mob-dock-icon">
             <i class="fa-solid fa-bars-staggered"></i>
             <?php if ((isset($unread_inquiries) && $unread_inquiries > 0) || (isset($pending_reviews_count) && $pending_reviews_count > 0)): ?>

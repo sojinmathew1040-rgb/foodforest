@@ -306,6 +306,44 @@ $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $bookings = $stmt->fetchAll();
 
+// Enrich bookings with verified blue tick & concierge feedback from user profiles
+if (!empty($bookings)) {
+    try {
+        $user_map = [];
+        $all_users_stmt = $pdo->query("SELECT id, phone, email, is_verified, status, admin_notes FROM users");
+        while ($u = $all_users_stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!empty($u['id'])) $user_map['id_' . $u['id']] = $u;
+            if (!empty($u['phone'])) {
+                $clean_p = preg_replace('/[^0-9]/', '', $u['phone']);
+                if (strlen($clean_p) >= 10) $user_map['phone_' . substr($clean_p, -10)] = $u;
+            }
+            if (!empty($u['email'])) $user_map['email_' . strtolower(trim($u['email']))] = $u;
+        }
+
+        foreach ($bookings as &$b_row) {
+            $found_u = null;
+            if (!empty($b_row['user_id']) && isset($user_map['id_' . $b_row['user_id']])) {
+                $found_u = $user_map['id_' . $b_row['user_id']];
+            } elseif (!empty($b_row['guest_phone'])) {
+                $clean_bp = preg_replace('/[^0-9]/', '', $b_row['guest_phone']);
+                if (strlen($clean_bp) >= 10 && isset($user_map['phone_' . substr($clean_bp, -10)])) {
+                    $found_u = $user_map['phone_' . substr($clean_bp, -10)];
+                }
+            }
+            if (!$found_u && !empty($b_row['guest_email'])) {
+                $clean_em = strtolower(trim($b_row['guest_email']));
+                if (isset($user_map['email_' . $clean_em])) {
+                    $found_u = $user_map['email_' . $clean_em];
+                }
+            }
+
+            $b_row['user_verified'] = $found_u ? (int)($found_u['is_verified'] ?? 0) : 0;
+            $b_row['user_admin_notes'] = $found_u ? trim($found_u['admin_notes'] ?? '') : '';
+        }
+        unset($b_row);
+    } catch (Exception $e) {}
+}
+
 $tab_title_map = [
     'all' => 'All Reservations',
     'pending' => 'Pending Concierge Approvals',
@@ -536,9 +574,17 @@ if (!function_exists('build_tab_url')) {
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <div style="font-weight: 700; color: var(--adm-text-primary); font-size: 14px; margin-bottom: 3px;">
-                                    <?php echo e($b['guest_name']); ?>
+                                <div style="font-weight: 700; color: var(--adm-text-primary); font-size: 14px; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    <span><?php echo e($b['guest_name']); ?></span>
+                                    <?php if (!empty($b['user_verified'])): ?>
+                                        <i class="fa-solid fa-circle-check" style="color: #38BDF8; font-size: 13.5px;" title="Verified Profile (Blue Tick)"></i>
+                                    <?php endif; ?>
                                 </div>
+                                <?php if (!empty($b['user_admin_notes'])): ?>
+                                    <div style="margin-bottom: 4px; font-size: 11px; color: #F59E0B; background: rgba(245, 158, 11, 0.12); border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 4px; padding: 2px 7px; display: inline-flex; align-items: center; gap: 4px;" title="Notice on Next Booking">
+                                        <i class="fa-solid fa-clipboard-user"></i> <span><strong>Profile Note:</strong> <?php echo e($b['user_admin_notes']); ?></span>
+                                    </div>
+                                <?php endif; ?>
                                 <div style="font-size: 11.5px; color: var(--adm-text-muted); display: flex; align-items: center; gap: 5px;">
                                     <i class="fa-solid fa-phone" style="font-size: 10px; color: var(--adm-gold);"></i> 
                                     <a href="tel:<?php echo e($b['guest_phone']); ?>" style="color: inherit;" title="Call Guest"><?php echo e($b['guest_phone']); ?></a>
@@ -1051,7 +1097,10 @@ if (!function_exists('build_tab_url')) {
                     <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: var(--adm-border-subtle); padding-bottom: 10px;">
                         <div>
                             <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Guest Name</span>
-                            <div style="font-size: 16px; font-weight: 700; color: var(--adm-text-primary);" id="view-guest-name">-</div>
+                            <div style="font-size: 16px; font-weight: 700; color: var(--adm-text-primary); display: flex; align-items: center; gap: 6px;">
+                                <span id="view-guest-name">-</span>
+                                <span id="view-guest-verified-tick" style="display: none; color: #38BDF8;" title="Verified Profile (Blue Tick)"><i class="fa-solid fa-circle-check"></i></span>
+                            </div>
                         </div>
                         <div style="text-align: right;">
                             <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Total Tariff</span>
@@ -1068,6 +1117,14 @@ if (!function_exists('build_tab_url')) {
                             <span style="font-size: 11px; text-transform: uppercase; color: var(--adm-text-muted);">Email</span>
                             <div style="color: var(--adm-text-primary);" id="view-guest-email">-</div>
                         </div>
+                    </div>
+
+                    <!-- Profile Notes / Feedback Container (Staff Notice for Booking) -->
+                    <div id="view-guest-profile-notes-wrap" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;">
+                        <div style="font-size: 11.5px; color: #F59E0B; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-bell"></i> Profile Feedback &amp; Concierge Notes (Notice on Booking):
+                        </div>
+                        <div style="font-size: 13px; color: #FEF3C7; margin-top: 4px; font-style: italic;" id="view-guest-profile-notes-text"></div>
                     </div>
 
                     <div class="adm-grid-2" style="margin-bottom: 10px;">
@@ -1357,6 +1414,21 @@ function viewBookingDetails(b) {
     document.getElementById('view-modal-title').innerText = b.guest_name;
     document.getElementById('view-modal-ref').innerText = 'Reference ID: ' + b.reference_code;
     document.getElementById('view-guest-name').innerText = b.guest_name;
+    const tickEl = document.getElementById('view-guest-verified-tick');
+    if (tickEl) {
+        tickEl.style.display = (b.user_verified && b.user_verified != '0') ? 'inline-block' : 'none';
+    }
+    const notesWrap = document.getElementById('view-guest-profile-notes-wrap');
+    const notesText = document.getElementById('view-guest-profile-notes-text');
+    if (notesWrap && notesText) {
+        if (b.user_admin_notes && b.user_admin_notes.trim() !== '') {
+            notesWrap.style.display = 'block';
+            notesText.innerText = b.user_admin_notes;
+        } else {
+            notesWrap.style.display = 'none';
+            notesText.innerText = '';
+        }
+    }
     document.getElementById('view-guest-phone').innerText = b.guest_phone;
     document.getElementById('view-guest-email').innerText = b.guest_email || 'Not provided';
     document.getElementById('view-guest-city').innerText = b.city_state || 'Not provided';

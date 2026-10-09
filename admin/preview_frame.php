@@ -8,7 +8,7 @@ require_admin_auth();
 require_once __DIR__ . '/includes/db.php';
 
 $pdo = get_db();
-$section = $_GET['section'] ?? 'estate';
+$section = $_GET['section'] ?? 'climate';
 
 // Load settings
 $settings_stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
@@ -17,10 +17,11 @@ while ($row = $settings_stmt->fetch()) {
     $s[$row['setting_key']] = $row['setting_value'];
 }
 
-$estate_name = $s['estate_name'] ?? 'Food Forest Kanthalloor';
-$estate_tagline = $s['estate_tagline'] ?? 'Eco Sanctuary & Agro Farmstay';
+$estate_name = $s['site_name'] ?? ($s['estate_name'] ?? 'FOOD FOREST');
+$estate_tagline = $s['site_tagline'] ?? ($s['estate_tagline'] ?? 'KANTHALLOOR • ECO SANCTUARY');
+$site_logo = $s['site_logo'] ?? '';
 $currency_symbol = $s['currency_symbol'] ?? '₹';
-$checkin_time = $s['checkin_time'] ?? '01:00 PM';
+$checkin_time = $s['checkin_time'] ?? '02:00 PM';
 $checkout_time = $s['checkout_time'] ?? '11:00 AM';
 $concierge_whatsapp = $s['concierge_whatsapp'] ?? '+919447000000';
 $concierge_phone = $s['concierge_phone'] ?? '+91 94470 00000';
@@ -348,8 +349,12 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
     <?php if ($section === 'estate'): ?>
         <!-- CARD 01: ESTATE BRANDING & POLICIES PREVIEW -->
         <div class="preview-mock-nav">
-            <div class="preview-brand-logo">
-                <div class="preview-brand-emblem"><i class="fa-solid fa-seedling"></i></div>
+            <div class="preview-brand-logo" style="display: flex; align-items: center; gap: 10px;">
+                <?php if (!empty($site_logo)): ?>
+                    <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="Logo" style="max-height: 36px; max-width: 36px; object-fit: contain;">
+                <?php else: ?>
+                    <div class="preview-brand-emblem"><i class="fa-solid fa-seedling"></i></div>
+                <?php endif; ?>
                 <div class="preview-brand-titles">
                     <h2 id="pv-estate-name"><?php echo htmlspecialchars($estate_name); ?></h2>
                     <p id="pv-estate-tagline"><?php echo htmlspecialchars($estate_tagline); ?></p>

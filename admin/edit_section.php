@@ -96,11 +96,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'download_backup') {
         $sql_dump .= "SET FOREIGN_KEY_CHECKS = 1;\n";
         $sql_dump .= "COMMIT;\n";
 
-        // Also refresh the disk backups
-        @file_put_contents(__DIR__ . '/../foodforest.sql', $sql_dump);
+        // Also refresh the canonical disk backup in db folder
         @file_put_contents(__DIR__ . '/../db/foodforest.sql', $sql_dump);
-        @file_put_contents(__DIR__ . '/../backup/foodforest_backup.sql', $sql_dump);
-        @file_put_contents(__DIR__ . '/data/foodforest.sql', $sql_dump);
 
         header('Content-Type: application/sql; charset=utf-8');
         header('Content-Disposition: attachment; filename=FoodForest_MySQL_Backup_' . date('Y-m-d_His') . '.sql');
@@ -114,11 +111,49 @@ if (isset($_GET['action']) && $_GET['action'] === 'download_backup') {
     }
 }
 
+// Redirect navigation menu requests to Estate Settings Modal
+if (isset($_GET['section']) && in_array($_GET['section'], ['nav_menu', 'navigation_menu', 'nav'])) {
+    header('Location: settings.php?open_menu=1');
+    exit;
+}
+
+// Redirect consolidated sections to single canonical home in General Settings Hub
+if (isset($_GET['section']) && in_array($_GET['section'], ['estate', 'branding', 'identity'])) {
+    header('Location: settings.php?open_general=branding');
+    exit;
+}
+if (isset($_GET['section']) && in_array($_GET['section'], ['security', 'password', 'access'])) {
+    header('Location: settings.php?open_general=security');
+    exit;
+}
+if (isset($_GET['section']) && in_array($_GET['section'], ['backup', 'database', 'sql'])) {
+    header('Location: settings.php?action=download_backup');
+    exit;
+}
+if (isset($_GET['section']) && in_array($_GET['section'], ['gst', 'tax', 'taxation'])) {
+    header('Location: settings.php?open_general=gst');
+    exit;
+}
+if (isset($_GET['section']) && in_array($_GET['section'], ['food', 'food_ordering', 'dining_order'])) {
+    header('Location: settings.php?open_general=food');
+    exit;
+}
+
+// Quick toggle live preview on/off for this card
+$req_section_toggle = $_GET['section'] ?? ($_GET['tab'] ?? 'climate');
+if (isset($_GET['toggle_preview'])) {
+    $cards_cfg = json_decode(get_setting('live_preview_cards_config', '{}'), true) ?: [];
+    $cards_cfg[$req_section_toggle] = ($_GET['toggle_preview'] === '1' || $_GET['toggle_preview'] == 1) ? '1' : '0';
+    set_setting('live_preview_cards_config', json_encode($cards_cfg, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $pdo);
+    header("Location: edit_section.php?section=" . urlencode($req_section_toggle));
+    exit;
+}
+
 require_once __DIR__ . '/includes/header.php';
 
 $alert_message = '';
 $alert_type = 'success';
-$active_tab = $_GET['section'] ?? ($_GET['tab'] ?? 'estate');
+$active_tab = $_GET['section'] ?? ($_GET['tab'] ?? 'climate');
 
 $tab_titles = [
     'climate' => 'CARD 01 • CLIMATE TICKER & SANCTUARY ACCOLADES',
@@ -133,14 +168,9 @@ $tab_titles = [
     'gallery' => 'CARD 10 • VISUAL DIARY (8 PHOTO CHRONICLE)',
     'testimonials' => 'CARD 11 • GUEST REFLECTIONS & REVIEWS',
     'whatsapp' => 'CARD 12 • WHATSAPP & CONCIERGE CHANNELS',
-    'estate' => 'CARD 13 • ESTATE BRANDING & OPERATIONAL IDENTITY',
-    'protection' => 'CARD 14 • CONTENT PROTECTION & DEVTOOLS SHIELD',
-    'security' => 'CARD 15 • SECURITY & MASTER PASSWORD',
-    'backup' => 'CARD 16 • MYSQL DATABASE BACKUP & RESTORE',
-    'bank' => 'CARD 17 • BANK DETAILS & UPI QR CODE',
-    'footer' => 'CARD 18 • FOOTER & ECO TRUST PILLARS',
-    'media' => 'CARD 19 • MEDIA & IMAGE OPTIMIZATION (AUTO-COMPRESS & RESIZE)',
-    'gst' => 'CARD 21 • GST TAX RATES & SEPARATE BILLING CONFIGURATION'
+    'protection' => 'CARD 13 • CONTENT PROTECTION & DEVTOOLS SHIELD',
+    'bank' => 'CARD 14 • BANK DETAILS & UPI QR CODE',
+    'footer' => 'CARD 15 • FOOTER & ECO TRUST PILLARS'
 ];
 if (!array_key_exists($active_tab, $tab_titles)) {
     $active_tab = 'climate';
@@ -1017,8 +1047,14 @@ ensure_experiences_details_columns($pdo);
                     }
                     $photos_json = !empty($new_room_gallery) ? json_encode(array_values($new_room_gallery), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
 
-                    $ins = $pdo->prepare("INSERT INTO rooms (slug, stay_type, structure_type, title, rate_per_night, single_room_rate, extra_guest_rate, extra_child_rate, elevation, min_guests, base_guests, max_guests, description, amenities, image_url, photos, interior_360_url, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
-                    $ins->execute([$slug, $stay_type, $structure_type, $title, $rate, $single_rate, $extra_rate, $extra_child_rate, $el, $min_guests, $base_guests, $cap, $desc, $amenities, $img, $photos_json, $pano_360]);
+                    $new_avail_status = trim($_POST['new_room_availability_status'] ?? 'available');
+                    if (!in_array($new_avail_status, ['available', 'closed_renovation', 'opening_soon', 'maintenance'])) {
+                        $new_avail_status = 'available';
+                    }
+                    $new_is_avail = ($new_avail_status === 'available') ? 1 : 0;
+
+                    $ins = $pdo->prepare("INSERT INTO rooms (slug, stay_type, structure_type, title, rate_per_night, single_room_rate, extra_guest_rate, extra_child_rate, elevation, min_guests, base_guests, max_guests, description, amenities, image_url, photos, interior_360_url, is_available, availability_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $ins->execute([$slug, $stay_type, $structure_type, $title, $rate, $single_rate, $extra_rate, $extra_child_rate, $el, $min_guests, $base_guests, $cap, $desc, $amenities, $img, $photos_json, $pano_360, $new_is_avail, $new_avail_status]);
                     $alert_message = 'New villa / cottage dwelling successfully registered and published with minimum & maximum occupancy, dynamic pricing, photo gallery & 360° tour!';
                 } else {
                     $alert_message = 'Villa title and valid nightly rate are required.';
@@ -1035,7 +1071,7 @@ ensure_experiences_details_columns($pdo);
 
                 // Update rooms & tariffs & 360 panoramas & tour stages & multi-photo gallery
                 if (isset($_POST['room_id']) && is_array($_POST['room_id'])) {
-                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, single_room_rate = ?, extra_guest_rate = ?, extra_child_rate = ?, min_guests = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, photos = ?, interior_360_url = ?, tour_stages_json = ?, is_available = ? WHERE id = ?");
+                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, single_room_rate = ?, extra_guest_rate = ?, extra_child_rate = ?, min_guests = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, photos = ?, interior_360_url = ?, tour_stages_json = ?, is_available = ?, availability_status = ? WHERE id = ?");
                     foreach ($_POST['room_id'] as $idx => $rid) {
                         $t = trim($_POST['room_title'][$idx] ?? '');
                         $st = trim($_POST['room_stay_type'][$idx] ?? 'treehouse');
@@ -1050,7 +1086,16 @@ ensure_experiences_details_columns($pdo);
                         $cap = max($base_guests, intval($_POST['room_capacity'][$idx] ?? 4));
                         $d = trim($_POST['room_desc'][$idx] ?? '');
                         $img = trim($_POST['room_image'][$idx] ?? '');
-                        $is_avail = (isset($_POST['room_available_' . $rid]) || (isset($_POST['room_available'][$idx]) && $_POST['room_available'][$idx] == '1')) ? 1 : 0;
+
+                        $raw_avail_status = trim($_POST['room_availability_status_' . $rid] ?? ($_POST['room_availability_status'][$idx] ?? ''));
+                        if (empty($raw_avail_status)) {
+                            $raw_avail_status = (isset($_POST['room_available_' . $rid]) || (isset($_POST['room_available'][$idx]) && $_POST['room_available'][$idx] == '1')) ? 'available' : 'maintenance';
+                        }
+                        if (!in_array($raw_avail_status, ['available', 'closed_renovation', 'opening_soon', 'maintenance'])) {
+                            $raw_avail_status = 'available';
+                        }
+                        $room_avail_status = $raw_avail_status;
+                        $is_avail = ($room_avail_status === 'available') ? 1 : 0;
 
                         // Fetch existing 360 data to preserve if not submitted from this form
                         $stmt_curr_room = $pdo->prepare("SELECT interior_360_url, tour_stages_json FROM rooms WHERE id = ?");
@@ -1193,7 +1238,7 @@ ensure_experiences_details_columns($pdo);
 
                         $upd_room->execute([
                             $t, $st, $structure_type, $el, $rate, $single_rate, $extra_rate, $extra_child_rate,
-                            $min_guests, $base_guests, $cap, $d, $img, $photos_json, $pano_360, $tour_stages_json, $is_avail, (int)$rid
+                            $min_guests, $base_guests, $cap, $d, $img, $photos_json, $pano_360, $tour_stages_json, $is_avail, $room_avail_status, (int)$rid
                         ]);
                     }
                 }
@@ -1822,23 +1867,21 @@ $bookings_count = (int)$pdo->query("SELECT COUNT(*) FROM bookings")->fetchColumn
 
 // Titles dictionary for active section display
 $tab_titles = [
-    'estate' => 'ESTATE BRANDING & OPERATIONAL IDENTITY',
-    'whatsapp' => 'WHATSAPP CONCIERGE & COMMUNICATION CHANNELS',
-    'hero' => 'HERO MARQUEE & VISUAL BACKDROP',
     'climate' => 'CLIMATE TICKER & SANCTUARY ACCOLADES',
+    'hero' => 'HERO MARQUEE & VISUAL BACKDROP',
     'philosophy' => 'SANCTUARY PHILOSOPHY & WELCOME MANIFESTO',
-    'why' => 'WHY FOOD FOREST? (LIVING SOIL & COB ARCHITECTURE)',
+    'rooms' => 'VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)',
     'experiences' => 'CURATED EXPERIENCES & RITUALS (DYNAMIC CMS)',
     'menu' => 'FOOD MENU & LIVING GASTRONOMY HUB (DYNAMIC CMS)',
-    'seasons' => 'SEASONS OF KANTHALLOOR (DYNAMIC CMS)',
+    'why' => 'WHY FOOD FOREST? (LIVING SOIL & COB ARCHITECTURE)',
     'sanctuary_map' => 'SANCTUARY ESTATE MAP & MOUNTAIN ROUTE TRAILS',
-    'rooms' => 'VILLAS & COTTAGES (DYNAMIC TARIFFS & SPECS)',
+    'seasons' => 'SEASONS OF KANTHALLOOR (DYNAMIC CMS)',
     'gallery' => 'VISUAL DIARY (PHOTOGRAPHY ARCHIVE)',
     'testimonials' => 'GUEST REFLECTIONS (TESTIMONIALS & REVIEWS)',
+    'whatsapp' => 'WHATSAPP CONCIERGE & COMMUNICATION CHANNELS',
     'protection' => 'WEBSITE CONTENT & IMAGE SHIELD',
-    'security' => 'ADMINISTRATOR SECURITY & ACCESS KEY',
-    'backup' => 'MYSQL DATABASE BACKUP & RESTORE',
-    'bank' => 'BANK DETAILS & UPI QR CODE'
+    'bank' => 'BANK DETAILS & UPI QR CODE',
+    'footer' => 'FOOTER & ECO TRUST PILLARS'
 ];
 ?>
 
@@ -2067,26 +2110,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <?php
 $anchor_map = [
-    'estate' => '../index.php',
-    'whatsapp' => '../index.php#whatsapp',
-    'hero' => '../index.php#hero',
     'climate' => '../index.php#climate',
+    'hero' => '../index.php#hero',
     'philosophy' => '../index.php#welcome',
-    'why' => '../index.php#why-mudhouse',
+    'rooms' => '../index.php#villas',
     'experiences' => '../index.php#experiences',
     'menu' => '../index.php#dining',
-    'seasons' => '../index.php#seasons',
+    'why' => '../index.php#why-mudhouse',
     'sanctuary_map' => '../index.php#sanctuary-map',
-    'rooms' => '../index.php#villas',
+    'seasons' => '../index.php#seasons',
     'gallery' => '../index.php#gallery',
     'testimonials' => '../index.php#reviews',
+    'whatsapp' => '../index.php#whatsapp',
     'protection' => '../index.php',
-    'security' => 'edit_section.php?section=security',
-    'backup' => 'edit_section.php?section=backup',
-    'bank' => 'edit_section.php?section=bank',
+    'bank' => 'settings.php?open_general=branding',
     'footer' => '../index.php#contact'
 ];
 $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
+
+$live_preview_enabled = (get_setting('live_preview_enabled', '1') !== '0');
+$live_preview_cards_config = json_decode(get_setting('live_preview_cards_config', '{}'), true) ?: [];
+$card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$active_tab] ?? '1') !== '0');
 ?>
 
 <!-- ================================================================= -->
@@ -2100,38 +2144,63 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
         </a>
 
         <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="adm-pulse-dot" style="background: #2ecc71; box-shadow: 0 0 10px #2ecc71;"></span>
+            <span class="adm-pulse-dot" style="background: <?php echo $card_preview_active ? '#2ecc71' : '#f59e0b'; ?>; box-shadow: 0 0 10px <?php echo $card_preview_active ? '#2ecc71' : '#f59e0b'; ?>;"></span>
             <span style="font-size: 13.5px; color: #FFFFFF; font-weight: 700; letter-spacing: 0.5px;" id="active-tab-label">
-                <?php echo e($tab_titles[$active_tab] ?? 'CARD 01 • ESTATE BRANDING & OPERATIONAL IDENTITY'); ?>
+                <?php echo e($tab_titles[$active_tab] ?? 'CARD 01 • CLIMATE TICKER & SANCTUARY ACCOLADES'); ?>
             </span>
+            <?php if (!$card_preview_active): ?>
+                <span class="adm-badge" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 10px;" title="Full-width editing mode active">Full-Width Mode</span>
+            <?php else: ?>
+                <span class="adm-badge" style="background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46, 204, 113, 0.3); font-size: 10px;" title="Split-screen editing mode active">Split-Screen Mode</span>
+            <?php endif; ?>
         </div>
     </div>
 
     <div class="adm-section-nav-right">
+        <!-- Quick Toggle between Full-Width and Split Live Preview -->
+        <?php if ($card_preview_active): ?>
+            <a href="edit_section.php?section=<?php echo urlencode($active_tab); ?>&toggle_preview=0" class="adm-btn-action outline" style="padding: 7px 14px; font-size: 12px;" title="Switch to Full-Width Editor (Hide Split Live Preview)">
+                <i class="fa-solid fa-arrows-left-right-to-line"></i>
+                <span>Full-Width</span>
+            </a>
+        <?php else: ?>
+            <a href="edit_section.php?section=<?php echo urlencode($active_tab); ?>&toggle_preview=1" class="adm-btn-action outline" style="padding: 7px 14px; font-size: 12px; border-color: rgba(197, 160, 89, 0.45); color: var(--adm-gold);" title="Switch to Split-Screen (Show Live Preview)">
+                <i class="fa-solid fa-table-columns"></i>
+                <span>Split Preview</span>
+            </a>
+        <?php endif; ?>
+
         <!-- Quick Jump Dropdown to other sections -->
         <div style="display: flex; align-items: center; gap: 6px;">
             <label style="font-size: 11px; color: var(--adm-text-muted); text-transform: uppercase; font-weight: 600;">Switch Section:</label>
-            <select id="adm-section-jump-select" class="adm-section-jump-select" onchange="window.location.href='edit_section.php?section=' + this.value;">
-                <option value="climate" <?php echo ($active_tab === 'climate') ? 'selected' : ''; ?>>01 • Climate & Accolades</option>
-                <option value="hero" <?php echo ($active_tab === 'hero') ? 'selected' : ''; ?>>02 • Hero Marquee & Visual</option>
-                <option value="philosophy" <?php echo ($active_tab === 'philosophy') ? 'selected' : ''; ?>>03 • Sanctuary Philosophy</option>
-                <option value="rooms" <?php echo ($active_tab === 'rooms') ? 'selected' : ''; ?>>04 • Villas & Cottages</option>
-                <option value="experiences" <?php echo ($active_tab === 'experiences') ? 'selected' : ''; ?>>05 • Curated Experiences</option>
-                <option value="menu" <?php echo ($active_tab === 'menu') ? 'selected' : ''; ?>>06 • Food Menu & Dining</option>
-                <option value="why" <?php echo ($active_tab === 'why') ? 'selected' : ''; ?>>07 • Why Food Forest?</option>
-                <option value="sanctuary_map" <?php echo ($active_tab === 'sanctuary_map') ? 'selected' : ''; ?>>08 • Sanctuary Estate Map</option>
-                <option value="seasons" <?php echo ($active_tab === 'seasons') ? 'selected' : ''; ?>>09 • Seasons of Kanthalloor</option>
-                <option value="gallery" <?php echo ($active_tab === 'gallery') ? 'selected' : ''; ?>>10 • Visual Diary (Gallery)</option>
-                <option value="testimonials" <?php echo ($active_tab === 'testimonials') ? 'selected' : ''; ?>>11 • Guest Reflections</option>
-                <option value="whatsapp" <?php echo ($active_tab === 'whatsapp') ? 'selected' : ''; ?>>12 • WhatsApp & Concierge</option>
-                <option value="estate" <?php echo ($active_tab === 'estate') ? 'selected' : ''; ?>>13 • Estate & Identity</option>
-                <option value="protection" <?php echo ($active_tab === 'protection') ? 'selected' : ''; ?>>14 • Content Protection</option>
-                <option value="security" <?php echo ($active_tab === 'security') ? 'selected' : ''; ?>>15 • Security & Password</option>
-                <option value="backup" <?php echo ($active_tab === 'backup') ? 'selected' : ''; ?>>16 • MySQL Database Backup</option>
-                <option value="bank" <?php echo ($active_tab === 'bank') ? 'selected' : ''; ?>>17 • Bank Details & UPI QR</option>
-                <option value="footer" <?php echo ($active_tab === 'footer') ? 'selected' : ''; ?>>18 • Footer & Eco Pillars</option>
-                <option value="media" <?php echo ($active_tab === 'media') ? 'selected' : ''; ?>>19 • Media & Image Optimizer</option>
-                <option value="gst" <?php echo ($active_tab === 'gst') ? 'selected' : ''; ?>>21 • GST Tax Rates & Invoicing</option>
+            <select id="adm-section-jump-select" class="adm-section-jump-select" onchange="if(this.value.indexOf('general:') === 0) { window.location.href='settings.php?open_general=' + this.value.replace('general:', ''); } else { window.location.href='edit_section.php?section=' + this.value; }">
+                <optgroup label="Website Frontend Sections">
+                    <option value="climate" <?php echo ($active_tab === 'climate') ? 'selected' : ''; ?>>01 • Climate & Accolades</option>
+                    <option value="hero" <?php echo ($active_tab === 'hero') ? 'selected' : ''; ?>>02 • Hero Marquee & Visual</option>
+                    <option value="philosophy" <?php echo ($active_tab === 'philosophy') ? 'selected' : ''; ?>>03 • Sanctuary Philosophy</option>
+                    <option value="rooms" <?php echo ($active_tab === 'rooms') ? 'selected' : ''; ?>>04 • Villas & Cottages</option>
+                    <option value="experiences" <?php echo ($active_tab === 'experiences') ? 'selected' : ''; ?>>05 • Curated Experiences</option>
+                    <option value="menu" <?php echo ($active_tab === 'menu') ? 'selected' : ''; ?>>06 • Food Menu & Dining</option>
+                    <option value="why" <?php echo ($active_tab === 'why') ? 'selected' : ''; ?>>07 • Why Food Forest?</option>
+                    <option value="sanctuary_map" <?php echo ($active_tab === 'sanctuary_map') ? 'selected' : ''; ?>>08 • Sanctuary Estate Map</option>
+                    <option value="seasons" <?php echo ($active_tab === 'seasons') ? 'selected' : ''; ?>>09 • Seasons of Kanthalloor</option>
+                    <option value="gallery" <?php echo ($active_tab === 'gallery') ? 'selected' : ''; ?>>10 • Visual Diary (Gallery)</option>
+                    <option value="testimonials" <?php echo ($active_tab === 'testimonials') ? 'selected' : ''; ?>>11 • Guest Reflections</option>
+                    <option value="whatsapp" <?php echo ($active_tab === 'whatsapp') ? 'selected' : ''; ?>>12 • WhatsApp & Concierge</option>
+                    <option value="protection" <?php echo ($active_tab === 'protection') ? 'selected' : ''; ?>>13 • Content Protection</option>
+                    <option value="bank" <?php echo ($active_tab === 'bank') ? 'selected' : ''; ?>>14 • Bank Details & UPI QR</option>
+                    <option value="footer" <?php echo ($active_tab === 'footer') ? 'selected' : ''; ?>>15 • Footer & Eco Pillars</option>
+                </optgroup>
+                <optgroup label="General Settings Hub (Master)">
+                    <option value="general:branding">⚙️ Resort Branding & Logo</option>
+                    <option value="general:gst">⚙️ Multi-Tier GST Rates</option>
+                    <option value="general:food">⚙️ Food Ordering Operations</option>
+                    <option value="general:preview">⚙️ Live Preview Controls</option>
+                    <option value="general:sessions">⚙️ Session Timings</option>
+                    <option value="general:security">⚙️ Admin Security & Password</option>
+                    <option value="general:users">⚙️ User Profiles Hub</option>
+                    <option value="general:audit">⚙️ Room Audit Checklist</option>
+                </optgroup>
             </select>
         </div>
 
@@ -2148,12 +2217,12 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
 </div>
 
 <!-- ================================================================= -->
-<!-- SPLIT-SCREEN LAYOUT: LEFT (FORM EDITOR) + RIGHT (LIVE USER PREVIEW) -->
+<!-- SECTION LAYOUT: SPLIT-SCREEN (IF PREVIEW ACTIVE) OR FULL-WIDTH (IF DISABLED) -->
 <!-- ================================================================= -->
-<div class="adm-split-layout-wrapper" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; width: 100%;">
-    <!-- LEFT COLUMN: ACTIVE EDITING FORM -->
-    <div class="adm-editor-col" style="grid-column: 1 / 2; width: 100%; min-width: 0; max-width: 100%;">
-        <div class="adm-settings-panels-container" id="adm-panels-container">
+<div class="adm-split-layout-wrapper <?php echo $card_preview_active ? 'has-live-preview' : 'preview-disabled'; ?>" style="<?php echo $card_preview_active ? 'display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 20px;' : 'display: block; width: 100%;'; ?> align-items: start; width: 100%;">
+    <!-- EDITING FORM COLUMN (EXPANDS TO 100% FULL-WIDTH WHEN PREVIEW IS DISABLED) -->
+    <div class="adm-editor-col" style="<?php echo $card_preview_active ? 'grid-column: 1 / 2; width: 100%; min-width: 0; max-width: 100%;' : 'width: 100%; max-width: 100%; display: block;'; ?>">
+        <div class="adm-settings-panels-container" id="adm-panels-container" style="width: 100%; max-width: 100%;">
 
     <!-- -------------------------------------------------------------
          PANEL 13: ESTATE & IDENTITY
@@ -5158,6 +5227,21 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                         <textarea name="new_room_desc" rows="3" class="adm-form-control" placeholder="Highlight materials, ventilation, natural thermal properties, private verandas, and forest view aspects..." required></textarea>
                     </div>
 
+                    <div class="adm-form-group" style="margin-bottom: 16px; background: rgba(0,0,0,0.25); border: 1px solid rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 12px 14px;">
+                        <label class="adm-form-label" style="margin-bottom: 6px; color: var(--adm-gold); font-weight: 700;">
+                            <i class="fa-solid fa-shield-halved"></i> Property Availability Status *
+                        </label>
+                        <select name="new_room_availability_status" class="adm-form-control" style="font-weight: 600;">
+                            <option value="available" selected>🟢 Open for Online Reservations (Active &amp; Bookable)</option>
+                            <option value="closed_renovation">🚧 Closed for Renovation (Bookings Blocked)</option>
+                            <option value="opening_soon">✨ Opening Soon (Bookings Blocked)</option>
+                            <option value="maintenance">🔴 Temporarily Offline / Maintenance (Bookings Blocked)</option>
+                        </select>
+                        <small style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-top: 4px;">
+                            Choose whether this property is immediately open for booking, undergoing renovation, or marked as opening soon.
+                        </small>
+                    </div>
+
                     <div style="display: flex; gap: 10px; justify-content: flex-end;">
                         <button type="button" class="adm-btn-action" style="background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12);" onclick="toggleAddNewDrawer('drawer-add-room');">Cancel</button>
                         <button type="submit" class="adm-btn-action emerald" style="font-weight: 700;">
@@ -5291,7 +5375,18 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                         <div class="adm-accordion-meta-sub">
                                             <span><?php echo e($room['elevation']); ?></span>
                                             <span>• Up to <?php echo (int)($room['max_guests'] ?? 4); ?> Guests</span>
-                                            <span>• <?php echo (!isset($room['is_available']) || $room['is_available'] == 1) ? '<strong style="color: #2ecc71;">Active</strong>' : '<strong style="color: #e74c3c;">Maintenance</strong>'; ?></span>
+                                            <span>• <?php 
+                                            $hdr_st = $room['availability_status'] ?? (!empty($room['is_available']) ? 'available' : 'maintenance');
+                                            if ($hdr_st === 'closed_renovation') {
+                                                echo '<strong style="color: #f59e0b;"><i class="fa-solid fa-person-digging"></i> Closed for Renovation</strong>';
+                                            } elseif ($hdr_st === 'opening_soon') {
+                                                echo '<strong style="color: #38bdf8;"><i class="fa-solid fa-sparkles"></i> Opening Soon</strong>';
+                                            } elseif ($hdr_st === 'available') {
+                                                echo '<strong style="color: #2ecc71;"><i class="fa-solid fa-circle-check"></i> Active</strong>';
+                                            } else {
+                                                echo '<strong style="color: #e74c3c;"><i class="fa-solid fa-wrench"></i> Maintenance</strong>';
+                                            }
+                                            ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -5380,14 +5475,30 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
                                     <span>Minimum base payment is identical for 1 or 2 guests. Extra adults pay Extra Adult Rate; extra kids (5-11 yrs) pay Extra Child Rate. Infants &lt; 5 yrs complimentary.</span>
                                 </div>
 
-                                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); padding: 8px 12px; border-radius: 8px; margin-bottom: 12px;">
-                                    <span style="font-size: 12px; color: var(--adm-text-secondary);">Booking Status:</span>
-                                    <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; color: #fff; margin: 0;">
-                                        <input type="checkbox" name="room_available_<?php echo $room['id']; ?>" value="1" <?php echo (!isset($room['is_available']) || $room['is_available'] == 1) ? 'checked' : ''; ?>>
-                                        <span style="font-weight: 600; color: <?php echo (!isset($room['is_available']) || $room['is_available'] == 1) ? '#2ecc71' : '#e74c3c'; ?>;">
-                                            <?php echo (!isset($room['is_available']) || $room['is_available'] == 1) ? 'Active & Bookable' : 'Temporarily Closed / Maintenance'; ?>
-                                        </span>
+                                <?php 
+                                $card_room_status = $room['availability_status'] ?? (!empty($room['is_available']) ? 'available' : 'maintenance');
+                                ?>
+                                <div style="background: rgba(0,0,0,0.28); border: 1px solid rgba(197, 160, 89, 0.3); padding: 12px 14px; border-radius: 8px; margin-bottom: 14px;">
+                                    <label class="adm-form-label" style="font-size: 12px; color: var(--adm-gold); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                                        <i class="fa-solid fa-shield-halved"></i> Property Availability &amp; Booking Status
                                     </label>
+                                    <select name="room_availability_status_<?php echo $room['id']; ?>" class="adm-form-control" style="font-weight: 600; font-size: 12.5px;">
+                                        <option value="available" <?php echo ($card_room_status === 'available') ? 'selected' : ''; ?>>
+                                            🟢 Open for Online Reservations (Active &amp; Bookable)
+                                        </option>
+                                        <option value="closed_renovation" <?php echo ($card_room_status === 'closed_renovation') ? 'selected' : ''; ?>>
+                                            🚧 Closed for Renovation (Bookings Blocked)
+                                        </option>
+                                        <option value="opening_soon" <?php echo ($card_room_status === 'opening_soon') ? 'selected' : ''; ?>>
+                                            ✨ Opening Soon (Bookings Blocked)
+                                        </option>
+                                        <option value="maintenance" <?php echo ($card_room_status === 'maintenance') ? 'selected' : ''; ?>>
+                                            🔴 Temporarily Offline / Maintenance (Bookings Blocked)
+                                        </option>
+                                    </select>
+                                    <small style="color: var(--adm-text-secondary); font-size: 11px; display: block; margin-top: 4px;">
+                                        Properties marked as <strong>Closed for Renovation</strong> or <strong>Opening Soon</strong> will display the corresponding status notice to guests and strictly block online bookings.
+                                    </small>
                                 </div>
 
                                 <div class="adm-form-group" style="margin-bottom: 12px;">
@@ -8427,6 +8538,7 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
     </div> <!-- End .adm-settings-panels-container -->
     </div> <!-- End .adm-editor-col -->
 
+    <?php if ($card_preview_active): ?>
     <!-- RIGHT COLUMN: REAL-TIME USER-SIDE LIVE PREVIEW (MULTI-RESOLUTION SUITE) -->
     <div class="adm-preview-col" style="grid-column: 2 / 3; width: 100%; min-width: 0; max-width: 100%; position: sticky; top: 80px;">
         <div class="adm-preview-card">
@@ -8527,10 +8639,10 @@ $current_anchor = $anchor_map[$active_tab] ?? '../index.php';
             <!-- Footer Synchronization Status -->
             <div class="adm-preview-footer">
                 <span class="adm-pv-status-text"><i class="fa-solid fa-bolt" style="color: #2ecc71;"></i> Live 2-way synchronization active</span>
-                <span class="adm-pv-status-hint">Type in left form to see instant updates</span>
             </div>
-        </div>
+        </div> <!-- End .adm-preview-card -->
     </div> <!-- End .adm-preview-col -->
+    <?php endif; ?>
 
 </div> <!-- End .adm-split-layout-wrapper -->
 

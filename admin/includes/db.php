@@ -403,6 +403,37 @@ function ensure_default_settings(PDO $pdo) {
         // Operations: Guest In-Cottage Food Ordering
         'food_ordering_enabled' => '1',
 
+        // Branding & Identity
+        'site_logo' => '',
+        'site_name' => 'FOOD FOREST',
+        'site_tagline' => 'KANTHALLOOR • ECO SANCTUARY',
+
+        // Session & Inactivity Logout Timings (in Minutes)
+        'admin_session_timeout_minutes' => '15',
+        'client_session_timeout_minutes' => '15',
+
+        // Live Preview Controls in Estate Settings
+        'live_preview_enabled' => '1',
+        'live_preview_cards_config' => '{}',
+
+        // Room Audit Inventory Checklist
+        'room_audit_checklist' => json_encode([
+            ['item' => 'Physical Room Key & Brass Keychain', 'qty' => 1, 'notes' => 'Handover at reception'],
+            ['item' => 'TV Unit & Set-Top Box', 'qty' => 1, 'notes' => 'Screen undamaged, cables intact'],
+            ['item' => 'TV Remote & Set-Top Remote', 'qty' => 2, 'notes' => 'Both remotes working with batteries'],
+            ['item' => 'Electric Water Kettle & Ceramic Tray', 'qty' => 1, 'notes' => 'Clean & working condition'],
+            ['item' => 'Artisan Coffee Mugs & Spoons', 'qty' => 2, 'notes' => 'Earthen/ceramic sets intact'],
+            ['item' => 'Glass Water Pitcher / Spring Bottles', 'qty' => 2, 'notes' => 'Sanitized glass carafes'],
+            ['item' => 'Hairdryer (Grooming Kit)', 'qty' => 1, 'notes' => 'Kept in bathroom drawer'],
+            ['item' => 'Emergency High-Beam LED Torch', 'qty' => 1, 'notes' => 'Rechargeable forest torch'],
+            ['item' => 'Heavy-Duty Walking Umbrellas', 'qty' => 2, 'notes' => 'In umbrella stand at entrance'],
+            ['item' => 'Mosquito Vaporizer Unit', 'qty' => 1, 'notes' => 'Plugged in bedside socket'],
+            ['item' => 'Organic Cotton Bath & Hand Towels', 'qty' => 4, 'notes' => '2 Large Bath + 2 Hand Towels'],
+            ['item' => 'Heavy Duck-Down Quilts & Blankets', 'qty' => 2, 'notes' => 'In wardrobe / master bed'],
+            ['item' => 'Balcony Cane Chairs & Teak Table', 'qty' => 1, 'notes' => 'Sit-out furniture undamaged'],
+            ['item' => 'Fireplace Guard / Tool Set', 'qty' => 1, 'notes' => 'If hearth villa']
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+
         // Multi-Tier GST Tax Regimes (Food, Cottage, Other Expenses)
         'gst_rate_cottage' => '12',
         'gst_rate_food' => '5',
@@ -571,6 +602,111 @@ function render_stay_category_options($selected_key = '', $show_desc = false) {
 }
 
 /**
+ * Retrieve the default 10 navigation menu items (Header & Mobile Drawer)
+ * @return array
+ */
+function get_default_navigation_menu() {
+    return [
+        [
+            'id' => 1,
+            'label' => 'The Sanctuary',
+            'url' => '#welcome',
+            'icon' => '',
+            'highlight' => false,
+            'show_in_desktop' => true
+        ],
+        [
+            'id' => 2,
+            'label' => 'Villas & Stays',
+            'url' => '#rooms-experience',
+            'icon' => '',
+            'highlight' => false,
+            'show_in_desktop' => true
+        ],
+        [
+            'id' => 3,
+            'label' => 'Interactive Map Booking',
+            'url' => 'booking.php',
+            'icon' => 'fa-solid fa-map-location-dot',
+            'highlight' => true,
+            'show_in_desktop' => true
+        ],
+        [
+            'id' => 4,
+            'label' => 'Activities',
+            'url' => '#experiences',
+            'icon' => '',
+            'highlight' => false,
+            'show_in_desktop' => true
+        ],
+        [
+            'id' => 5,
+            'label' => 'Our Menu',
+            'url' => 'menu.php',
+            'icon' => '',
+            'highlight' => false,
+            'show_in_desktop' => true
+        ],
+        [
+            'id' => 6,
+            'label' => 'Landscape',
+            'url' => '#sanctuary',
+            'icon' => '',
+            'highlight' => false,
+            'show_in_desktop' => true
+        ],
+        [
+            'id' => 7,
+            'label' => 'Gallery',
+            'url' => '#gallery',
+            'icon' => '',
+            'highlight' => false,
+            'show_in_desktop' => true
+        ],
+        [
+            'id' => 8,
+            'label' => 'Guest Stories',
+            'url' => '#testimonials',
+            'icon' => '',
+            'highlight' => false,
+            'show_in_desktop' => true
+        ],
+        [
+            'id' => 9,
+            'label' => 'Guest Portal / My Bookings',
+            'url' => 'guest_portal.php',
+            'icon' => 'fa-solid fa-key',
+            'highlight' => true,
+            'show_in_desktop' => false
+        ],
+        [
+            'id' => 10,
+            'label' => 'Contact',
+            'url' => '#contact',
+            'icon' => '',
+            'highlight' => false,
+            'show_in_desktop' => false
+        ]
+    ];
+}
+
+/**
+ * Retrieve the active navigation menu items (stored in settings or default)
+ * Guaranteed to return exactly 10 items for the fixed navigation structure
+ * @return array
+ */
+function get_navigation_menu() {
+    $raw = get_setting('site_navigation_menu', '');
+    if (!empty($raw)) {
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded) && count($decoded) === 10) {
+            return $decoded;
+        }
+    }
+    return get_default_navigation_menu();
+}
+
+/**
  * Retrieve all rooms from database.
  */
 function get_all_rooms($only_available = false) {
@@ -578,7 +714,7 @@ function get_all_rooms($only_available = false) {
         $pdo = get_db();
         $sql = "SELECT * FROM rooms";
         if ($only_available) {
-            $sql .= " WHERE is_available = 1";
+            $sql .= " WHERE is_available = 1 AND (availability_status = 'available' OR availability_status IS NULL)";
         }
         $sql .= " ORDER BY id ASC";
         $rooms = $pdo->query($sql)->fetchAll();
@@ -1281,6 +1417,13 @@ function ensure_rooms_pricing_columns(PDO $pdo) {
         $b_unit_cols = $pdo->query("SHOW COLUMNS FROM `bookings` LIKE 'duplex_unit'")->fetchAll();
         if (empty($b_unit_cols)) {
             $pdo->exec("ALTER TABLE `bookings` ADD COLUMN `duplex_unit` VARCHAR(20) DEFAULT 'full' AFTER `villa_type`");
+        }
+
+        // 11. Check & Add availability_status to rooms table
+        $cols = $pdo->query("SHOW COLUMNS FROM `rooms` LIKE 'availability_status'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE `rooms` ADD COLUMN `availability_status` VARCHAR(50) DEFAULT 'available' AFTER `is_available`");
+            $pdo->exec("UPDATE `rooms` SET `availability_status` = CASE WHEN `is_available` = 0 THEN 'maintenance' ELSE 'available' END WHERE `availability_status` IS NULL");
         }
 
         // Migration updates for existing rooms (if present)
@@ -2460,6 +2603,26 @@ function ensure_users_and_guest_columns(?PDO $pdo = null) {
         if (!in_array('verified_at', $u_cols)) {
             $pdo->exec("ALTER TABLE `users` ADD COLUMN `verified_at` DATETIME NULL AFTER `is_google_verified`");
         }
+        if (!in_array('avatar_url', $u_cols)) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `avatar_url` VARCHAR(255) NULL AFTER `email`");
+        }
+        if (!in_array('username', $u_cols)) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `username` VARCHAR(100) NULL AFTER `full_name`");
+        }
+        if (!in_array('is_verified', $u_cols)) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `is_verified` TINYINT(1) DEFAULT 0 AFTER `is_google_verified`");
+        }
+        if (!in_array('status', $u_cols)) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `status` TINYINT(1) DEFAULT 1 AFTER `is_verified`");
+        }
+        if (!in_array('admin_notes', $u_cols)) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `admin_notes` TEXT NULL AFTER `status`");
+        }
+
+        $a_cols = $pdo->query("SHOW COLUMNS FROM `admins`")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('avatar_url', $a_cols)) {
+            $pdo->exec("ALTER TABLE `admins` ADD COLUMN `avatar_url` VARCHAR(255) NULL AFTER `email`");
+        }
 
         // 2. Ensure columns exist in bookings table
         $cols = $pdo->query("SHOW COLUMNS FROM `bookings`")->fetchAll(PDO::FETCH_COLUMN);
@@ -2794,11 +2957,21 @@ function check_room_availability($pdo, $room_slug, $checkin_date, $checkout_date
         ensure_ical_and_channel_schema($pdo);
         ensure_rooms_pricing_columns($pdo);
         
-        // Find if this room is a duplex
-        $stmt_r = $pdo->prepare("SELECT structure_type FROM rooms WHERE slug = ?");
+        // Find if this room is active and get structure type
+        $stmt_r = $pdo->prepare("SELECT structure_type, is_available, availability_status FROM rooms WHERE slug = ?");
         $stmt_r->execute([$room_slug]);
-        $r_struct = $stmt_r->fetchColumn();
-        $is_duplex = ($r_struct === 'duplex_hut');
+        $r_row = $stmt_r->fetch(PDO::FETCH_ASSOC);
+        
+        if ($r_row) {
+            $avail_status = $r_row['availability_status'] ?? (!empty($r_row['is_available']) ? 'available' : 'maintenance');
+            if ($avail_status !== 'available' || empty($r_row['is_available'])) {
+                // Property is closed for renovation, opening soon, or maintenance!
+                return false;
+            }
+            $is_duplex = (($r_row['structure_type'] ?? '') === 'duplex_hut');
+        } else {
+            $is_duplex = false;
+        }
         
         $sql = "SELECT id, reference_code, guest_name, checkin_date, checkout_date, booking_source, duplex_unit 
                 FROM bookings 
@@ -2890,6 +3063,69 @@ function get_all_rooms_availability_for_dates($pdo, $checkin_date, $checkout_dat
         foreach ($rooms as $r) {
             $slug = strtolower(trim($r['slug']));
             $is_duplex = (($r['structure_type'] ?? '') === 'duplex_hut');
+
+            $avail_status = $r['availability_status'] ?? (!empty($r['is_available']) ? 'available' : 'maintenance');
+            if ($avail_status === 'closed_renovation') {
+                $rooms_status[$slug] = [
+                    'slug' => $slug,
+                    'title' => $r['title'],
+                    'is_duplex' => $is_duplex,
+                    'structure_type' => $r['structure_type'] ?? ($is_duplex ? 'duplex_hut' : 'single_hut'),
+                    'available' => false,
+                    'status' => 'closed_renovation',
+                    'status_label' => 'Closed for Renovation',
+                    'left_available' => false,
+                    'right_available' => false,
+                    'full_available' => false,
+                    'left_booked' => true,
+                    'right_booked' => true,
+                    'overlap_source' => null,
+                    'overlap_count' => 0,
+                    'message' => "{$r['title']} is currently closed for architectural renovation. Online bookings are temporarily unavailable.",
+                    'partially_booked_note' => 'Closed for Renovation'
+                ];
+                continue;
+            } elseif ($avail_status === 'opening_soon') {
+                $rooms_status[$slug] = [
+                    'slug' => $slug,
+                    'title' => $r['title'],
+                    'is_duplex' => $is_duplex,
+                    'structure_type' => $r['structure_type'] ?? ($is_duplex ? 'duplex_hut' : 'single_hut'),
+                    'available' => false,
+                    'status' => 'opening_soon',
+                    'status_label' => 'Opening Soon',
+                    'left_available' => false,
+                    'right_available' => false,
+                    'full_available' => false,
+                    'left_booked' => true,
+                    'right_booked' => true,
+                    'overlap_source' => null,
+                    'overlap_count' => 0,
+                    'message' => "{$r['title']} is opening soon! Reservations will open shortly.",
+                    'partially_booked_note' => 'Opening Soon'
+                ];
+                continue;
+            } elseif ($avail_status === 'maintenance' || empty($r['is_available'])) {
+                $rooms_status[$slug] = [
+                    'slug' => $slug,
+                    'title' => $r['title'],
+                    'is_duplex' => $is_duplex,
+                    'structure_type' => $r['structure_type'] ?? ($is_duplex ? 'duplex_hut' : 'single_hut'),
+                    'available' => false,
+                    'status' => 'maintenance',
+                    'status_label' => 'Offline / Maintenance',
+                    'left_available' => false,
+                    'right_available' => false,
+                    'full_available' => false,
+                    'left_booked' => true,
+                    'right_booked' => true,
+                    'overlap_source' => null,
+                    'overlap_count' => 0,
+                    'message' => "{$r['title']} is currently offline for scheduled maintenance. Online bookings are temporarily paused.",
+                    'partially_booked_note' => 'Offline / Maintenance'
+                ];
+                continue;
+            }
 
             // Match overlapping bookings for this room slug or fuzzy alias
             $room_overlaps = [];

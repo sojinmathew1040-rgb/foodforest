@@ -32,7 +32,12 @@ function is_admin_logged_in() {
 function check_admin_inactivity_timeout() {
     if (is_admin_logged_in()) {
         $now = time();
-        $timeout_seconds = 300; // 5 minutes of inactivity
+        $timeout_minutes = 15;
+        if (function_exists('get_setting')) {
+            $timeout_minutes = (int)get_setting('admin_session_timeout_minutes', 15);
+        }
+        if ($timeout_minutes < 1) $timeout_minutes = 15;
+        $timeout_seconds = $timeout_minutes * 60;
         if (isset($_SESSION['last_activity']) && ($now - $_SESSION['last_activity'] > $timeout_seconds)) {
             logout_admin();
             header("Location: login.php?timeout=1");
@@ -56,19 +61,41 @@ function require_admin_auth() {
 }
 
 /**
- * Returns currently logged-in admin data.
+ * Returns currently logged-in admin data with avatar and fresh database synchronization.
  */
 function current_admin() {
     if (empty($_SESSION['admin_id'])) {
         return null;
     }
-    return [
+    static $admin_cache = null;
+    if ($admin_cache !== null) {
+        return $admin_cache;
+    }
+    try {
+        $pdo = get_db();
+        $stmt = $pdo->prepare("SELECT id, username, full_name, email, role, avatar_url FROM admins WHERE id = ? LIMIT 1");
+        $stmt->execute([(int)$_SESSION['admin_id']]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $_SESSION['admin_username'] = $row['username'];
+            $_SESSION['admin_name'] = $row['full_name'];
+            $_SESSION['admin_role'] = $row['role'];
+            $_SESSION['admin_email'] = $row['email'];
+            $_SESSION['admin_avatar'] = $row['avatar_url'] ?? '';
+            $admin_cache = $row;
+            return $admin_cache;
+        }
+    } catch (Exception $e) {}
+
+    $admin_cache = [
         'id' => $_SESSION['admin_id'],
         'username' => $_SESSION['admin_username'] ?? 'admin',
         'full_name' => $_SESSION['admin_name'] ?? 'Administrator',
         'role' => $_SESSION['admin_role'] ?? 'Concierge Lead',
-        'email' => $_SESSION['admin_email'] ?? ''
+        'email' => $_SESSION['admin_email'] ?? '',
+        'avatar_url' => $_SESSION['admin_avatar'] ?? ''
     ];
+    return $admin_cache;
 }
 
 /**
@@ -95,6 +122,7 @@ function login_admin($username, $password) {
         $_SESSION['admin_name'] = $admin['full_name'];
         $_SESSION['admin_role'] = $admin['role'];
         $_SESSION['admin_email'] = $admin['email'];
+        $_SESSION['admin_avatar'] = $admin['avatar_url'] ?? '';
         $_SESSION['admin_logged_in'] = true;
         $_SESSION['last_activity'] = time();
 

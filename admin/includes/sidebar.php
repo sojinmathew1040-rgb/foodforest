@@ -15,16 +15,22 @@ $today_kitchen_orders_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings
     WHERE status != 'cancelled' 
     AND checkin_date <= CURDATE() AND checkout_date >= CURDATE()
     AND food_items IS NOT NULL AND food_items != '' AND food_items != '[]'")->fetchColumn();
+$site_name = get_setting('site_name', get_setting('estate_name', 'FOOD FOREST'));
+$site_logo = get_setting('site_logo', '');
 ?>
 
 <aside class="adm-sidebar" id="adm-sidebar">
     <!-- Brand Emblem, Title & Minimize Toggle Button -->
     <div class="adm-sidebar-brand">
-        <div class="adm-sidebar-logo" title="Food Forest Sanctuary">
-            <i class="fa-solid fa-seedling"></i>
+        <div class="adm-sidebar-logo" title="<?php echo htmlspecialchars($site_name); ?>">
+            <?php if (!empty($site_logo)): ?>
+                <img src="../<?php echo htmlspecialchars(ltrim($site_logo, '/')); ?>" alt="<?php echo htmlspecialchars($site_name); ?>" style="max-height: 24px; max-width: 24px; object-fit: contain;">
+            <?php else: ?>
+                <i class="fa-solid fa-seedling"></i>
+            <?php endif; ?>
         </div>
         <div class="adm-sidebar-brand-text">
-            <span class="adm-sidebar-title">FOOD FOREST</span>
+            <span class="adm-sidebar-title"><?php echo htmlspecialchars($site_name); ?></span>
             <span class="adm-sidebar-badge">CONCIERGE PORTAL</span>
         </div>
         <button type="button" class="adm-sidebar-toggle-btn" id="adm-sidebar-toggle-btn" title="Minimize / Expand Menu" aria-label="Toggle Sidebar Menu">
@@ -33,6 +39,19 @@ $today_kitchen_orders_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings
         <button type="button" class="adm-sidebar-close-mob" id="adm-sidebar-close-mob" title="Close Menu" aria-label="Close Mobile Menu">
             <i class="fa-solid fa-xmark"></i>
         </button>
+    </div>
+
+    <!-- Mobile App Quick Actions Row (Visible only in mobile drawer) -->
+    <div class="adm-sidebar-mob-quick-actions" style="padding: 10px 14px 6px; display: none; gap: 6px;">
+        <a href="billing.php" class="adm-btn-action outline" style="flex: 1; padding: 6px 8px; font-size: 11px; justify-content: center; text-decoration: none; border-radius: 6px;" title="Billing & Invoices">
+            <i class="fa-solid fa-receipt"></i> <span>Billing</span>
+        </a>
+        <a href="calendar.php" class="adm-btn-action outline" style="flex: 1; padding: 6px 8px; font-size: 11px; justify-content: center; text-decoration: none; border-radius: 6px;" title="Booking Calendar">
+            <i class="fa-solid fa-calendar-days"></i> <span>Calendar</span>
+        </a>
+        <a href="settings.php" class="adm-btn-action gold" style="flex: 1; padding: 6px 8px; font-size: 11px; justify-content: center; text-decoration: none; border-radius: 6px;" title="Estate Settings">
+            <i class="fa-solid fa-sliders"></i> <span>Settings</span>
+        </a>
     </div>
 
     <!-- Navigation List -->
@@ -99,6 +118,13 @@ $today_kitchen_orders_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings
             </a>
         </li>
 
+        <li class="adm-nav-item">
+            <a href="reports.php" class="adm-nav-link <?php echo ($current_script === 'reports.php') ? 'active' : ''; ?>" title="Reports &amp; Performance Audit">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Reports &amp; Audit</span>
+            </a>
+        </li>
+
         <div class="adm-nav-section" style="margin-top: 18px;">Sanctuary CMS & Control</div>
 
         <li class="adm-nav-item">
@@ -112,14 +138,7 @@ $today_kitchen_orders_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings
         </li>
 
         <li class="adm-nav-item">
-            <a href="edit_section.php?section=menu" class="adm-nav-link <?php echo ($current_script === 'edit_section.php' && (($_GET['section'] ?? '') === 'menu' || ($_GET['tab'] ?? '') === 'menu')) ? 'active' : ''; ?>" title="Food Menu Hub">
-                <i class="fa-solid fa-utensils"></i>
-                <span>Food Menu Hub</span>
-            </a>
-        </li>
-
-        <li class="adm-nav-item">
-            <a href="settings.php" class="adm-nav-link <?php echo (in_array($current_script, ['settings.php', 'edit_section.php', 'rooms.php', 'gallery.php', 'testimonials.php', 'experiences.php', 'content.php']) && (($_GET['section'] ?? '') !== 'menu' && ($_GET['tab'] ?? '') !== 'menu')) ? 'active' : ''; ?>" title="Estate Settings">
+            <a href="settings.php" class="adm-nav-link <?php echo (in_array($current_script, ['settings.php', 'edit_section.php', 'rooms.php', 'gallery.php', 'testimonials.php', 'experiences.php', 'content.php']) && (($_GET['section'] ?? '') !== 'testimonials' && ($_GET['tab'] ?? '') !== 'testimonials')) ? 'active' : ''; ?>" title="Estate Settings">
                 <i class="fa-solid fa-sliders"></i>
                 <span>Estate Settings</span>
             </a>
@@ -136,24 +155,28 @@ $today_kitchen_orders_count = (int) $pdo->query("SELECT COUNT(*) FROM bookings
 
     <!-- Sidebar Bottom User Profile & Logout -->
     <div class="adm-sidebar-footer">
-        <div class="adm-user-profile-row">
-            <div class="adm-user-avatar">
-                <?php 
-                $initials = 'FF';
-                if (!empty($admin['full_name'])) {
-                    $parts = explode(' ', trim($admin['full_name']));
-                    $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : ''));
-                }
-                echo e($initials);
-                ?>
+        <div class="adm-user-profile-row" style="cursor: pointer;" onclick="if(window.openProfileModal) openProfileModal();" title="Click to edit profile & manage users">
+            <div class="adm-user-avatar" id="adm-sidebar-avatar" style="overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <?php if (!empty($admin['avatar_url'])): ?>
+                    <img src="<?php echo (strpos($admin['avatar_url'], 'http') === 0 || strpos($admin['avatar_url'], 'data:') === 0 ? e($admin['avatar_url']) : '../' . ltrim(e($admin['avatar_url']), '/')); ?>" alt="<?php echo e($admin['full_name'] ?? 'Admin'); ?>" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block;">
+                <?php else: ?>
+                    <?php 
+                    $initials = 'FF';
+                    if (!empty($admin['full_name'])) {
+                        $parts = explode(' ', trim($admin['full_name']));
+                        $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : ''));
+                    }
+                    echo e($initials);
+                    ?>
+                <?php endif; ?>
             </div>
             <div class="adm-user-info">
-                <div class="adm-user-name" title="<?php echo e($admin['full_name'] ?? 'Admin'); ?>">
+                <div class="adm-user-name" id="adm-sidebar-name" title="<?php echo e($admin['full_name'] ?? 'Admin'); ?>">
                     <?php echo e($admin['full_name'] ?? 'Admin'); ?>
                 </div>
                 <div class="adm-user-role"><?php echo e($admin['role'] ?? 'Concierge'); ?></div>
             </div>
-            <a href="logout.php" class="adm-btn-logout" title="Log Out" onclick="return confirm('Confirm log out from Food Forest Admin?');">
+            <a href="logout.php" class="adm-btn-logout" title="Log Out" onclick="event.stopPropagation(); return confirm('Confirm log out from Food Forest Admin?');">
                 <i class="fa-solid fa-arrow-right-from-bracket"></i>
             </a>
         </div>

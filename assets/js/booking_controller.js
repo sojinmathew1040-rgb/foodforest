@@ -283,13 +283,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Check availability status from latest fetched data
+        // Check availability status from latest fetched data OR linked room base data
         let spotAvail = true;
         let spotPartiallyBooked = false;
         let leftAvail = true;
         let rightAvail = true;
         let fullAvail = true;
         let spotMessage = '';
+        let spotStatusCode = 'available';
+
+        const roomBaseStatus = currentRoom ? (currentRoom.availability_status || (!emptyOrZero(currentRoom.is_available) ? 'available' : 'maintenance')) : 'available';
+
         if (isStay && currentAvailabilityData && currentAvailabilityData.spots_status) {
             const spStatus = currentAvailabilityData.spots_status[spot.id];
             if (spStatus) {
@@ -298,7 +302,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 leftAvail = (spStatus.left_available !== undefined) ? spStatus.left_available : true;
                 rightAvail = (spStatus.right_available !== undefined) ? spStatus.right_available : true;
                 fullAvail = (spStatus.full_available !== undefined) ? spStatus.full_available : true;
-                spotMessage = spStatus.message;
+                spotMessage = spStatus.message || '';
+                spotStatusCode = spStatus.status || (spotAvail ? 'available' : 'booked');
+            }
+        } else if (isStay && roomBaseStatus !== 'available') {
+            spotAvail = false;
+            spotStatusCode = roomBaseStatus;
+            if (roomBaseStatus === 'closed_renovation') {
+                spotMessage = `${spot.title} is currently closed for architectural renovation. Reservations are temporarily unavailable.`;
+            } else if (roomBaseStatus === 'opening_soon') {
+                spotMessage = `${spot.title} will be opening soon! Online bookings will open shortly.`;
+            } else {
+                spotMessage = `${spot.title} is currently offline for scheduled maintenance.`;
             }
         }
 
@@ -317,23 +332,79 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isStay) {
                 sacAvailPill.innerHTML = '<i class="fa-solid fa-sparkles" style="color: #56c2c9;"></i> Open for Guests';
                 sacAvailPill.className = 'sac-avail-pill font-sans';
+                sacAvailPill.style.background = '';
+                sacAvailPill.style.color = '';
+                sacAvailPill.style.border = '';
+            } else if (spotStatusCode === 'closed_renovation') {
+                sacAvailPill.innerHTML = '<i class="fa-solid fa-person-digging" style="color: #F59E0B;"></i> Closed for Renovation';
+                sacAvailPill.className = 'sac-avail-pill sac-renovation font-sans';
+                sacAvailPill.style.background = 'rgba(245, 158, 11, 0.18)';
+                sacAvailPill.style.color = '#F59E0B';
+                sacAvailPill.style.border = '1px solid rgba(245, 158, 11, 0.4)';
+            } else if (spotStatusCode === 'opening_soon') {
+                sacAvailPill.innerHTML = '<i class="fa-solid fa-sparkles" style="color: #38BDF8;"></i> Opening Soon';
+                sacAvailPill.className = 'sac-avail-pill sac-opening-soon font-sans';
+                sacAvailPill.style.background = 'rgba(56, 189, 248, 0.18)';
+                sacAvailPill.style.color = '#38BDF8';
+                sacAvailPill.style.border = '1px solid rgba(56, 189, 248, 0.4)';
             } else if (spotPartiallyBooked) {
                 sacAvailPill.innerHTML = '<i class="fa-solid fa-bolt" style="color: #D97706;"></i> 1 Suite Available (Partially Booked)';
                 sacAvailPill.className = 'sac-avail-pill sac-partially-booked font-sans';
+                sacAvailPill.style.background = '';
+                sacAvailPill.style.color = '';
+                sacAvailPill.style.border = '';
             } else if (spotAvail) {
                 sacAvailPill.innerHTML = '<i class="fa-solid fa-circle-check"></i> Available for Selected Dates';
                 sacAvailPill.className = 'sac-avail-pill sac-available font-sans';
+                sacAvailPill.style.background = '';
+                sacAvailPill.style.color = '';
+                sacAvailPill.style.border = '';
             } else {
                 sacAvailPill.innerHTML = '<i class="fa-solid fa-ban"></i> Reserved for Selected Dates';
                 sacAvailPill.className = 'sac-avail-pill sac-booked font-sans';
+                sacAvailPill.style.background = '';
+                sacAvailPill.style.color = '';
+                sacAvailPill.style.border = '';
             }
         }
 
-        // Booked or Partially Booked Warning in Sidebar
+        // Booked, Renovation, Opening Soon or Partially Booked Warning in Sidebar
         if (sacBookedWarning) {
-            if (isStay && spotPartiallyBooked) {
+            if (isStay && spotStatusCode === 'closed_renovation') {
+                sacBookedWarning.className = 'sac-booked-warning-box font-sans';
+                sacBookedWarning.style.display = 'flex';
+                sacBookedWarning.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                sacBookedWarning.style.background = 'rgba(245, 158, 11, 0.12)';
+                sacBookedWarning.innerHTML = `
+                    <i class="fa-solid fa-person-digging" style="color: #F59E0B; font-size: 18px;"></i>
+                    <div>
+                        <strong style="color: #B45309; font-size: 13.5px; display: block;">Closed for Architectural Renovation</strong>
+                        <p id="sac-booked-warning-msg" style="margin: 3px 0 6px; font-size: 12px; color: #92400E; line-height: 1.45;">
+                            ${spotMessage || `We are currently enhancing and upgrading ${spot.title}. Bookings are temporarily paused.`}
+                        </p>
+                        <span style="font-size: 11.5px; color: #78350F; font-weight: 600;">Please select an alternative available dwelling from our estate map.</span>
+                    </div>
+                `;
+            } else if (isStay && spotStatusCode === 'opening_soon') {
+                sacBookedWarning.className = 'sac-booked-warning-box font-sans';
+                sacBookedWarning.style.display = 'flex';
+                sacBookedWarning.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+                sacBookedWarning.style.background = 'rgba(56, 189, 248, 0.12)';
+                sacBookedWarning.innerHTML = `
+                    <i class="fa-solid fa-sparkles" style="color: #0284C7; font-size: 18px;"></i>
+                    <div>
+                        <strong style="color: #0369A1; font-size: 13.5px; display: block;">Unveiling Soon</strong>
+                        <p id="sac-booked-warning-msg" style="margin: 3px 0 6px; font-size: 12px; color: #075985; line-height: 1.45;">
+                            ${spotMessage || `${spot.title} will open soon for bespoke experiential stays. Online reservations will begin shortly.`}
+                        </p>
+                        <span style="font-size: 11.5px; color: #0C4A6E; font-weight: 600;">You can reserve any of our currently active chalets or contact concierge.</span>
+                    </div>
+                `;
+            } else if (isStay && spotPartiallyBooked) {
                 sacBookedWarning.className = 'sac-partially-booked-box font-sans';
                 sacBookedWarning.style.display = 'flex';
+                sacBookedWarning.style.borderColor = '';
+                sacBookedWarning.style.background = '';
                 const note = !leftAvail ? 'Left Suite (Wing A) is reserved. Right Suite (Wing B) is available!' : 'Right Suite (Wing B) is reserved. Left Suite (Wing A) is available!';
                 sacBookedWarning.innerHTML = `
                     <i class="fa-solid fa-circle-info"></i>
@@ -347,6 +418,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (isStay && !spotAvail) {
                 sacBookedWarning.className = 'sac-booked-warning-box font-sans';
                 sacBookedWarning.style.display = 'flex';
+                sacBookedWarning.style.borderColor = '';
+                sacBookedWarning.style.background = '';
                 sacBookedWarning.innerHTML = `
                     <i class="fa-solid fa-triangle-exclamation"></i>
                     <div>
@@ -374,17 +447,40 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnSacCheckInfo) btnSacCheckInfo.style.display = 'none';
 
             if (btnSacOpenCheckout) {
-                if (!spotAvail) {
+                if (spotStatusCode === 'closed_renovation') {
                     btnSacOpenCheckout.disabled = true;
                     btnSacOpenCheckout.classList.add('btn-disabled-booked');
+                    btnSacOpenCheckout.style.background = 'rgba(217, 119, 6, 0.25)';
+                    btnSacOpenCheckout.style.color = '#F59E0B';
+                    btnSacOpenCheckout.style.border = '1px solid rgba(217, 119, 6, 0.5)';
+                    btnSacOpenCheckout.innerHTML = '<i class="fa-solid fa-person-digging"></i> <span>Closed for Renovation</span>';
+                } else if (spotStatusCode === 'opening_soon') {
+                    btnSacOpenCheckout.disabled = true;
+                    btnSacOpenCheckout.classList.add('btn-disabled-booked');
+                    btnSacOpenCheckout.style.background = 'rgba(2, 132, 199, 0.25)';
+                    btnSacOpenCheckout.style.color = '#38BDF8';
+                    btnSacOpenCheckout.style.border = '1px solid rgba(2, 132, 199, 0.5)';
+                    btnSacOpenCheckout.innerHTML = '<i class="fa-solid fa-sparkles"></i> <span>Opening Soon</span>';
+                } else if (!spotAvail) {
+                    btnSacOpenCheckout.disabled = true;
+                    btnSacOpenCheckout.classList.add('btn-disabled-booked');
+                    btnSacOpenCheckout.style.background = '';
+                    btnSacOpenCheckout.style.color = '';
+                    btnSacOpenCheckout.style.border = '';
                     btnSacOpenCheckout.innerHTML = '<i class="fa-solid fa-calendar-xmark"></i> <span>Chalet Reserved for Selected Dates</span>';
                 } else if (spotPartiallyBooked) {
                     btnSacOpenCheckout.disabled = false;
                     btnSacOpenCheckout.classList.remove('btn-disabled-booked');
+                    btnSacOpenCheckout.style.background = '';
+                    btnSacOpenCheckout.style.color = '';
+                    btnSacOpenCheckout.style.border = '';
                     btnSacOpenCheckout.innerHTML = '<span>Book Available Suite</span> <i class="fa-solid fa-arrow-right"></i>';
                 } else {
                     btnSacOpenCheckout.disabled = false;
                     btnSacOpenCheckout.classList.remove('btn-disabled-booked');
+                    btnSacOpenCheckout.style.background = '';
+                    btnSacOpenCheckout.style.color = '';
+                    btnSacOpenCheckout.style.border = '';
                     btnSacOpenCheckout.innerHTML = '<span>Proceed to Reserve</span> <i class="fa-solid fa-arrow-right"></i>';
                 }
             }
@@ -807,17 +903,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let partiallyPill = node.querySelector('.node-partially-booked-pill');
 
-                if (spotStatus && spotStatus.partially_booked) {
+                if (spotStatus && spotStatus.status === 'closed_renovation') {
+                    // Closed for Renovation
+                    node.classList.remove('status-available', 'status-fast_filling', 'status-partially-booked', 'status-booked', 'status-opening-soon');
+                    node.classList.add('status-renovation');
+                    node.setAttribute('data-status', 'closed_renovation');
+
+                    if (statusDot) {
+                        statusDot.className = 'node-status-dot';
+                        statusDot.style.background = '#F59E0B';
+                        statusDot.style.boxShadow = '0 0 8px #F59E0B';
+                    }
+                    if (partiallyPill) partiallyPill.remove();
+                    if (bookedPill) bookedPill.remove();
+
+                    let renoPill = node.querySelector('.node-reno-pill');
+                    if (!renoPill && nodeBox) {
+                        renoPill = document.createElement('span');
+                        renoPill.className = 'node-booked-pill node-reno-pill';
+                        renoPill.style.background = '#D97706';
+                        renoPill.innerHTML = '<i class="fa-solid fa-person-digging"></i> RENOVATION';
+                        nodeBox.appendChild(renoPill);
+                    }
+                    if (hoverStatus) {
+                        hoverStatus.className = 'nhc-status status-label-renovation';
+                        hoverStatus.style.color = '#F59E0B';
+                        hoverStatus.innerHTML = '<i class="fa-solid fa-person-digging"></i> Closed for Renovation';
+                    }
+                    if (hoverCta) {
+                        hoverCta.innerHTML = 'Click to View Status Notice &rarr;';
+                    }
+                } else if (spotStatus && spotStatus.status === 'opening_soon') {
+                    // Opening Soon
+                    node.classList.remove('status-available', 'status-fast_filling', 'status-partially-booked', 'status-booked', 'status-renovation');
+                    node.classList.add('status-opening-soon');
+                    node.setAttribute('data-status', 'opening_soon');
+
+                    if (statusDot) {
+                        statusDot.className = 'node-status-dot';
+                        statusDot.style.background = '#38BDF8';
+                        statusDot.style.boxShadow = '0 0 8px #38BDF8';
+                    }
+                    if (partiallyPill) partiallyPill.remove();
+                    if (bookedPill) bookedPill.remove();
+
+                    let openPill = node.querySelector('.node-open-pill');
+                    if (!openPill && nodeBox) {
+                        openPill = document.createElement('span');
+                        openPill.className = 'node-booked-pill node-open-pill';
+                        openPill.style.background = '#0284C7';
+                        openPill.innerHTML = '<i class="fa-solid fa-sparkles"></i> OPENING SOON';
+                        nodeBox.appendChild(openPill);
+                    }
+                    if (hoverStatus) {
+                        hoverStatus.className = 'nhc-status status-label-opening-soon';
+                        hoverStatus.style.color = '#38BDF8';
+                        hoverStatus.innerHTML = '<i class="fa-solid fa-sparkles"></i> Opening Soon';
+                    }
+                    if (hoverCta) {
+                        hoverCta.innerHTML = 'Click to View Status Notice &rarr;';
+                    }
+                } else if (spotStatus && spotStatus.partially_booked) {
                     // Partially Booked Duplex (1 Suite Booked, 1 Suite Free)
-                    node.classList.remove('status-available', 'status-fast_filling', 'status-booked');
+                    node.classList.remove('status-available', 'status-fast_filling', 'status-booked', 'status-renovation', 'status-opening-soon');
                     node.classList.add('status-partially-booked');
                     node.setAttribute('data-status', 'partially_booked');
 
                     if (statusDot) {
                         statusDot.className = 'node-status-dot status-dot-partially-booked';
+                        statusDot.style.background = '';
+                        statusDot.style.boxShadow = '';
                     }
 
                     if (bookedPill) bookedPill.remove();
+                    const renoP = node.querySelector('.node-reno-pill');
+                    if (renoP) renoP.remove();
+                    const openP = node.querySelector('.node-open-pill');
+                    if (openP) openP.remove();
 
                     if (!partiallyPill && nodeBox) {
                         partiallyPill = document.createElement('span');
@@ -837,15 +999,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (spotStatus && !spotStatus.available) {
                     // Marked as Booked
-                    node.classList.remove('status-available', 'status-fast_filling', 'status-partially-booked');
+                    node.classList.remove('status-available', 'status-fast_filling', 'status-partially-booked', 'status-renovation', 'status-opening-soon');
                     node.classList.add('status-booked');
                     node.setAttribute('data-status', 'booked');
 
                     if (statusDot) {
                         statusDot.className = 'node-status-dot status-dot-booked';
+                        statusDot.style.background = '';
+                        statusDot.style.boxShadow = '';
                     }
 
                     if (partiallyPill) partiallyPill.remove();
+                    const renoP = node.querySelector('.node-reno-pill');
+                    if (renoP) renoP.remove();
+                    const openP = node.querySelector('.node-open-pill');
+                    if (openP) openP.remove();
 
                     if (!bookedPill && nodeBox) {
                         bookedPill = document.createElement('span');
@@ -864,12 +1032,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else {
                     // Marked as Available
-                    node.classList.remove('status-booked', 'status-partially-booked');
+                    node.classList.remove('status-booked', 'status-partially-booked', 'status-renovation', 'status-opening-soon');
                     node.classList.add('status-available');
                     node.setAttribute('data-status', 'available');
 
                     if (statusDot) {
                         statusDot.className = 'node-status-dot status-dot-available';
+                        statusDot.style.background = '';
+                        statusDot.style.boxShadow = '';
                     }
 
                     if (bookedPill) {
@@ -878,6 +1048,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (partiallyPill) {
                         partiallyPill.remove();
                     }
+                    const renoP = node.querySelector('.node-reno-pill');
+                    if (renoP) renoP.remove();
+                    const openP = node.querySelector('.node-open-pill');
+                    if (openP) openP.remove();
 
                     if (hoverStatus) {
                         hoverStatus.className = 'nhc-status status-label-available';
@@ -907,24 +1081,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const btn = card.querySelector('.select-from-grid-btn');
-                if (roomMatch && roomMatch.partially_booked) {
-                    card.classList.remove('is-booked-card');
+                if (roomMatch && roomMatch.status === 'closed_renovation') {
+                    card.classList.remove('is-booked-card', 'is-partially-booked-card', 'is-opening-soon-card');
+                    card.classList.add('is-renovation-card');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.className = 'btn-primary select-from-grid-btn font-sans btn-disabled status-btn-renovation';
+                        btn.style.background = 'rgba(217, 119, 6, 0.25)';
+                        btn.style.color = '#F59E0B';
+                        btn.style.border = '1px solid rgba(217, 119, 6, 0.5)';
+                        btn.style.cursor = 'not-allowed';
+                        btn.innerHTML = '<i class="fa-solid fa-person-digging"></i> Closed for Renovation';
+                    }
+                } else if (roomMatch && roomMatch.status === 'opening_soon') {
+                    card.classList.remove('is-booked-card', 'is-partially-booked-card', 'is-renovation-card');
+                    card.classList.add('is-opening-soon-card');
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.className = 'btn-primary select-from-grid-btn font-sans btn-disabled status-btn-opening';
+                        btn.style.background = 'rgba(2, 132, 199, 0.25)';
+                        btn.style.color = '#38BDF8';
+                        btn.style.border = '1px solid rgba(2, 132, 199, 0.5)';
+                        btn.style.cursor = 'not-allowed';
+                        btn.innerHTML = '<i class="fa-solid fa-sparkles"></i> Opening Soon';
+                    }
+                } else if (roomMatch && roomMatch.partially_booked) {
+                    card.classList.remove('is-booked-card', 'is-renovation-card', 'is-opening-soon-card');
                     card.classList.add('is-partially-booked-card');
                     if (btn) {
                         btn.disabled = false;
+                        btn.className = 'btn-primary select-from-grid-btn font-sans';
+                        btn.style.background = '';
+                        btn.style.color = '';
+                        btn.style.border = '';
+                        btn.style.cursor = 'pointer';
                         btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Book Available Suite';
                     }
                 } else if (roomMatch && !roomMatch.available) {
-                    card.classList.remove('is-partially-booked-card');
+                    card.classList.remove('is-partially-booked-card', 'is-renovation-card', 'is-opening-soon-card');
                     card.classList.add('is-booked-card');
                     if (btn) {
                         btn.disabled = true;
+                        btn.className = 'btn-primary select-from-grid-btn font-sans btn-disabled';
+                        btn.style.background = '';
+                        btn.style.color = '';
+                        btn.style.border = '';
+                        btn.style.cursor = 'not-allowed';
                         btn.innerHTML = '<i class="fa-solid fa-ban"></i> Reserved for Dates';
                     }
                 } else {
-                    card.classList.remove('is-booked-card', 'is-partially-booked-card');
+                    card.classList.remove('is-booked-card', 'is-partially-booked-card', 'is-renovation-card', 'is-opening-soon-card');
                     if (btn) {
                         btn.disabled = false;
+                        btn.className = 'btn-primary select-from-grid-btn font-sans';
+                        btn.style.background = '';
+                        btn.style.color = '';
+                        btn.style.border = '';
+                        btn.style.cursor = 'pointer';
                         btn.innerHTML = '<i class="fa-solid fa-calendar-check"></i> Book Chalet';
                     }
                 }
@@ -1725,13 +1938,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 12. View Switcher (Map View vs Grid View)
+    // 12. View Switcher (Map View vs Grid View - Chalet Grid Default)
+    const mapLegend = document.getElementById('bms-map-legend') || document.querySelector('.bms-map-legend');
     if (viewBtnMap && viewBtnGrid && mapLayout && gridLayout) {
         viewBtnMap.addEventListener('click', () => {
             viewBtnMap.classList.add('active');
             viewBtnGrid.classList.remove('active');
             mapLayout.style.display = 'grid';
+            gridLayout.style.display = 'block';
             gridLayout.style.display = 'none';
+            if (mapLegend) mapLegend.style.display = 'flex';
         });
 
         viewBtnGrid.addEventListener('click', () => {
@@ -1739,7 +1955,23 @@ document.addEventListener('DOMContentLoaded', () => {
             viewBtnMap.classList.remove('active');
             mapLayout.style.display = 'none';
             gridLayout.style.display = 'block';
+            if (mapLegend) mapLegend.style.display = 'none';
         });
+
+        // Default initialization: preselectSlug triggers map view, otherwise keep default Chalet Grid
+        if (preselectSlug) {
+            viewBtnMap.classList.add('active');
+            viewBtnGrid.classList.remove('active');
+            mapLayout.style.display = 'grid';
+            gridLayout.style.display = 'none';
+            if (mapLegend) mapLegend.style.display = 'flex';
+        } else {
+            viewBtnGrid.classList.add('active');
+            viewBtnMap.classList.remove('active');
+            mapLayout.style.display = 'none';
+            gridLayout.style.display = 'block';
+            if (mapLegend) mapLegend.style.display = 'none';
+        }
     }
 
     // 13. Grid Card "Book Chalet" Buttons

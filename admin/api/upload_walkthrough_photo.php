@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_admin_auth();
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/upload.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -78,6 +79,19 @@ elseif (!empty($_FILES['image_file']['tmp_name']) && is_uploaded_file($_FILES['i
 if (!$saved) {
     echo json_encode(['success' => false, 'message' => 'Failed to save cropped image to server directory.']);
     exit;
+}
+
+// Auto-compress & optimize photo if enabled
+$auto_compress = (!isset($_POST['auto_compress']) || $_POST['auto_compress'] === '1' || $_POST['auto_compress'] === 'true');
+$opt_info = null;
+if ($auto_compress && function_exists('optimize_uploaded_image')) {
+    $opts = [
+        'auto_compress' => true,
+        'max_dimension' => ($type_key === 'pano' ? 4096 : 2560),
+        'quality'       => ($type_key === 'pano' ? 88 : 84),
+        'convert_webp'  => false
+    ];
+    $opt_info = @optimize_uploaded_image($target_path, $opts);
 }
 
 // Update settings table

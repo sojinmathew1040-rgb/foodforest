@@ -8,5 +8,5 @@ $_SESSION['admin_email'] = 'foodforestkanthalloor@gmail.com';
 $_SESSION['admin_logged_in'] = true;
 $_SESSION['last_activity'] = time();
 
-header("Location: ../admin/kitchen.php");
+header("Location: ../admin/index.php");
 exit;

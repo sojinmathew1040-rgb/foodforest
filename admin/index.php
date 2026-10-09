@@ -127,11 +127,16 @@ $recent_inquiries = $pdo->query("
             <h2 class="adm-table-title">Sanctuary Stays & Villa Availability</h2>
             <p class="adm-table-subtitle">Current active status and nightly tariff configuration</p>
         </div>
-        <a href="settings.php?tab=rooms" class="adm-btn-action outline" style="padding: 6px 12px; font-size: 12px;">
-            <i class="fa-solid fa-gear"></i> Manage Villas
-        </a>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <a href="settings.php?tab=rooms" class="adm-btn-action outline" style="padding: 6px 12px; font-size: 12px;">
+                <i class="fa-solid fa-gear"></i> Manage Villas
+            </a>
+            <button type="button" class="adm-btn-action outline" id="btn-toggle-villas" onclick="toggleSectionCollapse('villas-table-wrap', this);" title="Expand / Collapse Villas" style="padding: 6px 11px; font-size: 12px; cursor: pointer;">
+                <i class="fa-solid fa-chevron-up"></i>
+            </button>
+        </div>
     </div>
-    <div class="adm-table-responsive">
+    <div id="villas-table-wrap" class="adm-table-responsive">
         <table class="adm-data-table">
             <thead>
                 <tr>
@@ -156,14 +161,20 @@ $recent_inquiries = $pdo->query("
                             ₹<?php echo number_format($villa['rate_per_night'], 0, '.', ','); ?>
                         </td>
                         <td>
-                            <?php if ($villa['is_available']): ?>
+                            <?php 
+                            $v_st = $villa['availability_status'] ?? (!empty($villa['is_available']) ? 'available' : 'maintenance');
+                            if ($v_st === 'closed_renovation'): ?>
+                                <span class="adm-badge" style="background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.45);"><i class="fa-solid fa-person-digging"></i> Renovation</span>
+                            <?php elseif ($v_st === 'opening_soon'): ?>
+                                <span class="adm-badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.45);"><i class="fa-solid fa-sparkles"></i> Opening Soon</span>
+                            <?php elseif ($v_st === 'available'): ?>
                                 <span class="adm-badge confirmed"><i class="fa-solid fa-circle-check"></i> Available</span>
                             <?php else: ?>
-                                <span class="adm-badge cancelled"><i class="fa-solid fa-ban"></i> Blocked / Maint.</span>
+                                <span class="adm-badge cancelled"><i class="fa-solid fa-wrench"></i> Offline</span>
                             <?php endif; ?>
                         </td>
                         <td>
-                            <a href="settings.php?tab=rooms" class="adm-btn-icon" title="Edit Rate & Availability">
+                            <a href="rooms.php" class="adm-btn-icon" title="Edit Villa & Availability Status">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </a>
                         </td>
@@ -187,13 +198,18 @@ $recent_inquiries = $pdo->query("
             </div>
             <p class="adm-table-subtitle">Live status of guests currently residing in Food Forest Sanctuary today (<?php echo date('d M Y'); ?>)</p>
         </div>
-        <a href="bookings.php" class="adm-btn-action outline" style="padding: 6px 12px; font-size: 12px;">
-            <span>View All Reservations (<?php echo $total_bookings; ?>)</span>
-            <i class="fa-solid fa-arrow-right"></i>
-        </a>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <a href="bookings.php" class="adm-btn-action outline" style="padding: 6px 12px; font-size: 12px;">
+                <span>View All Reservations (<?php echo $total_bookings; ?>)</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </a>
+            <button type="button" class="adm-btn-action outline" id="btn-toggle-occupied" onclick="toggleSectionCollapse('occupied-table-wrap', this);" title="Expand / Collapse Reservations" style="padding: 6px 11px; font-size: 12px; cursor: pointer;">
+                <i class="fa-solid fa-chevron-up"></i>
+            </button>
+        </div>
     </div>
 
-    <div class="adm-table-responsive">
+    <div id="occupied-table-wrap" class="adm-table-responsive">
         <table class="adm-data-table">
             <thead>
                 <tr>
@@ -323,4 +339,40 @@ $recent_inquiries = $pdo->query("
 </div>
 
 <?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
+
+<script>
+function toggleSectionCollapse(wrapId, btn) {
+    var wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    var icon = btn ? btn.querySelector('i') : null;
+    var isHidden = (wrap.style.display === 'none');
+    if (isHidden) {
+        wrap.style.display = 'block';
+        if (icon) {
+            icon.className = 'fa-solid fa-chevron-up';
+        }
+        try { localStorage.setItem('ff_dash_' + wrapId, 'expanded'); } catch(e){}
+    } else {
+        wrap.style.display = 'none';
+        if (icon) {
+            icon.className = 'fa-solid fa-chevron-down';
+        }
+        try { localStorage.setItem('ff_dash_' + wrapId, 'collapsed'); } catch(e){}
+    }
+}
+
+// Restore saved collapse preferences
+document.addEventListener('DOMContentLoaded', function() {
+    ['villas-table-wrap', 'occupied-table-wrap'].forEach(function(wrapId) {
+        try {
+            var state = localStorage.getItem('ff_dash_' + wrapId);
+            if (state === 'collapsed') {
+                var btn = (wrapId === 'villas-table-wrap') ? document.getElementById('btn-toggle-villas') : document.getElementById('btn-toggle-occupied');
+                toggleSectionCollapse(wrapId, btn);
+            }
+        } catch(e){}
+    });
+});
+</script>
+
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -91,11 +91,11 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="ctrl-field view-switcher-field">
                         <label class="ctrl-label font-sans"><i class="fa-solid fa-sliders"></i> Layout View</label>
                         <div class="view-toggle-group">
-                            <button type="button" class="view-toggle-btn active" id="view-btn-map" data-view="map">
-                                <i class="fa-solid fa-map"></i> <span>Estate Map</span>
-                            </button>
-                            <button type="button" class="view-toggle-btn" id="view-btn-grid" data-view="grid">
+                            <button type="button" class="view-toggle-btn active" id="view-btn-grid" data-view="grid">
                                 <i class="fa-solid fa-grip"></i> <span>Chalet Grid</span>
+                            </button>
+                            <button type="button" class="view-toggle-btn" id="view-btn-map" data-view="map">
+                                <i class="fa-solid fa-map"></i> <span>Estate Map</span>
                             </button>
                         </div>
                     </div>
@@ -151,8 +151,8 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- Interactive Map Legend & Category Quick-Filter Bar -->
-            <div class="bms-map-legend font-sans">
+            <!-- Interactive Map Legend & Category Quick-Filter Bar (shown when Map view is toggled) -->
+            <div class="bms-map-legend font-sans" id="bms-map-legend" style="display: none;">
                 <button type="button" class="legend-filter-btn active font-sans" data-legend-filter="all" title="Show all estate spots">
                     <span class="legend-badge badge-all"><i class="fa-solid fa-border-all"></i></span>
                     <span>All Spots</span>
@@ -517,8 +517,8 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
             
-            <!-- 1. MAP VIEW LAYOUT -->
-            <div class="booking-map-layout" id="booking-map-layout">
+            <!-- 1. MAP VIEW LAYOUT (Secondary View) -->
+            <div class="booking-map-layout" id="booking-map-layout" style="display: none;">
                 
                 <div class="bms-map-canvas-card">
                     <!-- Topographic SVG Background Canvas -->
@@ -656,9 +656,31 @@ require_once __DIR__ . '/includes/header.php';
                             $rate = (float)($sp['room_rate'] ?? $sp['stay_price'] ?? 14500);
                             $struct = $sp['structure_type'] ?? 'single_hut';
                             $is_duplex = ($is_stay && ($struct === 'duplex_hut' || stripos($sp['title'], 'duplex') !== false));
-                            $status = ($idx === 1 || $idx === 2) ? 'available' : ($idx === 3 ? 'fast_filling' : 'available');
+                            
+                            // Check linked room's base availability status
+                            $linked_rm_status = 'available';
+                            if ($is_stay) {
+                                foreach ($rooms as $rm_obj) {
+                                    $rm_slug = strtolower($rm_obj['slug']);
+                                    $sp_slug = strtolower($slug);
+                                    if ($rm_slug === $sp_slug || strpos($rm_slug, $sp_slug) !== false || strpos($sp_slug, $rm_slug) !== false) {
+                                        $linked_rm_status = $rm_obj['availability_status'] ?? (!empty($rm_obj['is_available']) ? 'available' : 'maintenance');
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if ($is_stay && $linked_rm_status !== 'available') {
+                                $status = $linked_rm_status;
+                            } else {
+                                $status = ($idx === 1 || $idx === 2) ? 'available' : ($idx === 3 ? 'fast_filling' : 'available');
+                            }
                             
                             $pin_col = !empty($sp['pin_color']) ? $sp['pin_color'] : ($is_stay ? ($is_duplex ? '#06B6D4' : '#10B981') : '#F59E0B');
+                            if ($status === 'closed_renovation') $pin_col = '#F59E0B';
+                            elseif ($status === 'opening_soon') $pin_col = '#38BDF8';
+                            elseif ($status === 'maintenance') $pin_col = '#EF4444';
+
                             $custom_icon = !empty($sp['icon_class']) ? $sp['icon_class'] : ($is_duplex ? 'fa-solid fa-layer-group' : ($is_stay ? 'fa-solid fa-house-chimney' : ($sp['category'] === 'dining' ? 'fa-solid fa-utensils' : 'fa-solid fa-tree')));
 
                             // Map stay types
@@ -691,6 +713,7 @@ require_once __DIR__ . '/includes/header.php';
                                  data-rate="<?php echo $rate; ?>"
                                  data-single-rate="<?php echo (float)($sp['single_room_rate'] ?? $rate); ?>"
                                  data-status="<?php echo $status; ?>"
+                                 data-avail-status="<?php echo htmlspecialchars($linked_rm_status); ?>"
                                  style="top: <?php echo $y_pos; ?>%; left: <?php echo $x_pos; ?>%; --node-accent: <?php echo $pin_col; ?>;">
                                 
                                 <div class="node-halo" style="background: <?php echo $pin_col; ?>; opacity: 0.35;"></div>
@@ -703,7 +726,15 @@ require_once __DIR__ . '/includes/header.php';
                                         <span class="node-duplex-pill" style="background: <?php echo $pin_col; ?>; color: #fff;">2S</span>
                                     <?php endif; ?>
                                     <?php if ($is_stay): ?>
-                                        <span class="node-status-dot status-dot-<?php echo $status; ?>"></span>
+                                        <?php if ($status === 'closed_renovation'): ?>
+                                            <span class="node-status-dot" style="background: #F59E0B; box-shadow: 0 0 8px #F59E0B;" title="Closed for Renovation"></span>
+                                        <?php elseif ($status === 'opening_soon'): ?>
+                                            <span class="node-status-dot" style="background: #38BDF8; box-shadow: 0 0 8px #38BDF8;" title="Opening Soon"></span>
+                                        <?php elseif ($status === 'maintenance'): ?>
+                                            <span class="node-status-dot" style="background: #EF4444; box-shadow: 0 0 8px #EF4444;" title="Offline / Maintenance"></span>
+                                        <?php else: ?>
+                                            <span class="node-status-dot status-dot-<?php echo $status; ?>"></span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
 
@@ -713,11 +744,25 @@ require_once __DIR__ . '/includes/header.php';
                                     <span class="nhc-title"><?php echo htmlspecialchars($sp['title']); ?></span>
                                     <?php if ($is_stay): ?>
                                         <span class="nhc-rate">From ₹<?php echo number_format($rate, 0, '.', ','); ?>/night</span>
-                                        <span class="nhc-status status-label-<?php echo $status; ?>">
-                                            <i class="fa-solid fa-circle-check"></i> <?php echo ($status === 'fast_filling') ? 'Fast Filling' : 'Available for Dates'; ?>
-                                        </span>
+                                        <?php if ($status === 'closed_renovation'): ?>
+                                            <span class="nhc-status status-label-renovation" style="color: #F59E0B;">
+                                                <i class="fa-solid fa-person-digging"></i> Closed for Renovation
+                                            </span>
+                                        <?php elseif ($status === 'opening_soon'): ?>
+                                            <span class="nhc-status status-label-opening-soon" style="color: #38BDF8;">
+                                                <i class="fa-solid fa-sparkles"></i> Opening Soon
+                                            </span>
+                                        <?php elseif ($status === 'maintenance'): ?>
+                                            <span class="nhc-status status-label-booked" style="color: #EF4444;">
+                                                <i class="fa-solid fa-wrench"></i> Offline / Maintenance
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="nhc-status status-label-<?php echo $status; ?>">
+                                                <i class="fa-solid fa-circle-check"></i> <?php echo ($status === 'fast_filling') ? 'Fast Filling' : 'Available for Dates'; ?>
+                                            </span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
-                                    <span class="nhc-cta">Click to View Details & Rates &rarr;</span>
+                                    <span class="nhc-cta"><?php echo ($status === 'closed_renovation' || $status === 'opening_soon' || $status === 'maintenance') ? 'Click to View Status Notice &rarr;' : 'Click to View Details & Rates &rarr;'; ?></span>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -914,19 +959,43 @@ require_once __DIR__ . '/includes/header.php';
 
             </div>
 
-            <!-- 2. GRID VIEW LAYOUT (List Cards Alternative) -->
-            <div class="booking-grid-layout" id="booking-grid-layout" style="display: none;">
+            <!-- 2. GRID VIEW LAYOUT (Primary / Default View) -->
+            <div class="booking-grid-layout" id="booking-grid-layout" style="display: block;">
                 <div class="chalets-cards-grid">
                     <?php 
                     foreach ($rooms as $rm):
                         $is_dup = ($rm['structure_type'] === 'duplex_hut');
                         $r_rate = (float)$rm['rate_per_night'];
                         $single_rate = (float)($rm['single_room_rate'] ?? $r_rate);
+                        $avail_status = $rm['availability_status'] ?? (!empty($rm['is_available']) ? 'available' : 'maintenance');
+                        $is_renovation = ($avail_status === 'closed_renovation');
+                        $is_opening_soon = ($avail_status === 'opening_soon');
+                        $is_maintenance = ($avail_status === 'maintenance' || empty($rm['is_available']));
+                        
+                        $card_class = '';
+                        if ($is_renovation) $card_class = 'is-renovation-card';
+                        elseif ($is_opening_soon) $card_class = 'is-opening-soon-card';
+                        elseif ($is_maintenance) $card_class = 'is-maintenance-card';
                     ?>
-                        <div class="chalet-card font-sans" data-villa-slug="<?php echo htmlspecialchars($rm['slug']); ?>" data-stay-cat="<?php echo htmlspecialchars($rm['stay_type'] ?? 'treehouse'); ?>" data-structure="<?php echo htmlspecialchars($rm['structure_type'] ?? 'single_hut'); ?>" data-is-duplex="<?php echo $is_dup ? '1' : '0'; ?>">
+                        <div class="chalet-card font-sans <?php echo $card_class; ?>" data-villa-slug="<?php echo htmlspecialchars($rm['slug']); ?>" data-stay-cat="<?php echo htmlspecialchars($rm['stay_type'] ?? 'treehouse'); ?>" data-structure="<?php echo htmlspecialchars($rm['structure_type'] ?? 'single_hut'); ?>" data-is-duplex="<?php echo $is_dup ? '1' : '0'; ?>" data-avail-status="<?php echo htmlspecialchars($avail_status); ?>">
                             <div class="chalet-card-media" style="position: relative;">
                                 <img src="<?php echo htmlspecialchars($rm['image_url']); ?>" alt="<?php echo htmlspecialchars($rm['title']); ?>" onerror="this.src='assets/images/01 (25).jpeg';">
                                 <span class="chalet-badge-pill"><?php echo htmlspecialchars($rm['elevation']); ?></span>
+                                
+                                <?php if ($is_renovation): ?>
+                                    <span class="chalet-status-pill status-renovation font-sans" style="position: absolute; top: 10px; left: 10px; background: rgba(217, 119, 6, 0.95); color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 5px; z-index: 5;">
+                                        <i class="fa-solid fa-person-digging"></i> Closed for Renovation
+                                    </span>
+                                <?php elseif ($is_opening_soon): ?>
+                                    <span class="chalet-status-pill status-opening-soon font-sans" style="position: absolute; top: 10px; left: 10px; background: rgba(2, 132, 199, 0.95); color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 5px; z-index: 5;">
+                                        <i class="fa-solid fa-sparkles"></i> Opening Soon
+                                    </span>
+                                <?php elseif ($is_maintenance): ?>
+                                    <span class="chalet-status-pill status-maintenance font-sans" style="position: absolute; top: 10px; left: 10px; background: rgba(220, 38, 38, 0.95); color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 5px; z-index: 5;">
+                                        <i class="fa-solid fa-wrench"></i> Offline for Maintenance
+                                    </span>
+                                <?php endif; ?>
+
                                 <?php if (!empty($rm['photos_list']) && count($rm['photos_list']) > 1): ?>
                                     <span class="chalet-photos-count-badge font-sans" style="position: absolute; bottom: 8px; right: 10px; background: rgba(7, 16, 11, 0.78); color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; backdrop-filter: blur(4px); border: 1px solid rgba(197, 160, 89, 0.4); display: inline-flex; align-items: center; gap: 5px;">
                                         <i class="fa-solid fa-images" style="color: var(--accent-gold);"></i> <?php echo count($rm['photos_list']); ?> Photos
@@ -964,9 +1033,32 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
 
                                 <div class="chalet-actions-row" style="margin-top: 10px;">
-                                    <button type="button" class="btn-primary select-from-grid-btn font-sans" data-slug="<?php echo htmlspecialchars($rm['slug']); ?>">
-                                        <i class="fa-solid fa-calendar-check"></i> Book Chalet
-                                    </button>
+                                    <?php if ($is_renovation): ?>
+                                        <button type="button" class="btn-primary select-from-grid-btn font-sans btn-disabled status-btn-renovation" data-slug="<?php echo htmlspecialchars($rm['slug']); ?>" disabled style="background: rgba(217, 119, 6, 0.25); color: #F59E0B; border: 1px solid rgba(217, 119, 6, 0.5); cursor: not-allowed; width: 100%; justify-content: center;">
+                                            <i class="fa-solid fa-person-digging"></i> Closed for Renovation
+                                        </button>
+                                        <p style="font-size: 11.5px; color: #D97706; margin: 6px 0 0; text-align: center; font-weight: 500;">
+                                            Undergoing architectural upgrade. Bookings currently closed.
+                                        </p>
+                                    <?php elseif ($is_opening_soon): ?>
+                                        <button type="button" class="btn-primary select-from-grid-btn font-sans btn-disabled status-btn-opening" data-slug="<?php echo htmlspecialchars($rm['slug']); ?>" disabled style="background: rgba(2, 132, 199, 0.25); color: #38BDF8; border: 1px solid rgba(2, 132, 199, 0.5); cursor: not-allowed; width: 100%; justify-content: center;">
+                                            <i class="fa-solid fa-sparkles"></i> Opening Soon
+                                        </button>
+                                        <p style="font-size: 11.5px; color: #0284C7; margin: 6px 0 0; text-align: center; font-weight: 500;">
+                                            New sanctuary dwelling unveiling soon. Reservations opening shortly.
+                                        </p>
+                                    <?php elseif ($is_maintenance): ?>
+                                        <button type="button" class="btn-primary select-from-grid-btn font-sans btn-disabled" data-slug="<?php echo htmlspecialchars($rm['slug']); ?>" disabled style="background: rgba(239, 68, 68, 0.2); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.4); cursor: not-allowed; width: 100%; justify-content: center;">
+                                            <i class="fa-solid fa-ban"></i> Offline for Maintenance
+                                        </button>
+                                        <p style="font-size: 11.5px; color: #DC2626; margin: 6px 0 0; text-align: center; font-weight: 500;">
+                                            Temporarily offline for scheduled estate maintenance.
+                                        </p>
+                                    <?php else: ?>
+                                        <button type="button" class="btn-primary select-from-grid-btn font-sans" data-slug="<?php echo htmlspecialchars($rm['slug']); ?>">
+                                            <i class="fa-solid fa-calendar-check"></i> Book Chalet
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>

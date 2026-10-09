@@ -84,13 +84,13 @@ try {
     $total_max_guests = 0;
     $room_titles = [];
 
-    $room_stmt = $pdo->prepare("SELECT slug, rate_per_night, single_room_rate, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type FROM rooms WHERE slug = ?");
+    $room_stmt = $pdo->prepare("SELECT slug, rate_per_night, single_room_rate, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type, is_available, availability_status FROM rooms WHERE slug = ?");
 
     foreach ($slugs_list as $s_slug) {
         $room_stmt->execute([$s_slug]);
         $r_data = $room_stmt->fetch(PDO::FETCH_ASSOC);
         if (!$r_data) {
-            $all_r = $pdo->query("SELECT slug, rate_per_night, single_room_rate, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type FROM rooms")->fetchAll(PDO::FETCH_ASSOC);
+            $all_r = $pdo->query("SELECT slug, rate_per_night, single_room_rate, title, base_guests, max_guests, extra_guest_rate, extra_child_rate, stay_type, structure_type, is_available, availability_status FROM rooms")->fetchAll(PDO::FETCH_ASSOC);
             foreach ($all_r as $ar) {
                 if (stripos($ar['slug'], $s_slug) !== false || stripos($s_slug, $ar['slug']) !== false) {
                     $r_data = $ar;
@@ -109,8 +109,35 @@ try {
                 'extra_guest_rate' => 750,
                 'extra_child_rate' => 0,
                 'stay_type' => 'treehouse',
-                'structure_type' => 'single_hut'
+                'structure_type' => 'single_hut',
+                'is_available' => 1,
+                'availability_status' => 'available'
             ];
+        }
+
+        // Hard Block if property is Closed for Renovation, Opening Soon, or Offline
+        $r_status = $r_data['availability_status'] ?? (!empty($r_data['is_available']) ? 'available' : 'maintenance');
+        if ($r_status === 'closed_renovation') {
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'message' => ($r_data['title'] ?? 'The selected property') . ' is currently closed for architectural renovation. Reservations are temporarily unavailable.'
+            ]);
+            exit;
+        } elseif ($r_status === 'opening_soon') {
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'message' => ($r_data['title'] ?? 'The selected property') . ' will be opening soon! Online bookings are not accepted yet.'
+            ]);
+            exit;
+        } elseif ($r_status !== 'available' || empty($r_data['is_available'])) {
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'message' => ($r_data['title'] ?? 'The selected property') . ' is currently unavailable for reservations.'
+            ]);
+            exit;
         }
 
         $requested_unit = null;

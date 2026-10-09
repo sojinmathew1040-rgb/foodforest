@@ -93,37 +93,39 @@ try {
     $sqlContent .= "-- End of Database Backup\n";
     $sqlContent .= "-- =========================================================================\n";
     
-    // Save to primary backup file
-    $mainBackupFile = $backupDir . '/foodforest_backup.sql';
-    file_put_contents($mainBackupFile, $sqlContent);
-    
-    // Save to db directory (single latest backup)
+    // Save to single canonical database backup in db folder
     $dbFolder = __DIR__ . '/db';
     if (!is_dir($dbFolder)) {
         mkdir($dbFolder, 0755, true);
     }
-    file_put_contents($dbFolder . '/foodforest.sql', $sqlContent);
-    if (file_exists($dbFolder . '/foodforest_backup.sql')) {
-        @unlink($dbFolder . '/foodforest_backup.sql');
+    $mainBackupFile = $dbFolder . '/foodforest.sql';
+    file_put_contents($mainBackupFile, $sqlContent);
+
+    // Clean up any other redundant backup files
+    $redundantFiles = [
+        $dbFolder . '/foodforest_backup.sql',
+        $dbFolder . '/foodforest_backup_20261009.sql',
+        $dbFolder . '/foodforest_backup_20261002.sql',
+        $dbFolder . '/foodforest_backup_20261005.sql',
+        __DIR__ . '/backup/foodforest_backup.sql',
+        __DIR__ . '/foodforest.sql',
+        __DIR__ . '/admin/data/foodforest.sql'
+    ];
+    foreach ($redundantFiles as $rf) {
+        if (file_exists($rf)) {
+            @unlink($rf);
+        }
+    }
+    if (is_dir(__DIR__ . '/backup') && count(scandir(__DIR__ . '/backup')) <= 2) {
+        @rmdir(__DIR__ . '/backup');
     }
 
-    // Also update root foodforest.sql and admin/data/foodforest.sql
-    file_put_contents(__DIR__ . '/foodforest.sql', $sqlContent);
-    if (is_dir(__DIR__ . '/admin/data')) {
-        file_put_contents(__DIR__ . '/admin/data/foodforest.sql', $sqlContent);
-    }
-    
     echo json_encode([
         'status' => 'success',
-        'message' => 'Latest database backup successfully updated',
+        'message' => 'Single database backup successfully saved in db folder',
         'database' => DB_NAME,
         'timestamp' => $timestamp,
-        'files' => [
-            'db_backup' => $dbFolder . '/foodforest.sql',
-            'backup_folder_file' => $mainBackupFile,
-            'root_file' => __DIR__ . '/foodforest.sql',
-            'admin_data_file' => __DIR__ . '/admin/data/foodforest.sql'
-        ],
+        'file' => $mainBackupFile,
         'file_size_bytes' => filesize($mainBackupFile),
         'tables_count' => count($tables),
         'tables' => $tableSummaries

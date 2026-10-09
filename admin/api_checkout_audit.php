@@ -26,6 +26,13 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Helper for default room inventory checklist
 function get_default_room_inventory_checklist($villa_slug = '') {
+    $custom = get_setting('room_audit_checklist', '');
+    if (!empty($custom)) {
+        $decoded = is_array($custom) ? $custom : json_decode($custom, true);
+        if (is_array($decoded) && !empty($decoded)) {
+            return $decoded;
+        }
+    }
     return [
         ['item' => 'Physical Room Key & Brass Keychain', 'qty' => 1, 'notes' => 'Handover at reception'],
         ['item' => 'TV Unit & Set-Top Box', 'qty' => 1, 'notes' => 'Screen undamaged, cables intact'],

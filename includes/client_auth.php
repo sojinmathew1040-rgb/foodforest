@@ -112,7 +112,12 @@ function check_client_inactivity_timeout() {
     client_session_start();
     if (!empty($_SESSION['ff_client_user_id']) || !empty($_SESSION['ff_guest_booking_ref'])) {
         $now = time();
-        $timeout_seconds = 300; // 5 minutes
+        $timeout_minutes = 15;
+        if (function_exists('get_setting')) {
+            $timeout_minutes = (int)get_setting('client_session_timeout_minutes', 15);
+        }
+        if ($timeout_minutes < 1) $timeout_minutes = 15;
+        $timeout_seconds = $timeout_minutes * 60;
         if (isset($_SESSION['ff_client_last_activity']) && ($now - $_SESSION['ff_client_last_activity'] > $timeout_seconds)) {
             client_logout();
             $_SESSION['ff_session_timeout'] = true;

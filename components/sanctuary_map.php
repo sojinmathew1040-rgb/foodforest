@@ -15,6 +15,7 @@ $sec_title = get_setting('sanctuary_section_title', 'An Untamed Sanctuary');
 
 $first_spot = !empty($sanctuary_spots) ? $sanctuary_spots[0] : null;
 $spots_count = count($sanctuary_spots);
+$rooms_list = get_all_rooms();
 ?>
 <!-- Sanctuary Estate & Environmental Harmony Section -->
 <section id="sanctuary" class="sanctuary-section">
@@ -51,9 +52,66 @@ $spots_count = count($sanctuary_spots);
             </div>
         </div>
 
+        <!-- Layout View Switcher: Chalet Grid (Default) vs Estate Map (Secondary) -->
+        <div class="sanctuary-view-switcher" style="display: flex; justify-content: center; gap: 10px; margin: 10px auto 26px;">
+            <div class="view-toggle-group" style="background: rgba(14, 28, 19, 0.95); border: 1.5px solid var(--accent-gold); border-radius: 30px; padding: 4px; display: inline-flex; gap: 4px; box-shadow: 0 4px 18px rgba(0,0,0,0.25);">
+                <button type="button" class="view-toggle-btn active font-sans" id="snc-view-btn-grid" data-snc-view="grid" style="border: none; border-radius: 24px; padding: 7px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;">
+                    <i class="fa-solid fa-grip"></i> <span>Chalet Grid</span>
+                </button>
+                <button type="button" class="view-toggle-btn font-sans" id="snc-view-btn-map" data-snc-view="map" style="border: none; border-radius: 24px; padding: 7px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;">
+                    <i class="fa-solid fa-map"></i> <span>Estate Map</span>
+                </button>
+            </div>
+        </div>
 
-        <!-- Interactive Estate Map & Exploration Console -->
-        <div class="sanctuary-explorer-wrapper scroll-reveal">
+        <!-- 1. CHALET GRID VIEW (PRIMARY / DEFAULT VIEW) -->
+        <div class="sanctuary-grid-wrapper scroll-reveal" id="snc-grid-layout" style="display: block;">
+            <div class="chalets-cards-grid">
+                <?php foreach ($rooms_list as $rm): 
+                    $is_dup = ($rm['structure_type'] ?? '') === 'duplex_hut';
+                    $r_rate = (float)$rm['rate_per_night'];
+                ?>
+                    <div class="chalet-card font-sans" data-stay-cat="<?php echo htmlspecialchars($rm['stay_type'] ?? 'treehouse'); ?>">
+                        <div class="chalet-card-media" style="position: relative;">
+                            <img src="<?php echo htmlspecialchars($rm['image_url']); ?>" alt="<?php echo htmlspecialchars($rm['title']); ?>" onerror="this.src='assets/images/01 (25).jpeg';">
+                            <span class="chalet-badge-pill"><?php echo htmlspecialchars($rm['elevation'] ?? '1,600m High Ridge'); ?></span>
+                            <?php if (!empty($rm['photos_list']) && count($rm['photos_list']) > 1): ?>
+                                <span class="chalet-photos-count-badge font-sans" style="position: absolute; bottom: 8px; right: 10px; background: rgba(7, 16, 11, 0.78); color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; backdrop-filter: blur(4px); border: 1px solid rgba(197, 160, 89, 0.4); display: inline-flex; align-items: center; gap: 5px;">
+                                    <i class="fa-solid fa-images" style="color: var(--accent-gold);"></i> <?php echo count($rm['photos_list']); ?> Photos
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="chalet-card-body">
+                            <div class="chalet-header-row">
+                                <h3 class="chalet-title font-serif"><?php echo htmlspecialchars($rm['title']); ?></h3>
+                                <div class="chalet-price-tag font-sans">
+                                    <span class="currency">₹</span><?php echo number_format($r_rate, 0, '.', ','); ?>
+                                    <span class="per-night">/night</span>
+                                </div>
+                            </div>
+                            <p class="chalet-desc font-sans">
+                                <?php echo htmlspecialchars(mb_strimwidth($rm['description'] ?? '', 0, 140, '...')); ?>
+                            </p>
+                            <div class="chalet-features-row font-sans">
+                                <span><i class="fa-solid fa-users"></i> Up to <?php echo (int)($rm['capacity'] ?? 2); ?> Guests</span>
+                                <span><i class="fa-solid fa-utensils"></i> All Farm Meals Included</span>
+                            </div>
+                            <div class="chalet-actions-row" style="display: flex; gap: 8px; margin-top: auto;">
+                                <a href="booking.php?villa=<?php echo urlencode($rm['slug']); ?>" class="btn-primary select-from-grid-btn font-sans" style="flex: 1; text-align: center; text-decoration: none; justify-content: center; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-calendar-check"></i> Book Chalet
+                                </a>
+                                <button type="button" class="btn-outline font-sans snc-show-on-map-btn" data-slug="<?php echo htmlspecialchars($rm['slug']); ?>" style="padding: 10px 14px; font-size: 12px; border-color: rgba(197, 160, 89, 0.4); color: var(--accent-green); cursor: pointer;" title="Locate on Estate Map">
+                                    <i class="fa-solid fa-map-location-dot"></i> Map
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- 2. INTERACTIVE ESTATE MAP (SECONDARY VIEW) -->
+        <div class="sanctuary-explorer-wrapper scroll-reveal" id="snc-map-layout" style="display: none;">
 
             <!-- Two-Column Interactive Console -->
             <div class="sanctuary-console-grid booking-map-layout">
@@ -359,7 +417,41 @@ $spots_count = count($sanctuary_spots);
     </div>
 </section>
 
-<!-- Inject Dynamic Sanctuary Spots Data for JavaScript Controller -->
+<!-- Inject Dynamic Sanctuary Spots Data & View Switcher for JavaScript Controller -->
 <script>
 window.sanctuarySpotsData = <?php echo json_encode($sanctuary_spots); ?>;
+document.addEventListener("DOMContentLoaded", function() {
+    const btnGrid = document.getElementById("snc-view-btn-grid");
+    const btnMap = document.getElementById("snc-view-btn-map");
+    const gridLayout = document.getElementById("snc-grid-layout");
+    const mapLayout = document.getElementById("snc-map-layout");
+
+    if (btnGrid && btnMap && gridLayout && mapLayout) {
+        btnGrid.addEventListener("click", function() {
+            btnGrid.classList.add("active");
+            btnMap.classList.remove("active");
+            gridLayout.style.display = "block";
+            mapLayout.style.display = "none";
+        });
+        btnMap.addEventListener("click", function() {
+            btnMap.classList.add("active");
+            btnGrid.classList.remove("active");
+            gridLayout.style.display = "none";
+            mapLayout.style.display = "block";
+        });
+
+        document.querySelectorAll(".snc-show-on-map-btn").forEach(function(b) {
+            b.addEventListener("click", function() {
+                if (btnMap) btnMap.click();
+                const slug = b.getAttribute("data-slug");
+                if (slug && window.sanctuarySpotsData) {
+                    const spot = window.sanctuarySpotsData.find(s => s.linked_room_slug === slug);
+                    if (spot && typeof window.selectSanctuarySpot === "function") {
+                        window.selectSanctuarySpot(spot.id);
+                    }
+                }
+            });
+        });
+    }
+});
 </script>

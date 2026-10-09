@@ -63,6 +63,9 @@ if ($is_expired) {
 $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
 $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
 $currency = get_setting('currency_symbol', '₹');
+$site_name = get_setting('site_name', get_setting('estate_name', 'FOOD FOREST'));
+$site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
+$site_logo = get_setting('site_logo', '');
 $villa_title = $booking['room_title'] ?? ($booking['villa_type'] === 'treehouse' ? 'Luxury Canopy Treehouse' : 'Traditional Earthen Mudhouse');
 $villa_image = $booking['room_image'] ?? ($booking['villa_type'] === 'treehouse' ? 'assets/images/treehouse_exterior.png' : 'assets/images/mudhouse_exterior.png');
 
@@ -891,9 +894,14 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
         <!-- Header -->
         <header class="receipt-header">
             <div>
-                <div class="receipt-brand-logo">
-                    <span class="brand-title font-serif">FOOD FOREST</span>
-                    <span class="brand-sub font-sans">KANTHALLOOR • ECO SANCTUARY</span>
+                <div class="receipt-brand-logo" style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <?php if (!empty($site_logo)): ?>
+                        <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="<?php echo htmlspecialchars($site_name); ?>" style="max-height: 44px; width: auto; object-fit: contain;">
+                    <?php endif; ?>
+                    <div>
+                        <span class="brand-title font-serif" style="display: block;"><?php echo htmlspecialchars($site_name); ?></span>
+                        <span class="brand-sub font-sans" style="display: block;"><?php echo htmlspecialchars($site_tagline); ?></span>
+                    </div>
                 </div>
                 <p class="receipt-brand-address font-sans">
                     Kanthalloor High Range • 1,600m Elevation<br>
