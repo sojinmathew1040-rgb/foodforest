@@ -7,6 +7,11 @@ require_once __DIR__ . '/admin/includes/db.php';
 require_once __DIR__ . '/includes/client_auth.php';
 
 client_session_start();
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+}
 
 // 1. Enforce 5-Minute Inactivity Auto-Logout Server-Side
 if (check_client_inactivity_timeout()) {
@@ -1936,7 +1941,7 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                     </button>
                     <div>
                         <h2 class="guest-heading-title" id="topbar-view-title">Stay Dashboard</h2>
-                        <span class="guest-heading-sub" id="topbar-view-sub">Kanthalloor High Range • 1,600m Elevation</span>
+                        <span class="guest-heading-sub" id="topbar-view-sub">Kanthalloor High Range, Kerala</span>
                     </div>
                 </div>
 
@@ -3168,7 +3173,7 @@ function toggleGuestSidebar() {
 
 // 2. Tab Navigation Switcher (Dashboard, My Villa, Kitchen, Menu, Experiences, Folio)
 var viewTitles = {
-    'dashboard': { title: 'Stay Dashboard', sub: 'Kanthalloor High Range • 1,600m Elevation' },
+    'dashboard': { title: 'Stay Dashboard', sub: 'Kanthalloor High Range, Kerala' },
     'my_villa': { title: 'My Villa & Amenities', sub: 'Villa Specs, Living Amenities & Stay Bill' },
     'kitchen': { title: 'Our Kitchen Orders', sub: 'Real-time sync with estate chef prep stations' },
     'menu': { title: 'Farm-to-Table Menu', sub: 'Select authentic Kanthalloor farm dishes to order' },

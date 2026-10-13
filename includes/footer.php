@@ -230,8 +230,12 @@ $f_staff_url = get_setting('footer_staff_url', 'admin/');
     </div> <!-- End .smooth-scroll-wrapper -->
 
     <!-- Load JavaScript Assets -->
-    <script src="assets/js/webgl.js?v=<?php echo time(); ?>"></script>
-    <script src="assets/js/main.js?v=<?php echo time(); ?>"></script>
+    <?php
+    $js_webgl_ver = @filemtime(__DIR__ . '/../assets/js/webgl.js') ?: get_setting('settings_updated_at', '1');
+    $js_main_ver = @filemtime(__DIR__ . '/../assets/js/main.js') ?: get_setting('settings_updated_at', '1');
+    ?>
+    <script src="assets/js/webgl.js?v=<?php echo $js_webgl_ver; ?>"></script>
+    <script src="assets/js/main.js?v=<?php echo $js_main_ver; ?>"></script>
 
     <?php if (get_setting('content_protection_enabled', '0') === '1'): ?>
     <!-- Content & Image Protection Shield (Configured in Admin Settings) -->

@@ -662,11 +662,11 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
                     <!-- Stay Concept Tabs -->
                     <div class="preview-tour-tabs">
                         <button type="button" class="preview-tour-tab-btn <?php echo !$active_is_mh ? 'active' : ''; ?>" id="pv-tab-th" onclick="switchPreviewStay('treehouse');">
-                            <span style="font-size: 8.5px; letter-spacing: 1px; color: #C5A059; text-transform: uppercase;"><i class="fa-solid fa-tree"></i> <?php echo htmlspecialchars($th['elevation'] ?? '30FT ELEVATION'); ?></span>
+                            <span style="font-size: 8.5px; letter-spacing: 1px; color: #C5A059; text-transform: uppercase;"><i class="fa-solid fa-tree"></i> <?php echo htmlspecialchars(!empty($th['elevation']) ? $th['elevation'] : 'CANOPY SUITE'); ?></span>
                             <span style="font-size: 11px; font-weight: 600;"><?php echo htmlspecialchars($th['title'] ?? 'The Canopy Treehouse'); ?></span>
                         </button>
                         <button type="button" class="preview-tour-tab-btn <?php echo $active_is_mh ? 'active' : ''; ?>" id="pv-tab-mh" onclick="switchPreviewStay('mudhouse');">
-                            <span style="font-size: 8.5px; letter-spacing: 1px; color: #C5A059; text-transform: uppercase;"><i class="fa-solid fa-house-chimney"></i> <?php echo htmlspecialchars($mh['elevation'] ?? '1,600M HIGH RIDGE'); ?></span>
+                            <span style="font-size: 8.5px; letter-spacing: 1px; color: #C5A059; text-transform: uppercase;"><i class="fa-solid fa-house-chimney"></i> <?php echo htmlspecialchars(!empty($mh['elevation']) ? $mh['elevation'] : 'EARTHEN SUITE'); ?></span>
                             <span style="font-size: 11px; font-weight: 600;"><?php echo htmlspecialchars($mh['title'] ?? 'The Earthen Mudhouse'); ?></span>
                         </button>
                     </div>
@@ -675,8 +675,8 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
                 <!-- Bottom Floating Stage Card -->
                 <div class="preview-tour-bottom">
                     <div class="preview-stage-box">
-                        <span id="pv-active-tour-elev" style="display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: #C5A059; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); padding: 3px 10px; border-radius: 20px; text-transform: uppercase; margin-bottom: 8px;">
-                            <i class="fa-solid fa-mountain"></i> <?php echo htmlspecialchars($active_initial['elevation'] ?? '1,600M HIGH RIDGE'); ?>
+                        <span id="pv-active-tour-elev" style="display: <?php echo !empty($active_initial['elevation']) ? 'inline-flex' : 'none'; ?>; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: #C5A059; background: rgba(197, 160, 89, 0.15); border: 1px solid rgba(197, 160, 89, 0.3); padding: 3px 10px; border-radius: 20px; text-transform: uppercase; margin-bottom: 8px;">
+                            <i class="fa-solid fa-mountain"></i> <?php echo htmlspecialchars($active_initial['elevation'] ?? ''); ?>
                         </span>
                         <h4 id="pv-active-stage-title" style="font-family: var(--font-serif); font-size: 16px; color: #FFFFFF; margin: 0 0 6px; font-weight: 600;">Front Exterior & Sanctuary Architecture</h4>
                         <p id="pv-active-tour-desc" style="font-size: 12px; color: #CBD5E1; line-height: 1.6; margin: 0 0 12px;">
@@ -733,9 +733,11 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
                             </div>
                             <div class="preview-chalet-body">
                                 <div>
-                                    <span style="font-size: 10.5px; color: #C5A059; text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 2px;">
-                                        <?php echo htmlspecialchars($r['elevation'] ?? '1,600m High Ridge'); ?>
-                                    </span>
+                                    <?php if (!empty($r['elevation'])): ?>
+                                        <span style="font-size: 10.5px; color: #C5A059; text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 2px;">
+                                            <?php echo htmlspecialchars($r['elevation']); ?>
+                                        </span>
+                                    <?php endif; ?>
                                     <h4 style="font-family: var(--font-serif); font-size: 16px; color: #FFFFFF; margin: 0 0 6px; font-weight: 600;">
                                         <?php echo htmlspecialchars($r['title'] ?? 'Villa Suite'); ?>
                                     </h4>
@@ -758,13 +760,13 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
         window.previewStayData = {
             treehouse: {
                 title: <?php echo json_encode($th['title'] ?? 'The Canopy Treehouse'); ?>,
-                elevation: <?php echo json_encode($th['elevation'] ?? '30FT ELEVATION'); ?>,
+                elevation: <?php echo json_encode($th['elevation'] ?? ''); ?>,
                 image: <?php echo json_encode($def_img_th); ?>,
                 desc: <?php echo json_encode($th['description'] ?? 'Suspended 30 feet above the forest floor within ancient trees.'); ?>
             },
             mudhouse: {
                 title: <?php echo json_encode($mh['title'] ?? 'The Earthen Mudhouse'); ?>,
-                elevation: <?php echo json_encode($mh['elevation'] ?? '1,600M HIGH RIDGE'); ?>,
+                elevation: <?php echo json_encode($mh['elevation'] ?? ''); ?>,
                 image: <?php echo json_encode($def_img_mh); ?>,
                 desc: <?php echo json_encode($mh['description'] ?? 'Handcrafted from organic mountain clay, river stone, and local terracotta.'); ?>
             }
@@ -784,7 +786,14 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
             var t = document.getElementById('pv-active-tour-title');
             if (t) t.textContent = data.title;
             var e = document.getElementById('pv-active-tour-elev');
-            if (e) e.innerHTML = '<i class="fa-solid fa-mountain"></i> ' + data.elevation;
+            if (e) {
+                if (data.elevation) {
+                    e.innerHTML = '<i class="fa-solid fa-mountain"></i> ' + data.elevation;
+                    e.style.display = 'inline-flex';
+                } else {
+                    e.style.display = 'none';
+                }
+            }
             var d = document.getElementById('pv-active-tour-desc');
             if (d) d.textContent = data.desc;
 

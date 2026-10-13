@@ -42,10 +42,16 @@ if (!$booking) {
 }
 
 $p = $booking['parsed'];
-$concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
-$concierge_wa = get_setting('concierge_whatsapp', '919234567890');
+$concierge_phone = get_setting('concierge_phone', '+919447116076');
+$concierge_wa = get_setting('concierge_whatsapp', '919447116076');
+$concierge_email = get_setting('concierge_email', 'foodforestkanthalloor@gmail.com');
+$estate_location = get_setting('location', 'Kanthalloor P.O, Devikulam, Marayoor - 685620');
+$site_name = get_setting('site_name', get_setting('estate_name', 'FOOD FOREST'));
+$site_tagline = get_setting('site_tagline', 'KANTHALLOOR • HIGH-RANGE SANCTUARY');
+$estate_legal_name = get_setting('gst_legal_name', '');
+$site_logo = get_setting('site_logo', '');
 $currency = get_setting('currency_symbol', '₹');
-$gst_number = get_setting('gst_number', '32AAECF1234M1Z5');
+$gst_number = get_setting('gst_number', '32AAGCF2853H1ZT');
 $bank_account_holder = get_setting('bank_account_holder', 'Food Forest Eco Sanctuary');
 $bank_name = get_setting('bank_name', 'State Bank of India');
 $bank_branch = get_setting('bank_branch', 'Munnar / Kanthalloor Branch');
@@ -1265,18 +1271,24 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
         <header class="bill-header">
             <div>
                 <div class="brand-emblem-wrap">
-                    <div class="brand-emblem">
-                        <i class="fa-solid fa-seedling"></i>
-                    </div>
+                    <?php if (!empty($site_logo) && file_exists(dirname(__DIR__) . '/' . ltrim($site_logo, '/'))): ?>
+                        <img src="../<?php echo htmlspecialchars(ltrim($site_logo, '/')); ?>" alt="<?php echo htmlspecialchars($site_name); ?>" style="max-height: 48px; width: auto; object-fit: contain; margin-right: 12px;">
+                    <?php else: ?>
+                        <div class="brand-emblem">
+                            <i class="fa-solid fa-seedling"></i>
+                        </div>
+                    <?php endif; ?>
                     <div>
-                        <div class="brand-name">FOOD FOREST</div>
-                        <span class="brand-sub">KANTHALLOOR • HIGH-RANGE SANCTUARY</span>
+                        <div class="brand-name"><?php echo htmlspecialchars($site_name); ?></div>
+                        <?php if (!empty($estate_legal_name) && strtoupper($estate_legal_name) !== strtoupper($site_name)): ?>
+                            <div style="font-size: 11px; font-weight: 600; color: #475569; letter-spacing: 0.3px;"><?php echo htmlspecialchars($estate_legal_name); ?></div>
+                        <?php endif; ?>
+                        <span class="brand-sub"><?php echo htmlspecialchars($site_tagline); ?></span>
                     </div>
                 </div>
                 <div class="brand-address">
-                    Kanthalloor High Range • 1,600m Elevation<br>
-                    Marayoor Valley, Idukki District, Kerala — 685620<br>
-                    Concierge Hotline: <?php echo htmlspecialchars($concierge_phone); ?> | Email: concierge@foodforestkanthalloor.com<br>
+                    <?php echo nl2br(htmlspecialchars($estate_location)); ?><br>
+                    Concierge Hotline: <?php echo htmlspecialchars($concierge_phone); ?><?php if (!empty($concierge_email)): ?> | Email: <?php echo htmlspecialchars($concierge_email); ?><?php endif; ?><br>
                     <strong>GSTIN / Tax ID:</strong> <?php echo htmlspecialchars($gst_number); ?>
                 </div>
             </div>
@@ -1437,7 +1449,7 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                     <tr>
                         <td>
                             <strong><?php echo htmlspecialchars($booking['room_title']); ?></strong>
-                            <div class="table-dish-sub"><?php echo htmlspecialchars($booking['room_elevation'] ?? 'Kanthalloor Fruit Forest'); ?> • <?php echo htmlspecialchars(ucfirst($booking['room_stay_type'] ?? 'Sanctuary Stay')); ?></div>
+                            <div class="table-dish-sub"><?php echo htmlspecialchars(ucfirst($booking['room_stay_type'] ?? 'Sanctuary Stay')); ?> • Kanthalloor Fruit Forest</div>
                         </td>
                         <td style="text-align: center; color: var(--text-muted);">
                             <?php if ($p['extra_guest_total'] > 0): ?>

@@ -2,6 +2,11 @@
 // =========================================================================
 // Food Forest Sanctuary — Admin Header Component
 // =========================================================================
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+}
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/upload.php';
 require_admin_auth();
@@ -1638,7 +1643,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 </button>
                 <div class="adm-page-heading">
                     <h1 class="adm-page-title"><?php echo isset($page_title) ? e($page_title) : 'Sanctuary Overview'; ?></h1>
-                    <span class="adm-page-sub"><?php echo isset($page_subtitle) ? e($page_subtitle) : 'Kanthalloor High Range • 1,600m Elevation'; ?></span>
+                    <span class="adm-page-sub"><?php echo isset($page_subtitle) ? e($page_subtitle) : 'Kanthalloor High Range, Kerala'; ?></span>
                 </div>
             </div>
 
@@ -1651,6 +1656,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     </span>
                     <span class="adm-theme-toggle-label" id="adm-theme-toggle-label">Dark</span>
                 </button>
+
+                <!-- Instant Cache Purge Button -->
+                <a href="settings.php?action=purge_cache" class="adm-btn-action outline" style="border-color: rgba(16, 185, 129, 0.4); color: #10B981;" title="Purge server and browser caches so photo/text edits show immediately" onclick="return confirm('Purge server cache and refresh all live photos and texts immediately?');">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span class="adm-hide-mob">Purge Cache</span>
+                </a>
 
                 <!-- Live Public Website Link -->
                 <a href="../index.php" target="_blank" class="adm-btn-action outline adm-btn-site-preview" title="Open Public Website">

@@ -1279,7 +1279,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ) || makeCombo(
                 '3 Duplex Residences + Grand Alpine Timber House',
                 'Peak Ridge Cluster • Accommodates ' + totalGuests + ' Guests',
-                '6 Master Bedroom Suites + Grand Alpine House • Top elevation forest retreat',
+                '6 Master Bedroom Suites + Grand Alpine House • Panoramic forest retreat',
                 [4, 5, 6, 10]
             );
             if (combo1) potentialCombos.push(combo1);

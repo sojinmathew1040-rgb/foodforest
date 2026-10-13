@@ -83,8 +83,8 @@ while ($row = $all_settings_stmt->fetch()) {
                     <input type="text" name="hero_eyebrow" class="adm-input" value="<?php echo e($content['hero_eyebrow'] ?? 'KANTHALLOOR, KERALA • PRIVATE ECO-SANCTUARY'); ?>" style="padding-left: 14px;">
                 </div>
                 <div class="adm-form-group">
-                    <label class="adm-label">Top Bar Elevation Air & Temperature</label>
-                    <input type="text" name="top_bar_location" class="adm-input" value="<?php echo e($content['top_bar_location'] ?? 'Kanthalloor High Range • 1,600m Elevation • 18°C Misty Mountain Air'); ?>" style="padding-left: 14px;">
+                    <label class="adm-label">Top Bar Air & Temperature</label>
+                    <input type="text" name="top_bar_location" class="adm-input" value="<?php echo e($content['top_bar_location'] ?? 'Kanthalloor High Range • 18°C Misty Mountain Air'); ?>" style="padding-left: 14px;">
                 </div>
             </div>
 

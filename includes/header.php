@@ -1,3 +1,12 @@
+<?php
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
+}
+require_once __DIR__ . '/../admin/includes/db.php';
+$site_css_ver = @filemtime(__DIR__ . '/../assets/css/style.css') ?: get_setting('settings_updated_at', '1');
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -37,7 +46,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="assets/css/style.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?php echo $site_css_ver; ?>">
 
     <!-- Core Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -52,7 +61,7 @@
 require_once __DIR__ . '/../admin/includes/db.php';
 require_once __DIR__ . '/client_auth.php';
 
-$top_location = get_setting('top_bar_location', 'Kanthalloor High Range • 1,600m Elevation • 18°C Misty Mountain Air');
+$top_location = get_setting('top_bar_location', 'Kanthalloor High Range • 18°C Misty Mountain Air');
 $top_accolade = get_setting('top_bar_accolade', 'Rated 4.98 / 5 • Top Sustainable Sanctuary 2026');
 $concierge_wa = get_setting('concierge_whatsapp', '919234567890');
 

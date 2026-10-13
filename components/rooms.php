@@ -76,7 +76,7 @@ if (!$mudhouse && !empty($rooms_list)) {
 if (!$treehouse) {
     $treehouse = [
         'title' => 'The Canopy Treehouse',
-        'elevation' => '30FT ELEVATION',
+        'elevation' => '',
         'rate_per_night' => 14500,
         'description' => 'Suspended 30 feet above the forest floor within ancient trees. Crafted with wild teak timber, an open cantilevered deck, and expansive curved glass with panoramic mist views.',
         'image_url' => 'assets/images/treehouse_exterior.png',
@@ -86,7 +86,7 @@ if (!$treehouse) {
 if (!$mudhouse) {
     $mudhouse = [
         'title' => 'The Earthen Mudhouse',
-        'elevation' => 'COB HERITAGE',
+        'elevation' => '',
         'rate_per_night' => 11500,
         'description' => 'Handcrafted from organic mountain clay, river stone, and local terracotta. Thermal earthen walls breathe with the mountain mist, staying naturally insulated day and night.',
         'image_url' => 'assets/images/mudhouse_exterior.png',
@@ -100,7 +100,7 @@ if (!empty($custom_wh_pano)) {
     $treehouse['interior_360_url'] = $custom_wh_pano;
 }
 $custom_wh_cover = get_setting('walkthrough_woodhouse_cover', '');
-if (!empty($custom_wh_cover)) {
+if (!empty($custom_wh_cover) && (empty($treehouse['image_url']) || strpos($treehouse['image_url'], 'placeholder') !== false)) {
     $treehouse['image_url'] = $custom_wh_cover;
 }
 
@@ -109,7 +109,7 @@ if (!empty($custom_mh_pano)) {
     $mudhouse['interior_360_url'] = $custom_mh_pano;
 }
 $custom_mh_cover = get_setting('walkthrough_mudhouse_cover', '');
-if (!empty($custom_mh_cover)) {
+if (!empty($custom_mh_cover) && (empty($mudhouse['image_url']) || strpos($mudhouse['image_url'], 'placeholder') !== false)) {
     $mudhouse['image_url'] = $custom_mh_cover;
 }
 
@@ -145,11 +145,11 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
         <div class="stay-selector-wrapper">
             <div class="stay-concept-tabs font-serif">
                 <button type="button" class="stay-tab-btn <?php echo $default_stay === 'treehouse' ? 'active' : ''; ?>" data-stay="treehouse" id="tab-stay-treehouse">
-                    <span class="stay-tab-pill font-sans"><i class="fa-solid fa-tree"></i> <?php echo htmlspecialchars(strtoupper($treehouse['elevation'] ?? '30FT ELEVATION')); ?></span>
+                    <span class="stay-tab-pill font-sans"><i class="fa-solid fa-tree"></i> <?php echo htmlspecialchars(($treehouse['stay_type'] ?? '') === 'woodhouse' ? 'WOOD HOUSE' : 'TREEHOUSE'); ?></span>
                     <span class="stay-tab-name"><?php echo htmlspecialchars($treehouse['title']); ?></span>
                 </button>
                 <button type="button" class="stay-tab-btn <?php echo $default_stay === 'mudhouse' ? 'active' : ''; ?>" data-stay="mudhouse" id="tab-stay-mudhouse">
-                    <span class="stay-tab-pill font-sans"><i class="fa-solid fa-house-chimney"></i> <?php echo htmlspecialchars(strtoupper($mudhouse['elevation'] ?? 'COB HERITAGE')); ?></span>
+                    <span class="stay-tab-pill font-sans"><i class="fa-solid fa-house-chimney"></i> MUD HOUSE</span>
                     <span class="stay-tab-name"><?php echo htmlspecialchars($mudhouse['title']); ?></span>
                 </button>
             </div>
@@ -193,7 +193,7 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
 
         <!-- Stage 1: Exterior Front View (Visible initially) -->
         <div class="tour-card-floating stage-exterior is-visible" id="tour-stage-1">
-            <span class="stage-pill font-sans" id="stage1-pill"><?php echo $active_tour_stages['stages'][0]['pill'] ?? ('<i class="fa-solid ' . ($default_stay === 'mudhouse' ? 'fa-house-chimney' : 'fa-tree') . '"></i> ' . htmlspecialchars(strtoupper($active_initial_stay['elevation'] ?? '1,600M ELEVATION'))); ?></span>
+            <span class="stage-pill font-sans" id="stage1-pill"><?php echo $active_tour_stages['stages'][0]['pill'] ?? ('<i class="fa-solid ' . ($default_stay === 'mudhouse' ? 'fa-house-chimney' : 'fa-tree') . '"></i> ' . htmlspecialchars(strtoupper($active_initial_stay['title'] ?? 'SANCTUARY SUITE'))); ?></span>
             <h3 class="stage-heading font-serif" id="stage1-heading"><?php echo htmlspecialchars($active_tour_stages['stages'][0]['heading'] ?? 'Front Exterior & Sanctuary Architecture'); ?></h3>
             <p class="stage-text font-sans" id="stage1-text">
                 <?php echo htmlspecialchars($active_tour_stages['stages'][0]['text'] ?? $active_initial_stay['description']); ?>
@@ -366,7 +366,7 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
         defaultStay: <?php echo json_encode($default_stay); ?>,
         treehouse: {
             title: <?php echo json_encode($treehouse['title']); ?>,
-            badge: <?php echo json_encode($treehouse_tour['badge'] ?? ('FOOD FOREST • ' . strtoupper($treehouse['elevation'] ?? '30FT ELEVATION'))); ?>,
+            badge: <?php echo json_encode($treehouse_tour['badge'] ?? 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR'); ?>,
             subtitle: <?php echo json_encode($treehouse_tour['subtitle'] ?? ('Scroll down to fly inside the 360° ' . ($treehouse['title'] ?? 'suite') . '.')); ?>,
             ctaLabel: <?php echo json_encode('Reserve ' . ($treehouse['title'] ?? 'Canopy Treehouse')); ?>,
             ctaVilla: 'treehouse',
@@ -381,7 +381,7 @@ $active_tour_stages = ($default_stay === 'mudhouse') ? $mudhouse_tour : $treehou
         },
         mudhouse: {
             title: <?php echo json_encode($mudhouse['title']); ?>,
-            badge: <?php echo json_encode($mudhouse_tour['badge'] ?? ('FOOD FOREST • ' . strtoupper($mudhouse['elevation'] ?? 'COB HERITAGE'))); ?>,
+            badge: <?php echo json_encode($mudhouse_tour['badge'] ?? 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR'); ?>,
             subtitle: <?php echo json_encode($mudhouse_tour['subtitle'] ?? ('Scroll down to fly inside the 360° ' . ($mudhouse['title'] ?? 'suite') . '.')); ?>,
             ctaLabel: <?php echo json_encode('Reserve ' . ($mudhouse['title'] ?? 'Earthen Mudhouse')); ?>,
             ctaVilla: 'mudhouse',

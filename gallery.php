@@ -21,7 +21,6 @@ foreach ($collections as $c) {
             </p>
             <div class="gallery-hero-meta font-sans">
                 <span><i class="fa-solid fa-location-dot"></i> Kanthalloor, Kerala</span>
-                <span><i class="fa-solid fa-mountain"></i> 1,600M Elevation</span>
                 <span><i class="fa-solid fa-layer-group"></i> <?php echo count($collections); ?> Curated Collections (<?php echo $total_photos; ?> Photos)</span>
             </div>
         </div>

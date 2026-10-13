@@ -7,9 +7,6 @@ require_once __DIR__ . '/admin/includes/db.php';
 require_once __DIR__ . '/includes/client_auth.php';
 
 $pdo = get_db();
-ensure_rooms_pricing_columns($pdo);
-ensure_sanctuary_spots_table_exists($pdo);
-ensure_users_and_guest_columns($pdo);
 
 $rooms = get_all_rooms(false);
 $map_data = get_sanctuary_map_data($pdo, true);
@@ -596,11 +593,7 @@ require_once __DIR__ . '/includes/header.php';
                             <circle cx="610" cy="90" r="14" /><circle cx="630" cy="105" r="10" />
                         </g>
 
-                        <!-- Contour Elevation Labels -->
-                        <text x="685" y="185" fill="rgba(197, 160, 89, 0.6)" font-size="10" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,600M MSL</text>
-                        <text x="685" y="125" fill="rgba(197, 160, 89, 0.45)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,620M MSL</text>
-                        <text x="685" y="385" fill="rgba(197, 160, 89, 0.45)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,580M MSL</text>
-
+                        <!-- Dynamic Custom Routes / Walking Trails -->
                         <!-- Dynamic Custom Routes / Walking Trails -->
                         <?php if (!empty($map_routes)): ?>
                             <?php foreach ($map_routes as $r): ?>
@@ -980,7 +973,9 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="chalet-card font-sans <?php echo $card_class; ?>" data-villa-slug="<?php echo htmlspecialchars($rm['slug']); ?>" data-stay-cat="<?php echo htmlspecialchars($rm['stay_type'] ?? 'treehouse'); ?>" data-structure="<?php echo htmlspecialchars($rm['structure_type'] ?? 'single_hut'); ?>" data-is-duplex="<?php echo $is_dup ? '1' : '0'; ?>" data-avail-status="<?php echo htmlspecialchars($avail_status); ?>">
                             <div class="chalet-card-media" style="position: relative;">
                                 <img src="<?php echo htmlspecialchars($rm['image_url']); ?>" alt="<?php echo htmlspecialchars($rm['title']); ?>" onerror="this.src='assets/images/01 (25).jpeg';">
-                                <span class="chalet-badge-pill"><?php echo htmlspecialchars($rm['elevation']); ?></span>
+                                <?php if (!empty($rm['elevation'])): ?>
+                                    <span class="chalet-badge-pill"><?php echo htmlspecialchars($rm['elevation']); ?></span>
+                                <?php endif; ?>
                                 
                                 <?php if ($is_renovation): ?>
                                     <span class="chalet-status-pill status-renovation font-sans" style="position: absolute; top: 10px; left: 10px; background: rgba(217, 119, 6, 0.95); color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); backdrop-filter: blur(4px); display: inline-flex; align-items: center; gap: 5px; z-index: 5;">
@@ -1125,7 +1120,7 @@ window.conciergeWhatsApp = <?php echo json_encode($concierge_wa); ?>;
                 <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
                     <li>Sunrise Mountain Yoga &amp; Meditation Decks</li>
                     <li>Organic Herbal Steam Inhalation Ritual</li>
-                    <li>Zero-Pollution Pure Mountain Air (1,600m MSL)</li>
+                    <li>Zero-Pollution Pure Mountain Air</li>
                     <li>Shinrin-Yoku Forest Bathing Guided Walk</li>
                     <li>River Brook Hydro-Reflexology Pebbled Trail</li>
                 </ul>
@@ -1251,10 +1246,6 @@ window.closeAmenitiesGuide = closeAmenitiesGuide;
             <!-- Quick Feature Badges -->
             <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
                 <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 6px; padding: 5px 10px; font-size: 11.5px; color: #E2E8F0;">
-                    <i class="fa-solid fa-mountain" style="color: var(--accent-gold);"></i>
-                    <span id="fim-elevation">1,600M Elevation</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 6px; padding: 5px 10px; font-size: 11.5px; color: #E2E8F0;">
                     <i class="fa-solid fa-wind" style="color: #56C2C9;"></i>
                     <span id="fim-climate">18°C Alpine Breeze</span>
                 </div>
@@ -1308,7 +1299,6 @@ function openFacilityInfoModal(spot) {
     var badgeEl = document.getElementById('fim-badge');
     var spotNumEl = document.getElementById('fim-spot-num');
     var imgEl = document.getElementById('fim-img');
-    var elevEl = document.getElementById('fim-elevation');
     var climEl = document.getElementById('fim-climate');
     var gridEl = document.getElementById('fim-highlights-grid');
     var waBtn = document.getElementById('fim-wa-btn');
@@ -1316,7 +1306,6 @@ function openFacilityInfoModal(spot) {
     if (titleEl) titleEl.innerText = spot.title || 'Estate Facility';
     if (descEl) descEl.innerText = spot.description || 'Complimentary estate facility exclusively included for all resident sanctuary guests.';
     if (spotNumEl) spotNumEl.innerText = 'SPOT ' + String(spot.spot_number || spot.id || '01').padStart(2, '0');
-    if (elevEl) elevEl.innerText = spot.elevation || '1,600M Elevation';
     if (climEl) climEl.innerText = spot.temperature || '18°C Alpine Breeze';
 
     var isDining = (spot.category === 'dining' || (spot.title && spot.title.toLowerCase().includes('dining')));

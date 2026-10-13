@@ -2,9 +2,9 @@
 // =========================================================================
 // Food Forest Sanctuary — Reservations & Bookings Manager
 // =========================================================================
-$page_title = 'Guest Reservations';
-$page_subtitle = 'Manage bespoke stays, concierge confirmations & arrivals';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/auth.php';
+require_admin_auth();
+require_once __DIR__ . '/includes/db.php';
 
 $pdo = get_db();
 
@@ -363,6 +363,10 @@ if (!function_exists('build_tab_url')) {
         return 'bookings.php?' . http_build_query($params);
     }
 }
+
+$page_title = 'Guest Reservations';
+$page_subtitle = 'Manage bespoke stays, concierge confirmations & arrivals';
+require_once __DIR__ . '/includes/header.php';
 ?>
 
 <?php if (!empty($alert_message)): ?>

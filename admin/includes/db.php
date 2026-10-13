@@ -22,7 +22,63 @@ defined('DB_PASS') or define('DB_PASS', '');
 defined('DB_CHARSET') or define('DB_CHARSET', 'utf8mb4');
 
 /**
- * Get or initialize PDO MySQL Database connection
+ * Fast check if estate database schema is initialized and ready for production
+ */
+function is_sanctuary_schema_initialized() {
+    static $initialized = null;
+    if ($initialized !== null) {
+        return $initialized;
+    }
+    $lock_file = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'db' . DIRECTORY_SEPARATOR . '.schema_initialized';
+    $initialized = file_exists($lock_file);
+    return $initialized;
+}
+
+/**
+ * Return asset URL with automatic cache-busting version query string.
+ * This guarantees photo and file updates reflect immediately on client browsers,
+ * while unchanged files are cached efficiently by browser disk cache.
+ */
+function sanctuary_asset_url($path) {
+    if (empty($path)) return '';
+    // Skip external URLs or data URIs
+    if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0 || strpos($path, 'data:') === 0 || strpos($path, '//') === 0) {
+        return $path;
+    }
+    $clean_path = ltrim($path, '/');
+    $root = dirname(__DIR__, 2);
+    $full_path = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $clean_path);
+    
+    $v = null;
+    if (file_exists($full_path)) {
+        $v = filemtime($full_path);
+    } else {
+        $v = get_setting('settings_updated_at', '1');
+    }
+    return $clean_path . '?v=' . $v;
+}
+
+/**
+ * Master Purge: Invalidate PHP OPcache, filesystem stat cache, and update global asset version
+ */
+function sanctuary_purge_all_caches() {
+    $now = (string)time();
+    try {
+        $pdo = get_db();
+        $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('settings_updated_at', ?)")
+            ->execute([$now]);
+    } catch (Exception $e) {}
+
+    if (function_exists('opcache_reset')) {
+        @opcache_reset();
+    }
+    @clearstatcache(true);
+    get_setting(null, '', true);
+    return true;
+}
+
+/**
+ * Get or initialize PDO MySQL Database connection (Blazing-Fast Production Connection)
  */
 function get_db() {
     static $pdo = null;
@@ -30,40 +86,77 @@ function get_db() {
         return $pdo;
     }
 
+    $lock_file = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'db' . DIRECTORY_SEPARATOR . '.schema_initialized';
+
     try {
-        // Connect to MySQL server
-        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";charset=" . DB_CHARSET;
+        // Fast direct connection to database with persistent connection options
+        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
         $pdo = new PDO($dsn, DB_USER, DB_PASS, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false
         ]);
 
-        // Auto-create database if not existing
-        $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
-        $pdo->exec("USE `" . DB_NAME . "`;");
-
-        // Verify and initialize schema if needed
-        init_mysql_database_schema($pdo);
-        ensure_seasons_table_exists($pdo);
-        ensure_rooms_360_column($pdo);
-        ensure_rooms_pricing_columns($pdo);
-        ensure_sanctuary_spots_table_exists($pdo);
-        ensure_experiences_details_columns($pdo);
-        ensure_food_menu_table_exists($pdo);
-        ensure_users_and_guest_columns($pdo);
-        ensure_billing_columns($pdo);
-        ensure_booking_gst_columns($pdo);
-        ensure_custom_invoices_table_exists($pdo);
+        // If schema has not been initialized yet (first boot / new host), run full migration once
+        if (!file_exists($lock_file)) {
+            run_full_schema_initialization($pdo, $lock_file);
+        }
 
         return $pdo;
     } catch (PDOException $e) {
+        // If database does not exist (error code 1049), connect without dbname and create it
+        if ($e->getCode() == 1049 || strpos($e->getMessage(), 'Unknown database') !== false) {
+            try {
+                $dsn_server = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";charset=" . DB_CHARSET;
+                $pdo = new PDO($dsn_server, DB_USER, DB_PASS, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false
+                ]);
+                $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;");
+                $pdo->exec("USE `" . DB_NAME . "`;");
+                run_full_schema_initialization($pdo, $lock_file);
+                return $pdo;
+            } catch (PDOException $ex) {
+                $e = $ex;
+            }
+        }
+
         die("<div style='font-family:sans-serif;padding:30px;background:#101F15;color:#EAEFED;border:1px solid #C5A059;max-width:600px;margin:50px auto;border-radius:8px;'>
             <h3 style='color:#C5A059;margin-top:0;'>Estate Database Connection Error (MySQL)</h3>
             <p>" . htmlspecialchars($e->getMessage()) . "</p>
             <p style='font-size:13px;color:#A1B5A9;'>Ensure MySQL is running in your XAMPP Control Panel on host <strong>" . DB_HOST . "</strong> and port <strong>" . DB_PORT . "</strong>.</p>
         </div>");
     }
+}
+
+/**
+ * Run full database schema creation and all column verifications once, then write lock file.
+ */
+function run_full_schema_initialization(PDO $pdo, $lock_file = null) {
+    if (!$lock_file) {
+        $lock_file = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'db' . DIRECTORY_SEPARATOR . '.schema_initialized';
+    }
+    init_mysql_database_schema($pdo);
+    ensure_seasons_table_exists($pdo, true);
+    ensure_rooms_360_column($pdo, true);
+    ensure_rooms_pricing_columns($pdo, true);
+    ensure_sanctuary_spots_table_exists($pdo, true);
+    ensure_experiences_details_columns($pdo, true);
+    ensure_food_menu_table_exists($pdo, true);
+    ensure_users_and_guest_columns($pdo, true);
+    ensure_billing_columns($pdo, true);
+    ensure_booking_gst_columns($pdo, true);
+    ensure_custom_invoices_table_exists($pdo, true);
+    ensure_gallery_photos_column($pdo, true);
+    ensure_testimonials_columns($pdo, true);
+    ensure_default_settings($pdo, true);
+
+    $db_dir = dirname($lock_file);
+    if (!is_dir($db_dir)) {
+        @mkdir($db_dir, 0755, true);
+    }
+    @file_put_contents($lock_file, date('Y-m-d H:i:s') . "\nSchema verified and locked for high-speed production execution.");
 }
 
 /**
@@ -210,7 +303,7 @@ function seed_mysql_initial_data(PDO $pdo) {
             'treehouse',
             'The Canopy Treehouse',
             14500.00,
-            '30FT ELEVATION',
+            '',
             2,
             'Perched thirty feet above the fertile soil of Kanthalloor, the Canopy Treehouse is an architectural homage to wild timber and morning mist. Floor-to-ceiling panoramic glass windows frame endless tea horizons, while a private cantilevered balcony brings you into the canopy birdsong.',
             'King Artisan Bed, Mountain-View Cantilevered Deck, Solar-Heated Rain Shower, Handcrafted Herbal Teas, Ambient Fire Hearth, Telescope for Stargazing, Zero-Plastic Toiletries',
@@ -298,7 +391,7 @@ function seed_mysql_initial_data(PDO $pdo) {
         'hero_title' => 'Where Earth Breathes & Time Stands Still.',
         'hero_desc' => 'Tucked deep in the misty hills and organic orchards of Kanthalloor. Experience private earthen mudhouses, soaring canopy treehouses, and nourishing farm gastronomy cooked slowly over wood fires.',
         'hero_bg_image' => 'assets/images/01 (25).jpeg',
-        'top_bar_location' => 'Kanthalloor High Range • 1,600m Elevation • 18°C Misty Mountain Air',
+        'top_bar_location' => 'Kanthalloor High Range • 18°C Misty Mountain Air',
         'top_bar_accolade' => 'Rated 4.98 / 5 • Top Sustainable Sanctuary 2026',
 
         'welcome_badge' => 'THE SANCTUARY PHILOSOPHY',
@@ -344,10 +437,18 @@ function seed_mysql_initial_data(PDO $pdo) {
 /**
  * Ensure all necessary default settings keys exist in the database.
  */
-function ensure_default_settings(PDO $pdo) {
+function ensure_default_settings(PDO $pdo, $force = false) {
     static $ensured = false;
-    if ($ensured) return;
+    if ($ensured && !$force) return;
     $ensured = true;
+
+    if (!$force && is_sanctuary_schema_initialized()) {
+        return;
+    }
+    try {
+        $count = (int)$pdo->query("SELECT COUNT(*) FROM settings")->fetchColumn();
+        if (!$force && $count > 0) return;
+    } catch (Exception $e) {}
 
     $defaults = [
         'bank_account_holder' => 'Food Forest Eco Sanctuary',
@@ -457,7 +558,10 @@ function ensure_default_settings(PDO $pdo) {
 
 if (!function_exists('e')) {
     function e($str) {
-        return htmlspecialchars($str ?? '', ENT_QUOTES, 'UTF-8');
+        if (is_array($str)) {
+            return htmlspecialchars($str['url'] ?? ($str['title'] ?? json_encode($str)), ENT_QUOTES, 'UTF-8');
+        }
+        return htmlspecialchars((string)($str ?? ''), ENT_QUOTES, 'UTF-8');
     }
 }
 
@@ -469,11 +573,20 @@ function get_setting($key, $default = '', $refresh = false) {
     if ($settings_cache === null || $refresh) {
         try {
             $pdo = get_db();
-            ensure_default_settings($pdo);
+            if (!is_sanctuary_schema_initialized()) {
+                ensure_default_settings($pdo);
+            }
             $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
             $settings_cache = [];
             while ($row = $stmt->fetch()) {
                 $settings_cache[$row['setting_key']] = $row['setting_value'];
+            }
+            if (empty($settings_cache)) {
+                ensure_default_settings($pdo, true);
+                $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
+                while ($row = $stmt->fetch()) {
+                    $settings_cache[$row['setting_key']] = $row['setting_value'];
+                }
             }
         } catch (Exception $e) {
             return $default;
@@ -494,7 +607,22 @@ function set_setting($key, $val, $pdo = null) {
     }
     $stmt = $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)");
     $res = $stmt->execute([$key, (string)$val]);
-    // Immediately invalidate and reload the in-memory cache
+    
+    // Automatically update global cache-busting token for assets & live preview
+    if ($key !== 'settings_updated_at') {
+        try {
+            $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('settings_updated_at', ?)")
+                ->execute([(string)time()]);
+        } catch (Exception $e) {}
+    }
+
+    // Invalidate OPcache if enabled on production hosting (cPanel, Hostinger, etc.)
+    if (function_exists('opcache_reset')) {
+        @opcache_reset();
+    }
+    @clearstatcache();
+
+    // Invalidate in-memory settings cache
     get_setting(null, '', true);
     return $res;
 }
@@ -1254,7 +1382,7 @@ function get_default_tour_stages_for_room($slug, $title, $elevation = '', $stay_
     }
 
     // Default: Treehouse or Forest Cottage
-    $elev_tag = !empty($elevation) ? strtoupper($elevation) : '30FT ELEVATED CANOPY';
+    $elev_tag = !empty($elevation) ? strtoupper($elevation) : 'FOREST CANOPY SUITE';
     return [
         'badge' => 'FOOD FOREST IMMERSIVE ARCHITECTURAL TOUR',
         'subtitle' => 'Scroll down to fly from the misty forest canopy directly inside the 360° suite.',
@@ -1473,7 +1601,7 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
         `is_stay` TINYINT(1) DEFAULT 0,
         `linked_room_slug` VARCHAR(100) NULL,
         `stay_price` DECIMAL(10,2) NULL,
-        `elevation` VARCHAR(100) DEFAULT '1,600M MSL',
+        `elevation` VARCHAR(100) DEFAULT '',
         `temperature` VARCHAR(100) DEFAULT '18°C Alpine Breeze',
         `description` TEXT NOT NULL,
         `aroma` VARCHAR(150) NULL,
@@ -1536,7 +1664,7 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
                     'is_stay' => 0,
                     'linked_room_slug' => null,
                     'stay_price' => null,
-                    'elevation' => '1,580M MSL',
+                    'elevation' => '',
                     'temperature' => '19°C Warm Hearth',
                     'description' => 'Central farm hearth serving 100% organic farm-to-table meals harvested daily from our heirloom orchards. Wood-fired open kitchen and mountain view dining.',
                     'aroma' => 'Woodsmoke, cardamom & roasted spices',
@@ -1557,7 +1685,7 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
                     'is_stay' => 1,
                     'linked_room_slug' => 'mudhouse',
                     'stay_price' => 11500.00,
-                    'elevation' => '1,600M MSL',
+                    'elevation' => '',
                     'temperature' => '21°C Thermal Comfort',
                     'description' => 'Handcrafted cob clay cottages sculpted from native red soil, river sand, and straw. Naturally insulated against chilly nights with private sit-out and orchard panorama.',
                     'aroma' => 'Sun-baked earth, vetiver & woodsmoke',
@@ -1578,7 +1706,7 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
                     'is_stay' => 1,
                     'linked_room_slug' => 'treehouse',
                     'stay_price' => 14500.00,
-                    'elevation' => '1,620M MSL',
+                    'elevation' => '',
                     'temperature' => '17°C Alpine Breeze',
                     'description' => 'Elevated living perched 30 feet above the forest floor among ancient high trees. Floor-to-ceiling panoramic glass windows looking out over cascading mist and apple terraces.',
                     'aroma' => 'Fresh cedarwood, wild jasmine & pine',
@@ -1599,7 +1727,7 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
                     'is_stay' => 1,
                     'linked_room_slug' => 'woodhouse',
                     'stay_price' => 13500.00,
-                    'elevation' => '1,620M MSL',
+                    'elevation' => '',
                     'temperature' => '18°C Pine Forest Air',
                     'description' => 'Handcrafted solid cedar and pinewood mountain chalet featuring aromatic wooden walls, high vaulted cathedral ceiling, valley-facing balcony deck, and private fire hearth.',
                     'aroma' => 'Pine needles, cedar resin & crisp mist',
@@ -1620,7 +1748,7 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
                     'is_stay' => 0,
                     'linked_room_slug' => null,
                     'stay_price' => null,
-                    'elevation' => '1,560M MSL',
+                    'elevation' => '',
                     'temperature' => '15°C Spring Freshwater',
                     'description' => 'Pristine mountain stream feeding into a natural granite plunge pool. Serene freshwater bathing and riverside meditation amidst lush shola ferns and organic orchards.',
                     'aroma' => 'Fern leaves, damp river stones & mineral mist',
@@ -1641,7 +1769,7 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
                     'is_stay' => 0,
                     'linked_room_slug' => null,
                     'stay_price' => null,
-                    'elevation' => '1,640M MSL',
+                    'elevation' => '',
                     'temperature' => '14°C Crisp Night Air',
                     'description' => 'Covered rustic timber barbecue pavilion and open granite firepit. Guests gather here for evening grilling rituals and acoustic stargazing under Class-1 dark skies.',
                     'aroma' => 'Ember woodsmoke, roasted pepper & eucalyptus',
@@ -1662,7 +1790,7 @@ function ensure_sanctuary_spots_table_exists(PDO $pdo) {
                     'is_stay' => 0,
                     'linked_room_slug' => null,
                     'stay_price' => null,
-                    'elevation' => '1,570M MSL',
+                    'elevation' => '',
                     'temperature' => '18°C Mild Mountain Sun',
                     'description' => "Terraced grassy lawn equipped with traditional wooden swings, outdoor play zones for kids, and walking trails weaving through fruit-bearing apple and plum trees.",
                     'aroma' => 'Wild berries, sweet apple blossoms & clover',

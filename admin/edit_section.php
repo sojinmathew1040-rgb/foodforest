@@ -988,7 +988,7 @@ ensure_experiences_details_columns($pdo);
                 $rate = floatval($_POST['new_room_rate'] ?? 0);
                 $extra_rate = floatval($_POST['new_room_extra_rate'] ?? 1500.00);
                 $extra_child_rate = floatval($_POST['new_room_extra_child_rate'] ?? 800.00);
-                $el = trim($_POST['new_room_elevation'] ?? '1,600m Elevation');
+                $el = trim($_POST['new_room_elevation'] ?? '');
                 $base_guests = max(1, intval($_POST['new_room_base_guests'] ?? 2));
                 $cap = max($base_guests, intval($_POST['new_room_capacity'] ?? 4));
                 $desc = trim($_POST['new_room_desc'] ?? '');
@@ -1742,6 +1742,9 @@ ensure_experiences_details_columns($pdo);
                 $stmt->execute(['gst_rate_percentage', trim($_POST['gst_rate_cottage'])]);
             }
             $alert_message = 'Multi-tier GST tax percentages, separate billing categories & statutory invoice parameters successfully updated.';
+        }
+        if (empty($alert_type) || $alert_type === 'success') {
+            sanctuary_purge_all_caches();
         }
     }
 }
@@ -2547,7 +2550,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                             <span style="font-size: 11px; color: var(--adm-gold); font-weight: 700; letter-spacing: 0.8px;">CARD 01</span>
                         </div>
                         <h3 style="font-family: var(--adm-font-title); font-size: 16px; letter-spacing: 1px; color: #FFFFFF; margin: 4px 0 0;">CLIMATE & HIGH RANGES ACCOLADES</h3>
-                        <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Top header weather ticker, mountain elevation, and guest rating awards.</p>
+                        <p style="font-size: 12px; color: var(--adm-text-secondary); margin: 3px 0 0;">Top header weather ticker, climate tagline, and guest rating awards.</p>
                     </div>
                 </div>
                 <div>
@@ -2561,8 +2564,8 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
             <div style="padding: 24px;">
                 <div class="adm-form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
                     <div class="adm-form-group">
-                        <label class="adm-form-label">Top Bar Location & Altitude</label>
-                        <input type="text" name="top_bar_location" class="adm-form-control" value="<?php echo e($s['top_bar_location'] ?? 'Kanthalloor, Munnar Hills • 5,000 FT MSL'); ?>" required>
+                        <label class="adm-form-label">Top Bar Location & Tagline</label>
+                        <input type="text" name="top_bar_location" class="adm-form-control" value="<?php echo e($s['top_bar_location'] ?? 'Kanthalloor High Range • 18°C Misty Mountain Air'); ?>" required>
                         <small style="color: var(--adm-text-muted); font-size: 11px;">Appears in the header ticker on top of every page.</small>
                     </div>
 
@@ -4302,7 +4305,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                             </span>
                             <span class="admin-map-hud-pill">
                                 <i class="fa-solid fa-mountain" style="color: #56c2c9;"></i>
-                                <span>1,600m High Range MSL</span>
+                                <span>Kanthalloor High Range</span>
                             </span>
                         </div>
                     </div>
@@ -4463,11 +4466,6 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                 <circle cx="610" cy="90" r="14" /><circle cx="630" cy="105" r="10" />
                             </g>
 
-                            <!-- Elevation MSL Labels -->
-                            <text x="685" y="185" fill="rgba(197, 160, 89, 0.55)" font-size="10" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,600M MSL</text>
-                            <text x="685" y="125" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,620M MSL</text>
-                            <text x="685" y="385" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,580M MSL</text>
-
                             <!-- 1. Estate Perimeter Boundary -->
                             <rect x="36" y="24" width="728" height="472" rx="16" 
                                   fill="none" stroke="rgba(197, 160, 89, 0.35)" stroke-width="1.2" stroke-dasharray="10,6" />
@@ -4475,7 +4473,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                             <!-- Survey Corner Coordinate Marks -->
                             <g font-family="'Cinzel', Georgia, serif" font-size="8.5" fill="rgba(197, 160, 89, 0.55)" letter-spacing="1">
                                 <text x="50" y="44">+ 10°14'22"N · 77°11'45"E</text>
-                                <text x="640" y="44" text-anchor="end">+ 1,640M HIGH RANGE</text>
+                                <text x="640" y="44" text-anchor="end">KANTHALLOOR HIGH RANGE</text>
                                 <text x="50" y="484">ESTATE PERIMETER · 12 ACRES</text>
                                 <text x="640" y="484" text-anchor="end">PRIVATE SANCTUARY RESERVE</text>
                             </g>
@@ -5158,8 +5156,8 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                             <small style="color: var(--adm-text-secondary); font-size: 10px;">Per extra child/night (Infants &lt; 5 yrs complimentary)</small>
                         </div>
                         <div class="adm-form-group">
-                            <label class="adm-form-label">Elevation Tag *</label>
-                            <input type="text" name="new_room_elevation" class="adm-form-control" placeholder="e.g. 1,600m High Ridge" value="1,600m High Ridge" required>
+                            <label class="adm-form-label">Concept / Location Tag (Optional)</label>
+                            <input type="text" name="new_room_elevation" class="adm-form-control" placeholder="e.g. Upper Ridge (Optional)" value="">
                         </div>
                     </div>
 
@@ -5373,7 +5371,9 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                             </span>
                                         </div>
                                         <div class="adm-accordion-meta-sub">
-                                            <span><?php echo e($room['elevation']); ?></span>
+                                            <?php if (!empty($room['elevation'])): ?>
+                                                <span><?php echo e($room['elevation']); ?></span>
+                                            <?php endif; ?>
                                             <span>• Up to <?php echo (int)($room['max_guests'] ?? 4); ?> Guests</span>
                                             <span>• <?php 
                                             $hdr_st = $room['availability_status'] ?? (!empty($room['is_available']) ? 'available' : 'maintenance');
@@ -5438,8 +5438,8 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                         <small style="color: var(--adm-text-secondary); font-size: 10px;">Rate when booking 1 room in Duplex</small>
                                     </div>
                                     <div class="adm-form-group">
-                                        <label class="adm-form-label">Elevation Tag</label>
-                                        <input type="text" name="room_elevation[]" class="adm-form-control" value="<?php echo e($room['elevation']); ?>" required>
+                                        <label class="adm-form-label">Concept / Location Tag (Optional)</label>
+                                        <input type="text" name="room_elevation[]" class="adm-form-control" value="<?php echo e($room['elevation']); ?>" placeholder="Optional concept badge">
                                     </div>
                                 </div>
 
@@ -5544,7 +5544,10 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 Bulk upload photos (portrait or landscape). Customize heading title, description &amp; set exact display order for guests.
                                             </span>
                                         </div>
-                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                            <button type="button" class="adm-btn-action" style="cursor: pointer; padding: 6px 14px; font-size: 11.5px; background: rgba(46, 204, 113, 0.18); border: 1px solid #2ecc71; color: #2ecc71; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;" onclick="saveRoomGalleryOrderAndTitles('<?php echo $room['id']; ?>', this);" title="Save re-ordered photos and edited captions">
+                                                <i class="fa-solid fa-floppy-disk"></i> Save Order &amp; Titles
+                                            </button>
                                             <label class="adm-uploader-btn" for="room_bulk_file_<?php echo $room['id']; ?>" style="cursor: pointer; padding: 6px 14px; font-size: 11.5px; background: rgba(197, 160, 89, 0.18); border: 1px solid var(--adm-gold); color: var(--adm-gold); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;">
                                                 <i class="fa-solid fa-cloud-arrow-up"></i> + Bulk Upload Photos
                                             </label>
@@ -5579,9 +5582,10 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 $p_title = $p_item['title'] ?? '';
                                                 $p_desc = $p_item['description'] ?? '';
                                                 $p_seq = $p_order + 1;
+                                                $is_cover_item = ($p_url === ($room['image_url'] ?? ''));
                                             ?>
                                                 <!-- Individual Photo Card Item -->
-                                                <div class="adm-room-photo-card" data-room-id="<?php echo $room['id']; ?>" style="background: rgba(6, 17, 10, 0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;">
+                                                <div class="adm-room-photo-card" data-room-id="<?php echo $room['id']; ?>" style="background: rgba(6, 17, 10, 0.85); border: 1px solid <?php echo $is_cover_item ? 'rgba(197, 160, 89, 0.6)' : 'rgba(255,255,255,0.08)'; ?>; border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;">
                                                     <!-- Drag handle & Order Badge -->
                                                     <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
                                                         <span class="adm-room-photo-order-badge" style="background: var(--adm-gold); color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(197, 160, 89, 0.3);">
@@ -5591,7 +5595,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                     </div>
 
                                                     <!-- Photo Thumbnail & Aspect Preview -->
-                                                    <div style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid rgba(197, 160, 89, 0.3); flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                                                    <div class="adm-room-photo-thumb-box" style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1.5px solid <?php echo $is_cover_item ? 'var(--adm-gold)' : 'rgba(197, 160, 89, 0.3)'; ?>; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
                                                         <img src="<?php echo admin_img_src($p_url); ?>" alt="Suite Photo" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" onerror="this.src='../assets/images/treehouse_exterior.png';" onload="detectImgOrientation(this);">
                                                         <a href="../<?php echo htmlspecialchars($p_url); ?>" target="_blank" title="View Full High-Res Photo" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);">
                                                             <i class="fa-solid fa-arrow-up-right-from-square"></i>
@@ -5608,7 +5612,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                                 <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold);">
                                                                     <i class="fa-solid fa-heading"></i> Photo Main Heading / Title
                                                                 </span>
-                                                                <span style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
+                                                                <span class="adm-photo-filename-label" style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
                                                                     <?php echo htmlspecialchars(basename($p_url)); ?>
                                                                 </span>
                                                             </div>
@@ -5620,6 +5624,28 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                             </span>
                                                             <textarea name="room_photo_desc[<?php echo $room['id']; ?>][]" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with floor-to-ceiling panoramic glass."><?php echo htmlspecialchars($p_desc); ?></textarea>
                                                         </div>
+                                                        
+                                                        <!-- Card Controls: Cover & Replace -->
+                                                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
+                                                            <div class="adm-cover-action-slot">
+                                                                <?php if ($is_cover_item): ?>
+                                                                    <span class="adm-cover-badge" style="background: rgba(197, 160, 89, 0.25); color: var(--adm-gold); border: 1px solid var(--adm-gold); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                                                        <i class="fa-solid fa-star"></i> PRIMARY COVER
+                                                                    </span>
+                                                                <?php else: ?>
+                                                                    <button type="button" class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 4px;" onclick="setRoomPhotoAsCover('<?php echo $room['id']; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>', this);" title="Set as Primary Cover Photo for Website &amp; 3D Walkthrough">
+                                                                        <i class="fa-solid fa-star"></i> Set as Cover
+                                                                    </button>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                            <div style="display: flex; align-items: center; gap: 6px;">
+                                                                <label class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Replace this photo with a new image">
+                                                                    <i class="fa-solid fa-arrow-rotate-right"></i> Replace Photo
+                                                                    <input type="file" accept="image/*" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '<?php echo $room['id']; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>');">
+                                                                </label>
+                                                            </div>
+                                                        </div>
+
                                                         <input type="hidden" name="room_photo_url[<?php echo $room['id']; ?>][]" value="<?php echo htmlspecialchars($p_url); ?>">
                                                     </div>
 
@@ -5631,7 +5657,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                         <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, 1);" title="Move Down (Display later to guests)">
                                                             <i class="fa-solid fa-arrow-down"></i>
                                                         </button>
-                                                        <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this);" title="Delete this photo from gallery">
+                                                        <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this, '<?php echo $room['id']; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>');" title="Delete this photo from gallery">
                                                             <i class="fa-solid fa-trash-can"></i>
                                                         </button>
                                                     </div>
@@ -5673,6 +5699,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                         <span>SAVE VILLAS & TARIFFS CONFIGURATION</span>
                     </button>
                 </div>
+            </form>
         <!-- =============================================================
              MODAL 1: WALKTHROUGH STAGE 16:9 INTERACTIVE PHOTO CROPPER
              ============================================================= -->
@@ -8924,11 +8951,17 @@ function highlightMovedCard(card) {
     }, 600);
 }
 
-function removeRoomPhotoCard(btn) {
+function removeRoomPhotoCard(btn, roomId, photoUrl) {
     var card = btn.closest('.adm-room-photo-card');
     if (!card) return;
     var container = card.closest('.adm-room-photos-list');
     if (!container) return;
+    
+    if (!roomId) roomId = card.dataset.roomId || '';
+    if (!photoUrl) {
+        var uInput = card.querySelector('input[name^="room_photo_url"]');
+        if (uInput) photoUrl = uInput.value;
+    }
     
     if (confirm('Remove this photo from the suite gallery?')) {
         card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
@@ -8938,6 +8971,30 @@ function removeRoomPhotoCard(btn) {
             card.remove();
             updateRoomPhotoIndices(container);
         }, 200);
+
+        if (roomId && photoUrl) {
+            var formData = new FormData();
+            formData.append('action', 'delete_photo');
+            formData.append('room_id', roomId);
+            formData.append('photo_url', photoUrl);
+            fetch('api_upload_room_photos.php', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(function(res) { return res.json(); }).then(function(data) {
+                if (data.success) {
+                    if (data.cover_updated && data.new_cover) {
+                        var prevImg = document.getElementById('room_prev_' + roomId);
+                        if (prevImg) prevImg.src = '../' + data.new_cover;
+                        var thumbImg = document.getElementById('room_prev_thumb_' + roomId);
+                        if (thumbImg) thumbImg.src = '../' + data.new_cover;
+                    }
+                    showAdminToast('Photo permanently removed from gallery.', 'success');
+                }
+            }).catch(function(err) {
+                console.warn('Background delete sync notice:', err);
+            });
+        }
     }
 }
 
@@ -8969,60 +9026,156 @@ function updateRoomPhotoIndices(container) {
     }
 }
 
-function handleRoomPhotosBulkSelect(input, roomId) {
-    if (!input.files || input.files.length === 0) return;
-    
-    var files = input.files;
-    var count = files.length;
-    var statusBanner = document.getElementById('room_upload_status_' + roomId);
-    var container = document.getElementById('room_photos_list_' + roomId);
-    
-    if (statusBanner) {
-        statusBanner.style.display = 'flex';
-        var txt = statusBanner.querySelector('.status-text');
-        if (txt) txt.innerText = 'Uploading & auto-compressing ' + count + ' photo(s)... Please wait.';
-    }
-    
-    var formData = new FormData();
-    for (var i = 0; i < files.length; i++) {
-        formData.append('room_photos[]', files[i]);
-    }
-    
-    fetch('api_upload_room_photos.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-        if (statusBanner) statusBanner.style.display = 'none';
-        if (!data.success) {
-            alert('Upload note: ' + (data.error || 'Failed to process photos'));
+function prepareImageForUpload(file) {
+    return new Promise(function(resolve) {
+        if (!file || !file.type || !file.type.match(/^image\/(jpeg|jpg|png|webp)/i) || file.size <= 5 * 1024 * 1024) {
+            resolve(file);
             return;
         }
-        
-        var emptyState = container.querySelector('.adm-no-photos-empty');
-        if (emptyState) emptyState.remove();
-        
-        (data.photos || []).forEach(function(photo) {
-            var card = createRoomPhotoCardElement(roomId, photo);
-            container.appendChild(card);
-        });
-        
-        updateRoomPhotoIndices(container);
-        input.value = '';
-    })
-    .catch(function(err) {
-        if (statusBanner) statusBanner.style.display = 'none';
-        console.error('Upload error:', err);
-        alert('Could not upload photos. Please check server permissions.');
+        var img = new Image();
+        var url = URL.createObjectURL(file);
+        img.onload = function() {
+            URL.revokeObjectURL(url);
+            var maxDim = 2560;
+            var w = img.width;
+            var h = img.height;
+            if (w <= maxDim && h <= maxDim && file.size <= 8 * 1024 * 1024) {
+                resolve(file);
+                return;
+            }
+            if (w >= h && w > maxDim) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+            } else if (h > maxDim) {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            canvas.toBlob(function(blob) {
+                if (blob && blob.size < file.size) {
+                    var newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                    resolve(new File([blob], newName, { type: 'image/jpeg' }));
+                } else {
+                    resolve(file);
+                }
+            }, 'image/jpeg', 0.90);
+        };
+        img.onerror = function() {
+            URL.revokeObjectURL(url);
+            resolve(file);
+        };
+        img.src = url;
     });
 }
 
-function createRoomPhotoCardElement(roomId, photo) {
+async function handleRoomPhotosBulkSelect(input, roomId) {
+    if (!input.files || input.files.length === 0) return;
+    
+    var fileList = Array.from(input.files);
+    var total = fileList.length;
+    var statusBanner = document.getElementById('room_upload_status_' + roomId);
+    var container = document.getElementById('room_photos_list_' + roomId);
+    var txt = statusBanner ? statusBanner.querySelector('.status-text') : null;
+    
+    if (statusBanner) {
+        statusBanner.style.display = 'flex';
+    }
+    
+    var uploadedCount = 0;
+    var errors = [];
+    
+    for (var i = 0; i < total; i++) {
+        var origFile = fileList[i];
+        if (txt) {
+            txt.innerText = 'Uploading & optimizing photo ' + (i + 1) + ' of ' + total + ' (' + origFile.name + ')... Please wait.';
+        }
+        
+        try {
+            var readyFile = await prepareImageForUpload(origFile);
+            var formData = new FormData();
+            formData.append('room_photos[]', readyFile);
+            formData.append('room_id', roomId);
+            
+            var res = await fetch('api_upload_room_photos.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (res.status === 401) {
+                alert('Admin session expired. Please refresh the page and log in again.');
+                break;
+            }
+            
+            var resText = await res.text();
+            var data;
+            try {
+                data = JSON.parse(resText);
+            } catch (jsonErr) {
+                throw new Error('Server returned non-JSON response: ' + resText.substring(0, 140));
+            }
+            
+            if (!data.success) {
+                errors.push(origFile.name + ': ' + (data.error || 'Processing failed'));
+                continue;
+            }
+            
+            var emptyState = container.querySelector('.adm-no-photos-empty');
+            if (emptyState) emptyState.remove();
+            
+            (data.photos || []).forEach(function(photo) {
+                var isCover = (data.new_cover_url && data.new_cover_url === photo.url);
+                var card = createRoomPhotoCardElement(roomId, photo, isCover);
+                container.appendChild(card);
+                uploadedCount++;
+                
+                if (data.new_cover_url) {
+                    var prevImg = document.getElementById('room_prev_' + roomId);
+                    if (prevImg) prevImg.src = '../' + data.new_cover_url;
+                    var thumbImg = document.getElementById('room_prev_thumb_' + roomId);
+                    if (thumbImg) thumbImg.src = '../' + data.new_cover_url;
+                }
+            });
+            
+            updateRoomPhotoIndices(container);
+        } catch (err) {
+            console.error('Upload error for ' + origFile.name + ':', err);
+            errors.push(origFile.name + ': ' + (err.message || 'Upload failed'));
+        }
+    }
+    
+    if (statusBanner) {
+        if (errors.length === 0) {
+            if (txt) txt.innerText = 'All ' + uploadedCount + ' photo(s) uploaded, optimized & saved to database!';
+            setTimeout(function() { statusBanner.style.display = 'none'; }, 2400);
+            showAdminToast('All ' + uploadedCount + ' photo(s) uploaded & live on website!', 'success');
+        } else {
+            statusBanner.style.display = 'none';
+        }
+    }
+    
+    input.value = '';
+    
+    if (errors.length > 0) {
+        var msg = 'Upload Notice:\n' +
+                  '• ' + uploadedCount + ' of ' + total + ' photo(s) added successfully.\n\n' +
+                  'Issues:\n' + errors.join('\n');
+        alert(msg);
+    }
+}
+
+function createRoomPhotoCardElement(roomId, photo, isCover) {
     var card = document.createElement('div');
     card.className = 'adm-room-photo-card';
     card.dataset.roomId = roomId;
-    card.style = 'background: rgba(6, 17, 10, 0.85); border: 1px solid rgba(46, 204, 113, 0.4); border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;';
+    card.style = 'background: rgba(6, 17, 10, 0.85); border: 1px solid ' + (isCover ? 'rgba(197, 160, 89, 0.6)' : 'rgba(46, 204, 113, 0.4)') + '; border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;';
     
     var orientationUpper = (photo.orientation || 'landscape').toUpperCase();
     var badgeColor = orientationUpper === 'PORTRAIT' ? '#c084fc' : (orientationUpper === 'SQUARE' ? '#38bdf8' : '#2ecc71');
@@ -9033,6 +9186,10 @@ function createRoomPhotoCardElement(roomId, photo) {
     var escapedDesc = (photo.description || '').replace(/"/g, '&quot;');
     var cleanFilename = photo.filename || (photo.url ? photo.url.split('/').pop() : 'photo.jpg');
 
+    var coverActionHtml = isCover
+        ? `<span class="adm-cover-badge" style="background: rgba(197, 160, 89, 0.25); color: var(--adm-gold); border: 1px solid var(--adm-gold); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-star"></i> PRIMARY COVER</span>`
+        : `<button type="button" class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 4px;" onclick="setRoomPhotoAsCover('${roomId}', '${photo.url}', this);" title="Set as Primary Cover Photo"><i class="fa-solid fa-star"></i> Set as Cover</button>`;
+
     card.innerHTML = `
         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
             <span class="adm-room-photo-order-badge" style="background: var(--adm-gold); color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(197, 160, 89, 0.3);">
@@ -9040,7 +9197,7 @@ function createRoomPhotoCardElement(roomId, photo) {
             </span>
             <span style="font-size: 9px; color: var(--adm-text-secondary); font-weight: 700; text-transform: uppercase;">ORDER</span>
         </div>
-        <div style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid rgba(197, 160, 89, 0.3); flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+        <div class="adm-room-photo-thumb-box" style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1.5px solid ${isCover ? 'var(--adm-gold)' : 'rgba(197, 160, 89, 0.3)'}; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
             <img src="../${photo.url}" alt="Suite Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
             <a href="../${photo.url}" target="_blank" title="View Full High-Res Photo" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i>
@@ -9055,7 +9212,7 @@ function createRoomPhotoCardElement(roomId, photo) {
                     <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold);">
                         <i class="fa-solid fa-heading"></i> Photo Main Heading / Title
                     </span>
-                    <span style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
+                    <span class="adm-photo-filename-label" style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
                         ${cleanFilename}
                     </span>
                 </div>
@@ -9067,6 +9224,17 @@ function createRoomPhotoCardElement(roomId, photo) {
                 </span>
                 <textarea name="room_photo_desc[${roomId}][]" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with floor-to-ceiling panoramic glass.">${escapedDesc}</textarea>
             </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
+                <div class="adm-cover-action-slot">
+                    ${coverActionHtml}
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <label class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Replace this photo with a new image">
+                        <i class="fa-solid fa-arrow-rotate-right"></i> Replace Photo
+                        <input type="file" accept="image/*" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '${roomId}', '${photo.url}');">
+                    </label>
+                </div>
+            </div>
             <input type="hidden" name="room_photo_url[${roomId}][]" value="${photo.url}">
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
@@ -9076,12 +9244,234 @@ function createRoomPhotoCardElement(roomId, photo) {
             <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, 1);" title="Move Down (Display later to guests)">
                 <i class="fa-solid fa-arrow-down"></i>
             </button>
-            <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this);" title="Delete this photo from gallery">
+            <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this, '${roomId}', '${photo.url}');" title="Delete this photo from gallery">
                 <i class="fa-solid fa-trash-can"></i>
             </button>
         </div>
     `;
     return card;
+}
+
+async function setRoomPhotoAsCover(roomId, photoUrl, btn) {
+    if (!roomId || !photoUrl) return;
+    var originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Setting...';
+        btn.disabled = true;
+    }
+    try {
+        var formData = new FormData();
+        formData.append('action', 'set_cover');
+        formData.append('room_id', roomId);
+        formData.append('cover_url', photoUrl);
+
+        var res = await fetch('api_upload_room_photos.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        var data = await res.json();
+        if (data.success) {
+            var prevImg = document.getElementById('room_prev_' + roomId);
+            if (prevImg) prevImg.src = '../' + photoUrl;
+            var thumbImg = document.getElementById('room_prev_thumb_' + roomId);
+            if (thumbImg) thumbImg.src = '../' + photoUrl;
+
+            var rItem = document.querySelector(`.adm-room-item-card input[name="room_id[]"][value="${roomId}"]`);
+            if (rItem) {
+                var pCard = rItem.closest('.adm-room-item-card');
+                if (pCard) {
+                    var hCover = pCard.querySelector('input[name="room_image[]"]');
+                    if (hCover) hCover.value = photoUrl;
+                }
+            }
+
+            var container = document.getElementById('room_photos_list_' + roomId);
+            if (container) {
+                var allCards = container.querySelectorAll('.adm-room-photo-card');
+                allCards.forEach(function(c) {
+                    var uInput = c.querySelector('input[name^="room_photo_url"]');
+                    var cUrl = uInput ? uInput.value : '';
+                    var coverSlot = c.querySelector('.adm-cover-action-slot');
+                    var thumbBox = c.querySelector('.adm-room-photo-thumb-box');
+                    if (cUrl === photoUrl) {
+                        c.style.borderColor = 'rgba(197, 160, 89, 0.6)';
+                        if (thumbBox) thumbBox.style.borderColor = 'var(--adm-gold)';
+                        if (coverSlot) {
+                            coverSlot.innerHTML = `<span class="adm-cover-badge" style="background: rgba(197, 160, 89, 0.25); color: var(--adm-gold); border: 1px solid var(--adm-gold); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-star"></i> PRIMARY COVER</span>`;
+                        }
+                    } else {
+                        c.style.borderColor = 'rgba(255,255,255,0.08)';
+                        if (thumbBox) thumbBox.style.borderColor = 'rgba(197, 160, 89, 0.3)';
+                        if (coverSlot) {
+                            coverSlot.innerHTML = `<button type="button" class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 4px;" onclick="setRoomPhotoAsCover('${roomId}', '${cUrl}', this);" title="Set as Primary Cover Photo"><i class="fa-solid fa-star"></i> Set as Cover</button>`;
+                        }
+                    }
+                });
+            }
+
+            showAdminToast('Primary Cover photo set & published across website!', 'success');
+        } else {
+            alert('Error setting cover photo: ' + (data.error || 'Failed'));
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Network error setting cover photo: ' + err.message);
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+}
+
+async function handleReplaceRoomPhotoFile(input, roomId, oldUrl) {
+    if (!input.files || !input.files[0]) return;
+    var card = input.closest('.adm-room-photo-card');
+    if (!card) return;
+    var file = input.files[0];
+    
+    var imgEl = card.querySelector('img[alt="Suite Photo"]');
+    var thumbBox = card.querySelector('.adm-room-photo-thumb-box');
+    
+    var overlay = document.createElement('div');
+    overlay.style = 'position: absolute; inset: 0; background: rgba(0,0,0,0.78); display: flex; align-items: center; justify-content: center; color: var(--adm-gold); font-size: 10.5px; font-weight: 700; z-index: 10; border-radius: 8px;';
+    overlay.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right: 5px;"></i> Replacing...';
+    if (thumbBox) thumbBox.appendChild(overlay);
+
+    try {
+        var readyFile = await prepareImageForUpload(file);
+        var formData = new FormData();
+        formData.append('action', 'replace_photo');
+        formData.append('room_id', roomId);
+        formData.append('old_url', oldUrl);
+        formData.append('replacement_photo', readyFile);
+
+        var res = await fetch('api_upload_room_photos.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        var data = await res.json();
+        if (data.success) {
+            var newUrl = data.new_url;
+            if (imgEl) imgEl.src = '../' + newUrl;
+            var linkEl = card.querySelector('a[title="View Full High-Res Photo"]');
+            if (linkEl) linkEl.href = '../' + newUrl;
+            var urlInput = card.querySelector('input[name^="room_photo_url"]');
+            if (urlInput) urlInput.value = newUrl;
+            
+            var nameSpan = card.querySelector('.adm-photo-filename-label');
+            if (nameSpan) nameSpan.innerText = newUrl.split('/').pop();
+            
+            if (data.cover_updated) {
+                var prevImg = document.getElementById('room_prev_' + roomId);
+                if (prevImg) prevImg.src = '../' + newUrl;
+                var thumbImg = document.getElementById('room_prev_thumb_' + roomId);
+                if (thumbImg) thumbImg.src = '../' + newUrl;
+            }
+
+            var badge = card.querySelector('.room-photo-orientation-badge');
+            if (badge && data.orientation) {
+                var oUpper = data.orientation.toUpperCase();
+                badge.innerText = oUpper;
+                badge.style.color = oUpper === 'PORTRAIT' ? '#c084fc' : (oUpper === 'SQUARE' ? '#38bdf8' : '#2ecc71');
+                badge.style.background = oUpper === 'PORTRAIT' ? 'rgba(168, 85, 247, 0.2)' : (oUpper === 'SQUARE' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(46, 204, 113, 0.2)');
+            }
+
+            input.setAttribute('onchange', `handleReplaceRoomPhotoFile(this, '${roomId}', '${newUrl}')`);
+            var delBtn = card.querySelector('button[title="Delete this photo from gallery"]');
+            if (delBtn) delBtn.setAttribute('onclick', `removeRoomPhotoCard(this, '${roomId}', '${newUrl}')`);
+            
+            showAdminToast('Photo successfully replaced & gallery updated!', 'success');
+        } else {
+            alert('Error replacing photo: ' + (data.error || 'Failed'));
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Network error replacing photo: ' + err.message);
+    } finally {
+        if (overlay) overlay.remove();
+        input.value = '';
+    }
+}
+
+async function saveRoomGalleryOrderAndTitles(roomId, btn) {
+    var container = document.getElementById('room_photos_list_' + roomId);
+    if (!container) return;
+    var cards = container.querySelectorAll('.adm-room-photo-card');
+    var photos = [];
+    cards.forEach(function(c, i) {
+        var uInput = c.querySelector('input[name^="room_photo_url"]');
+        var tInput = c.querySelector('input[name^="room_photo_title"]');
+        var dInput = c.querySelector('textarea[name^="room_photo_desc"]');
+        if (uInput && uInput.value) {
+            photos.push({
+                url: uInput.value,
+                title: tInput ? tInput.value : '',
+                description: dInput ? dInput.value : '',
+                order: i + 1
+            });
+        }
+    });
+
+    var origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        btn.disabled = true;
+    }
+
+    try {
+        var formData = new FormData();
+        formData.append('action', 'save_gallery');
+        formData.append('room_id', roomId);
+        formData.append('photos', JSON.stringify(photos));
+
+        var res = await fetch('api_upload_room_photos.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        var data = await res.json();
+        if (data.success) {
+            showAdminToast('Gallery order & descriptions saved to database!', 'success');
+        } else {
+            alert('Error saving gallery: ' + (data.error || 'Failed'));
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Network error saving gallery: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+    }
+}
+
+function showAdminToast(msg, type) {
+    var toast = document.getElementById('adm-live-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'adm-live-toast';
+        toast.style = 'position: fixed; top: 24px; right: 24px; z-index: 999999; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: all 0.3s ease; opacity: 0; transform: translateY(-10px); pointer-events: none;';
+        document.body.appendChild(toast);
+    }
+    var isSuccess = type !== 'error';
+    toast.style.background = isSuccess ? 'rgba(6, 26, 14, 0.95)' : 'rgba(38, 8, 8, 0.95)';
+    toast.style.border = isSuccess ? '1px solid rgba(46, 204, 113, 0.6)' : '1px solid rgba(239, 68, 68, 0.6)';
+    toast.style.color = isSuccess ? '#2ecc71' : '#ef4444';
+    toast.innerHTML = (isSuccess ? '<i class="fa-solid fa-circle-check"></i> ' : '<i class="fa-solid fa-circle-exclamation"></i> ') + '<span>' + msg + '</span>';
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+    clearTimeout(window.__admToastTimeout);
+    window.__admToastTimeout = setTimeout(function() {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+    }, 3200);
 }
 
 /* =========================================================================

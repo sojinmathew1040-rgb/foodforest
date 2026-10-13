@@ -3,6 +3,10 @@
 // Food Forest Sanctuary — Admin Authentication & Security Guard
 // =========================================================================
 
+if (ob_get_level() === 0) {
+    ob_start();
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     // Secure session settings
     session_set_cookie_params([
@@ -40,6 +44,13 @@ function check_admin_inactivity_timeout() {
         $timeout_seconds = $timeout_minutes * 60;
         if (isset($_SESSION['last_activity']) && ($now - $_SESSION['last_activity'] > $timeout_seconds)) {
             logout_admin();
+            $is_api = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) || (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], 'api') !== false || strpos($_SERVER['REQUEST_URI'], '_ajax') !== false));
+            if ($is_api) {
+                http_response_code(401);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['success' => false, 'session_expired' => true, 'error' => 'Your admin session has timed out due to inactivity. Please refresh the page or log in again.']);
+                exit;
+            }
             header("Location: login.php?timeout=1");
             exit;
         }
@@ -49,11 +60,18 @@ function check_admin_inactivity_timeout() {
 
 /**
  * Ensures administrator is actively logged in.
- * If not, redirects to login page with return url.
+ * If not, redirects to login page with return url, or returns JSON 401 for API calls.
  */
 function require_admin_auth() {
     check_admin_inactivity_timeout();
     if (!is_admin_logged_in()) {
+        $is_api = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) || (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) || (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], 'api') !== false || strpos($_SERVER['REQUEST_URI'], '_ajax') !== false));
+        if ($is_api) {
+            http_response_code(401);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'session_expired' => true, 'error' => 'Admin session expired. Please log in again to upload photos.']);
+            exit;
+        }
         $current_url = $_SERVER['REQUEST_URI'] ?? '';
         header("Location: login.php?return=" . urlencode($current_url));
         exit;

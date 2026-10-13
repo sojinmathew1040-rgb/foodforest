@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/../admin/includes/db.php';
 $pdo = get_db();
-ensure_sanctuary_spots_table_exists($pdo);
 
 $map_data = get_sanctuary_map_data($pdo, true);
 $sanctuary_spots = $map_data['spots'];
@@ -74,7 +73,9 @@ $rooms_list = get_all_rooms();
                     <div class="chalet-card font-sans" data-stay-cat="<?php echo htmlspecialchars($rm['stay_type'] ?? 'treehouse'); ?>">
                         <div class="chalet-card-media" style="position: relative;">
                             <img src="<?php echo htmlspecialchars($rm['image_url']); ?>" alt="<?php echo htmlspecialchars($rm['title']); ?>" onerror="this.src='assets/images/01 (25).jpeg';">
-                            <span class="chalet-badge-pill"><?php echo htmlspecialchars($rm['elevation'] ?? '1,600m High Ridge'); ?></span>
+                            <?php if (!empty($rm['elevation'])): ?>
+                                <span class="chalet-badge-pill"><?php echo htmlspecialchars($rm['elevation']); ?></span>
+                            <?php endif; ?>
                             <?php if (!empty($rm['photos_list']) && count($rm['photos_list']) > 1): ?>
                                 <span class="chalet-photos-count-badge font-sans" style="position: absolute; bottom: 8px; right: 10px; background: rgba(7, 16, 11, 0.78); color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; backdrop-filter: blur(4px); border: 1px solid rgba(197, 160, 89, 0.4); display: inline-flex; align-items: center; gap: 5px;">
                                     <i class="fa-solid fa-images" style="color: var(--accent-gold);"></i> <?php echo count($rm['photos_list']); ?> Photos
@@ -207,10 +208,6 @@ $rooms_list = get_all_rooms();
                             <circle cx="630" cy="105" r="10" />
                         </g>
 
-                        <!-- Contour Elevation Labels -->
-                        <text x="685" y="185" fill="rgba(197, 160, 89, 0.55)" font-size="10" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,600M MSL</text>
-                        <text x="685" y="125" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,620M MSL</text>
-                        <text x="685" y="385" fill="rgba(197, 160, 89, 0.4)" font-size="9" font-family="'Cinzel', Georgia, serif" letter-spacing="1">1,580M MSL</text>
 
                         <!-- 1. Estate Perimeter Survey Boundary -->
                         <rect x="36" y="24" width="728" height="472" rx="16" 
@@ -219,7 +216,7 @@ $rooms_list = get_all_rooms();
                         <!-- Survey Corner Coordinate Marks -->
                         <g font-family="'Cinzel', Georgia, serif" font-size="8.5" fill="rgba(197, 160, 89, 0.55)" letter-spacing="1">
                             <text x="50" y="44">+ 10°14'22"N · 77°11'45"E</text>
-                            <text x="640" y="44" text-anchor="end">+ 1,640M HIGH RANGE</text>
+                            <text x="640" y="44" text-anchor="end">KANTHALLOOR HIGH RANGE</text>
                             <text x="50" y="484">ESTATE PERIMETER · 12 ACRES</text>
                             <text x="640" y="484" text-anchor="end">PRIVATE SANCTUARY RESERVE</text>
                         </g>

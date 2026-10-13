@@ -40,7 +40,7 @@ $amenity_categories = [
     'wellness' => [
         'id' => 'wellness',
         'title' => 'Health & Wellness',
-        'subtitle' => 'Restorative nature therapies in a 1,600m MSL zero-pollution ecosystem',
+        'subtitle' => 'Restorative nature therapies in a zero-pollution mountain ecosystem',
         'icon' => 'fa-solid fa-spa',
         'badge' => 'NATURE THERAPY',
         'items' => [
@@ -126,7 +126,7 @@ $amenity_categories = [
             ['name' => 'Twilight Campfire Stargazing Glade', 'desc' => 'Natural stone firepit with log seating for storytelling under the cosmos.', 'icon' => 'fa-solid fa-campground', 'highlight' => true],
             ['name' => 'Canopy Hammocks & Garden Lawns', 'desc' => 'Woven string hammocks strung between pine trees for afternoon reading.', 'icon' => 'fa-solid fa-cloud', 'highlight' => false],
             ['name' => 'Living Lounge & Nature Library', 'desc' => 'Sheltered open-air lounge stocked with botany journals, fiction, and board games.', 'icon' => 'fa-solid fa-book-open-reader', 'highlight' => false],
-            ['name' => 'Sunset Valley Viewpoint Deck', 'desc' => 'Highest elevation vantage point commanding 360° views across the Marayoor gap.', 'icon' => 'fa-solid fa-binoculars', 'highlight' => true],
+            ['name' => 'Sunset Valley Viewpoint Deck', 'desc' => 'Panoramic vantage point commanding 360° views across the Marayoor gap.', 'icon' => 'fa-solid fa-binoculars', 'highlight' => true],
         ]
     ],
 ];
@@ -137,7 +137,7 @@ $room_features = [
         'title' => 'The Canopy Treehouse',
         'tagline' => 'Elevated 30 Feet in Ancient Trees • Floor-to-Ceiling Curved Bay Window',
         'icon' => 'fa-solid fa-tree',
-        'badge' => '30FT ELEVATION SUITE',
+        'badge' => 'LUXURY CANOPY SUITE',
         'rate' => '₹5,000 / night',
         'specific_items' => [
             ['name' => '30ft High Canopy Cantilevered Deck', 'desc' => 'Private suspended timber deck immersed in clouds and tree-canopy birdsong.', 'icon' => 'fa-solid fa-wind'],

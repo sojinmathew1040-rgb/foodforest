@@ -2,9 +2,9 @@
 // =========================================================================
 // Food Forest Sanctuary — Executive Concierge Dashboard
 // =========================================================================
-$page_title = 'Sanctuary Overview';
-$page_subtitle = 'Estate Performance & Reservation Concierge';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/auth.php';
+require_admin_auth();
+require_once __DIR__ . '/includes/db.php';
 
 $pdo = get_db();
 
@@ -21,6 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
 }
+
+$page_title = 'Sanctuary Overview';
+$page_subtitle = 'Estate Performance & Reservation Concierge';
+require_once __DIR__ . '/includes/header.php';
 // Calculate KPI Metrics
 $total_bookings = (int) $pdo->query("SELECT COUNT(*) FROM bookings")->fetchColumn();
 $pending_bookings = (int) $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'")->fetchColumn();
@@ -141,7 +145,7 @@ $recent_inquiries = $pdo->query("
             <thead>
                 <tr>
                     <th>Villa Concept</th>
-                    <th>Elevation / Feature</th>
+                    <th>Concept / Feature</th>
                     <th>Capacity</th>
                     <th>Nightly Rate</th>
                     <th>Status</th>
@@ -155,7 +159,7 @@ $recent_inquiries = $pdo->query("
                             <i class="fa-solid <?php echo $villa['slug'] === 'treehouse' ? 'fa-tree' : 'fa-house-chimney'; ?>" style="color: var(--adm-gold); margin-right: 8px;"></i>
                             <?php echo e($villa['title']); ?>
                         </td>
-                        <td><?php echo e($villa['elevation']); ?></td>
+                        <td><?php echo !empty($villa['elevation']) ? e($villa['elevation']) : '<span style="color:var(--adm-text-secondary); opacity:0.6;">—</span>'; ?></td>
                         <td>Up to <?php echo e($villa['max_guests']); ?> Guests</td>
                         <td style="font-family: var(--adm-font-title); font-weight: 700; color: var(--adm-gold-light);">
                             ₹<?php echo number_format($villa['rate_per_night'], 0, '.', ','); ?>

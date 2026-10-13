@@ -60,8 +60,12 @@ if ($is_expired) {
     </div>");
 }
 
-$concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
-$concierge_wa = get_setting('concierge_whatsapp', '919234567890');
+$concierge_phone = get_setting('concierge_phone', '+919447116076');
+$concierge_wa = get_setting('concierge_whatsapp', '919447116076');
+$concierge_email = get_setting('concierge_email', 'foodforestkanthalloor@gmail.com');
+$estate_location = get_setting('location', 'Kanthalloor P.O, Devikulam, Marayoor - 685620');
+$estate_gstin = get_setting('gst_number', '32AAGCF2853H1ZT');
+$estate_legal_name = get_setting('gst_legal_name', '');
 $currency = get_setting('currency_symbol', '₹');
 $site_name = get_setting('site_name', get_setting('estate_name', 'FOOD FOREST'));
 $site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
@@ -904,9 +908,9 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                     </div>
                 </div>
                 <p class="receipt-brand-address font-sans">
-                    Kanthalloor High Range • 1,600m Elevation<br>
-                    Marayoor Valley, Idukki District, Kerala — 685620<br>
-                    Phone: <?php echo htmlspecialchars($concierge_phone); ?>
+                    <?php echo nl2br(htmlspecialchars($estate_location)); ?><br>
+                    Phone: <?php echo htmlspecialchars($concierge_phone); ?><?php if (!empty($concierge_email)): ?> | Email: <?php echo htmlspecialchars($concierge_email); ?><?php endif; ?><br>
+                    <?php if (!empty($estate_gstin)): ?><strong>GSTIN / Tax ID:</strong> <?php echo htmlspecialchars($estate_gstin); ?><?php endif; ?>
                 </p>
             </div>
             <div class="receipt-meta-box">
@@ -937,9 +941,6 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
                     <div class="villa-specs font-sans">
                         <span><i class="fa-regular fa-moon"></i> <?php echo (int)$booking['nights']; ?> Night<?php echo $booking['nights'] > 1 ? 's' : ''; ?></span>
                         <span><i class="fa-solid fa-users"></i> <?php echo (int)$booking['adults_count']; ?> Adults<?php echo ((int)$booking['kids_count'] > 0) ? ', ' . (int)$booking['kids_count'] . ' Kids' : ''; ?></span>
-                        <?php if (!empty($booking['room_elevation'])): ?>
-                            <span><i class="fa-solid fa-mountain"></i> <?php echo htmlspecialchars($booking['room_elevation']); ?></span>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>

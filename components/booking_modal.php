@@ -3,9 +3,6 @@ require_once __DIR__ . '/../admin/includes/db.php';
 require_once __DIR__ . '/../includes/client_auth.php';
 
 $modal_db = get_db();
-ensure_rooms_pricing_columns($modal_db);
-ensure_users_and_guest_columns($modal_db);
-ensure_booking_gst_columns($modal_db);
 
 $modal_villas = get_all_rooms(true);
 $modal_all_food = get_food_menu_items(null, true);

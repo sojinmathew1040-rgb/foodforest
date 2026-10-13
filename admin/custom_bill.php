@@ -3,9 +3,9 @@
 // Food Forest Sanctuary — Bespoke Custom Tax Invoice & Bill Generator
 // =========================================================================
 
-$page_title = 'Custom Bill Generator';
-$page_subtitle = 'Generate, customize, and print bespoke customer tax invoices and bills';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/auth.php';
+require_admin_auth();
+require_once __DIR__ . '/includes/db.php';
 
 $pdo = get_db();
 ensure_custom_invoices_table_exists($pdo);
@@ -214,6 +214,10 @@ if (empty($val_items)) {
 }
 
 $currency = get_setting('currency_symbol', '₹');
+
+$page_title = 'Custom Bill Generator';
+$page_subtitle = 'Generate, customize, and print bespoke customer tax invoices and bills';
+require_once __DIR__ . '/includes/header.php';
 ?>
 
 <div class="adm-content-wrapper">

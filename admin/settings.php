@@ -13,6 +13,18 @@ $page_subtitle = 'Select any section below to open its dedicated Split-Screen Ed
 
 $pdo = get_db();
 
+// Handle Instant Cache Purge Action (AJAX or GET/POST)
+if ((isset($_GET['action']) && $_GET['action'] === 'purge_cache') || (isset($_POST['action']) && $_POST['action'] === 'purge_cache')) {
+    sanctuary_purge_all_caches();
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_GET['ajax']) || isset($_POST['ajax'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'message' => 'All caches successfully purged! Live site refreshed.']);
+        exit;
+    }
+    header('Location: settings.php?msg=cache_purged');
+    exit;
+}
+
 // Handle Food Ordering Toggle Action (AJAX or POST)
 if (isset($_POST['action']) && $_POST['action'] === 'toggle_food_ordering') {
     $new_status = (!empty($_POST['enabled']) && $_POST['enabled'] == '1') ? '1' : '0';
@@ -115,6 +127,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_resort_branding') {
     if (!empty($currency_symbol)) set_setting('currency_symbol', $currency_symbol, $pdo);
     if (!empty($checkin_time)) set_setting('checkin_time', $checkin_time, $pdo);
     if (!empty($checkout_time)) set_setting('checkout_time', $checkout_time, $pdo);
+    if (isset($_POST['concierge_email'])) set_setting('concierge_email', trim($_POST['concierge_email']), $pdo);
+    if (isset($_POST['concierge_phone'])) set_setting('concierge_phone', trim($_POST['concierge_phone']), $pdo);
+    if (isset($_POST['location'])) set_setting('location', trim($_POST['location']), $pdo);
 
     $logo_url = get_setting('site_logo', '');
     if (!empty($_POST['remove_logo']) && $_POST['remove_logo'] === '1') {
@@ -659,6 +674,9 @@ $site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
 $checkin_time = get_setting('checkin_time', '02:00 PM');
 $checkout_time = get_setting('checkout_time', '11:00 AM');
 $currency_symbol = get_setting('currency_symbol', '₹');
+$concierge_email = get_setting('concierge_email', 'foodforestkanthalloor@gmail.com');
+$concierge_phone = get_setting('concierge_phone', '+919447116076');
+$estate_location = get_setting('location', 'Kanthalloor P.O, Devikulam, Marayoor - 685620');
 $admin_session_timeout_minutes = (int)get_setting('admin_session_timeout_minutes', '15');
 $client_session_timeout_minutes = (int)get_setting('client_session_timeout_minutes', '15');
 $live_preview_enabled = (get_setting('live_preview_enabled', '1') !== '0');
@@ -1723,6 +1741,25 @@ $current_admin_user = current_admin();
                                 Standard Check-Out Time:
                             </label>
                             <input type="text" name="checkout_time" id="gen-checkout-time" class="adm-form-control" value="<?php echo htmlspecialchars($checkout_time); ?>" placeholder="e.g. 11:00 AM" style="font-size: 13px;">
+                        </div>
+                        <div>
+                            <label class="adm-form-label" style="font-size: 11.5px; color: #CBD5E1; margin-bottom: 5px; display: block;">
+                                Official Email (Printed on Bills &amp; Invoices):
+                            </label>
+                            <input type="email" name="concierge_email" id="gen-concierge-email" class="adm-form-control" value="<?php echo htmlspecialchars($concierge_email); ?>" placeholder="e.g. foodforestkanthalloor@gmail.com" style="font-size: 13px;">
+                        </div>
+                        <div>
+                            <label class="adm-form-label" style="font-size: 11.5px; color: #CBD5E1; margin-bottom: 5px; display: block;">
+                                Concierge Telephone Line:
+                            </label>
+                            <input type="text" name="concierge_phone" id="gen-concierge-phone" class="adm-form-control" value="<?php echo htmlspecialchars($concierge_phone); ?>" placeholder="e.g. +91 9447116076" style="font-size: 13px;">
+                        </div>
+                        <div style="grid-column: 1 / -1;">
+                            <label class="adm-form-label" style="font-size: 11.5px; color: #CBD5E1; margin-bottom: 5px; display: block;">
+                                Sanctuary Physical Location Address (Printed on Bills, Folios &amp; Receipts):
+                            </label>
+                            <input type="text" name="location" id="gen-location" class="adm-form-control" value="<?php echo htmlspecialchars($estate_location); ?>" placeholder="e.g. Kanthalloor P.O, Devikulam, Marayoor - 685620" style="font-size: 13px;">
+                            <small style="color: var(--adm-text-muted); font-size: 11px; margin-top: 4px; display: block;">Official postal / GPS address printed across all bills, tax invoices, and receipts.</small>
                         </div>
                     </div>
 

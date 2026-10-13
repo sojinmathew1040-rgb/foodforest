@@ -246,6 +246,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $alert_type = 'success';
             }
         }
+
+        // Delete Reservation Folio / Bill Action
+        if ($action === 'delete_booking_folio' || $action === 'delete_booking') {
+            $del_id = (int)($_POST['booking_id'] ?? 0);
+            if ($del_id > 0) {
+                $stmt_file = $pdo->prepare("SELECT id_proof_file, reference_code FROM bookings WHERE id = ?");
+                $stmt_file->execute([$del_id]);
+                $bk = $stmt_file->fetch(PDO::FETCH_ASSOC);
+                if ($bk) {
+                    if (!empty($bk['id_proof_file'])) {
+                        $proof_path = dirname(__DIR__) . '/uploads/id_proofs/' . $bk['id_proof_file'];
+                        if (file_exists($proof_path)) {
+                            @unlink($proof_path);
+                        }
+                    }
+                    $stmt = $pdo->prepare("DELETE FROM bookings WHERE id = ?");
+                    $stmt->execute([$del_id]);
+                    $alert_message = "Reservation folio #{$bk['reference_code']} has been permanently deleted.";
+                    $alert_type = 'success';
+                }
+            }
+        }
     }
 }
 
@@ -1076,11 +1098,25 @@ $currency = get_setting('currency_symbol', '₹');
                                             <a href="../receipt.php?ref=<?php echo urlencode($b['reference_code']); ?>" 
                                                target="_blank" 
                                                class="adm-btn" 
-                                               style="flex: 1; padding: 3px 4px; font-size: 10px; background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); text-decoration: none; text-align: center;"
+                                               style="flex: 1; padding: 3px 4px; font-size: 10px; background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); text-decoration: none; text-align: center;" 
                                                title="View guest web receipt">
                                                 <i class="fa-solid fa-eye"></i> Receipt
                                             </a>
                                         </div>
+
+                                        <!-- Delete Folio / Bill Action -->
+                                        <form method="POST" action="billing.php<?php echo !empty($_SERVER['QUERY_STRING']) ? '?' . htmlspecialchars($_SERVER['QUERY_STRING']) : ''; ?>" style="margin: 0;" onsubmit="return confirm('Are you sure you want to permanently delete reservation folio #<?php echo htmlspecialchars($b['reference_code']); ?> (<?php echo htmlspecialchars($b['guest_name']); ?>)? This action cannot be undone.');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                            <input type="hidden" name="action" value="delete_booking_folio">
+                                            <input type="hidden" name="booking_id" value="<?php echo (int)$b['id']; ?>">
+                                            <button type="submit" 
+                                                    class="adm-btn" 
+                                                    style="width: 100%; padding: 3px 6px; font-size: 10.5px; background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: center; gap: 4px;" 
+                                                    title="Permanently delete this bill/folio record">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                                <span>Delete Bill</span>
+                                            </button>
+                                        </form>
 
                                     </div>
                                 </td>
@@ -1395,14 +1431,20 @@ $currency = get_setting('currency_symbol', '₹');
             </div>
 
             <!-- Modal Action Buttons -->
-            <div style="display: flex; justify-content: flex-end; gap: 12px; align-items: center;">
-                <button type="button" onclick="closeBillEditModal()" class="adm-btn adm-btn-secondary" style="padding: 10px 20px;">
-                    Cancel
+            <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center;">
+                <button type="button" onclick="deleteActiveModalFolio()" class="adm-btn" style="padding: 10px 18px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Delete Folio</span>
                 </button>
-                <button type="submit" class="adm-btn adm-btn-primary" style="padding: 10px 24px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-floppy-disk"></i>
-                    <span>Save &amp; Update Folio</span>
-                </button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button type="button" onclick="closeBillEditModal()" class="adm-btn adm-btn-secondary" style="padding: 10px 20px;">
+                        Cancel
+                    </button>
+                    <button type="submit" class="adm-btn adm-btn-primary" style="padding: 10px 24px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Save &amp; Update Folio</span>
+                    </button>
+                </div>
             </div>
 
         </form>
@@ -1414,6 +1456,38 @@ $currency = get_setting('currency_symbol', '₹');
 // Dynamic Modal Logic
 var activeModalBooking = null;
 var systemDefaultGstRate = <?php echo json_encode($system_gst_rate); ?>;
+
+function deleteActiveModalFolio() {
+    var bId = document.getElementById('modalBookingId').value;
+    var ref = document.getElementById('modalBookingRef').value;
+    if (!bId) return;
+    if (confirm('Are you sure you want to permanently delete reservation folio #' + ref + '? This action cannot be undone.')) {
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = window.location.href;
+        
+        var csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrf_token';
+        csrf.value = '<?php echo generate_csrf_token(); ?>';
+        form.appendChild(csrf);
+        
+        var act = document.createElement('input');
+        act.type = 'hidden';
+        act.name = 'action';
+        act.value = 'delete_booking_folio';
+        form.appendChild(act);
+        
+        var idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'booking_id';
+        idInput.value = bId;
+        form.appendChild(idInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
 
 function toggleModalBillingType() {
     var isWithAddress = document.getElementById('modalBillingTypeWith') && document.getElementById('modalBillingTypeWith').checked;

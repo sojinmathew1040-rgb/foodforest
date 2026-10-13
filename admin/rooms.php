@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $min_guests = (int)($_POST['min_guests'] ?? 2);
         $base_guests = (int)($_POST['base_guests'] ?? 2);
         $max_guests = (int)$_POST['max_guests'];
-        $elevation = trim($_POST['elevation']);
+        $elevation = trim($_POST['elevation'] ?? '');
         $stay_type = trim($_POST['stay_type'] ?? 'treehouse');
         $structure_type = trim($_POST['structure_type'] ?? 'single_hut');
         $description = trim($_POST['description']);
@@ -47,19 +47,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $current_room_data = $existing_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
         $current_photos = [];
+        $current_photo_objs = [];
         if (!empty($current_room_data['photos'])) {
             $dec = json_decode($current_room_data['photos'], true);
-            if (is_array($dec)) $current_photos = array_values(array_filter($dec));
+            if (is_array($dec)) {
+                foreach ($dec as $item) {
+                    $u = is_array($item) ? ($item['url'] ?? '') : (string)$item;
+                    if ($u !== '') {
+                        $current_photos[] = $u;
+                        $current_photo_objs[$u] = is_array($item) ? $item : [
+                            'url' => $u,
+                            'title' => '',
+                            'description' => '',
+                            'order' => count($current_photos)
+                        ];
+                    }
+                }
+            }
         }
         $current_photos_left = [];
         if (!empty($current_room_data['photos_left'])) {
             $dec = json_decode($current_room_data['photos_left'], true);
-            if (is_array($dec)) $current_photos_left = array_values(array_filter($dec));
+            if (is_array($dec)) {
+                foreach ($dec as $item) {
+                    $u = is_array($item) ? ($item['url'] ?? '') : (string)$item;
+                    if ($u !== '') $current_photos_left[] = $u;
+                }
+            }
         }
         $current_photos_right = [];
         if (!empty($current_room_data['photos_right'])) {
             $dec = json_decode($current_room_data['photos_right'], true);
-            if (is_array($dec)) $current_photos_right = array_values(array_filter($dec));
+            if (is_array($dec)) {
+                foreach ($dec as $item) {
+                    $u = is_array($item) ? ($item['url'] ?? '') : (string)$item;
+                    if ($u !== '') $current_photos_right[] = $u;
+                }
+            }
         }
 
         // Handle deletions
@@ -106,6 +130,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!empty($image_url) && !in_array($image_url, $current_photos)) {
             array_unshift($current_photos, $image_url);
+        }
+
+        // Assemble normalized photos with metadata
+        $final_photos = [];
+        foreach ($current_photos as $p_idx => $u) {
+            if (isset($current_photo_objs[$u])) {
+                $item = $current_photo_objs[$u];
+                $item['order'] = $p_idx + 1;
+                $final_photos[] = $item;
+            } else {
+                $final_photos[] = [
+                    'url' => $u,
+                    'title' => '',
+                    'description' => '',
+                    'order' => $p_idx + 1
+                ];
+            }
         }
 
         $raw_status = trim($_POST['availability_status'] ?? '');
@@ -158,7 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $amenities, 
             $inventory_checklist, 
             $image_url, 
-            !empty($current_photos) ? json_encode(array_values($current_photos)) : null,
+            !empty($final_photos) ? json_encode(array_values($final_photos), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null,
             !empty($current_photos_left) ? json_encode(array_values($current_photos_left)) : null,
             !empty($current_photos_right) ? json_encode(array_values($current_photos_right)) : null,
             $is_available, 
@@ -166,7 +207,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $villa_id
         ]);
 
+        // Keep 360 Walkthrough settings in sync with primary cover
+        if (!empty($image_url)) {
+            if ($stay_type === 'treehouse' || $stay_type === 'woodhouse') {
+                $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('walkthrough_woodhouse_cover', ?)")->execute([$image_url]);
+            } elseif ($stay_type === 'mudhouse') {
+                $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('walkthrough_mudhouse_cover', ?)")->execute([$image_url]);
+            }
+        }
+
         $alert_message = 'Villa configuration, tariffs & room asset checklist saved successfully.';
+        if (function_exists('sanctuary_purge_all_caches')) {
+            sanctuary_purge_all_caches();
+        }
     }
 }
 
@@ -211,7 +264,9 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
                         <i class="fa-solid <?php echo $is_duplex ? 'fa-layer-group' : ($is_treehouse ? 'fa-tree' : 'fa-house-chimney'); ?>" style="color: var(--adm-gold); margin-right: 8px;"></i>
                         <?php echo e($room['title']); ?>
                     </h2>
-                    <span class="adm-villa-elevation" style="font-size: 11.5px; color: var(--adm-gold); font-weight: 700; text-transform: uppercase; letter-spacing: 1px;"><?php echo e($room['elevation']); ?></span>
+                    <?php if (!empty($room['elevation'])): ?>
+                        <span class="adm-villa-elevation" style="font-size: 11.5px; color: var(--adm-gold); font-weight: 700; text-transform: uppercase; letter-spacing: 1px;"><?php echo e($room['elevation']); ?></span>
+                    <?php endif; ?>
                 </div>
                 <div>
                     <?php 
@@ -244,17 +299,32 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
             $rm_photos = [];
             if (!empty($room['photos'])) {
                 $dec = json_decode($room['photos'], true);
-                if (is_array($dec)) $rm_photos = array_values(array_filter($dec));
+                if (is_array($dec)) {
+                    foreach ($dec as $item) {
+                        $u = is_array($item) ? ($item['url'] ?? '') : (string)$item;
+                        if ($u !== '') $rm_photos[] = $u;
+                    }
+                }
             }
             $rm_photos_left = [];
             if (!empty($room['photos_left'])) {
                 $dec = json_decode($room['photos_left'], true);
-                if (is_array($dec)) $rm_photos_left = array_values(array_filter($dec));
+                if (is_array($dec)) {
+                    foreach ($dec as $item) {
+                        $u = is_array($item) ? ($item['url'] ?? '') : (string)$item;
+                        if ($u !== '') $rm_photos_left[] = $u;
+                    }
+                }
             }
             $rm_photos_right = [];
             if (!empty($room['photos_right'])) {
                 $dec = json_decode($room['photos_right'], true);
-                if (is_array($dec)) $rm_photos_right = array_values(array_filter($dec));
+                if (is_array($dec)) {
+                    foreach ($dec as $item) {
+                        $u = is_array($item) ? ($item['url'] ?? '') : (string)$item;
+                        if ($u !== '') $rm_photos_right[] = $u;
+                    }
+                }
             }
             
             $has_any_photos = !empty($rm_photos) || !empty($rm_photos_left) || !empty($rm_photos_right);
@@ -355,8 +425,8 @@ $rooms = $pdo->query("SELECT * FROM rooms ORDER BY id ASC")->fetchAll();
 
                 <div class="adm-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                     <div class="adm-form-group">
-                        <label class="adm-label" style="font-size: 11.5px; color: #E2E8F0; font-weight: 700; display: block; margin-bottom: 4px;">Elevation / Concept Badge</label>
-                        <input type="text" name="elevation" class="adm-input" value="<?php echo e($room['elevation']); ?>" required style="padding: 8px 12px; font-size: 12.5px; width: 100%; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.3); color: #FFFFFF; border-radius: 6px;">
+                        <label class="adm-label" style="font-size: 11.5px; color: #E2E8F0; font-weight: 700; display: block; margin-bottom: 4px;">Concept Badge (Optional)</label>
+                        <input type="text" name="elevation" class="adm-input" value="<?php echo e($room['elevation']); ?>" placeholder="Optional concept badge (e.g. UPPER RIDGE)" style="padding: 8px 12px; font-size: 12.5px; width: 100%; background: #07150E; border: 1px solid rgba(197, 160, 89, 0.3); color: #FFFFFF; border-radius: 6px;">
                     </div>
                     <div class="adm-form-group">
                         <label class="adm-label" style="font-size: 11.5px; color: #E2E8F0; font-weight: 700; display: block; margin-bottom: 4px;">Stay Category</label>
