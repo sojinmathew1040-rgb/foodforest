@@ -20,6 +20,9 @@ while ($row = $settings_stmt->fetch()) {
 $estate_name = $s['site_name'] ?? ($s['estate_name'] ?? 'FOOD FOREST');
 $estate_tagline = $s['site_tagline'] ?? ($s['estate_tagline'] ?? 'KANTHALLOOR • ECO SANCTUARY');
 $site_logo = $s['site_logo'] ?? '';
+$logo_display_mode = $s['logo_display_mode'] ?? 'both';
+$logo_layout = $s['logo_layout'] ?? 'horizontal_left';
+$site_logo_height = max(20, min(140, (int)($s['site_logo_height'] ?? 42)));
 $currency_symbol = $s['currency_symbol'] ?? '₹';
 $checkin_time = $s['checkin_time'] ?? '02:00 PM';
 $checkout_time = $s['checkout_time'] ?? '11:00 AM';
@@ -349,16 +352,38 @@ $location = $s['location'] ?? 'Kanthalloor High Ranges, Munnar, Kerala';
     <?php if ($section === 'estate'): ?>
         <!-- CARD 01: ESTATE BRANDING & POLICIES PREVIEW -->
         <div class="preview-mock-nav">
-            <div class="preview-brand-logo" style="display: flex; align-items: center; gap: 10px;">
-                <?php if (!empty($site_logo)): ?>
-                    <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="Logo" style="max-height: 36px; max-width: 36px; object-fit: contain;">
-                <?php else: ?>
-                    <div class="preview-brand-emblem"><i class="fa-solid fa-seedling"></i></div>
+            <?php
+            $pv_container_style = 'display: inline-flex; align-items: center;';
+            $pv_img_order = '1';
+            $pv_text_order = '2';
+            $pv_text_align = 'left';
+
+            if ($logo_layout === 'horizontal_right') {
+                $pv_container_style .= ' flex-direction: row; gap: 12px;';
+                $pv_img_order = '2';
+                $pv_text_order = '1';
+            } elseif ($logo_layout === 'vertical_top') {
+                $pv_container_style .= ' flex-direction: column; gap: 4px; justify-content: center;';
+                $pv_text_align = 'center';
+            } elseif ($logo_layout === 'vertical_bottom') {
+                $pv_container_style .= ' flex-direction: column; gap: 4px; justify-content: center;';
+                $pv_img_order = '2';
+                $pv_text_order = '1';
+                $pv_text_align = 'center';
+            } else {
+                $pv_container_style .= ' flex-direction: row; gap: 12px;';
+            }
+            ?>
+            <div class="preview-brand-logo" style="<?php echo $pv_container_style; ?>">
+                <?php if (!empty($site_logo) && $logo_display_mode !== 'text_only'): ?>
+                    <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="Logo" style="max-height: <?php echo $site_logo_height; ?>px; width: auto; object-fit: contain; order: <?php echo $pv_img_order; ?>;">
                 <?php endif; ?>
-                <div class="preview-brand-titles">
-                    <h2 id="pv-estate-name"><?php echo htmlspecialchars($estate_name); ?></h2>
-                    <p id="pv-estate-tagline"><?php echo htmlspecialchars($estate_tagline); ?></p>
-                </div>
+                <?php if ($logo_display_mode !== 'logo_only' || empty($site_logo)): ?>
+                    <div class="preview-brand-titles" style="text-align: <?php echo $pv_text_align; ?>; order: <?php echo $pv_text_order; ?>;">
+                        <h2 id="pv-estate-name" style="margin: 0; font-family: 'Cinzel', Georgia, serif; font-size: 16px; letter-spacing: 0.15em;"><?php echo htmlspecialchars($estate_name); ?></h2>
+                        <p id="pv-estate-tagline" style="margin: 2px 0 0; font-size: 8.5px; letter-spacing: 0.22em; color: var(--adm-gold);"><?php echo htmlspecialchars($estate_tagline); ?></p>
+                    </div>
+                <?php endif; ?>
             </div>
             <div style="display: flex; align-items: center; gap: 16px;">
                 <span style="font-size: 12px; color: #C5A059; background: rgba(197, 160, 89, 0.15); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(197, 160, 89, 0.3);">

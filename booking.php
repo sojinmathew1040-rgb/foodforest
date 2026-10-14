@@ -964,6 +964,8 @@ require_once __DIR__ . '/includes/header.php';
                         $is_renovation = ($avail_status === 'closed_renovation');
                         $is_opening_soon = ($avail_status === 'opening_soon');
                         $is_maintenance = ($avail_status === 'maintenance' || empty($rm['is_available']));
+                        $total_photos = count($rm['photos_list'] ?? []) + count($rm['photos_left_list'] ?? []) + count($rm['photos_right_list'] ?? []);
+                        if ($total_photos === 0 && !empty($rm['image_url'])) $total_photos = 1;
                         
                         $card_class = '';
                         if ($is_renovation) $card_class = 'is-renovation-card';
@@ -971,7 +973,7 @@ require_once __DIR__ . '/includes/header.php';
                         elseif ($is_maintenance) $card_class = 'is-maintenance-card';
                     ?>
                         <div class="chalet-card font-sans <?php echo $card_class; ?>" data-villa-slug="<?php echo htmlspecialchars($rm['slug']); ?>" data-stay-cat="<?php echo htmlspecialchars($rm['stay_type'] ?? 'treehouse'); ?>" data-structure="<?php echo htmlspecialchars($rm['structure_type'] ?? 'single_hut'); ?>" data-is-duplex="<?php echo $is_dup ? '1' : '0'; ?>" data-avail-status="<?php echo htmlspecialchars($avail_status); ?>">
-                            <div class="chalet-card-media" style="position: relative;">
+                            <div class="chalet-card-media" style="position: relative; cursor: pointer;" onclick="if (typeof openChaletGalleryModal === 'function') openChaletGalleryModal('<?php echo htmlspecialchars($rm['slug'], ENT_QUOTES); ?>');" title="Click to inspect all gallery &amp; suite photos">
                                 <img src="<?php echo htmlspecialchars($rm['image_url']); ?>" alt="<?php echo htmlspecialchars($rm['title']); ?>" onerror="this.src='assets/images/01 (25).jpeg';">
                                 <?php if (!empty($rm['elevation'])): ?>
                                     <span class="chalet-badge-pill"><?php echo htmlspecialchars($rm['elevation']); ?></span>
@@ -991,11 +993,14 @@ require_once __DIR__ . '/includes/header.php';
                                     </span>
                                 <?php endif; ?>
 
-                                <?php if (!empty($rm['photos_list']) && count($rm['photos_list']) > 1): ?>
-                                    <span class="chalet-photos-count-badge font-sans" style="position: absolute; bottom: 8px; right: 10px; background: rgba(7, 16, 11, 0.78); color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; backdrop-filter: blur(4px); border: 1px solid rgba(197, 160, 89, 0.4); display: inline-flex; align-items: center; gap: 5px;">
-                                        <i class="fa-solid fa-images" style="color: var(--accent-gold);"></i> <?php echo count($rm['photos_list']); ?> Photos
+                                <?php if ($total_photos > 1): ?>
+                                    <span class="chalet-photos-count-badge font-sans" style="position: absolute; bottom: 8px; right: 10px; background: rgba(7, 16, 11, 0.85); color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; backdrop-filter: blur(4px); border: 1px solid rgba(197, 160, 89, 0.5); display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.4); cursor: pointer; z-index: 6;" onclick="if (typeof openChaletGalleryModal === 'function') { openChaletGalleryModal('<?php echo htmlspecialchars($rm['slug'], ENT_QUOTES); ?>'); event.stopPropagation(); }" title="Browse <?php echo $total_photos; ?> photos">
+                                        <i class="fa-solid fa-images" style="color: var(--accent-gold);"></i> <?php echo $total_photos; ?> Photos
                                     </span>
                                 <?php endif; ?>
+                                <div class="chalet-media-hover-overlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.38); opacity: 0; transition: opacity 0.2s ease; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-size: 13px; font-weight: 700; gap: 6px; pointer-events: none;">
+                                    <i class="fa-solid fa-expand" style="color: var(--accent-gold);"></i> View Gallery (<?php echo $total_photos; ?>)
+                                </div>
                             </div>
                             <div class="chalet-card-body">
                                 <div class="chalet-header-row">
@@ -1410,6 +1415,9 @@ window.selectFirstAvailableCottage = selectFirstAvailableCottage;
 <?php
 // Load Existing Booking Modal (serves as rich step-by-step confirmation checkout)
 require_once __DIR__ . '/components/booking_modal.php';
+
+// Load Interactive Multi-Photo Chalet Lightbox Modal
+require_once __DIR__ . '/components/chalet_lightbox_modal.php';
 
 // Load Footer
 require_once __DIR__ . '/includes/footer.php';

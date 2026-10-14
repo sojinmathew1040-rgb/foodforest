@@ -77,6 +77,9 @@ if ($is_logged_client) {
 $site_name = get_setting('site_name', get_setting('estate_name', 'FOOD FOREST'));
 $site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
 $site_logo = get_setting('site_logo', '');
+$logo_display_mode = get_setting('logo_display_mode', 'both') ?: 'both';
+$logo_layout = get_setting('logo_layout', 'horizontal_left') ?: 'horizontal_left';
+$site_logo_height = max(20, min(140, (int)(get_setting('site_logo_height', '42') ?: 42)));
 
 // Compute minimum starting room rate dynamically from database
 $all_header_rooms = get_all_rooms(true);
@@ -141,14 +144,39 @@ $resolve_nav_url = function($raw_url, $item_id = 0) use ($is_home, $nav_prefix, 
         <!-- Main Luxury Header -->
         <header class="main-header" id="site-header">
             <div class="header-container">
-                <a href="index.php" class="logo font-serif magnetic" data-strength="15" style="display: inline-flex; align-items: center; gap: 10px; text-decoration: none;">
-                    <?php if (!empty($site_logo)): ?>
-                        <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="<?php echo htmlspecialchars($site_name); ?>" class="site-header-logo-img" style="max-height: 42px; width: auto; object-fit: contain; vertical-align: middle;">
+                <?php
+                // Dynamic styling & layout classes for navbar brand
+                $logo_container_style = 'display: inline-flex; text-decoration: none; align-items: center;';
+                $img_order = '1';
+                $text_order = '2';
+                $text_align = 'left';
+
+                if ($logo_layout === 'horizontal_right') {
+                    $logo_container_style .= ' flex-direction: row; gap: 12px;';
+                    $img_order = '2';
+                    $text_order = '1';
+                } elseif ($logo_layout === 'vertical_top') {
+                    $logo_container_style .= ' flex-direction: column; gap: 4px; justify-content: center;';
+                    $text_align = 'center';
+                } elseif ($logo_layout === 'vertical_bottom') {
+                    $logo_container_style .= ' flex-direction: column; gap: 4px; justify-content: center;';
+                    $img_order = '2';
+                    $text_order = '1';
+                    $text_align = 'center';
+                } else { // horizontal_left default
+                    $logo_container_style .= ' flex-direction: row; gap: 12px;';
+                }
+                ?>
+                <a href="index.php" class="logo font-serif magnetic" data-strength="15" style="<?php echo $logo_container_style; ?>">
+                    <?php if (!empty($site_logo) && $logo_display_mode !== 'text_only'): ?>
+                        <img src="<?php echo htmlspecialchars($site_logo); ?>" alt="<?php echo htmlspecialchars($site_name); ?>" class="site-header-logo-img" style="max-height: <?php echo $site_logo_height; ?>px; width: auto; object-fit: contain; vertical-align: middle; order: <?php echo $img_order; ?>;">
                     <?php endif; ?>
-                    <span style="display: flex; flex-direction: column;">
-                        <span class="logo-main"><?php echo htmlspecialchars($site_name); ?></span>
-                        <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
-                    </span>
+                    <?php if ($logo_display_mode !== 'logo_only' || empty($site_logo)): ?>
+                        <span class="logo-text-block" style="display: flex; flex-direction: column; text-align: <?php echo $text_align; ?>; order: <?php echo $text_order; ?>;">
+                            <span class="logo-main"><?php echo htmlspecialchars($site_name); ?></span>
+                            <span class="logo-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
+                        </span>
+                    <?php endif; ?>
                 </a>
 
                 <!-- Editorial Nav Links (Dynamic from Navigation Menu CMS) -->

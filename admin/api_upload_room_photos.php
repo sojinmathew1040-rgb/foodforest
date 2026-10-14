@@ -30,6 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $action = $_POST['action'] ?? '';
+$gallery_type = trim($_POST['gallery_type'] ?? 'general');
+if (!in_array($gallery_type, ['general', 'left', 'right'])) {
+    $gallery_type = 'general';
+}
+$gallery_col = ($gallery_type === 'left') ? 'photos_left' : (($gallery_type === 'right') ? 'photos_right' : 'photos');
 
 // Action 1: Set Primary Villa Cover Photo
 if ($action === 'set_cover') {
@@ -66,20 +71,20 @@ if ($action === 'set_cover') {
     exit;
 }
 
-// Action 2: Delete Photo from Villa Gallery
+// Action 2: Delete Photo from Villa Gallery (General, Left Suite, or Right Suite)
 if ($action === 'delete_photo') {
     $room_id = (int)($_POST['room_id'] ?? 0);
     $target_url = trim($_POST['photo_url'] ?? '');
     if ($room_id > 0 && !empty($target_url)) {
         try {
             $pdo = get_db();
-            $r_stmt = $pdo->prepare("SELECT photos, image_url, slug, stay_type FROM rooms WHERE id = ?");
+            $r_stmt = $pdo->prepare("SELECT {$gallery_col}, image_url, slug, stay_type FROM rooms WHERE id = ?");
             $r_stmt->execute([$room_id]);
             $r_data = $r_stmt->fetch(PDO::FETCH_ASSOC);
             if ($r_data) {
                 $updated_list = [];
-                if (!empty($r_data['photos'])) {
-                    $dec = json_decode($r_data['photos'], true);
+                if (!empty($r_data[$gallery_col])) {
+                    $dec = json_decode($r_data[$gallery_col], true);
                     if (is_array($dec)) {
                         foreach ($dec as $item) {
                             $u = is_array($item) ? ($item['url'] ?? '') : (string)$item;
@@ -98,7 +103,7 @@ if ($action === 'delete_photo') {
                 $current_cover = $r_data['image_url'] ?? '';
                 $new_cover = $current_cover;
                 $cover_updated = false;
-                if ($current_cover === $target_url) {
+                if ($gallery_col === 'photos' && $current_cover === $target_url) {
                     $new_cover = !empty($updated_list) ? ($updated_list[0]['url'] ?? '') : '';
                     $cover_updated = true;
                     // Keep walkthrough settings in sync
@@ -113,7 +118,11 @@ if ($action === 'delete_photo') {
                 }
 
                 $new_json = !empty($updated_list) ? json_encode(array_values($updated_list), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null;
-                $pdo->prepare("UPDATE rooms SET photos = ?, image_url = ? WHERE id = ?")->execute([$new_json, $new_cover, $room_id]);
+                if ($gallery_col === 'photos') {
+                    $pdo->prepare("UPDATE rooms SET photos = ?, image_url = ? WHERE id = ?")->execute([$new_json, $new_cover, $room_id]);
+                } else {
+                    $pdo->prepare("UPDATE rooms SET {$gallery_col} = ? WHERE id = ?")->execute([$new_json, $room_id]);
+                }
 
                 if (function_exists('sanctuary_purge_all_caches')) {
                     sanctuary_purge_all_caches();
@@ -122,6 +131,7 @@ if ($action === 'delete_photo') {
                 echo json_encode([
                     'success' => true,
                     'message' => 'Photo successfully removed from suite gallery.',
+                    'gallery_type' => $gallery_type,
                     'cover_updated' => $cover_updated,
                     'new_cover' => $new_cover,
                     'remaining_count' => count($updated_list)
@@ -183,15 +193,15 @@ if ($action === 'replace_photo') {
 
     try {
         $pdo = get_db();
-        $r_stmt = $pdo->prepare("SELECT photos, image_url, slug, stay_type FROM rooms WHERE id = ?");
+        $r_stmt = $pdo->prepare("SELECT {$gallery_col}, image_url, slug, stay_type FROM rooms WHERE id = ?");
         $r_stmt->execute([$room_id]);
         $r_data = $r_stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($r_data) {
             $updated_list = [];
             $found = false;
-            if (!empty($r_data['photos'])) {
-                $dec = json_decode($r_data['photos'], true);
+            if (!empty($r_data[$gallery_col])) {
+                $dec = json_decode($r_data[$gallery_col], true);
                 if (is_array($dec)) {
                     foreach ($dec as $item) {
                         $u = is_array($item) ? ($item['url'] ?? '') : (string)$item;
@@ -235,7 +245,7 @@ if ($action === 'replace_photo') {
 
             $cover_updated = false;
             $new_cover = $r_data['image_url'];
-            if ($r_data['image_url'] === $old_url || empty($r_data['image_url'])) {
+            if ($gallery_col === 'photos' && ($r_data['image_url'] === $old_url || empty($r_data['image_url']))) {
                 $new_cover = $new_url;
                 $cover_updated = true;
                 $st = $r_data['stay_type'] ?? '';
@@ -247,7 +257,11 @@ if ($action === 'replace_photo') {
             }
 
             $new_json = json_encode(array_values($updated_list), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            $pdo->prepare("UPDATE rooms SET photos = ?, image_url = ? WHERE id = ?")->execute([$new_json, $new_cover, $room_id]);
+            if ($gallery_col === 'photos') {
+                $pdo->prepare("UPDATE rooms SET photos = ?, image_url = ? WHERE id = ?")->execute([$new_json, $new_cover, $room_id]);
+            } else {
+                $pdo->prepare("UPDATE rooms SET {$gallery_col} = ? WHERE id = ?")->execute([$new_json, $room_id]);
+            }
 
             if (function_exists('sanctuary_purge_all_caches')) {
                 sanctuary_purge_all_caches();
@@ -258,6 +272,7 @@ if ($action === 'replace_photo') {
                 'message' => 'Photo replaced successfully!',
                 'new_url' => $new_url,
                 'old_url' => $old_url,
+                'gallery_type' => $gallery_type,
                 'cover_updated' => $cover_updated,
                 'orientation' => $new_orientation,
                 'dims_label' => ($new_dims[0] && $new_dims[1]) ? "{$new_dims[0]}×{$new_dims[1]}px" : ''
@@ -312,7 +327,7 @@ if ($action === 'save_gallery') {
             
             $new_json = !empty($clean_list) ? json_encode(array_values($clean_list), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null;
             $pdo = get_db();
-            $pdo->prepare("UPDATE rooms SET photos = ? WHERE id = ?")->execute([$new_json, $room_id]);
+            $pdo->prepare("UPDATE rooms SET {$gallery_col} = ? WHERE id = ?")->execute([$new_json, $room_id]);
             
             if (function_exists('sanctuary_purge_all_caches')) {
                 sanctuary_purge_all_caches();
@@ -321,6 +336,7 @@ if ($action === 'save_gallery') {
             echo json_encode([
                 'success' => true,
                 'message' => 'Gallery configuration and photo titles saved successfully!',
+                'gallery_type' => $gallery_type,
                 'count' => count($clean_list)
             ]);
             exit;
@@ -451,13 +467,13 @@ $new_cover_url = null;
 if ($target_room_id > 0 && !empty($uploaded_items)) {
     try {
         $pdo = get_db();
-        $r_stmt = $pdo->prepare("SELECT photos, image_url, slug, stay_type FROM rooms WHERE id = ?");
+        $r_stmt = $pdo->prepare("SELECT {$gallery_col}, image_url, slug, stay_type FROM rooms WHERE id = ?");
         $r_stmt->execute([$target_room_id]);
         $r_data = $r_stmt->fetch(PDO::FETCH_ASSOC);
         if ($r_data) {
             $existing_photos = [];
-            if (!empty($r_data['photos'])) {
-                $dec = json_decode($r_data['photos'], true);
+            if (!empty($r_data[$gallery_col])) {
+                $dec = json_decode($r_data[$gallery_col], true);
                 if (is_array($dec)) {
                     foreach ($dec as $item) {
                         if (is_array($item)) {
@@ -488,7 +504,7 @@ if ($target_room_id > 0 && !empty($uploaded_items)) {
 
             $current_img = $r_data['image_url'] ?? '';
             $update_img = $current_img;
-            if (empty($current_img) || strpos($current_img, 'exterior.png') !== false || strpos($current_img, 'placeholder') !== false) {
+            if ($gallery_col === 'photos' && (empty($current_img) || strpos($current_img, 'exterior.png') !== false || strpos($current_img, 'placeholder') !== false)) {
                 $update_img = $uploaded_items[0]['url'];
                 $new_cover_url = $update_img;
 
@@ -501,7 +517,11 @@ if ($target_room_id > 0 && !empty($uploaded_items)) {
             }
 
             $new_json = json_encode(array_values($existing_photos), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            $pdo->prepare("UPDATE rooms SET photos = ?, image_url = ? WHERE id = ?")->execute([$new_json, $update_img, $target_room_id]);
+            if ($gallery_col === 'photos') {
+                $pdo->prepare("UPDATE rooms SET photos = ?, image_url = ? WHERE id = ?")->execute([$new_json, $update_img, $target_room_id]);
+            } else {
+                $pdo->prepare("UPDATE rooms SET {$gallery_col} = ? WHERE id = ?")->execute([$new_json, $target_room_id]);
+            }
 
             if (function_exists('sanctuary_purge_all_caches')) {
                 sanctuary_purge_all_caches();
@@ -517,6 +537,7 @@ echo json_encode([
     'success'         => true,
     'count'           => count($uploaded_items),
     'photos'          => $uploaded_items,
+    'gallery_type'    => $gallery_type,
     'persisted_to_db' => $persisted_to_db,
     'new_cover_url'   => $new_cover_url,
     'errors'          => $errors

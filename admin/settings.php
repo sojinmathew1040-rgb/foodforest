@@ -149,17 +149,28 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_resort_branding') {
         }
     }
 
+    $logo_display_mode = trim($_POST['logo_display_mode'] ?? 'both');
+    $logo_layout = trim($_POST['logo_layout'] ?? 'horizontal_left');
+    $site_logo_height = max(20, min(140, (int)($_POST['site_logo_height'] ?? 42)));
+
+    if (isset($_POST['logo_display_mode'])) set_setting('logo_display_mode', $logo_display_mode, $pdo);
+    if (isset($_POST['logo_layout'])) set_setting('logo_layout', $logo_layout, $pdo);
+    if (isset($_POST['site_logo_height'])) set_setting('site_logo_height', (string)$site_logo_height, $pdo);
+
     if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
         header('Content-Type: application/json');
         echo json_encode([
             'success' => true,
-            'message' => 'Resort Branding, Logo, and Stay Policy updated across all public pages & portals!',
+            'message' => 'Resort Branding, Logo layout, and Stay Policy updated across all public pages & portals!',
             'site_name' => $site_name,
             'site_tagline' => $site_tagline,
             'currency_symbol' => $currency_symbol,
             'checkin_time' => $checkin_time,
             'checkout_time' => $checkout_time,
-            'site_logo' => $logo_url
+            'site_logo' => $logo_url,
+            'logo_display_mode' => $logo_display_mode,
+            'logo_layout' => $logo_layout,
+            'site_logo_height' => $site_logo_height
         ]);
         exit;
     }
@@ -671,6 +682,9 @@ $nav_menu_items = get_navigation_menu();
 $site_logo = get_setting('site_logo', '');
 $site_name = get_setting('site_name', 'FOOD FOREST');
 $site_tagline = get_setting('site_tagline', 'KANTHALLOOR • ECO SANCTUARY');
+$logo_display_mode = get_setting('logo_display_mode', 'both') ?: 'both';
+$logo_layout = get_setting('logo_layout', 'horizontal_left') ?: 'horizontal_left';
+$site_logo_height = (int)(get_setting('site_logo_height', '42') ?: 42);
 $checkin_time = get_setting('checkin_time', '02:00 PM');
 $checkout_time = get_setting('checkout_time', '11:00 AM');
 $currency_symbol = get_setting('currency_symbol', '₹');
@@ -1674,20 +1688,21 @@ $current_admin_user = current_admin();
                     <input type="hidden" name="ajax" value="1">
                     <input type="hidden" name="remove_logo" id="gen-branding-remove-logo" value="0">
 
-                    <!-- Logo Upload & Live Preview Card -->
+                    <!-- Logo Upload, Display Mode & Live Navbar Brand Preview -->
                     <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 22px;">
-                        <label style="font-size: 12.5px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 12px;">
-                            <i class="fa-solid fa-image"></i> Resort Brand Logo (Header, Footer, Receipts &amp; Portals)
+                        <label style="font-size: 12.5px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 14px;">
+                            <i class="fa-solid fa-image"></i> Resort Brand Logo &amp; Header Presentation
                         </label>
-                        <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+                        
+                        <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap; margin-bottom: 20px;">
                             <!-- Logo Preview Box -->
-                            <div id="gen-logo-preview-box" style="width: 130px; height: 130px; border-radius: 12px; background: rgba(5, 14, 9, 0.85); border: 2px dashed rgba(197, 160, 89, 0.45); display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 8px; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.6);">
+                            <div id="gen-logo-preview-box" style="width: 120px; height: 120px; border-radius: 12px; background: rgba(5, 14, 9, 0.85); border: 2px dashed rgba(197, 160, 89, 0.45); display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 8px; position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.6);">
                                 <?php if (!empty($site_logo)): ?>
                                     <img id="gen-logo-preview-img" src="../<?php echo htmlspecialchars($site_logo); ?>" alt="Resort Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
                                 <?php else: ?>
                                     <div id="gen-logo-placeholder" style="text-align: center; color: var(--adm-text-muted);">
                                         <i class="fa-solid fa-mountain-sun" style="font-size: 32px; color: var(--adm-gold); opacity: 0.6; margin-bottom: 6px; display: block;"></i>
-                                        <span style="font-size: 10px; letter-spacing: 0.5px;">NO LOGO UPLOADED</span>
+                                        <span style="font-size: 10px; letter-spacing: 0.5px;">NO LOGO</span>
                                     </div>
                                     <img id="gen-logo-preview-img" src="" alt="Resort Logo" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none;">
                                 <?php endif; ?>
@@ -1704,11 +1719,135 @@ $current_admin_user = current_admin();
                                     </button>
                                 </div>
                                 <p style="font-size: 11.5px; color: var(--adm-text-muted); margin: 0; line-height: 1.5;">
-                                    Recommended format: PNG or SVG with transparent background, or crisp WebP. Max 1200px width. If removed, the resort name typography is rendered in gold serif font automatically.
+                                    Recommended format: Transparent PNG, SVG, or crisp WebP. Max 1200px width.
                                 </p>
                             </div>
                         </div>
+
+                        <!-- 1. Logo Display Mode Selector (Logo Only / Text Only / Both) -->
+                        <div style="margin-bottom: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+                            <label style="font-size: 11.5px; font-weight: 700; color: #CBD5E1; margin-bottom: 8px; display: block;">
+                                <i class="fa-solid fa-eye" style="color: var(--adm-gold);"></i> Header Logo Display Mode:
+                            </label>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
+                                <label class="logo-mode-choice-card" style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: rgba(255,255,255,0.03); border: 1.5px solid <?php echo ($logo_display_mode === 'logo_only') ? 'var(--adm-gold)' : 'rgba(255,255,255,0.1)'; ?>; border-radius: 8px; cursor: pointer;">
+                                    <input type="radio" name="logo_display_mode" value="logo_only" <?php echo ($logo_display_mode === 'logo_only') ? 'checked' : ''; ?> onchange="updateLogoPreview();" style="margin-top: 3px; accent-color: var(--adm-gold);">
+                                    <div>
+                                        <strong style="color: #FFFFFF; font-size: 12.5px; display: block; margin-bottom: 3px;">🖼️ Logo Image Only</strong>
+                                        <span style="font-size: 11px; color: var(--adm-text-muted); line-height: 1.35; display: block;">
+                                            Hides brand text &amp; tagline. Perfect when your PNG logo already includes the resort name.
+                                        </span>
+                                    </div>
+                                </label>
+
+                                <label class="logo-mode-choice-card" style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: rgba(255,255,255,0.03); border: 1.5px solid <?php echo ($logo_display_mode === 'text_only') ? 'var(--adm-gold)' : 'rgba(255,255,255,0.1)'; ?>; border-radius: 8px; cursor: pointer;">
+                                    <input type="radio" name="logo_display_mode" value="text_only" <?php echo ($logo_display_mode === 'text_only') ? 'checked' : ''; ?> onchange="updateLogoPreview();" style="margin-top: 3px; accent-color: var(--adm-gold);">
+                                    <div>
+                                        <strong style="color: #FFFFFF; font-size: 12.5px; display: block; margin-bottom: 3px;">🔤 Brand Text Only</strong>
+                                        <span style="font-size: 11px; color: var(--adm-text-muted); line-height: 1.35; display: block;">
+                                            Hides the image. Displays the official resort name &amp; tagline in luxury serif typography.
+                                        </span>
+                                    </div>
+                                </label>
+
+                                <label class="logo-mode-choice-card" style="display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: rgba(255,255,255,0.03); border: 1.5px solid <?php echo ($logo_display_mode === 'both') ? 'var(--adm-gold)' : 'rgba(255,255,255,0.1)'; ?>; border-radius: 8px; cursor: pointer;">
+                                    <input type="radio" name="logo_display_mode" value="both" <?php echo ($logo_display_mode === 'both') ? 'checked' : ''; ?> onchange="updateLogoPreview();" style="margin-top: 3px; accent-color: var(--adm-gold);">
+                                    <div>
+                                        <strong style="color: #FFFFFF; font-size: 12.5px; display: block; margin-bottom: 3px;">✨ Both (Logo + Text)</strong>
+                                        <span style="font-size: 11px; color: var(--adm-text-muted); line-height: 1.35; display: block;">
+                                            Shows both the logo emblem image and brand text together side-by-side or stacked.
+                                        </span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 2. Logo Layout / Alignment & Height Options (Visible when Both or Image is selected) -->
+                        <div id="gen-logo-layout-section" style="margin-bottom: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08);">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+                                <!-- Layout Alignment -->
+                                <div>
+                                    <label style="font-size: 11.5px; font-weight: 700; color: #CBD5E1; margin-bottom: 8px; display: block;">
+                                        <i class="fa-solid fa-arrows-split-up-and-left" style="color: #56C2C9;"></i> Logo &amp; Text Alignment:
+                                    </label>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <label class="logo-layout-choice-card" style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: rgba(255,255,255,0.03); border: 1.5px solid <?php echo ($logo_layout === 'horizontal_left') ? 'var(--adm-gold)' : 'rgba(255,255,255,0.1)'; ?>; border-radius: 6px; cursor: pointer; font-size: 11.5px; color: #FFFFFF;">
+                                            <input type="radio" name="logo_layout" value="horizontal_left" <?php echo ($logo_layout === 'horizontal_left') ? 'checked' : ''; ?> onchange="updateLogoPreview();" style="accent-color: var(--adm-gold);">
+                                            <span>⬅️ Logo Left, Text Right</span>
+                                        </label>
+                                        <label class="logo-layout-choice-card" style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: rgba(255,255,255,0.03); border: 1.5px solid <?php echo ($logo_layout === 'horizontal_right') ? 'var(--adm-gold)' : 'rgba(255,255,255,0.1)'; ?>; border-radius: 6px; cursor: pointer; font-size: 11.5px; color: #FFFFFF;">
+                                            <input type="radio" name="logo_layout" value="horizontal_right" <?php echo ($logo_layout === 'horizontal_right') ? 'checked' : ''; ?> onchange="updateLogoPreview();" style="accent-color: var(--adm-gold);">
+                                            <span>➡️ Text Left, Logo Right</span>
+                                        </label>
+                                        <label class="logo-layout-choice-card" style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: rgba(255,255,255,0.03); border: 1.5px solid <?php echo ($logo_layout === 'vertical_top') ? 'var(--adm-gold)' : 'rgba(255,255,255,0.1)'; ?>; border-radius: 6px; cursor: pointer; font-size: 11.5px; color: #FFFFFF;">
+                                            <input type="radio" name="logo_layout" value="vertical_top" <?php echo ($logo_layout === 'vertical_top') ? 'checked' : ''; ?> onchange="updateLogoPreview();" style="accent-color: var(--adm-gold);">
+                                            <span>⬆️ Logo Top, Text Bottom</span>
+                                        </label>
+                                        <label class="logo-layout-choice-card" style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: rgba(255,255,255,0.03); border: 1.5px solid <?php echo ($logo_layout === 'vertical_bottom') ? 'var(--adm-gold)' : 'rgba(255,255,255,0.1)'; ?>; border-radius: 6px; cursor: pointer; font-size: 11.5px; color: #FFFFFF;">
+                                            <input type="radio" name="logo_layout" value="vertical_bottom" <?php echo ($logo_layout === 'vertical_bottom') ? 'checked' : ''; ?> onchange="updateLogoPreview();" style="accent-color: var(--adm-gold);">
+                                            <span>⬇️ Text Top, Logo Bottom</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Logo Height Slider -->
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <label style="font-size: 11.5px; font-weight: 700; color: #CBD5E1; margin: 0;">
+                                            <i class="fa-solid fa-up-right-and-down-left-from-center" style="color: var(--adm-gold);"></i> Header Logo Size / Height:
+                                        </label>
+                                        <span id="gen-logo-height-val" style="font-size: 12px; font-weight: 800; color: var(--adm-gold); background: rgba(197, 160, 89, 0.15); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(197, 160, 89, 0.3);">
+                                            <?php echo $site_logo_height; ?>px
+                                        </span>
+                                    </div>
+                                    <input type="range" name="site_logo_height" id="gen-site-logo-height" min="24" max="96" step="2" value="<?php echo $site_logo_height; ?>" oninput="document.getElementById('gen-logo-height-val').textContent = this.value + 'px'; updateLogoPreview();" style="width: 100%; accent-color: var(--adm-gold); cursor: pointer;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--adm-text-muted); margin-top: 4px;">
+                                        <span>24px (Compact)</span>
+                                        <span>42px (Standard)</span>
+                                        <span>70px (Prominent)</span>
+                                        <span>96px (Large)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. LIVE HEADER NAVBAR BRAND PREVIEW -->
+                        <div style="background: #07150C; border: 1.5px solid rgba(197, 160, 89, 0.35); border-radius: 10px; padding: 16px 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+                                <span style="font-size: 10.5px; font-weight: 800; color: var(--adm-gold); letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-circle-play" style="color: #2ecc71;"></i> Live Header Brand Preview
+                                </span>
+                                <span style="font-size: 10.5px; color: var(--adm-text-muted);">
+                                    Updates instantly as you change options above
+                                </span>
+                            </div>
+
+                            <div style="background: rgba(14, 30, 20, 0.95); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; overflow-x: auto;">
+                                <!-- Interactive Brand Lockup Mockup -->
+                                <div id="gen-header-brand-mockup" style="display: inline-flex; align-items: center; gap: 12px; user-select: none;">
+                                    <img id="mockup-logo-img" src="<?php echo !empty($site_logo) ? '../' . htmlspecialchars($site_logo) : ''; ?>" alt="Logo" style="max-height: <?php echo $site_logo_height; ?>px; width: auto; object-fit: contain; <?php echo (empty($site_logo) || $logo_display_mode === 'text_only') ? 'display: none;' : ''; ?>">
+                                    <div id="mockup-brand-text" style="display: flex; flex-direction: column; <?php echo ($logo_display_mode === 'logo_only') ? 'display: none;' : ''; ?>">
+                                        <span id="mockup-name" style="font-family: 'Cinzel', Georgia, serif; font-size: 17px; font-weight: 600; letter-spacing: 0.16em; color: #FFFFFF; white-space: nowrap;">
+                                            <?php echo htmlspecialchars($site_name); ?>
+                                        </span>
+                                        <span id="mockup-tagline" style="font-family: sans-serif; font-size: 9px; letter-spacing: 0.26em; color: var(--adm-gold); font-weight: 700; margin-top: 3px; white-space: nowrap;">
+                                            <?php echo htmlspecialchars($site_tagline); ?>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Mockup Nav items to show real scale -->
+                                <div style="display: flex; align-items: center; gap: 16px; opacity: 0.5; font-size: 11px; color: #FFFFFF; font-family: sans-serif; pointer-events: none;">
+                                    <span>VILLAS</span>
+                                    <span>EXPERIENCES</span>
+                                    <span>SANCTUARY</span>
+                                    <span style="background: var(--adm-gold); color: #07150C; padding: 4px 10px; border-radius: 4px; font-weight: 700;">RESERVE</span>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
+
 
                     <!-- Estate Identity Fields Grid -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 22px;">
@@ -2451,15 +2590,20 @@ function previewGeneralLogo(input) {
         reader.onload = function(e) {
             var img = document.getElementById('gen-logo-preview-img');
             var placeholder = document.getElementById('gen-logo-placeholder');
+            var mockupImg = document.getElementById('mockup-logo-img');
             if (img) {
                 img.src = e.target.result;
                 img.style.display = 'block';
+            }
+            if (mockupImg) {
+                mockupImg.src = e.target.result;
             }
             if (placeholder) {
                 placeholder.style.display = 'none';
             }
             var rem = document.getElementById('gen-branding-remove-logo');
             if (rem) rem.value = '0';
+            updateLogoPreview();
         };
         reader.readAsDataURL(input.files[0]);
     }
@@ -2472,10 +2616,116 @@ function removeGeneralLogo() {
     if (fileIn) fileIn.value = '';
     var img = document.getElementById('gen-logo-preview-img');
     if (img) img.style.display = 'none';
+    var mockupImg = document.getElementById('mockup-logo-img');
+    if (mockupImg) {
+        mockupImg.src = '';
+        mockupImg.style.display = 'none';
+    }
     var placeholder = document.getElementById('gen-logo-placeholder');
     if (placeholder) placeholder.style.display = 'block';
+    updateLogoPreview();
     showSettingsToast('Logo marked for removal. Click "Save Resort Branding" to apply.');
 }
+
+function updateLogoPreview() {
+    var modeInput = document.querySelector('input[name="logo_display_mode"]:checked');
+    var layoutInput = document.querySelector('input[name="logo_layout"]:checked');
+    var heightInput = document.getElementById('gen-site-logo-height');
+
+    var mode = modeInput ? modeInput.value : 'both';
+    var layout = layoutInput ? layoutInput.value : 'horizontal_left';
+    var h = heightInput ? parseInt(heightInput.value, 10) : 42;
+
+    // Highlight active cards
+    document.querySelectorAll('.logo-mode-choice-card').forEach(function(card) {
+        var r = card.querySelector('input[name="logo_display_mode"]');
+        if (r && r.checked) {
+            card.style.borderColor = 'var(--adm-gold)';
+            card.style.background = 'rgba(197, 160, 89, 0.08)';
+        } else {
+            card.style.borderColor = 'rgba(255,255,255,0.1)';
+            card.style.background = 'rgba(255,255,255,0.03)';
+        }
+    });
+
+    document.querySelectorAll('.logo-layout-choice-card').forEach(function(card) {
+        var r = card.querySelector('input[name="logo_layout"]');
+        if (r && r.checked) {
+            card.style.borderColor = 'var(--adm-gold)';
+            card.style.background = 'rgba(197, 160, 89, 0.08)';
+        } else {
+            card.style.borderColor = 'rgba(255,255,255,0.1)';
+            card.style.background = 'rgba(255,255,255,0.03)';
+        }
+    });
+
+    var mockupContainer = document.getElementById('gen-header-brand-mockup');
+    var mockupImg = document.getElementById('mockup-logo-img');
+    var mockupText = document.getElementById('mockup-brand-text');
+
+    if (!mockupContainer || !mockupImg || !mockupText) return;
+
+    // Update height
+    mockupImg.style.maxHeight = h + 'px';
+
+    var hasLogoSrc = mockupImg.src && mockupImg.src.trim() !== '' && mockupImg.src.indexOf('null') === -1;
+
+    if (mode === 'logo_only') {
+        mockupImg.style.display = hasLogoSrc ? 'block' : 'none';
+        mockupText.style.display = 'none';
+    } else if (mode === 'text_only') {
+        mockupImg.style.display = 'none';
+        mockupText.style.display = 'flex';
+    } else { // 'both'
+        mockupImg.style.display = hasLogoSrc ? 'block' : 'none';
+        mockupText.style.display = 'flex';
+    }
+
+    // Apply layout
+    if (layout === 'horizontal_left') {
+        mockupContainer.style.flexDirection = 'row';
+        mockupContainer.style.alignItems = 'center';
+        mockupContainer.style.textAlign = 'left';
+        mockupContainer.style.gap = '12px';
+        mockupImg.style.order = '1';
+        mockupText.style.order = '2';
+    } else if (layout === 'horizontal_right') {
+        mockupContainer.style.flexDirection = 'row';
+        mockupContainer.style.alignItems = 'center';
+        mockupContainer.style.textAlign = 'left';
+        mockupContainer.style.gap = '12px';
+        mockupImg.style.order = '2';
+        mockupText.style.order = '1';
+    } else if (layout === 'vertical_top') {
+        mockupContainer.style.flexDirection = 'column';
+        mockupContainer.style.alignItems = 'center';
+        mockupContainer.style.textAlign = 'center';
+        mockupContainer.style.gap = '4px';
+        mockupImg.style.order = '1';
+        mockupText.style.order = '2';
+    } else if (layout === 'vertical_bottom') {
+        mockupContainer.style.flexDirection = 'column';
+        mockupContainer.style.alignItems = 'center';
+        mockupContainer.style.textAlign = 'center';
+        mockupContainer.style.gap = '4px';
+        mockupImg.style.order = '2';
+        mockupText.style.order = '1';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateLogoPreview();
+    var nameIn = document.getElementById('gen-site-name');
+    var tagIn = document.getElementById('gen-site-tagline');
+    var mName = document.getElementById('mockup-name');
+    var mTag = document.getElementById('mockup-tagline');
+    if (nameIn && mName) {
+        nameIn.addEventListener('input', function() { mName.textContent = this.value || 'FOOD FOREST'; });
+    }
+    if (tagIn && mTag) {
+        tagIn.addEventListener('input', function() { mTag.textContent = this.value || 'KANTHALLOOR • ECO SANCTUARY'; });
+    }
+});
 
 function saveGeneralBranding(e) {
     if (e && e.preventDefault) e.preventDefault();

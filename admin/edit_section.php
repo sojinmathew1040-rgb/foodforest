@@ -183,9 +183,13 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['delete_room', 'delete_
         $item_id = (int)($_GET['id'] ?? 0);
         if ($item_id > 0) {
             if ($action === 'delete_room') {
+                $del_slug = $pdo->query("SELECT slug FROM rooms WHERE id = " . (int)$item_id)->fetchColumn();
                 $del = $pdo->prepare("DELETE FROM rooms WHERE id = ?");
                 $del->execute([$item_id]);
-                $alert_message = 'Villa dwelling permanently removed from sanctuary.';
+                if (!empty($del_slug) && function_exists('sync_sanctuary_spot_on_room_delete')) {
+                    sync_sanctuary_spot_on_room_delete($del_slug);
+                }
+                $alert_message = 'Villa dwelling permanently removed from sanctuary and interactive map synchronized.';
                 $active_tab = 'rooms';
             } elseif ($action === 'delete_exp') {
                 $del = $pdo->prepare("DELETE FROM experiences WHERE id = ?");
@@ -250,8 +254,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Direct Global POST Item Deletion (Bypasses parent forms)
         if (!empty($_POST['delete_room_id'])) {
             $del_id = (int)$_POST['delete_room_id'];
+            $del_slug = $pdo->query("SELECT slug FROM rooms WHERE id = " . $del_id)->fetchColumn();
             $pdo->prepare("DELETE FROM rooms WHERE id = ?")->execute([$del_id]);
-            $alert_message = 'Villa dwelling permanently removed from sanctuary.';
+            if (!empty($del_slug) && function_exists('sync_sanctuary_spot_on_room_delete')) {
+                sync_sanctuary_spot_on_room_delete($del_slug);
+            }
+            $alert_message = 'Villa dwelling permanently removed from sanctuary and interactive map synchronized.';
             $active_tab = 'rooms';
         }
         elseif (!empty($_POST['delete_exp_id'])) {
@@ -274,7 +282,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         elseif (!empty($_POST['delete_spot_id'])) {
             $del_id = (int)$_POST['delete_spot_id'];
+            $st = $pdo->prepare("SELECT id, spot_number FROM sanctuary_spots WHERE id = ?");
+            $st->execute([$del_id]);
+            $sp_del = $st->fetch(PDO::FETCH_ASSOC);
+            if ($sp_del && function_exists('clean_sanctuary_route_data_for_spot')) {
+                clean_sanctuary_route_data_for_spot($sp_del['id'], $sp_del['spot_number'], $pdo);
+            }
             $pdo->prepare("DELETE FROM sanctuary_spots WHERE id = ?")->execute([$del_id]);
+            if (function_exists('sanctuary_purge_all_caches')) {
+                sanctuary_purge_all_caches();
+            }
             $alert_message = 'Estate spot waypoint permanently removed.';
             $active_tab = 'sanctuary_map';
         }
@@ -774,8 +791,17 @@ ensure_experiences_details_columns($pdo);
                 $alert_message = 'All registered sanctuary spots deleted successfully.';
             } elseif (!empty($_POST['delete_spot_id'])) {
                 $del_id = (int)$_POST['delete_spot_id'];
+                $st = $pdo->prepare("SELECT id, spot_number FROM sanctuary_spots WHERE id = ?");
+                $st->execute([$del_id]);
+                $sp_del = $st->fetch(PDO::FETCH_ASSOC);
+                if ($sp_del && function_exists('clean_sanctuary_route_data_for_spot')) {
+                    clean_sanctuary_route_data_for_spot($sp_del['id'], $sp_del['spot_number'], $pdo);
+                }
                 $del = $pdo->prepare("DELETE FROM sanctuary_spots WHERE id = ?");
                 $del->execute([$del_id]);
+                if (function_exists('sanctuary_purge_all_caches')) {
+                    sanctuary_purge_all_caches();
+                }
                 $alert_message = 'Estate map spot removed successfully.';
             } elseif (($_POST['action'] ?? '') === 'add_spot') {
                 $spot_num = (int)($_POST['new_spot_number'] ?? 1);
@@ -808,6 +834,39 @@ ensure_experiences_details_columns($pdo);
 
                 $icon_class = trim($_POST['new_spot_icon_class'] ?? 'fa-solid fa-tree');
                 $pin_color = trim($_POST['new_spot_pin_color'] ?? '#10B981');
+
+                // SINGLE SOURCE OF TRUTH: If linking to an existing room master, sync fields directly
+                if (!empty($linked_room_slug)) {
+                    $rm_stmt = $pdo->prepare("SELECT title, structure_type, rate_per_night, description, image_url, photos FROM rooms WHERE slug = ?");
+                    $rm_stmt->execute([$linked_room_slug]);
+                    $rm_master = $rm_stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($rm_master) {
+                        $title = $rm_master['title'];
+                        $category = 'stays';
+                        $is_stay = 1;
+                        $structure_type = $rm_master['structure_type'] ?: $structure_type;
+                        $stay_price = (float)$rm_master['rate_per_night'];
+                        if (empty($desc)) {
+                            $desc = $rm_master['description'] ?: 'Luxury eco cottage sanctuary with panoramic plantation vistas.';
+                        }
+                        if (empty($_FILES['new_spot_photos']['name']) && !empty($rm_master['photos'])) {
+                            $dec_p = json_decode($rm_master['photos'], true);
+                            if (is_array($dec_p) && !empty($dec_p)) {
+                                $rm_photos_list = [];
+                                foreach ($dec_p as $p_it) {
+                                    $p_u = is_array($p_it) ? ($p_it['url'] ?? '') : (string)$p_it;
+                                    if ($p_u !== '') $rm_photos_list[] = $p_u;
+                                }
+                                if (!empty($rm_photos_list)) {
+                                    $primary_img = $rm_photos_list[0];
+                                    $photos_json = json_encode(array_values($rm_photos_list));
+                                }
+                            }
+                        } elseif (!empty($rm_master['image_url']) && empty($_FILES['new_spot_photos']['name'])) {
+                            $primary_img = $rm_master['image_url'];
+                        }
+                    }
+                }
 
                 if (!empty($title) && !empty($desc)) {
                     $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM sanctuary_spots")->fetchColumn();
@@ -889,6 +948,39 @@ ensure_experiences_details_columns($pdo);
 
                         $primary_img = $retained_photos[0];
                         $photos_json = json_encode(array_values($retained_photos));
+
+                        // SINGLE SOURCE OF TRUTH: If spot is linked to room master, enforce synchronization
+                        if (!empty($s_linked_room)) {
+                            $rm_chk = $pdo->prepare("SELECT title, structure_type, rate_per_night, description, image_url, photos FROM rooms WHERE slug = ?");
+                            $rm_chk->execute([$s_linked_room]);
+                            $rm_data = $rm_chk->fetch(PDO::FETCH_ASSOC);
+                            if ($rm_data) {
+                                $s_title = $rm_data['title'];
+                                $s_category = 'stays';
+                                $s_is_stay = 1;
+                                $s_structure = $rm_data['structure_type'] ?: $s_structure;
+                                $s_price = (float)$rm_data['rate_per_night'];
+                                if (!empty($rm_data['description'])) {
+                                    $s_desc = $rm_data['description'];
+                                }
+                                if (empty($_FILES[$field_name]['name']) && !empty($rm_data['photos'])) {
+                                    $dec_rp = json_decode($rm_data['photos'], true);
+                                    if (is_array($dec_rp) && !empty($dec_rp)) {
+                                        $rp_list = [];
+                                        foreach ($dec_rp as $rp_it) {
+                                            $rp_u = is_array($rp_it) ? ($rp_it['url'] ?? '') : (string)$rp_it;
+                                            if ($rp_u !== '') $rp_list[] = $rp_u;
+                                        }
+                                        if (!empty($rp_list)) {
+                                            $primary_img = $rp_list[0];
+                                            $photos_json = json_encode(array_values($rp_list));
+                                        }
+                                    }
+                                } elseif (!empty($rm_data['image_url']) && empty($_FILES[$field_name]['name'])) {
+                                    $primary_img = $rm_data['image_url'];
+                                }
+                            }
+                        }
 
                         $upd_spot->execute([$s_num, $s_title, $s_category, $s_icon, $s_color, $s_is_stay, $s_linked_room ?: null, $s_structure, $s_price, $s_desc, $s_x, $s_y, $primary_img, $photos_json, (int)$sp_id]);
                     }
@@ -974,9 +1066,13 @@ ensure_experiences_details_columns($pdo);
                 }
             } elseif (!empty($_POST['delete_room_id'])) {
                 $del_id = (int)$_POST['delete_room_id'];
+                $del_slug = $pdo->query("SELECT slug FROM rooms WHERE id = " . $del_id)->fetchColumn();
                 $del = $pdo->prepare("DELETE FROM rooms WHERE id = ?");
                 $del->execute([$del_id]);
-                $alert_message = 'Villa dwelling successfully removed from sanctuary.';
+                if (!empty($del_slug) && function_exists('sync_sanctuary_spot_on_room_delete')) {
+                    sync_sanctuary_spot_on_room_delete($del_slug);
+                }
+                $alert_message = 'Villa dwelling successfully removed from sanctuary and interactive map synchronized.';
             } elseif (($_POST['action'] ?? '') === 'add_room') {
                 $title = trim($_POST['new_room_title'] ?? '');
                 $stay_type = trim($_POST['new_room_stay_type'] ?? 'treehouse');
@@ -1055,7 +1151,11 @@ ensure_experiences_details_columns($pdo);
 
                     $ins = $pdo->prepare("INSERT INTO rooms (slug, stay_type, structure_type, title, rate_per_night, single_room_rate, extra_guest_rate, extra_child_rate, elevation, min_guests, base_guests, max_guests, description, amenities, image_url, photos, interior_360_url, is_available, availability_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $ins->execute([$slug, $stay_type, $structure_type, $title, $rate, $single_rate, $extra_rate, $extra_child_rate, $el, $min_guests, $base_guests, $cap, $desc, $amenities, $img, $photos_json, $pano_360, $new_is_avail, $new_avail_status]);
-                    $alert_message = 'New villa / cottage dwelling successfully registered and published with minimum & maximum occupancy, dynamic pricing, photo gallery & 360° tour!';
+                    $new_inserted_id = (int)$pdo->lastInsertId();
+                    if ($new_inserted_id > 0 && function_exists('sync_sanctuary_spot_on_room_create')) {
+                        sync_sanctuary_spot_on_room_create($new_inserted_id);
+                    }
+                    $alert_message = 'New villa / cottage dwelling successfully registered and automatically placed on the interactive estate map with photo gallery & 360° tour!';
                 } else {
                     $alert_message = 'Villa title and valid nightly rate are required.';
                     $alert_type = 'error';
@@ -1069,9 +1169,9 @@ ensure_experiences_details_columns($pdo);
                     }
                 }
 
-                // Update rooms & tariffs & 360 panoramas & tour stages & multi-photo gallery
+                // Update rooms & tariffs & 360 panoramas & tour stages & multi-photo gallery (general, left wing, right wing)
                 if (isset($_POST['room_id']) && is_array($_POST['room_id'])) {
-                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, single_room_rate = ?, extra_guest_rate = ?, extra_child_rate = ?, min_guests = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, photos = ?, interior_360_url = ?, tour_stages_json = ?, is_available = ?, availability_status = ? WHERE id = ?");
+                    $upd_room = $pdo->prepare("UPDATE rooms SET title = ?, stay_type = ?, structure_type = ?, elevation = ?, rate_per_night = ?, single_room_rate = ?, extra_guest_rate = ?, extra_child_rate = ?, min_guests = ?, base_guests = ?, max_guests = ?, description = ?, image_url = ?, photos = ?, photos_left = ?, photos_right = ?, interior_360_url = ?, tour_stages_json = ?, is_available = ?, availability_status = ? WHERE id = ?");
                     foreach ($_POST['room_id'] as $idx => $rid) {
                         $t = trim($_POST['room_title'][$idx] ?? '');
                         $st = trim($_POST['room_stay_type'][$idx] ?? 'treehouse');
@@ -1097,8 +1197,8 @@ ensure_experiences_details_columns($pdo);
                         $room_avail_status = $raw_avail_status;
                         $is_avail = ($room_avail_status === 'available') ? 1 : 0;
 
-                        // Fetch existing 360 data to preserve if not submitted from this form
-                        $stmt_curr_room = $pdo->prepare("SELECT interior_360_url, tour_stages_json FROM rooms WHERE id = ?");
+                        // Fetch existing 360 data and wing photos to preserve if not submitted from this form
+                        $stmt_curr_room = $pdo->prepare("SELECT interior_360_url, tour_stages_json, photos, photos_left, photos_right FROM rooms WHERE id = ?");
                         $stmt_curr_room->execute([(int)$rid]);
                         $curr_room_row = $stmt_curr_room->fetch();
 
@@ -1144,7 +1244,7 @@ ensure_experiences_details_columns($pdo);
                             }
                         }
 
-                        // Collect multi-photo gallery items for this room (ordered as arranged by admin)
+                        // 1. Collect General / Exterior gallery items for this room
                         $room_gallery = [];
                         if (isset($_POST['room_photo_url'][$rid]) && is_array($_POST['room_photo_url'][$rid])) {
                             $p_urls = $_POST['room_photo_url'][$rid];
@@ -1164,7 +1264,6 @@ ensure_experiences_details_columns($pdo);
                             }
                         }
 
-                        // Handle direct multi-file upload for this room (if files submitted via standard file input)
                         $field_name = 'room_gallery_files_' . $rid;
                         if (!empty($_FILES[$field_name]['name'])) {
                             $uploaded_paths = handle_multi_image_upload($_FILES[$field_name], 'room_gal');
@@ -1184,7 +1283,6 @@ ensure_experiences_details_columns($pdo);
                             }
                         }
 
-                        // Fallback: if gallery empty and room has primary image
                         if (empty($room_gallery) && !empty($img)) {
                             $room_gallery[] = [
                                 'url' => $img,
@@ -1193,8 +1291,53 @@ ensure_experiences_details_columns($pdo);
                                 'order' => 1
                             ];
                         }
+                        $photos_json = !empty($room_gallery) ? json_encode(array_values($room_gallery), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : ($curr_room_row['photos'] ?? null);
 
-                        $photos_json = !empty($room_gallery) ? json_encode(array_values($room_gallery), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+                        // 2. Collect Left Suite (Wing A) photos if submitted
+                        $photos_left_json = null;
+                        if (isset($_POST['room_photo_left_url'][$rid]) && is_array($_POST['room_photo_left_url'][$rid])) {
+                            $p_left_urls = $_POST['room_photo_left_url'][$rid];
+                            $p_left_titles = $_POST['room_photo_left_title'][$rid] ?? [];
+                            $p_left_descs = $_POST['room_photo_left_desc'][$rid] ?? [];
+                            $room_left_gallery = [];
+                            foreach ($p_left_urls as $p_i => $p_u) {
+                                $clean_u = trim($p_u);
+                                if ($clean_u !== '') {
+                                    $room_left_gallery[] = [
+                                        'url' => $clean_u,
+                                        'title' => trim($p_left_titles[$p_i] ?? ''),
+                                        'description' => trim($p_left_descs[$p_i] ?? ''),
+                                        'order' => count($room_left_gallery) + 1
+                                    ];
+                                }
+                            }
+                            $photos_left_json = !empty($room_left_gallery) ? json_encode(array_values($room_left_gallery), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+                        } else {
+                            $photos_left_json = $curr_room_row['photos_left'] ?? null;
+                        }
+
+                        // 3. Collect Right Suite (Wing B) photos if submitted
+                        $photos_right_json = null;
+                        if (isset($_POST['room_photo_right_url'][$rid]) && is_array($_POST['room_photo_right_url'][$rid])) {
+                            $p_right_urls = $_POST['room_photo_right_url'][$rid];
+                            $p_right_titles = $_POST['room_photo_right_title'][$rid] ?? [];
+                            $p_right_descs = $_POST['room_photo_right_desc'][$rid] ?? [];
+                            $room_right_gallery = [];
+                            foreach ($p_right_urls as $p_i => $p_u) {
+                                $clean_u = trim($p_u);
+                                if ($clean_u !== '') {
+                                    $room_right_gallery[] = [
+                                        'url' => $clean_u,
+                                        'title' => trim($p_right_titles[$p_i] ?? ''),
+                                        'description' => trim($p_right_descs[$p_i] ?? ''),
+                                        'order' => count($room_right_gallery) + 1
+                                    ];
+                                }
+                            }
+                            $photos_right_json = !empty($room_right_gallery) ? json_encode(array_values($room_right_gallery), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
+                        } else {
+                            $photos_right_json = $curr_room_row['photos_right'] ?? null;
+                        }
 
                         // Check single 360 photo upload
                         if (isset($_FILES['room_360_file'])) {
@@ -1238,11 +1381,17 @@ ensure_experiences_details_columns($pdo);
 
                         $upd_room->execute([
                             $t, $st, $structure_type, $el, $rate, $single_rate, $extra_rate, $extra_child_rate,
-                            $min_guests, $base_guests, $cap, $d, $img, $photos_json, $pano_360, $tour_stages_json, $is_avail, $room_avail_status, (int)$rid
+                            $min_guests, $base_guests, $cap, $d, $img, $photos_json, $photos_left_json, $photos_right_json,
+                            $pano_360, $tour_stages_json, $is_avail, $room_avail_status, (int)$rid
                         ]);
+
+                        // Automatically update interactive sanctuary map waypoint
+                        if (function_exists('sync_sanctuary_spot_on_room_update')) {
+                            sync_sanctuary_spot_on_room_update((int)$rid);
+                        }
                     }
                 }
-                $alert_message = 'Villas, single & duplex cottages, dynamic tariffs, suite photo galleries, 360° panoramas & tour scroll stages successfully updated.';
+                $alert_message = 'Villas, single & duplex cottages, dynamic tariffs, suite photo galleries (Left/Right suites & exterior), 360° panoramas & interactive map waypoints successfully updated.';
             }
         }
 
@@ -1846,6 +1995,15 @@ foreach ($all_sanctuary_spots as &$sp_item) {
     $sp_item['photos_list'] = $p_list;
 }
 unset($sp_item);
+$next_spot_num = 1;
+if (!empty($all_sanctuary_spots)) {
+    foreach ($all_sanctuary_spots as $sp_item) {
+        $sn = (int)($sp_item['spot_number'] ?? 0);
+        if ($sn >= $next_spot_num) {
+            $next_spot_num = $sn + 1;
+        }
+    }
+}
 
 ensure_food_menu_table_exists($pdo);
 $all_food_menu = $pdo->query("SELECT * FROM food_menu ORDER BY FIELD(category, 'breakfast', 'lunch', 'snacks', 'dinner'), display_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -4146,12 +4304,21 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </select>
+                        <div id="new_spot_sync_banner" style="display: none; margin-top: 10px; background: rgba(46, 204, 113, 0.1); border: 1px solid rgba(46, 204, 113, 0.35); border-radius: 6px; padding: 8px 12px; align-items: center; justify-content: space-between; gap: 8px;">
+                            <span style="font-size: 11.5px; color: #2ecc71; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span><strong>Single Source of Truth Active:</strong> Title, nightly rate, specs, description & photos are automatically synchronized with the Villa Master record.</span>
+                            </span>
+                            <a href="rooms.php" target="_blank" style="font-size: 11px; color: var(--adm-gold); font-weight: 700; text-decoration: underline; white-space: nowrap;">
+                                Manage in Villas & Cottages ↗
+                            </a>
+                        </div>
                     </div>
 
                     <div class="adm-form-grid" style="display: grid; grid-template-columns: 110px 1fr 140px; gap: 14px; margin-bottom: 14px;">
                         <div class="adm-form-group">
                             <label class="adm-form-label">Pin # *</label>
-                            <input type="number" min="1" max="99" name="new_spot_number" class="adm-form-control" value="<?php echo count($all_sanctuary_spots) + 1; ?>" required style="font-weight: bold; color: var(--adm-gold);">
+                            <input type="number" min="1" max="99" name="new_spot_number" class="adm-form-control" value="<?php echo $next_spot_num; ?>" required style="font-weight: bold; color: var(--adm-gold);">
                         </div>
                         <div class="adm-form-group">
                             <label class="adm-form-label">Spot / Cottage Title *</label>
@@ -4214,18 +4381,31 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
 
                     <!-- Multi-Photo Uploader for New Spot -->
                     <div class="adm-form-group" style="margin-bottom: 16px;">
-                        <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center;">
-                            <span><i class="fa-solid fa-images" style="color: var(--adm-gold);"></i> Spot Photos (Upload One or Multiple)</span>
-                            <span style="font-size: 11px; color: var(--adm-text-secondary); text-transform: none;">Select multiple files together</span>
-                        </label>
-                        <div style="background: rgba(8, 18, 11, 0.7); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px;">
-                            <label class="adm-uploader-btn" for="new_spot_photos_input" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; font-size: 12px; margin-bottom: 8px;">
-                                <i class="fa-solid fa-cloud-arrow-up"></i> Choose Photos from Device
+                        <div id="new_spot_room_photos_notice" style="display: none; background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 12px 14px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                                <span style="font-size: 12px; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-images"></i>
+                                    <span><strong>Multi-Gallery Photos Synced:</strong> Photos are maintained automatically from the master gallery in <strong>Villas & Cottages</strong>. No duplicate upload required.</span>
+                                </span>
+                                <a href="rooms.php" target="_blank" style="font-size: 11px; color: var(--adm-gold); font-weight: 700; text-decoration: underline; white-space: nowrap;">
+                                    Edit Villa Master ↗
+                                </a>
+                            </div>
+                        </div>
+                        <div id="new_spot_manual_photos_box">
+                            <label class="adm-form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span><i class="fa-solid fa-images" style="color: var(--adm-gold);"></i> Spot Photos (Upload One or Multiple)</span>
+                                <span style="font-size: 11px; color: var(--adm-text-secondary); text-transform: none;">Select multiple files together</span>
                             </label>
-                            <input type="file" name="new_spot_photos[]" id="new_spot_photos_input" class="adm-uploader-input" multiple accept="image/*" onchange="previewMultiSpotUpload(this, 'new_spot_photos_preview');">
-                            <input type="hidden" id="new_spot_fallback_image" name="new_spot_fallback_image" value="">
-                            <div id="new_spot_photos_preview" style="margin-top: 8px;">
-                                <span style="font-size: 11px; color: var(--adm-text-muted);">No new photos selected yet. (Default farm photo will be used if none uploaded)</span>
+                            <div style="background: rgba(8, 18, 11, 0.7); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px;">
+                                <label class="adm-uploader-btn" for="new_spot_photos_input" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; font-size: 12px; margin-bottom: 8px;">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Choose Photos from Device
+                                </label>
+                                <input type="file" name="new_spot_photos[]" id="new_spot_photos_input" class="adm-uploader-input" multiple accept="image/*" onchange="previewMultiSpotUpload(this, 'new_spot_photos_preview');">
+                                <input type="hidden" id="new_spot_fallback_image" name="new_spot_fallback_image" value="">
+                                <div id="new_spot_photos_preview" style="margin-top: 8px;">
+                                    <span style="font-size: 11px; color: var(--adm-text-muted);">No new photos selected yet. (Default farm photo will be used if none uploaded)</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4238,6 +4418,12 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                     <!-- Default Coordinates for New Spot (Positioned via Master Map) -->
                     <input type="hidden" id="new_spot_x" name="new_spot_x" value="50">
                     <input type="hidden" id="new_spot_y" name="new_spot_y" value="50">
+                    <div class="adm-form-group" style="margin-bottom: 16px; background: rgba(46, 204, 113, 0.08); border: 1px solid rgba(46, 204, 113, 0.25); border-radius: 8px; padding: 12px 14px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 12px; color: #FFFFFF; margin: 0;">
+                            <input type="checkbox" name="add_to_current_route" value="1" checked style="accent-color: #2ECC71; width: 17px; height: 17px; cursor: pointer;">
+                            <span><strong>Connect to Active Trail / Pathway:</strong> Automatically link this new spot's waypoint into the active sanctuary walking route.</span>
+                        </label>
+                    </div>
                     <div style="background: rgba(197, 160, 89, 0.08); border: 1px dashed rgba(197, 160, 89, 0.35); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
                         <i class="fa-solid fa-mountain-sun" style="color: var(--adm-gold); font-size: 22px; flex-shrink: 0;"></i>
                         <span style="font-size: 12px; color: var(--adm-text-secondary); line-height: 1.5;">
@@ -4265,7 +4451,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
             ?>
 
             <!-- Main Edit Form for All Spots & Section Headers -->
-            <form id="form-edit-sanctuary_map" action="edit_section.php?section=sanctuary_map" method="POST" enctype="multipart/form-data">
+            <form id="form-edit-sanctuary_map" action="edit_section.php?section=sanctuary_map" method="POST" enctype="multipart/form-data" onsubmit="if (window.updateAdminRouteTrail) { window.updateAdminRouteTrail(); } return true;">
                 <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
                 <input type="hidden" name="form_type" value="sanctuary_map_settings">
                 <input type="hidden" name="active_tab" value="sanctuary_map">
@@ -4364,6 +4550,9 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                             </button>
                             <button type="button" class="admin-map-tool-btn" onclick="resetToScenicLoop();" title="Reset to natural scenic connected loop">
                                 <i class="fa-solid fa-rotate-left"></i> <span>Reset Route</span>
+                            </button>
+                            <button type="submit" form="form-edit-sanctuary_map" class="admin-map-tool-btn" style="background: linear-gradient(135deg, #D4AF37, #A88B57); color: #081d1a; font-weight: 700; border: none; box-shadow: 0 2px 8px rgba(197, 160, 89, 0.4);" title="Save Map Coordinates, Trails & Waypoints">
+                                <i class="fa-solid fa-floppy-disk"></i> <span>Save Map & Pins</span>
                             </button>
                         </div>
                     </div>
@@ -4826,6 +5015,17 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
 
                                     <!-- Link to Existing Room & Category Bar -->
                                     <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                                        <?php $is_linked = !empty($sp['linked_room_slug']); ?>
+                                        <div id="spot_sync_banner_<?php echo $idx; ?>" style="background: rgba(46, 204, 113, 0.08); border: 1px solid rgba(46, 204, 113, 0.3); border-radius: 6px; padding: 7px 12px; margin-bottom: 10px; display: <?php echo $is_linked ? 'flex' : 'none'; ?>; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                                            <div style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #2ecc71;">
+                                                <i class="fa-solid fa-circle-check"></i>
+                                                <span><strong>Master Synced:</strong> Tariffs, layout, photos & description are managed authoritatively in <em>Villas & Cottages</em>.</span>
+                                            </div>
+                                            <a href="rooms.php" target="_blank" style="font-size: 11px; color: var(--adm-gold); font-weight: 700; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
+                                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open in Villas & Cottages
+                                            </a>
+                                        </div>
+
                                         <div style="display: grid; grid-template-columns: 1fr 130px 130px 110px; gap: 10px; align-items: end;">
                                             <div class="adm-form-group" style="margin: 0;">
                                                 <label class="adm-form-label" style="font-size: 10px; color: var(--adm-gold);"><i class="fa-solid fa-link"></i> Linked Room / Cottage</label>
@@ -4842,7 +5042,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
                                                 <label class="adm-form-label" style="font-size: 10px;">Category</label>
-                                                <select name="spot_category[]" id="spot_category_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px;">
+                                                <select name="spot_category[]" id="spot_category_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px; <?php echo $is_linked ? 'pointer-events: none; opacity: 0.7;' : ''; ?>">
                                                     <option value="stays" <?php echo ($sp['category'] === 'stays' || !empty($sp['is_stay'])) ? 'selected' : ''; ?>>🏡 Stay / Cottage</option>
                                                     <option value="dining" <?php echo ($sp['category'] === 'dining') ? 'selected' : ''; ?>>🍲 Farm Dining</option>
                                                     <option value="nature" <?php echo ($sp['category'] === 'nature') ? 'selected' : ''; ?>>🌿 Nature / Vista</option>
@@ -4851,14 +5051,14 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
                                                 <label class="adm-form-label" style="font-size: 10px;">Structure</label>
-                                                <select name="spot_structure_type[]" id="spot_structure_type_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px;">
+                                                <select name="spot_structure_type[]" id="spot_structure_type_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px; <?php echo $is_linked ? 'pointer-events: none; opacity: 0.7;' : ''; ?>">
                                                     <option value="single_hut" <?php echo (($sp['structure_type'] ?? '') === 'single_hut') ? 'selected' : ''; ?>>🏡 Single</option>
                                                     <option value="duplex_hut" <?php echo (($sp['structure_type'] ?? '') === 'duplex_hut') ? 'selected' : ''; ?>>🏰 Duplex</option>
                                                 </select>
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
                                                 <label class="adm-form-label" style="font-size: 10px;">Rate (₹)</label>
-                                                <input type="number" step="0.01" name="spot_stay_price[]" id="spot_stay_price_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px;" value="<?php echo !empty($sp['stay_price']) ? (float)$sp['stay_price'] : ''; ?>" placeholder="e.g. 5600">
+                                                <input type="number" step="0.01" name="spot_stay_price[]" id="spot_stay_price_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px; <?php echo $is_linked ? 'background: rgba(255,255,255,0.05); color: #2ecc71; font-weight: bold;' : ''; ?>" value="<?php echo !empty($sp['stay_price']) ? (float)$sp['stay_price'] : ''; ?>" placeholder="e.g. 5600" <?php echo $is_linked ? 'readonly' : ''; ?>>
                                             </div>
                                         </div>
                                     </div>
@@ -4870,13 +5070,39 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                             <input type="number" min="1" max="99" name="spot_number[]" class="adm-form-control" value="<?php echo (int)$sp['spot_number']; ?>" required style="font-weight: 700; color: var(--adm-gold);" oninput="syncSpotNumToPin(<?php echo $idx; ?>, this.value);">
                                         </div>
                                         <div class="adm-form-group">
-                                            <label class="adm-form-label" style="font-size: 10px;">Spot / Cottage Title</label>
-                                            <input type="text" name="spot_title[]" id="spot_title_<?php echo $idx; ?>" class="adm-form-control" value="<?php echo e($sp['title']); ?>" required oninput="syncSpotTitleToPin(<?php echo $idx; ?>, this.value);">
+                                            <label class="adm-form-label" style="font-size: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                                <span>Spot / Cottage Title</span>
+                                                <span id="spot_title_synced_badge_<?php echo $idx; ?>" style="<?php echo $is_linked ? '' : 'display: none;'; ?> color: #2ecc71; font-size: 9.5px; text-transform: none;"><i class="fa-solid fa-lock"></i> Synced from Room Master</span>
+                                            </label>
+                                            <input type="text" name="spot_title[]" id="spot_title_<?php echo $idx; ?>" class="adm-form-control" value="<?php echo e($sp['title']); ?>" required oninput="syncSpotTitleToPin(<?php echo $idx; ?>, this.value);" <?php echo $is_linked ? 'readonly style="background: rgba(255,255,255,0.05);"' : ''; ?>>
                                         </div>
                                     </div>
 
-                                    <!-- Spot Photos Management (Multiple Photos) -->
-                                    <div class="adm-form-group" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                                    <!-- Spot Photos Management: Linked Master Gallery vs Custom Spot Photos -->
+                                    <div id="spot_photos_synced_<?php echo $idx; ?>" style="<?php echo $is_linked ? '' : 'display: none;'; ?> background: rgba(0,0,0,0.25); border: 1px solid rgba(46, 204, 113, 0.25); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                                            <label class="adm-form-label" style="font-size: 10.5px; color: #2ecc71; margin: 0; display: flex; align-items: center; gap: 6px;">
+                                                <i class="fa-solid fa-images"></i> Villa Master Gallery (<?php echo count($sp['photos_list'] ?? []); ?> Photos Synced)
+                                            </label>
+                                            <a href="rooms.php" target="_blank" class="adm-uploader-btn" style="text-decoration: none; padding: 4px 10px; font-size: 11px; margin: 0; display: inline-flex; align-items: center; gap: 6px;">
+                                                <i class="fa-solid fa-pen-to-square"></i> Manage Photos in Villas & Cottages ↗
+                                            </a>
+                                        </div>
+                                        <div class="adm-spot-photos-grid" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                            <?php if (!empty($sp['photos_list'])): ?>
+                                                <?php foreach ($sp['photos_list'] as $p_idx => $p_url): ?>
+                                                    <div class="adm-spot-photo-thumb" style="position: relative; width: 72px; height: 72px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(46, 204, 113, 0.35);">
+                                                        <img src="../<?php echo e($p_url); ?>" alt="Master Villa Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/01 (1).jpeg';">
+                                                        <span style="position: absolute; bottom: 2px; left: 2px; background: rgba(0,0,0,0.7); color: #2ecc71; font-size: 8px; padding: 1px 4px; border-radius: 3px;">MASTER</span>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            <?php else: ?>
+                                                <span style="font-size: 11px; color: var(--adm-text-muted);">No photos uploaded in Villa master yet.</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+
+                                    <div id="spot_photos_manual_<?php echo $idx; ?>" style="<?php echo $is_linked ? 'display: none;' : ''; ?> background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                                             <label class="adm-form-label" style="font-size: 10.5px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 6px;">
                                                 <i class="fa-solid fa-images"></i> Spot Photos Gallery (<?php echo count($sp['photos_list'] ?? []); ?>)
@@ -4905,8 +5131,11 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
 
                                     <!-- Description -->
                                     <div class="adm-form-group" style="margin-bottom: 4px;">
-                                        <label class="adm-form-label" style="font-size: 10px;">Spot Description</label>
-                                        <textarea name="spot_desc[]" id="spot_desc_<?php echo $idx; ?>" rows="2" class="adm-form-control" style="font-size: 12px;" required><?php echo e($sp['description']); ?></textarea>
+                                        <label class="adm-form-label" style="font-size: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span>Spot Description</span>
+                                            <span id="spot_desc_synced_badge_<?php echo $idx; ?>" style="<?php echo $is_linked ? '' : 'display: none;'; ?> color: #2ecc71; font-size: 9.5px; text-transform: none;"><i class="fa-solid fa-lock"></i> Synced from Room Master</span>
+                                        </label>
+                                        <textarea name="spot_desc[]" id="spot_desc_<?php echo $idx; ?>" rows="2" class="adm-form-control" style="font-size: 12px; <?php echo $is_linked ? 'background: rgba(255,255,255,0.05);' : ''; ?>" <?php echo $is_linked ? 'readonly' : ''; ?> required><?php echo e($sp['description']); ?></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -5342,6 +5571,195 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                         </div>
                     <?php endif; ?>
 
+                    <?php
+                    if (!function_exists('render_admin_room_gallery_block')) {
+                        function render_admin_room_gallery_block($room, $gallery_type = 'general', $title = '', $badge_label = '', $accent_color = '#C5A059') {
+                            $r_id = $room['id'];
+                            $suffix = ($gallery_type !== 'general') ? '_' . $gallery_type : '';
+                            $container_id = 'room_photos_list_' . $r_id . $suffix;
+                            $file_input_id = 'room_bulk_file_' . $r_id . $suffix;
+                            $status_id = 'room_upload_status_' . $r_id . $suffix;
+                            $badge_id = 'room_photo_count_badge_' . $r_id . $suffix;
+
+                            // Choose appropriate meta photos list
+                            if ($gallery_type === 'left') {
+                                $meta_photos = $room['photos_left_meta_list'] ?? [];
+                                if (empty($meta_photos) && !empty($room['photos_left_list'])) {
+                                    foreach ($room['photos_left_list'] as $p_i => $p_u) {
+                                        $meta_photos[] = ['url' => $p_u, 'title' => '', 'description' => '', 'order' => $p_i + 1];
+                                    }
+                                }
+                                $field_title_name = "room_photo_left_title[{$r_id}][]";
+                                $field_desc_name  = "room_photo_left_desc[{$r_id}][]";
+                                $field_url_name   = "room_photo_left_url[{$r_id}][]";
+                                $file_field_name  = "room_gallery_left_files_{$r_id}[]";
+                            } elseif ($gallery_type === 'right') {
+                                $meta_photos = $room['photos_right_meta_list'] ?? [];
+                                if (empty($meta_photos) && !empty($room['photos_right_list'])) {
+                                    foreach ($room['photos_right_list'] as $p_i => $p_u) {
+                                        $meta_photos[] = ['url' => $p_u, 'title' => '', 'description' => '', 'order' => $p_i + 1];
+                                    }
+                                }
+                                $field_title_name = "room_photo_right_title[{$r_id}][]";
+                                $field_desc_name  = "room_photo_right_desc[{$r_id}][]";
+                                $field_url_name   = "room_photo_right_url[{$r_id}][]";
+                                $file_field_name  = "room_gallery_right_files_{$r_id}[]";
+                            } else {
+                                $meta_photos = $room['photos_meta_list'] ?? [];
+                                if (empty($meta_photos) && !empty($room['photos_list'])) {
+                                    foreach ($room['photos_list'] as $p_i => $p_u) {
+                                        $meta_photos[] = ['url' => $p_u, 'title' => '', 'description' => '', 'order' => $p_i + 1];
+                                    }
+                                }
+                                $field_title_name = "room_photo_title[{$r_id}][]";
+                                $field_desc_name  = "room_photo_desc[{$r_id}][]";
+                                $field_url_name   = "room_photo_url[{$r_id}][]";
+                                $file_field_name  = "room_gallery_files_{$r_id}[]";
+                            }
+
+                            $photo_count = count($meta_photos);
+                            ?>
+                            <div class="adm-room-gallery-section" style="background: rgba(16, 31, 21, 0.45); border: 1px solid <?php echo ($gallery_type === 'general' ? 'rgba(197, 160, 89, 0.28)' : ($gallery_type === 'left' ? 'rgba(74, 222, 128, 0.35)' : 'rgba(96, 165, 250, 0.35)')); ?>; border-radius: 12px; padding: 18px; margin-top: 14px; margin-bottom: 8px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                                    <div>
+                                        <label class="adm-form-label" style="color: <?php echo $accent_color; ?>; margin: 0; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                            <i class="fa-solid fa-images"></i> <?php echo htmlspecialchars($title); ?>
+                                            <span id="<?php echo $badge_id; ?>" class="adm-badge" style="background: rgba(255, 255, 255, 0.08); color: <?php echo $accent_color; ?>; border: 1px solid <?php echo $accent_color; ?>; font-size: 10.5px; padding: 2px 8px;">
+                                                <?php echo $photo_count; ?> Photos
+                                            </span>
+                                            <?php if (!empty($badge_label)): ?>
+                                                <span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(0,0,0,0.4); color: <?php echo $accent_color; ?>; border: 1px solid <?php echo $accent_color; ?>;">
+                                                    <?php echo htmlspecialchars($badge_label); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </label>
+                                        <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-top: 2px;">
+                                            Bulk upload photos for <?php echo strtolower($badge_label ?: 'suite'); ?>. Customize heading title, description &amp; set exact display order for guests.
+                                        </span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <button type="button" class="adm-btn-action" style="cursor: pointer; padding: 6px 14px; font-size: 11.5px; background: rgba(46, 204, 113, 0.18); border: 1px solid #2ecc71; color: #2ecc71; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;" onclick="saveRoomGalleryOrderAndTitles('<?php echo $r_id; ?>', this, '<?php echo $gallery_type; ?>');" title="Save re-ordered photos and edited captions">
+                                            <i class="fa-solid fa-floppy-disk"></i> Save Order &amp; Titles
+                                        </button>
+                                        <label class="adm-uploader-btn" for="<?php echo $file_input_id; ?>" style="cursor: pointer; padding: 6px 14px; font-size: 11.5px; background: rgba(197, 160, 89, 0.18); border: 1px solid <?php echo $accent_color; ?>; color: <?php echo $accent_color; ?>; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;">
+                                            <i class="fa-solid fa-cloud-arrow-up"></i> + Bulk Upload Photos
+                                        </label>
+                                        <input type="file" id="<?php echo $file_input_id; ?>" name="<?php echo $file_field_name; ?>" class="adm-uploader-input" accept="image/*" multiple onchange="handleRoomPhotosBulkSelect(this, '<?php echo $r_id; ?>', '<?php echo $gallery_type; ?>');">
+                                    </div>
+                                </div>
+
+                                <!-- Upload Status Progress Banner -->
+                                <div id="<?php echo $status_id; ?>" style="display: none; background: rgba(46, 204, 113, 0.12); border: 1px solid rgba(46, 204, 113, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 11.5px; color: #2ecc71; align-items: center; gap: 10px;">
+                                    <i class="fa-solid fa-spinner fa-spin"></i>
+                                    <span class="status-text">Uploading &amp; optimizing selected photos...</span>
+                                </div>
+
+                                <!-- Photos Reorderable List Container -->
+                                <div id="<?php echo $container_id; ?>" class="adm-room-photos-list" data-room-id="<?php echo $r_id; ?>" data-gallery-type="<?php echo $gallery_type; ?>" style="display: flex; flex-direction: column; gap: 12px;">
+                                    <?php if (empty($meta_photos)): ?>
+                                        <div class="adm-no-photos-empty" style="text-align: center; padding: 22px 16px; background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; color: var(--adm-text-secondary); font-size: 12px;">
+                                            <i class="fa-regular fa-images" style="font-size: 26px; color: <?php echo $accent_color; ?>; display: block; margin-bottom: 6px; opacity: 0.6;"></i>
+                                            No gallery photos added yet for <?php echo htmlspecialchars($badge_label ?: 'this section'); ?>. Click <strong>+ Bulk Upload Photos</strong> above to add suite images.
+                                        </div>
+                                    <?php else: ?>
+                                        <?php foreach ($meta_photos as $p_order => $p_item): 
+                                            $p_url = $p_item['url'] ?? '';
+                                            $p_title = $p_item['title'] ?? '';
+                                            $p_desc = $p_item['description'] ?? '';
+                                            $p_seq = $p_order + 1;
+                                            $is_cover_item = ($gallery_type === 'general' && $p_url === ($room['image_url'] ?? ''));
+                                        ?>
+                                            <!-- Individual Photo Card Item -->
+                                            <div class="adm-room-photo-card" data-room-id="<?php echo $r_id; ?>" data-gallery-type="<?php echo $gallery_type; ?>" style="background: rgba(6, 17, 10, 0.85); border: 1px solid <?php echo $is_cover_item ? 'rgba(197, 160, 89, 0.6)' : 'rgba(255,255,255,0.08)'; ?>; border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;">
+                                                <!-- Order Badge -->
+                                                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
+                                                    <span class="adm-room-photo-order-badge" style="background: <?php echo $accent_color; ?>; color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+                                                        <?php echo $p_seq; ?>
+                                                    </span>
+                                                    <span style="font-size: 9px; color: var(--adm-text-secondary); font-weight: 700; text-transform: uppercase;">ORDER</span>
+                                                </div>
+
+                                                <!-- Photo Thumbnail & Aspect Preview -->
+                                                <div class="adm-room-photo-thumb-box" style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1.5px solid <?php echo $is_cover_item ? 'var(--adm-gold)' : 'rgba(197, 160, 89, 0.3)'; ?>; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                                                    <img src="<?php echo admin_img_src($p_url); ?>" alt="Suite Photo" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" onerror="this.src='../assets/images/treehouse_exterior.png';" onload="detectImgOrientation(this);">
+                                                    <a href="../<?php echo htmlspecialchars($p_url); ?>" target="_blank" title="View Full High-Res Photo" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                                    </a>
+                                                    <span class="room-photo-orientation-badge" style="position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.75); color: #2ecc71; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; border: 1px solid rgba(46, 204, 113, 0.3);">
+                                                        PHOTO
+                                                    </span>
+                                                </div>
+
+                                                <!-- Title & Description Inputs -->
+                                                <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+                                                    <div>
+                                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                                                            <span style="font-size: 11px; font-weight: 700; color: <?php echo $accent_color; ?>;">
+                                                                <i class="fa-solid fa-heading"></i> Photo Main Heading / Title
+                                                            </span>
+                                                            <span class="adm-photo-filename-label" style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
+                                                                <?php echo htmlspecialchars(basename($p_url)); ?>
+                                                            </span>
+                                                        </div>
+                                                        <input type="text" name="<?php echo $field_title_name; ?>" class="adm-form-control" style="font-size: 12px; padding: 7px 10px;" value="<?php echo htmlspecialchars($p_title); ?>" placeholder="e.g. Master Bedroom &amp; Valley View Balcony">
+                                                    </div>
+                                                    <div>
+                                                        <span style="font-size: 11px; font-weight: 700; color: #A1B5A9; display: block; margin-bottom: 3px;">
+                                                            <i class="fa-solid fa-align-left"></i> Photo Story / Description
+                                                        </span>
+                                                        <textarea name="<?php echo $field_desc_name; ?>" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with panoramic glass."><?php echo htmlspecialchars($p_desc); ?></textarea>
+                                                    </div>
+                                                    
+                                                    <!-- Card Controls: Cover & Replace -->
+                                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
+                                                        <div class="adm-cover-action-slot">
+                                                            <?php if ($is_cover_item): ?>
+                                                                <span class="adm-cover-badge" style="background: rgba(197, 160, 89, 0.25); color: var(--adm-gold); border: 1px solid var(--adm-gold); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                                                    <i class="fa-solid fa-star"></i> PRIMARY COVER
+                                                                </span>
+                                                            <?php elseif ($gallery_type === 'general'): ?>
+                                                                <button type="button" class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 4px;" onclick="setRoomPhotoAsCover('<?php echo $r_id; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>', this);" title="Set as Primary Cover Photo for Website">
+                                                                    <i class="fa-solid fa-star"></i> Set as Cover
+                                                                </button>
+                                                            <?php else: ?>
+                                                                <span style="font-size: 10px; color: var(--adm-text-secondary); opacity: 0.8;">
+                                                                    <i class="fa-regular fa-image"></i> <?php echo htmlspecialchars($badge_label); ?>
+                                                                </span>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <label class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Replace this photo with a new image">
+                                                                <i class="fa-solid fa-arrow-rotate-right"></i> Replace Photo
+                                                                <input type="file" accept="image/*" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '<?php echo $r_id; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>', '<?php echo $gallery_type; ?>');">
+                                                            </label>
+                                                        </div>
+                                                    </div>
+
+                                                    <input type="hidden" name="<?php echo $field_url_name; ?>" value="<?php echo htmlspecialchars($p_url); ?>">
+                                                </div>
+
+                                                <!-- Reordering & Delete Actions -->
+                                                <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+                                                    <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, -1);" title="Move Up (Display earlier to guests)">
+                                                        <i class="fa-solid fa-arrow-up"></i>
+                                                    </button>
+                                                    <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, 1);" title="Move Down (Display later to guests)">
+                                                        <i class="fa-solid fa-arrow-down"></i>
+                                                    </button>
+                                                    <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this, '<?php echo $r_id; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>', '<?php echo $gallery_type; ?>');" title="Delete this photo from gallery">
+                                                        <i class="fa-solid fa-trash-can"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <?php
+                        }
+                    }
+                    ?>
+
                     <?php foreach ($all_rooms as $idx => $room): 
                         $structure_type = $room['structure_type'] ?? 'single_hut';
                         $stay_type = $room['stay_type'] ?? 'treehouse';
@@ -5530,142 +5948,30 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                     </div>
                                 </div>
 
-                                <!-- Suite Photo Gallery & Showcase (Multiple Photos) -->
-                                <div class="adm-room-gallery-section" style="background: rgba(16, 31, 21, 0.45); border: 1px solid rgba(197, 160, 89, 0.28); border-radius: 12px; padding: 18px; margin-top: 14px; margin-bottom: 4px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-                                        <div>
-                                            <label class="adm-form-label" style="color: var(--adm-gold); margin: 0; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 8px;">
-                                                <i class="fa-solid fa-images"></i> Suite Photo Gallery &amp; Showcase (Multiple Photos)
-                                                <span id="room_photo_count_badge_<?php echo $room['id']; ?>" class="adm-badge" style="background: rgba(197, 160, 89, 0.18); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35); font-size: 10.5px; padding: 2px 8px;">
-                                                    <?php echo count($room['photos_meta_list'] ?? []); ?> Photos
-                                                </span>
-                                            </label>
-                                            <span style="font-size: 11px; color: var(--adm-text-secondary); display: block; margin-top: 2px;">
-                                                Bulk upload photos (portrait or landscape). Customize heading title, description &amp; set exact display order for guests.
+                                <!-- Suite Photo Gallery & Showcase (Multiple Photos & Duplex Wings) -->
+                                <?php 
+                                $is_duplex = ($structure_type === 'duplex_hut');
+                                if ($is_duplex): ?>
+                                    <div style="margin-top: 18px; margin-bottom: 6px; padding: 12px 16px; background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.28); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <span style="background: rgba(168, 85, 247, 0.25); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.5); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px;">
+                                                <i class="fa-solid fa-layer-group"></i> DUPLEX WING PHOTO GALLERIES
+                                            </span>
+                                            <span style="font-size: 12px; color: var(--adm-text-secondary);">
+                                                Upload, reorder, and manage independent photo showcases for <strong style="color: #4ADE80;">Left Suite (Wing A)</strong>, <strong style="color: #60A5FA;">Right Suite (Wing B)</strong>, and <strong style="color: var(--adm-gold);">Exterior/Grounds</strong>.
                                             </span>
                                         </div>
-                                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                            <button type="button" class="adm-btn-action" style="cursor: pointer; padding: 6px 14px; font-size: 11.5px; background: rgba(46, 204, 113, 0.18); border: 1px solid #2ecc71; color: #2ecc71; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;" onclick="saveRoomGalleryOrderAndTitles('<?php echo $room['id']; ?>', this);" title="Save re-ordered photos and edited captions">
-                                                <i class="fa-solid fa-floppy-disk"></i> Save Order &amp; Titles
-                                            </button>
-                                            <label class="adm-uploader-btn" for="room_bulk_file_<?php echo $room['id']; ?>" style="cursor: pointer; padding: 6px 14px; font-size: 11.5px; background: rgba(197, 160, 89, 0.18); border: 1px solid var(--adm-gold); color: var(--adm-gold); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border-radius: 6px;">
-                                                <i class="fa-solid fa-cloud-arrow-up"></i> + Bulk Upload Photos
-                                            </label>
-                                            <input type="file" id="room_bulk_file_<?php echo $room['id']; ?>" name="room_gallery_files_<?php echo $room['id']; ?>[]" class="adm-uploader-input" accept="image/*" multiple onchange="handleRoomPhotosBulkSelect(this, '<?php echo $room['id']; ?>');">
-                                        </div>
                                     </div>
-
-                                    <!-- Upload Status Progress Banner -->
-                                    <div id="room_upload_status_<?php echo $room['id']; ?>" style="display: none; background: rgba(46, 204, 113, 0.12); border: 1px solid rgba(46, 204, 113, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 11.5px; color: #2ecc71; align-items: center; gap: 10px;">
-                                        <i class="fa-solid fa-spinner fa-spin"></i>
-                                        <span class="status-text">Uploading &amp; optimizing selected photos...</span>
-                                    </div>
-
-                                    <!-- Photos Reorderable List Container -->
-                                    <div id="room_photos_list_<?php echo $room['id']; ?>" class="adm-room-photos-list" style="display: flex; flex-direction: column; gap: 12px;">
-                                        <?php 
-                                        $meta_photos = $room['photos_meta_list'] ?? [];
-                                        if (empty($meta_photos) && !empty($room['photos_list'])) {
-                                            foreach ($room['photos_list'] as $p_i => $p_u) {
-                                                $meta_photos[] = ['url' => $p_u, 'title' => '', 'description' => '', 'order' => $p_i + 1];
-                                            }
-                                        }
-                                        ?>
-                                        <?php if (empty($meta_photos)): ?>
-                                            <div class="adm-no-photos-empty" style="text-align: center; padding: 22px 16px; background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; color: var(--adm-text-secondary); font-size: 12px;">
-                                                <i class="fa-regular fa-images" style="font-size: 26px; color: var(--adm-gold); display: block; margin-bottom: 6px; opacity: 0.6;"></i>
-                                                No gallery photos added yet. Click <strong>+ Bulk Upload Photos</strong> above to add portrait or landscape suite images.
-                                            </div>
-                                        <?php else: ?>
-                                            <?php foreach ($meta_photos as $p_order => $p_item): 
-                                                $p_url = $p_item['url'] ?? '';
-                                                $p_title = $p_item['title'] ?? '';
-                                                $p_desc = $p_item['description'] ?? '';
-                                                $p_seq = $p_order + 1;
-                                                $is_cover_item = ($p_url === ($room['image_url'] ?? ''));
-                                            ?>
-                                                <!-- Individual Photo Card Item -->
-                                                <div class="adm-room-photo-card" data-room-id="<?php echo $room['id']; ?>" style="background: rgba(6, 17, 10, 0.85); border: 1px solid <?php echo $is_cover_item ? 'rgba(197, 160, 89, 0.6)' : 'rgba(255,255,255,0.08)'; ?>; border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;">
-                                                    <!-- Drag handle & Order Badge -->
-                                                    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
-                                                        <span class="adm-room-photo-order-badge" style="background: var(--adm-gold); color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(197, 160, 89, 0.3);">
-                                                            <?php echo $p_seq; ?>
-                                                        </span>
-                                                        <span style="font-size: 9px; color: var(--adm-text-secondary); font-weight: 700; text-transform: uppercase;">ORDER</span>
-                                                    </div>
-
-                                                    <!-- Photo Thumbnail & Aspect Preview -->
-                                                    <div class="adm-room-photo-thumb-box" style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1.5px solid <?php echo $is_cover_item ? 'var(--adm-gold)' : 'rgba(197, 160, 89, 0.3)'; ?>; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
-                                                        <img src="<?php echo admin_img_src($p_url); ?>" alt="Suite Photo" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" onerror="this.src='../assets/images/treehouse_exterior.png';" onload="detectImgOrientation(this);">
-                                                        <a href="../<?php echo htmlspecialchars($p_url); ?>" target="_blank" title="View Full High-Res Photo" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);">
-                                                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                                        </a>
-                                                        <span class="room-photo-orientation-badge" style="position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.75); color: #2ecc71; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; border: 1px solid rgba(46, 204, 113, 0.3);">
-                                                            PHOTO
-                                                        </span>
-                                                    </div>
-
-                                                    <!-- Title & Description Inputs -->
-                                                    <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
-                                                        <div>
-                                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                                                                <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold);">
-                                                                    <i class="fa-solid fa-heading"></i> Photo Main Heading / Title
-                                                                </span>
-                                                                <span class="adm-photo-filename-label" style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
-                                                                    <?php echo htmlspecialchars(basename($p_url)); ?>
-                                                                </span>
-                                                            </div>
-                                                            <input type="text" name="room_photo_title[<?php echo $room['id']; ?>][]" class="adm-form-control" style="font-size: 12px; padding: 7px 10px;" value="<?php echo htmlspecialchars($p_title); ?>" placeholder="e.g. Master Bedroom &amp; Valley View Balcony">
-                                                        </div>
-                                                        <div>
-                                                            <span style="font-size: 11px; font-weight: 700; color: #A1B5A9; display: block; margin-bottom: 3px;">
-                                                                <i class="fa-solid fa-align-left"></i> Photo Story / Description
-                                                            </span>
-                                                            <textarea name="room_photo_desc[<?php echo $room['id']; ?>][]" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with floor-to-ceiling panoramic glass."><?php echo htmlspecialchars($p_desc); ?></textarea>
-                                                        </div>
-                                                        
-                                                        <!-- Card Controls: Cover & Replace -->
-                                                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
-                                                            <div class="adm-cover-action-slot">
-                                                                <?php if ($is_cover_item): ?>
-                                                                    <span class="adm-cover-badge" style="background: rgba(197, 160, 89, 0.25); color: var(--adm-gold); border: 1px solid var(--adm-gold); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
-                                                                        <i class="fa-solid fa-star"></i> PRIMARY COVER
-                                                                    </span>
-                                                                <?php else: ?>
-                                                                    <button type="button" class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 4px;" onclick="setRoomPhotoAsCover('<?php echo $room['id']; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>', this);" title="Set as Primary Cover Photo for Website &amp; 3D Walkthrough">
-                                                                        <i class="fa-solid fa-star"></i> Set as Cover
-                                                                    </button>
-                                                                <?php endif; ?>
-                                                            </div>
-                                                            <div style="display: flex; align-items: center; gap: 6px;">
-                                                                <label class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Replace this photo with a new image">
-                                                                    <i class="fa-solid fa-arrow-rotate-right"></i> Replace Photo
-                                                                    <input type="file" accept="image/*" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '<?php echo $room['id']; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>');">
-                                                                </label>
-                                                            </div>
-                                                        </div>
-
-                                                        <input type="hidden" name="room_photo_url[<?php echo $room['id']; ?>][]" value="<?php echo htmlspecialchars($p_url); ?>">
-                                                    </div>
-
-                                                    <!-- Reordering & Delete Actions -->
-                                                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
-                                                        <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, -1);" title="Move Up (Display earlier to guests)">
-                                                            <i class="fa-solid fa-arrow-up"></i>
-                                                        </button>
-                                                        <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, 1);" title="Move Down (Display later to guests)">
-                                                            <i class="fa-solid fa-arrow-down"></i>
-                                                        </button>
-                                                        <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this, '<?php echo $room['id']; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>');" title="Delete this photo from gallery">
-                                                            <i class="fa-solid fa-trash-can"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
+                                    <?php 
+                                    render_admin_room_gallery_block($room, 'left', 'Left Suite (Wing A) Photo Gallery', 'Wing A • Left Suite', '#4ADE80');
+                                    render_admin_room_gallery_block($room, 'right', 'Right Suite (Wing B) Photo Gallery', 'Wing B • Right Suite', '#60A5FA');
+                                    render_admin_room_gallery_block($room, 'general', 'Exterior & Grounds Showcase Gallery', 'Exterior / Grounds', 'var(--adm-gold)');
+                                    ?>
+                                <?php else: ?>
+                                    <?php 
+                                    render_admin_room_gallery_block($room, 'general', 'Suite Photo Gallery & Showcase (Multiple Photos)', 'Villa Gallery', 'var(--adm-gold)');
+                                    ?>
+                                <?php endif; ?>
 
                                 <input type="hidden" name="room_interior_360[]" value="<?php echo e($room['interior_360_url'] ?? ''); ?>">
 
@@ -8697,7 +9003,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
             <input type="hidden" id="qp_spot_y" name="new_spot_y" value="50">
             <input type="hidden" id="qp_icon_class" name="new_spot_icon_class" value="fa-solid fa-person-swimming">
             <input type="hidden" id="qp_pin_color" name="new_spot_pin_color" value="#0EA5E9">
-            <input type="hidden" name="new_spot_number" value="<?php echo count($all_sanctuary_spots) + 1; ?>">
+            <input type="hidden" name="new_spot_number" value="<?php echo $next_spot_num; ?>">
             <input type="hidden" id="qp_add_to_route" name="add_to_current_route" value="1">
 
             <div class="adm-form-group" style="margin-bottom: 12px;">
@@ -8951,15 +9257,16 @@ function highlightMovedCard(card) {
     }, 600);
 }
 
-function removeRoomPhotoCard(btn, roomId, photoUrl) {
+function removeRoomPhotoCard(btn, roomId, photoUrl, galleryType) {
     var card = btn.closest('.adm-room-photo-card');
     if (!card) return;
     var container = card.closest('.adm-room-photos-list');
     if (!container) return;
     
     if (!roomId) roomId = card.dataset.roomId || '';
+    if (!galleryType) galleryType = card.dataset.galleryType || (container.dataset.galleryType || 'general');
     if (!photoUrl) {
-        var uInput = card.querySelector('input[name^="room_photo_url"]');
+        var uInput = card.querySelector('input[type="hidden"][name*="room_photo"]');
         if (uInput) photoUrl = uInput.value;
     }
     
@@ -8969,13 +9276,14 @@ function removeRoomPhotoCard(btn, roomId, photoUrl) {
         card.style.transform = 'scale(0.95)';
         setTimeout(function() {
             card.remove();
-            updateRoomPhotoIndices(container);
+            updateRoomPhotoIndices(container, galleryType);
         }, 200);
 
         if (roomId && photoUrl) {
             var formData = new FormData();
             formData.append('action', 'delete_photo');
             formData.append('room_id', roomId);
+            formData.append('gallery_type', galleryType);
             formData.append('photo_url', photoUrl);
             fetch('api_upload_room_photos.php', {
                 method: 'POST',
@@ -8998,10 +9306,15 @@ function removeRoomPhotoCard(btn, roomId, photoUrl) {
     }
 }
 
-function updateRoomPhotoIndices(container) {
+function updateRoomPhotoIndices(container, galleryType) {
+    if (!container) return;
     var cards = container.querySelectorAll('.adm-room-photo-card');
-    var roomId = container.id.replace('room_photos_list_', '');
-    var countBadge = document.getElementById('room_photo_count_badge_' + roomId);
+    if (!galleryType) {
+        galleryType = container.dataset.galleryType || 'general';
+    }
+    var roomId = container.dataset.roomId || container.id.replace('room_photos_list_', '').replace(/_left|_right|_general/g, '');
+    var suffix = galleryType !== 'general' ? '_' + galleryType : '';
+    var countBadge = document.getElementById('room_photo_count_badge_' + roomId + suffix) || document.getElementById('room_photo_count_badge_' + roomId);
     if (countBadge) {
         countBadge.innerText = cards.length + ' Photos';
     }
@@ -9018,7 +9331,8 @@ function updateRoomPhotoIndices(container) {
             var div = document.createElement('div');
             div.className = 'adm-no-photos-empty';
             div.style = 'text-align: center; padding: 22px 16px; background: rgba(0,0,0,0.25); border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px; color: var(--adm-text-secondary); font-size: 12px;';
-            div.innerHTML = '<i class="fa-regular fa-images" style="font-size: 26px; color: var(--adm-gold); display: block; margin-bottom: 6px; opacity: 0.6;"></i>No gallery photos added yet. Click <strong>+ Bulk Upload Photos</strong> above to add portrait or landscape suite images.';
+            var wingName = galleryType === 'left' ? 'Wing A (Left Suite)' : (galleryType === 'right' ? 'Wing B (Right Suite)' : 'this suite');
+            div.innerHTML = '<i class="fa-regular fa-images" style="font-size: 26px; color: var(--adm-gold); display: block; margin-bottom: 6px; opacity: 0.6;"></i>No gallery photos added yet for ' + wingName + '. Click <strong>+ Bulk Upload Photos</strong> above to add suite images.';
             container.appendChild(div);
         }
     } else if (emptyState) {
@@ -9072,13 +9386,15 @@ function prepareImageForUpload(file) {
     });
 }
 
-async function handleRoomPhotosBulkSelect(input, roomId) {
+async function handleRoomPhotosBulkSelect(input, roomId, galleryType) {
     if (!input.files || input.files.length === 0) return;
+    if (!galleryType) galleryType = 'general';
     
     var fileList = Array.from(input.files);
     var total = fileList.length;
-    var statusBanner = document.getElementById('room_upload_status_' + roomId);
-    var container = document.getElementById('room_photos_list_' + roomId);
+    var suffix = galleryType !== 'general' ? '_' + galleryType : '';
+    var statusBanner = document.getElementById('room_upload_status_' + roomId + suffix) || document.getElementById('room_upload_status_' + roomId);
+    var container = document.getElementById('room_photos_list_' + roomId + suffix) || document.getElementById('room_photos_list_' + roomId);
     var txt = statusBanner ? statusBanner.querySelector('.status-text') : null;
     
     if (statusBanner) {
@@ -9099,6 +9415,7 @@ async function handleRoomPhotosBulkSelect(input, roomId) {
             var formData = new FormData();
             formData.append('room_photos[]', readyFile);
             formData.append('room_id', roomId);
+            formData.append('gallery_type', galleryType);
             
             var res = await fetch('api_upload_room_photos.php', {
                 method: 'POST',
@@ -9127,24 +9444,26 @@ async function handleRoomPhotosBulkSelect(input, roomId) {
                 continue;
             }
             
-            var emptyState = container.querySelector('.adm-no-photos-empty');
-            if (emptyState) emptyState.remove();
-            
-            (data.photos || []).forEach(function(photo) {
-                var isCover = (data.new_cover_url && data.new_cover_url === photo.url);
-                var card = createRoomPhotoCardElement(roomId, photo, isCover);
-                container.appendChild(card);
-                uploadedCount++;
+            if (container) {
+                var emptyState = container.querySelector('.adm-no-photos-empty');
+                if (emptyState) emptyState.remove();
                 
-                if (data.new_cover_url) {
-                    var prevImg = document.getElementById('room_prev_' + roomId);
-                    if (prevImg) prevImg.src = '../' + data.new_cover_url;
-                    var thumbImg = document.getElementById('room_prev_thumb_' + roomId);
-                    if (thumbImg) thumbImg.src = '../' + data.new_cover_url;
-                }
-            });
-            
-            updateRoomPhotoIndices(container);
+                (data.photos || []).forEach(function(photo) {
+                    var isCover = (galleryType === 'general' && data.new_cover_url && data.new_cover_url === photo.url);
+                    var card = createRoomPhotoCardElement(roomId, photo, isCover, galleryType);
+                    container.appendChild(card);
+                    uploadedCount++;
+                    
+                    if (isCover && data.new_cover_url) {
+                        var prevImg = document.getElementById('room_prev_' + roomId);
+                        if (prevImg) prevImg.src = '../' + data.new_cover_url;
+                        var thumbImg = document.getElementById('room_prev_thumb_' + roomId);
+                        if (thumbImg) thumbImg.src = '../' + data.new_cover_url;
+                    }
+                });
+                
+                updateRoomPhotoIndices(container, galleryType);
+            }
         } catch (err) {
             console.error('Upload error for ' + origFile.name + ':', err);
             errors.push(origFile.name + ': ' + (err.message || 'Upload failed'));
@@ -9171,11 +9490,16 @@ async function handleRoomPhotosBulkSelect(input, roomId) {
     }
 }
 
-function createRoomPhotoCardElement(roomId, photo, isCover) {
+function createRoomPhotoCardElement(roomId, photo, isCover, galleryType) {
+    if (!galleryType) galleryType = 'general';
     var card = document.createElement('div');
     card.className = 'adm-room-photo-card';
     card.dataset.roomId = roomId;
-    card.style = 'background: rgba(6, 17, 10, 0.85); border: 1px solid ' + (isCover ? 'rgba(197, 160, 89, 0.6)' : 'rgba(46, 204, 113, 0.4)') + '; border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;';
+    card.dataset.galleryType = galleryType;
+    
+    var accentColor = galleryType === 'left' ? '#4ADE80' : (galleryType === 'right' ? '#60A5FA' : 'var(--adm-gold)');
+    var borderStyle = isCover ? 'rgba(197, 160, 89, 0.6)' : (galleryType === 'left' ? 'rgba(74, 222, 128, 0.4)' : (galleryType === 'right' ? 'rgba(96, 165, 250, 0.4)' : 'rgba(46, 204, 113, 0.4)'));
+    card.style = 'background: rgba(6, 17, 10, 0.85); border: 1px solid ' + borderStyle + '; border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;';
     
     var orientationUpper = (photo.orientation || 'landscape').toUpperCase();
     var badgeColor = orientationUpper === 'PORTRAIT' ? '#c084fc' : (orientationUpper === 'SQUARE' ? '#38bdf8' : '#2ecc71');
@@ -9186,13 +9510,23 @@ function createRoomPhotoCardElement(roomId, photo, isCover) {
     var escapedDesc = (photo.description || '').replace(/"/g, '&quot;');
     var cleanFilename = photo.filename || (photo.url ? photo.url.split('/').pop() : 'photo.jpg');
 
-    var coverActionHtml = isCover
-        ? `<span class="adm-cover-badge" style="background: rgba(197, 160, 89, 0.25); color: var(--adm-gold); border: 1px solid var(--adm-gold); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-star"></i> PRIMARY COVER</span>`
-        : `<button type="button" class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 4px;" onclick="setRoomPhotoAsCover('${roomId}', '${photo.url}', this);" title="Set as Primary Cover Photo"><i class="fa-solid fa-star"></i> Set as Cover</button>`;
+    var titleFieldName = galleryType === 'left' ? `room_photo_left_title[${roomId}][]` : (galleryType === 'right' ? `room_photo_right_title[${roomId}][]` : `room_photo_title[${roomId}][]`);
+    var descFieldName  = galleryType === 'left' ? `room_photo_left_desc[${roomId}][]` : (galleryType === 'right' ? `room_photo_right_desc[${roomId}][]` : `room_photo_desc[${roomId}][]`);
+    var urlFieldName   = galleryType === 'left' ? `room_photo_left_url[${roomId}][]` : (galleryType === 'right' ? `room_photo_right_url[${roomId}][]` : `room_photo_url[${roomId}][]`);
+
+    var coverActionHtml = '';
+    if (isCover) {
+        coverActionHtml = `<span class="adm-cover-badge" style="background: rgba(197, 160, 89, 0.25); color: var(--adm-gold); border: 1px solid var(--adm-gold); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-star"></i> PRIMARY COVER</span>`;
+    } else if (galleryType === 'general') {
+        coverActionHtml = `<button type="button" class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 4px;" onclick="setRoomPhotoAsCover('${roomId}', '${photo.url}', this);" title="Set as Primary Cover Photo"><i class="fa-solid fa-star"></i> Set as Cover</button>`;
+    } else {
+        var wingBadge = galleryType === 'left' ? 'Wing A' : 'Wing B';
+        coverActionHtml = `<span style="font-size: 10px; color: ${accentColor}; opacity: 0.85;"><i class="fa-regular fa-image"></i> ${wingBadge} Photo</span>`;
+    }
 
     card.innerHTML = `
         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
-            <span class="adm-room-photo-order-badge" style="background: var(--adm-gold); color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(197, 160, 89, 0.3);">
+            <span class="adm-room-photo-order-badge" style="background: ${accentColor}; color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
                 #
             </span>
             <span style="font-size: 9px; color: var(--adm-text-secondary); font-weight: 700; text-transform: uppercase;">ORDER</span>
@@ -9209,20 +9543,20 @@ function createRoomPhotoCardElement(roomId, photo, isCover) {
         <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
             <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                    <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold);">
+                    <span style="font-size: 11px; font-weight: 700; color: ${accentColor};">
                         <i class="fa-solid fa-heading"></i> Photo Main Heading / Title
                     </span>
                     <span class="adm-photo-filename-label" style="font-size: 10px; color: var(--adm-text-secondary); font-family: monospace; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 220px;">
                         ${cleanFilename}
                     </span>
                 </div>
-                <input type="text" name="room_photo_title[${roomId}][]" class="adm-form-control" style="font-size: 12px; padding: 7px 10px;" value="${escapedTitle}" placeholder="e.g. Master Bedroom & Valley View Balcony">
+                <input type="text" name="${titleFieldName}" class="adm-form-control" style="font-size: 12px; padding: 7px 10px;" value="${escapedTitle}" placeholder="e.g. Master Bedroom & Valley View Balcony">
             </div>
             <div>
                 <span style="font-size: 11px; font-weight: 700; color: #A1B5A9; display: block; margin-bottom: 3px;">
                     <i class="fa-solid fa-align-left"></i> Photo Story / Description
                 </span>
-                <textarea name="room_photo_desc[${roomId}][]" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with floor-to-ceiling panoramic glass.">${escapedDesc}</textarea>
+                <textarea name="${descFieldName}" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with floor-to-ceiling panoramic glass.">${escapedDesc}</textarea>
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
                 <div class="adm-cover-action-slot">
@@ -9231,11 +9565,11 @@ function createRoomPhotoCardElement(roomId, photo, isCover) {
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <label class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Replace this photo with a new image">
                         <i class="fa-solid fa-arrow-rotate-right"></i> Replace Photo
-                        <input type="file" accept="image/*" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '${roomId}', '${photo.url}');">
+                        <input type="file" accept="image/*" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '${roomId}', '${photo.url}', '${galleryType}');">
                     </label>
                 </div>
             </div>
-            <input type="hidden" name="room_photo_url[${roomId}][]" value="${photo.url}">
+            <input type="hidden" name="${urlFieldName}" value="${photo.url}">
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
             <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, -1);" title="Move Up (Display earlier to guests)">
@@ -9244,7 +9578,7 @@ function createRoomPhotoCardElement(roomId, photo, isCover) {
             <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, 1);" title="Move Down (Display later to guests)">
                 <i class="fa-solid fa-arrow-down"></i>
             </button>
-            <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this, '${roomId}', '${photo.url}');" title="Delete this photo from gallery">
+            <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); margin-top: 4px;" onclick="removeRoomPhotoCard(this, '${roomId}', '${photo.url}', '${galleryType}');" title="Delete this photo from gallery">
                 <i class="fa-solid fa-trash-can"></i>
             </button>
         </div>
@@ -9328,8 +9662,9 @@ async function setRoomPhotoAsCover(roomId, photoUrl, btn) {
     }
 }
 
-async function handleReplaceRoomPhotoFile(input, roomId, oldUrl) {
+async function handleReplaceRoomPhotoFile(input, roomId, oldUrl, galleryType) {
     if (!input.files || !input.files[0]) return;
+    if (!galleryType) galleryType = 'general';
     var card = input.closest('.adm-room-photo-card');
     if (!card) return;
     var file = input.files[0];
@@ -9347,6 +9682,7 @@ async function handleReplaceRoomPhotoFile(input, roomId, oldUrl) {
         var formData = new FormData();
         formData.append('action', 'replace_photo');
         formData.append('room_id', roomId);
+        formData.append('gallery_type', galleryType);
         formData.append('old_url', oldUrl);
         formData.append('replacement_photo', readyFile);
 
@@ -9361,7 +9697,7 @@ async function handleReplaceRoomPhotoFile(input, roomId, oldUrl) {
             if (imgEl) imgEl.src = '../' + newUrl;
             var linkEl = card.querySelector('a[title="View Full High-Res Photo"]');
             if (linkEl) linkEl.href = '../' + newUrl;
-            var urlInput = card.querySelector('input[name^="room_photo_url"]');
+            var urlInput = card.querySelector('input[type="hidden"][name*="room_photo"]');
             if (urlInput) urlInput.value = newUrl;
             
             var nameSpan = card.querySelector('.adm-photo-filename-label');
@@ -9382,9 +9718,9 @@ async function handleReplaceRoomPhotoFile(input, roomId, oldUrl) {
                 badge.style.background = oUpper === 'PORTRAIT' ? 'rgba(168, 85, 247, 0.2)' : (oUpper === 'SQUARE' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(46, 204, 113, 0.2)');
             }
 
-            input.setAttribute('onchange', `handleReplaceRoomPhotoFile(this, '${roomId}', '${newUrl}')`);
+            input.setAttribute('onchange', `handleReplaceRoomPhotoFile(this, '${roomId}', '${newUrl}', '${galleryType}')`);
             var delBtn = card.querySelector('button[title="Delete this photo from gallery"]');
-            if (delBtn) delBtn.setAttribute('onclick', `removeRoomPhotoCard(this, '${roomId}', '${newUrl}')`);
+            if (delBtn) delBtn.setAttribute('onclick', `removeRoomPhotoCard(this, '${roomId}', '${newUrl}', '${galleryType}')`);
             
             showAdminToast('Photo successfully replaced & gallery updated!', 'success');
         } else {
@@ -9399,15 +9735,17 @@ async function handleReplaceRoomPhotoFile(input, roomId, oldUrl) {
     }
 }
 
-async function saveRoomGalleryOrderAndTitles(roomId, btn) {
-    var container = document.getElementById('room_photos_list_' + roomId);
+async function saveRoomGalleryOrderAndTitles(roomId, btn, galleryType) {
+    if (!galleryType) galleryType = 'general';
+    var suffix = galleryType !== 'general' ? '_' + galleryType : '';
+    var container = document.getElementById('room_photos_list_' + roomId + suffix) || document.getElementById('room_photos_list_' + roomId);
     if (!container) return;
     var cards = container.querySelectorAll('.adm-room-photo-card');
     var photos = [];
     cards.forEach(function(c, i) {
-        var uInput = c.querySelector('input[name^="room_photo_url"]');
-        var tInput = c.querySelector('input[name^="room_photo_title"]');
-        var dInput = c.querySelector('textarea[name^="room_photo_desc"]');
+        var uInput = c.querySelector('input[type="hidden"][name*="room_photo"]');
+        var tInput = c.querySelector('input[type="text"][name*="room_photo"]');
+        var dInput = c.querySelector('textarea[name*="room_photo"]');
         if (uInput && uInput.value) {
             photos.push({
                 url: uInput.value,
@@ -9428,6 +9766,7 @@ async function saveRoomGalleryOrderAndTitles(roomId, btn) {
         var formData = new FormData();
         formData.append('action', 'save_gallery');
         formData.append('room_id', roomId);
+        formData.append('gallery_type', galleryType);
         formData.append('photos', JSON.stringify(photos));
 
         var res = await fetch('api_upload_room_photos.php', {
@@ -9437,7 +9776,8 @@ async function saveRoomGalleryOrderAndTitles(roomId, btn) {
         });
         var data = await res.json();
         if (data.success) {
-            showAdminToast('Gallery order & descriptions saved to database!', 'success');
+            var wingLabel = galleryType === 'left' ? 'Wing A (Left Suite)' : (galleryType === 'right' ? 'Wing B (Right Suite)' : 'Suite Gallery');
+            showAdminToast(wingLabel + ' order & descriptions saved to database!', 'success');
         } else {
             alert('Error saving gallery: ' + (data.error || 'Failed'));
         }

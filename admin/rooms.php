@@ -216,6 +216,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Keep Sanctuary Interactive Map Waypoint automatically in sync
+        if (function_exists('sync_sanctuary_spot_on_room_update')) {
+            sync_sanctuary_spot_on_room_update($villa_id);
+        }
+
         $alert_message = 'Villa configuration, tariffs & room asset checklist saved successfully.';
         if (function_exists('sanctuary_purge_all_caches')) {
             sanctuary_purge_all_caches();

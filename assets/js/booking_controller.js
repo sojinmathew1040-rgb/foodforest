@@ -115,15 +115,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Update Photo Carousel in Sidebar
+    // 3. Update Photo Carousel in Sidebar
     function updateSidebarPhoto() {
         if (!currentPhotos || currentPhotos.length === 0) return;
         if (currentPhotoIdx >= currentPhotos.length) currentPhotoIdx = 0;
         if (currentPhotoIdx < 0) currentPhotoIdx = currentPhotos.length - 1;
 
+        const photoRaw = currentPhotos[currentPhotoIdx];
+        let photoSrc = typeof photoRaw === 'object' && photoRaw ? (photoRaw.url || '') : String(photoRaw || '');
+        if (!photoSrc || photoSrc === '[object Object]') {
+            photoSrc = 'assets/images/01 (25).jpeg';
+        }
+
         if (sacMainImg) {
             sacMainImg.classList.add('fade');
             setTimeout(() => {
-                sacMainImg.src = currentPhotos[currentPhotoIdx];
+                sacMainImg.src = photoSrc;
                 sacMainImg.classList.remove('fade');
             }, 120);
         }
@@ -134,7 +141,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (sacPhotoCaption) {
             let cap = '';
-            if (currentRoom && currentRoom.photos_meta_list && currentRoom.photos_meta_list[currentPhotoIdx]) {
+            if (typeof photoRaw === 'object' && photoRaw && photoRaw.title) {
+                cap = photoRaw.title;
+            } else if (currentRoom && currentRoom.photos_meta_list && currentRoom.photos_meta_list[currentPhotoIdx]) {
                 const meta = currentRoom.photos_meta_list[currentPhotoIdx];
                 if (meta && meta.title && meta.title.trim() !== '') {
                     cap = meta.title;
@@ -149,6 +158,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Helper to sanitize photo arrays (strips nulls, empty strings, and [object Object])
+    function sanitizePhotoList(list) {
+        if (!list || !Array.isArray(list)) return [];
+        const clean = [];
+        list.forEach(item => {
+            const u = typeof item === 'object' && item ? (item.url || '') : String(item || '');
+            if (u && u.trim() !== '' && u !== '[object Object]') {
+                clean.push(u.trim());
+            }
+        });
+        return clean;
+    }
+
     // Dynamic Photo Set Switcher for Duplex Wings & Chalets
     function syncPhotosForSelection() {
         if (!currentSpot) return;
@@ -156,9 +178,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const isDuplex = isStay && (currentSpot.structure_type === 'duplex_hut' || (currentRoom && currentRoom.structure_type === 'duplex_hut'));
 
         if (!isStay) {
-            if (currentSpot.photos_list && currentSpot.photos_list.length > 0 && currentSpot.photos_list[0]) {
-                currentPhotos = currentSpot.photos_list.filter(p => p && p.trim() !== '');
-            } else if (currentSpot.image_url && currentSpot.image_url.trim() !== '') {
+            const list = sanitizePhotoList(currentSpot.photos_list);
+            if (list.length > 0) {
+                currentPhotos = list;
+            } else if (currentSpot.image_url && currentSpot.image_url.trim() !== '' && currentSpot.image_url !== '[object Object]') {
                 currentPhotos = [currentSpot.image_url];
             } else {
                 const titleLower = (currentSpot.title || '').toLowerCase();
@@ -175,27 +198,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } else if (isDuplex && currentTier === 'single_room') {
-            if (currentDuplexUnit === 'left' && currentSpot.photos_left_list && currentSpot.photos_left_list.length > 0) {
-                currentPhotos = currentSpot.photos_left_list;
-            } else if (currentDuplexUnit === 'right' && currentSpot.photos_right_list && currentSpot.photos_right_list.length > 0) {
-                currentPhotos = currentSpot.photos_right_list;
-            } else if (currentRoom && currentDuplexUnit === 'left' && currentRoom.photos_left_list && currentRoom.photos_left_list.length > 0) {
-                currentPhotos = currentRoom.photos_left_list;
-            } else if (currentRoom && currentDuplexUnit === 'right' && currentRoom.photos_right_list && currentRoom.photos_right_list.length > 0) {
-                currentPhotos = currentRoom.photos_right_list;
-            } else if (currentSpot.photos_list && currentSpot.photos_list.length > 0) {
-                currentPhotos = currentSpot.photos_list;
+            const leftList = sanitizePhotoList(currentSpot.photos_left_list).concat(sanitizePhotoList(currentRoom ? currentRoom.photos_left_list : []));
+            const rightList = sanitizePhotoList(currentSpot.photos_right_list).concat(sanitizePhotoList(currentRoom ? currentRoom.photos_right_list : []));
+            const genList = sanitizePhotoList(currentSpot.photos_list).concat(sanitizePhotoList(currentRoom ? currentRoom.photos_list : []));
+
+            if (currentDuplexUnit === 'left' && leftList.length > 0) {
+                currentPhotos = Array.from(new Set(leftList));
+            } else if (currentDuplexUnit === 'right' && rightList.length > 0) {
+                currentPhotos = Array.from(new Set(rightList));
+            } else if (genList.length > 0) {
+                currentPhotos = Array.from(new Set(genList));
             } else {
                 currentPhotos = [currentSpot.image_url || 'assets/images/01 (25).jpeg'];
             }
         } else {
-            if (currentSpot.photos_list && currentSpot.photos_list.length > 0) {
-                currentPhotos = currentSpot.photos_list;
-            } else if (currentRoom && currentRoom.photos_list && currentRoom.photos_list.length > 0) {
-                currentPhotos = currentRoom.photos_list;
-            } else if (currentSpot.image_url) {
+            const genList = sanitizePhotoList(currentSpot.photos_list).concat(sanitizePhotoList(currentRoom ? currentRoom.photos_list : []));
+            if (genList.length > 0) {
+                currentPhotos = Array.from(new Set(genList));
+            } else if (currentSpot.image_url && currentSpot.image_url !== '[object Object]') {
                 currentPhotos = [currentSpot.image_url];
-            } else if (currentRoom && currentRoom.image_url) {
+            } else if (currentRoom && currentRoom.image_url && currentRoom.image_url !== '[object Object]') {
                 currentPhotos = [currentRoom.image_url];
             } else {
                 currentPhotos = ['assets/images/01 (25).jpeg'];
@@ -797,6 +819,18 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             currentPhotoIdx++;
             updateSidebarPhoto();
+        });
+    }
+
+    if (sacMainImg) {
+        sacMainImg.style.cursor = 'pointer';
+        sacMainImg.title = 'Click to open full chalet photo gallery';
+        sacMainImg.addEventListener('click', () => {
+            const slug = currentRoom ? currentRoom.slug : (currentSpot ? currentSpot.linked_room_slug : '');
+            if (slug && typeof window.openChaletGalleryModal === 'function') {
+                const wing = (currentTier === 'single_room' && (currentDuplexUnit === 'left' || currentDuplexUnit === 'right')) ? currentDuplexUnit : 'all';
+                window.openChaletGalleryModal(slug, wing);
+            }
         });
     }
 

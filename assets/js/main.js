@@ -3678,13 +3678,54 @@ document.addEventListener("DOMContentLoaded", () => {
         if (window.sanctuarySpotsData && Array.isArray(window.sanctuarySpotsData) && window.sanctuarySpotsData.length > 0) {
             zones = window.sanctuarySpotsData.map((s, idx) => {
                 let photosArr = [];
-                if (s.photos_list && Array.isArray(s.photos_list) && s.photos_list.length > 0) {
-                    photosArr = s.photos_list;
-                } else if (s.image_url) {
-                    photosArr = [s.image_url];
-                } else {
-                    photosArr = ['assets/images/01 (10).jpeg'];
+
+                // Helper to safely unpack photo lists and metadata
+                const addPhotos = (metaList, rawList, defaultTag, wing) => {
+                    if (metaList && Array.isArray(metaList) && metaList.length > 0) {
+                        metaList.forEach(p => {
+                            const u = typeof p === 'object' && p ? (p.url || '') : String(p || '');
+                            if (u && u !== '[object Object]') {
+                                photosArr.push({
+                                    url: u,
+                                    title: (typeof p === 'object' && p) ? (p.title || '') : '',
+                                    tag: (typeof p === 'object' && p && p.tag) ? p.tag : defaultTag,
+                                    wing: wing
+                                });
+                            }
+                        });
+                    } else if (rawList && Array.isArray(rawList) && rawList.length > 0) {
+                        rawList.forEach(p => {
+                            const u = typeof p === 'object' && p ? (p.url || '') : String(p || '');
+                            if (u && u !== '[object Object]') {
+                                photosArr.push({
+                                    url: u,
+                                    title: '',
+                                    tag: defaultTag,
+                                    wing: wing
+                                });
+                            }
+                        });
+                    }
+                };
+
+                // Add exterior/general photos
+                addPhotos(s.photos_meta_list, s.photos_list, 'Exterior & Grounds', 'general');
+                // Add Left Suite photos
+                addPhotos(s.photos_left_meta_list, s.photos_left_list, 'Wing A • Left Suite', 'left');
+                // Add Right Suite photos
+                addPhotos(s.photos_right_meta_list, s.photos_right_list, 'Wing B • Right Suite', 'right');
+
+                // Fallback to single spot image if empty
+                if (photosArr.length === 0) {
+                    const fallbackUrl = (s.image_url && s.image_url !== '[object Object]') ? s.image_url : 'assets/images/01 (10).jpeg';
+                    photosArr.push({
+                        url: fallbackUrl,
+                        title: s.title || '',
+                        tag: s.is_stay == 1 ? 'Chalet Overview' : 'Sanctuary View',
+                        wing: 'general'
+                    });
                 }
+
                 const isStay = (s.is_stay == 1 || s.category === 'stays');
                 const rate = parseFloat(s.room_rate || s.stay_price || 0);
                 const roomSlug = s.linked_room_slug || (s.title && s.title.toLowerCase().includes('treehouse') ? 'treehouse' : (s.title && s.title.toLowerCase().includes('woodhouse') ? 'woodhouse' : 'mudhouse'));
@@ -3725,12 +3766,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const insCtaBtn = document.getElementById('ins-cta-btn');
         const insCtaText = document.getElementById('ins-cta-text');
         const insQuickBookBtn = document.getElementById('ins-quick-book-btn');
+        const insSoundBtn = document.getElementById('ins-sound-btn');
 
-        // Photo Gallery Elements
+        // Photo Gallery & Lightbox Trigger Elements
         const photoPrevBtn = document.getElementById('ins-photo-prev-btn');
         const photoNextBtn = document.getElementById('ins-photo-next-btn');
         const photoIndicator = document.getElementById('ins-photo-indicator');
         const photoBadge = document.getElementById('ins-photo-badge');
+        const insPhotoSuiteTag = document.getElementById('ins-photo-suite-tag');
+        const insMediaWrap = document.getElementById('ins-media-wrap');
+        const insFullscreenBtn = document.getElementById('ins-fullscreen-btn');
 
         function updatePhotoView() {
             const zone = zones[currentIdx];
@@ -3739,7 +3784,10 @@ document.addEventListener("DOMContentLoaded", () => {
             if (currentPhotoIdx >= zone.photos.length) currentPhotoIdx = 0;
             if (currentPhotoIdx < 0) currentPhotoIdx = zone.photos.length - 1;
 
-            const photoSrc = zone.photos[currentPhotoIdx];
+            const photoItem = zone.photos[currentPhotoIdx];
+            const photoSrc = typeof photoItem === 'object' && photoItem ? (photoItem.url || '') : String(photoItem || '');
+            const photoTag = typeof photoItem === 'object' && photoItem ? (photoItem.tag || '') : '';
+            const photoWing = typeof photoItem === 'object' && photoItem ? (photoItem.wing || 'general') : 'general';
 
             if (insImg) {
                 insImg.classList.add('fade');
@@ -3754,6 +3802,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 photoIndicator.innerText = `${currentPhotoIdx + 1} / ${zone.photos.length}`;
             }
 
+            // Update Photo Wing Tag badge
+            if (insPhotoSuiteTag) {
+                if (photoTag) {
+                    insPhotoSuiteTag.innerText = photoTag;
+                    insPhotoSuiteTag.style.display = 'inline-block';
+                    if (photoWing === 'left') {
+                        insPhotoSuiteTag.style.background = 'rgba(7, 24, 14, 0.9)';
+                        insPhotoSuiteTag.style.color = '#4ADE80';
+                        insPhotoSuiteTag.style.borderColor = 'rgba(74, 222, 128, 0.45)';
+                    } else if (photoWing === 'right') {
+                        insPhotoSuiteTag.style.background = 'rgba(7, 18, 30, 0.9)';
+                        insPhotoSuiteTag.style.color = '#60A5FA';
+                        insPhotoSuiteTag.style.borderColor = 'rgba(96, 165, 250, 0.45)';
+                    } else {
+                        insPhotoSuiteTag.style.background = 'rgba(7, 16, 11, 0.85)';
+                        insPhotoSuiteTag.style.color = 'var(--accent-gold, #C5A059)';
+                        insPhotoSuiteTag.style.borderColor = 'rgba(197, 160, 89, 0.4)';
+                    }
+                } else {
+                    insPhotoSuiteTag.style.display = 'none';
+                }
+            }
+
             // If only 1 photo, hide arrows and badge
             if (zone.photos.length <= 1) {
                 if (photoPrevBtn) photoPrevBtn.style.display = 'none';
@@ -3765,6 +3836,45 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (photoBadge) photoBadge.style.display = 'inline-flex';
             }
         }
+
+        // Open Lightbox Gallery Modal for Current Zone
+        function launchZoneGalleryModal() {
+            const zone = zones[currentIdx];
+            if (!zone || !zone.roomSlug) return;
+            const curPhoto = zone.photos && zone.photos[currentPhotoIdx];
+            const preferredWing = (curPhoto && curPhoto.wing) ? curPhoto.wing : 'all';
+            if (typeof window.openChaletGalleryModal === 'function') {
+                window.openChaletGalleryModal(zone.roomSlug, preferredWing);
+            }
+        }
+
+        if (insFullscreenBtn) {
+            insFullscreenBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                launchZoneGalleryModal();
+            });
+        }
+
+        if (insMediaWrap) {
+            insMediaWrap.addEventListener('click', (e) => {
+                if (e.target.closest('#ins-photo-prev-btn') || e.target.closest('#ins-photo-next-btn') || e.target.closest('#ins-fullscreen-btn')) {
+                    return;
+                }
+                launchZoneGalleryModal();
+            });
+        }
+
+        // Global function to programmatically select a spot from outside (e.g., chalet cards)
+        window.selectSanctuarySpot = function(spotId) {
+            const targetIdx = zones.findIndex(z => z.id === parseInt(spotId, 10));
+            if (targetIdx !== -1) {
+                updateZoneView(targetIdx, true);
+                const mapEl = document.getElementById('sanctuary-map-board');
+                if (mapEl) {
+                    mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        };
 
         function updateZoneView(index, resetPhoto = true) {
             if (index < 0 || index >= zones.length) return;
@@ -3852,6 +3962,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 updatePhotoView();
             });
         }
+
 
         // Pin Click and Hover Events
         pins.forEach(pin => {

@@ -889,25 +889,73 @@ function get_all_rooms($only_available = false) {
             $rm['photos_list'] = $photos_arr;
             $rm['photos_meta_list'] = $photos_meta;
 
-            // Photos for Left Suite / Cottage
+            // Photos for Left Suite / Wing A
             $left_arr = [];
+            $left_meta = [];
             if (!empty($rm['photos_left'])) {
                 $dec = json_decode($rm['photos_left'], true);
                 if (is_array($dec)) {
-                    $left_arr = array_values(array_filter($dec));
+                    foreach ($dec as $p_idx => $p_item) {
+                        if (is_array($p_item)) {
+                            $u = trim($p_item['url'] ?? '');
+                            if ($u !== '') {
+                                $left_arr[] = $u;
+                                $left_meta[] = [
+                                    'url' => $u,
+                                    'title' => trim($p_item['title'] ?? ''),
+                                    'description' => trim($p_item['description'] ?? ''),
+                                    'order' => isset($p_item['order']) ? (int)$p_item['order'] : ($p_idx + 1)
+                                ];
+                            }
+                        } elseif (is_string($p_item) && trim($p_item) !== '') {
+                            $u = trim($p_item);
+                            $left_arr[] = $u;
+                            $left_meta[] = [
+                                'url' => $u,
+                                'title' => '',
+                                'description' => '',
+                                'order' => $p_idx + 1
+                            ];
+                        }
+                    }
                 }
             }
             $rm['photos_left_list'] = $left_arr;
+            $rm['photos_left_meta_list'] = $left_meta;
 
-            // Photos for Right Suite / Cottage
+            // Photos for Right Suite / Wing B
             $right_arr = [];
+            $right_meta = [];
             if (!empty($rm['photos_right'])) {
                 $dec = json_decode($rm['photos_right'], true);
                 if (is_array($dec)) {
-                    $right_arr = array_values(array_filter($dec));
+                    foreach ($dec as $p_idx => $p_item) {
+                        if (is_array($p_item)) {
+                            $u = trim($p_item['url'] ?? '');
+                            if ($u !== '') {
+                                $right_arr[] = $u;
+                                $right_meta[] = [
+                                    'url' => $u,
+                                    'title' => trim($p_item['title'] ?? ''),
+                                    'description' => trim($p_item['description'] ?? ''),
+                                    'order' => isset($p_item['order']) ? (int)$p_item['order'] : ($p_idx + 1)
+                                ];
+                            }
+                        } elseif (is_string($p_item) && trim($p_item) !== '') {
+                            $u = trim($p_item);
+                            $right_arr[] = $u;
+                            $right_meta[] = [
+                                'url' => $u,
+                                'title' => '',
+                                'description' => '',
+                                'order' => $p_idx + 1
+                            ];
+                        }
+                    }
                 }
             }
             $rm['photos_right_list'] = $right_arr;
+            $rm['photos_right_meta_list'] = $right_meta;
         }
         return $rooms;
     } catch (Exception $e) {
@@ -1846,7 +1894,18 @@ function get_all_sanctuary_spots($only_active = false) {
     try {
         $pdo = get_db();
         ensure_sanctuary_spots_table_exists($pdo);
-        $sql = "SELECT s.*, r.rate_per_night AS room_rate, r.single_room_rate, COALESCE(s.structure_type, r.structure_type, 'single_hut') AS structure_type, r.max_guests AS room_max_guests, r.base_guests AS room_base_guests, r.image_url AS room_image_url, r.photos AS room_photos, r.photos_left AS room_photos_left, r.photos_right AS room_photos_right 
+        $sql = "SELECT s.*, 
+                r.title AS room_title,
+                r.description AS room_description,
+                r.rate_per_night AS room_rate, 
+                r.single_room_rate, 
+                COALESCE(r.structure_type, s.structure_type, 'single_hut') AS master_structure_type, 
+                r.max_guests AS room_max_guests, 
+                r.base_guests AS room_base_guests, 
+                r.image_url AS room_image_url, 
+                r.photos AS room_photos, 
+                r.photos_left AS room_photos_left, 
+                r.photos_right AS room_photos_right 
                 FROM `sanctuary_spots` s
                 LEFT JOIN `rooms` r ON s.linked_room_slug = r.slug";
         if ($only_active) {
@@ -1855,53 +1914,363 @@ function get_all_sanctuary_spots($only_active = false) {
         $sql .= " ORDER BY s.spot_number ASC, s.display_order ASC, s.id ASC";
         $spots = $pdo->query($sql)->fetchAll();
         foreach ($spots as &$sp) {
-            $photos_arr = [];
-            if (!empty($sp['photos'])) {
-                $dec = json_decode($sp['photos'], true);
-                if (is_array($dec)) {
-                    $photos_arr = array_values(array_filter($dec));
+            // SINGLE SOURCE OF TRUTH: If spot is linked to an existing room master,
+            // pull title, description, rate, and structure directly from rooms master!
+            if (!empty($sp['linked_room_slug']) && !empty($sp['room_title'])) {
+                $sp['title'] = $sp['room_title'];
+                if (!empty($sp['room_description'])) {
+                    $sp['description'] = $sp['room_description'];
                 }
+                if (!empty($sp['room_rate'])) {
+                    $sp['stay_price'] = (float)$sp['room_rate'];
+                }
+                if (!empty($sp['master_structure_type'])) {
+                    $sp['structure_type'] = $sp['master_structure_type'];
+                }
+                $sp['category'] = 'stays';
+                $sp['is_stay'] = 1;
             }
-            if (empty($photos_arr) && !empty($sp['room_photos'])) {
+
+            $raw_photos = [];
+            // If linked to room master, room photos are authoritative
+            if (!empty($sp['linked_room_slug']) && !empty($sp['room_photos'])) {
                 $dec = json_decode($sp['room_photos'], true);
-                if (is_array($dec)) {
-                    $photos_arr = array_values(array_filter($dec));
+                if (is_array($dec) && !empty($dec)) {
+                    $raw_photos = $dec;
                 }
             }
+            if (empty($raw_photos) && !empty($sp['photos'])) {
+                $dec = json_decode($sp['photos'], true);
+                if (is_array($dec)) $raw_photos = $dec;
+            }
+            if (empty($raw_photos) && !empty($sp['room_photos'])) {
+                $dec = json_decode($sp['room_photos'], true);
+                if (is_array($dec)) $raw_photos = $dec;
+            }
+
+            $photos_arr = [];
+            $photos_meta = [];
+            foreach ($raw_photos as $p_idx => $p_item) {
+                if (is_array($p_item)) {
+                    $u = trim($p_item['url'] ?? '');
+                    if ($u !== '') {
+                        $photos_arr[] = $u;
+                        $photos_meta[] = [
+                            'url' => $u,
+                            'title' => trim($p_item['title'] ?? ''),
+                            'description' => trim($p_item['description'] ?? ''),
+                            'tag' => 'Exterior & Grounds',
+                            'order' => isset($p_item['order']) ? (int)$p_item['order'] : ($p_idx + 1)
+                        ];
+                    }
+                } elseif (is_string($p_item) && trim($p_item) !== '') {
+                    $u = trim($p_item);
+                    $photos_arr[] = $u;
+                    $photos_meta[] = [
+                        'url' => $u,
+                        'title' => '',
+                        'description' => '',
+                        'tag' => 'Exterior & Grounds',
+                        'order' => $p_idx + 1
+                    ];
+                }
+            }
+
             if (empty($photos_arr) && !empty($sp['image_url'])) {
                 $photos_arr = [$sp['image_url']];
+                $photos_meta = [['url' => $sp['image_url'], 'title' => $sp['title'], 'description' => '', 'tag' => 'Primary View', 'order' => 1]];
             }
             if (empty($photos_arr) && !empty($sp['room_image_url'])) {
                 $photos_arr = [$sp['room_image_url']];
+                $photos_meta = [['url' => $sp['room_image_url'], 'title' => $sp['title'], 'description' => '', 'tag' => 'Primary View', 'order' => 1]];
             }
             if (empty($sp['image_url']) && !empty($sp['room_image_url'])) {
                 $sp['image_url'] = $sp['room_image_url'];
             }
             $sp['photos_list'] = $photos_arr;
+            $sp['photos_meta_list'] = $photos_meta;
 
-            // Photos for Left Suite / Cottage
+            // Photos for Left Suite / Wing A
             $left_arr = [];
+            $left_meta = [];
             if (!empty($sp['room_photos_left'])) {
                 $dec = json_decode($sp['room_photos_left'], true);
                 if (is_array($dec)) {
-                    $left_arr = array_values(array_filter($dec));
+                    foreach ($dec as $p_idx => $p_item) {
+                        if (is_array($p_item)) {
+                            $u = trim($p_item['url'] ?? '');
+                            if ($u !== '') {
+                                $left_arr[] = $u;
+                                $left_meta[] = [
+                                    'url' => $u,
+                                    'title' => trim($p_item['title'] ?? ''),
+                                    'description' => trim($p_item['description'] ?? ''),
+                                    'tag' => 'Left Suite (Wing A)',
+                                    'order' => isset($p_item['order']) ? (int)$p_item['order'] : ($p_idx + 1)
+                                ];
+                            }
+                        } elseif (is_string($p_item) && trim($p_item) !== '') {
+                            $u = trim($p_item);
+                            $left_arr[] = $u;
+                            $left_meta[] = [
+                                'url' => $u,
+                                'title' => '',
+                                'description' => '',
+                                'tag' => 'Left Suite (Wing A)',
+                                'order' => $p_idx + 1
+                            ];
+                        }
+                    }
                 }
             }
             $sp['photos_left_list'] = $left_arr;
+            $sp['photos_left_meta_list'] = $left_meta;
 
-            // Photos for Right Suite / Cottage
+            // Photos for Right Suite / Wing B
             $right_arr = [];
+            $right_meta = [];
             if (!empty($sp['room_photos_right'])) {
                 $dec = json_decode($sp['room_photos_right'], true);
                 if (is_array($dec)) {
-                    $right_arr = array_values(array_filter($dec));
+                    foreach ($dec as $p_idx => $p_item) {
+                        if (is_array($p_item)) {
+                            $u = trim($p_item['url'] ?? '');
+                            if ($u !== '') {
+                                $right_arr[] = $u;
+                                $right_meta[] = [
+                                    'url' => $u,
+                                    'title' => trim($p_item['title'] ?? ''),
+                                    'description' => trim($p_item['description'] ?? ''),
+                                    'tag' => 'Right Suite (Wing B)',
+                                    'order' => isset($p_item['order']) ? (int)$p_item['order'] : ($p_idx + 1)
+                                ];
+                            }
+                        } elseif (is_string($p_item) && trim($p_item) !== '') {
+                            $u = trim($p_item);
+                            $right_arr[] = $u;
+                            $right_meta[] = [
+                                'url' => $u,
+                                'title' => '',
+                                'description' => '',
+                                'tag' => 'Right Suite (Wing B)',
+                                'order' => $p_idx + 1
+                            ];
+                        }
+                    }
                 }
             }
             $sp['photos_right_list'] = $right_arr;
+            $sp['photos_right_meta_list'] = $right_meta;
+
+            // Combined list of all gallery photos for seamless carousel cycling
+            $all_combined = array_merge($photos_meta, $left_meta, $right_meta);
+            $sp['all_photos_list'] = !empty($all_combined) ? array_column($all_combined, 'url') : $photos_arr;
+            $sp['all_photos_meta'] = $all_combined;
         }
         return $spots;
     } catch (Exception $e) {
         return [];
+    }
+}
+
+/**
+ * Automatically sync sanctuary_spots when a room is created in admin
+ */
+function sync_sanctuary_spot_on_room_create($room_id) {
+    try {
+        $pdo = get_db();
+        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE id = ?");
+        $stmt->execute([(int)$room_id]);
+        $room = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$room) return false;
+
+        $slug = $room['slug'];
+        $chk = $pdo->prepare("SELECT id FROM sanctuary_spots WHERE linked_room_slug = ?");
+        $chk->execute([$slug]);
+        if ($chk->fetchColumn()) {
+            return true;
+        }
+
+        $max_num = (int)$pdo->query("SELECT COALESCE(MAX(spot_number), 0) FROM sanctuary_spots")->fetchColumn();
+        $next_spot_num = $max_num + 1;
+
+        $x = 25.0 + (($next_spot_num * 7) % 55);
+        $y = 20.0 + (($next_spot_num * 9) % 50);
+
+        $is_dup = ($room['structure_type'] === 'duplex_hut');
+        $icon = $is_dup ? 'fa-solid fa-layer-group' : 'fa-solid fa-house-chimney';
+        $pin_color = $is_dup ? '#06B6D4' : '#10B981';
+
+        $ins = $pdo->prepare("INSERT INTO sanctuary_spots 
+            (spot_number, title, subtitle_tag, category, icon_class, pin_color, is_stay, linked_room_slug, structure_type, stay_price, elevation, description, image_url, photos, cta_text, cta_link, x_coord, y_coord, display_order, is_active)
+            VALUES (?, ?, ?, 'stays', ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 'Book This Stay', ?, ?, ?, ?, 1)");
+
+        $cta_link = 'booking.php?villa=' . urlencode($slug);
+        $ins->execute([
+            $next_spot_num,
+            $room['title'],
+            $is_dup ? 'Duplex Chalet' : 'Sanctuary Cottage',
+            $icon,
+            $pin_color,
+            $slug,
+            $room['structure_type'],
+            $room['rate_per_night'],
+            $room['elevation'] ?? '',
+            $room['description'] ?? '',
+            $room['image_url'] ?? '',
+            $room['photos'] ?? null,
+            $cta_link,
+            number_format($x, 2, '.', ''),
+            number_format($y, 2, '.', ''),
+            $next_spot_num
+        ]);
+
+        if (function_exists('sanctuary_purge_all_caches')) {
+            sanctuary_purge_all_caches();
+        }
+        return true;
+    } catch (Exception $e) {
+        error_log("Error in sync_sanctuary_spot_on_room_create: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Automatically sync sanctuary_spots when a room is deleted from admin
+ */
+function sync_sanctuary_spot_on_room_delete($room_id_or_slug) {
+    try {
+        $pdo = get_db();
+        $slug = null;
+        if (is_numeric($room_id_or_slug)) {
+            $stmt = $pdo->prepare("SELECT slug FROM rooms WHERE id = ?");
+            $stmt->execute([(int)$room_id_or_slug]);
+            $slug = $stmt->fetchColumn();
+        } else {
+            $slug = trim($room_id_or_slug);
+        }
+
+        if (!empty($slug)) {
+            $stmt = $pdo->prepare("SELECT id, spot_number FROM sanctuary_spots WHERE linked_room_slug = ?");
+            $stmt->execute([$slug]);
+            $matched_spots = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($matched_spots as $msp) {
+                if (function_exists('clean_sanctuary_route_data_for_spot')) {
+                    clean_sanctuary_route_data_for_spot($msp['id'], $msp['spot_number'], $pdo);
+                }
+            }
+            $del = $pdo->prepare("DELETE FROM sanctuary_spots WHERE linked_room_slug = ?");
+            $del->execute([$slug]);
+        }
+
+        if (function_exists('sanctuary_purge_all_caches')) {
+            sanctuary_purge_all_caches();
+        }
+        return true;
+    } catch (Exception $e) {
+        error_log("Error in sync_sanctuary_spot_on_room_delete: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Automatically sync sanctuary_spots when a room is updated in admin
+ */
+function sync_sanctuary_spot_on_room_update($room_id) {
+    try {
+        $pdo = get_db();
+        $stmt = $pdo->prepare("SELECT * FROM rooms WHERE id = ?");
+        $stmt->execute([(int)$room_id]);
+        $room = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$room) return false;
+
+        $slug = $room['slug'];
+        $chk = $pdo->prepare("SELECT id FROM sanctuary_spots WHERE linked_room_slug = ?");
+        $chk->execute([$slug]);
+        $spot_id = $chk->fetchColumn();
+
+        if ($spot_id) {
+            $is_dup = ($room['structure_type'] === 'duplex_hut');
+            $icon = $is_dup ? 'fa-solid fa-layer-group' : 'fa-solid fa-house-chimney';
+            $pin_color = $is_dup ? '#06B6D4' : '#10B981';
+
+            // Decode room photos to get list of photo URLs for spot photos JSON
+            $room_photo_urls = [];
+            if (!empty($room['photos'])) {
+                $dec_p = json_decode($room['photos'], true);
+                if (is_array($dec_p)) {
+                    foreach ($dec_p as $p_item) {
+                        $p_u = is_array($p_item) ? ($p_item['url'] ?? '') : (string)$p_item;
+                        if ($p_u !== '') $room_photo_urls[] = $p_u;
+                    }
+                }
+            }
+            if (empty($room_photo_urls) && !empty($room['image_url'])) {
+                $room_photo_urls[] = $room['image_url'];
+            }
+            $photos_json = !empty($room_photo_urls) ? json_encode(array_values($room_photo_urls)) : null;
+
+            $upd = $pdo->prepare("UPDATE sanctuary_spots SET 
+                title = ?, 
+                category = 'stays',
+                is_stay = 1,
+                structure_type = ?, 
+                stay_price = ?, 
+                description = ?,
+                elevation = ?, 
+                image_url = ?, 
+                photos = COALESCE(?, photos),
+                icon_class = ?, 
+                pin_color = ?,
+                is_active = ?
+                WHERE id = ?");
+            $is_active = (!empty($room['is_available']) && ($room['availability_status'] ?? 'available') === 'available') ? 1 : 0;
+            $upd->execute([
+                $room['title'],
+                $room['structure_type'],
+                $room['rate_per_night'],
+                $room['description'] ?? '',
+                $room['elevation'] ?? '',
+                $room['image_url'] ?? '',
+                $photos_json,
+                $icon,
+                $pin_color,
+                $is_active,
+                $spot_id
+            ]);
+        } else {
+            sync_sanctuary_spot_on_room_create($room_id);
+        }
+
+        if (function_exists('sanctuary_purge_all_caches')) {
+            sanctuary_purge_all_caches();
+        }
+        return true;
+    } catch (Exception $e) {
+        error_log("Error in sync_sanctuary_spot_on_room_update: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Re-synchronize all active rooms with the sanctuary map spots
+ */
+function sync_all_rooms_to_sanctuary_spots() {
+    try {
+        $pdo = get_db();
+        $rooms = $pdo->query("SELECT id FROM rooms")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($rooms as $rid) {
+            sync_sanctuary_spot_on_room_update($rid);
+        }
+        // Deactivate/delete stay spots that point to non-existent rooms
+        $pdo->exec("DELETE FROM sanctuary_spots WHERE is_stay = 1 AND linked_room_slug IS NOT NULL AND linked_room_slug NOT IN (SELECT slug FROM rooms)");
+        if (function_exists('sanctuary_purge_all_caches')) {
+            sanctuary_purge_all_caches();
+        }
+        return true;
+    } catch (Exception $e) {
+        error_log("Error in sync_all_rooms_to_sanctuary_spots: " . $e->getMessage());
+        return false;
     }
 }
 
@@ -1966,6 +2335,68 @@ function get_sanctuary_map_config(PDO $pdo = null) {
         ];
     }
     return $config;
+}
+
+/**
+ * Automatically purge any deleted spot or waypoint references from the compiled/stored route pathways
+ */
+function clean_sanctuary_route_data_for_spot($spot_id, $spot_number = null, PDO $pdo = null) {
+    try {
+        if (!$pdo) {
+            $pdo = get_db();
+        }
+        $raw = get_setting('sanctuary_map_route_data', '');
+        if (empty($raw)) {
+            return true;
+        }
+        $config = json_decode($raw, true);
+        if (!is_array($config) || empty($config['routes'])) {
+            return true;
+        }
+
+        $spot_id = (int)$spot_id;
+        $spot_number = !empty($spot_number) ? (int)$spot_number : null;
+
+        $changed = false;
+        foreach ($config['routes'] as &$r) {
+            if (!empty($r['nodes']) && is_array($r['nodes'])) {
+                $orig_count = count($r['nodes']);
+                $r['nodes'] = array_values(array_filter($r['nodes'], function($n) use ($spot_id, $spot_number) {
+                    $ntype = $n['type'] ?? '';
+                    if (($ntype === 'spot' || $ntype === 'spot_id') && !empty($n['spot_id']) && (int)$n['spot_id'] === $spot_id) {
+                        return false;
+                    }
+                    if ($spot_number !== null) {
+                        if ($ntype === 'spot_num' && !empty($n['spot_number']) && (int)$n['spot_number'] === $spot_number) {
+                            return false;
+                        }
+                        if (!empty($n['spot_number']) && (int)$n['spot_number'] === $spot_number) {
+                            return false;
+                        }
+                    }
+                    if (!empty($n['spot_id']) && (int)$n['spot_id'] === $spot_id) {
+                        return false;
+                    }
+                    return true;
+                }));
+                if (count($r['nodes']) !== $orig_count) {
+                    $changed = true;
+                }
+            }
+        }
+        unset($r);
+
+        if ($changed) {
+            set_setting('sanctuary_map_route_data', json_encode($config), $pdo);
+            if (function_exists('sanctuary_purge_all_caches')) {
+                sanctuary_purge_all_caches();
+            }
+        }
+        return true;
+    } catch (Exception $e) {
+        error_log("Error in clean_sanctuary_route_data_for_spot: " . $e->getMessage());
+        return false;
+    }
 }
 
 /**

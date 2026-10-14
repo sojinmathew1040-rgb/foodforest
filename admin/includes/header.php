@@ -1042,11 +1042,25 @@ $current_page = basename($_SERVER['PHP_SELF']);
             syncMapConfigToInput();
         }
 
+        var dragStartX = 0;
+        var dragStartY = 0;
+        var hasMoved = false;
+
         // Pointer / Drag and Pencil Click Handling
         function onPointerDown(e) {
             if (e.target.closest('.admin-waypoint-del-btn')) {
                 return;
             }
+
+            var startClientX = e.clientX;
+            var startClientY = e.clientY;
+            if (e.touches && e.touches.length > 0) {
+                startClientX = e.touches[0].clientX;
+                startClientY = e.touches[0].clientY;
+            }
+            dragStartX = startClientX;
+            dragStartY = startClientY;
+            hasMoved = false;
 
             var pin = e.target.closest('.admin-master-pin, .admin-entrance-pin, .admin-exit-pin, .admin-waypoint-pin');
 
@@ -1168,6 +1182,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 clientY = e.touches[0].clientY;
             }
 
+            if (Math.abs(clientX - dragStartX) > 4 || Math.abs(clientY - dragStartY) > 4) {
+                hasMoved = true;
+            }
+
             var rect = canvas.getBoundingClientRect();
             var relX = clientX - rect.left;
             var relY = clientY - rect.top;
@@ -1213,6 +1231,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
         function onPointerUp() {
             if (!draggingTarget) return;
+            var targetType = draggingTarget.type;
+            var targetIdx = draggingTarget.idx;
+
             draggingTarget.el.classList.remove('is-dragging');
             draggingTarget = null;
 
@@ -1227,6 +1248,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
             document.removeEventListener('touchmove', onPointerMove);
             document.removeEventListener('touchend', onPointerUp);
 
+            // If it was a click without dragging on a spot pin, open and highlight its editor card below
+            if (!hasMoved && targetType === 'spot' && targetIdx !== null && targetIdx !== undefined) {
+                window.openSpotEditor(targetIdx);
+            }
+
             updateAdminTrail();
         }
 
@@ -1238,6 +1264,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
         // Initial compile & render
         updateAdminTrail();
+
+        window.openSpotEditor = function(idx) {
+            var card = document.getElementById('spot-card-' + idx);
+            if (!card) return;
+            card.classList.add('is-expanded');
+            try {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch(e) {}
+            card.classList.remove('is-highlighted');
+            void card.offsetWidth;
+            card.classList.add('is-highlighted');
+            setTimeout(function() {
+                card.classList.remove('is-highlighted');
+            }, 3000);
+        };
 
         window.focusPinOnMasterMap = function(idx) {
             var pin = document.getElementById('master-pin-' + idx);
@@ -1346,6 +1387,97 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 if (colorInp) { colorInp.value = color; syncSpotColorToPin(idx, color); }
                 if (catInp) catInp.value = cat;
                 if (structInp) structInp.value = struct;
+            }
+        };
+
+        window.applyLinkedRoom = function(slug, target) {
+            var room = null;
+            if (slug && window.allRoomsData && Array.isArray(window.allRoomsData)) {
+                room = window.allRoomsData.find(function(r) { return r.slug === slug; });
+            }
+
+            if (target === 'new') {
+                var titleInp = document.getElementById('new_spot_title');
+                var catInp = document.getElementById('new_spot_category');
+                var structInp = document.getElementById('new_spot_structure_type');
+                var priceInp = document.getElementById('new_spot_stay_price');
+                var descInp = document.getElementById('new_spot_desc');
+                var iconInp = document.getElementById('new_spot_icon_class');
+                var colorInp = document.getElementById('new_spot_pin_color');
+                var syncBanner = document.getElementById('new_spot_sync_banner');
+                var manualPhotosBox = document.getElementById('new_spot_manual_photos_box');
+                var roomPhotosNotice = document.getElementById('new_spot_room_photos_notice');
+
+                if (room) {
+                    if (titleInp) { titleInp.value = room.title; titleInp.readOnly = true; titleInp.style.background = 'rgba(255,255,255,0.05)'; }
+                    if (catInp) { catInp.value = 'stays'; catInp.style.pointerEvents = 'none'; catInp.style.opacity = '0.7'; }
+                    var isDup = (room.structure_type === 'duplex_hut');
+                    if (structInp) { structInp.value = isDup ? 'duplex_hut' : 'single_hut'; structInp.style.pointerEvents = 'none'; structInp.style.opacity = '0.7'; }
+                    if (priceInp) { priceInp.value = parseFloat(room.rate_per_night || 0); priceInp.readOnly = true; priceInp.style.background = 'rgba(255,255,255,0.05)'; }
+                    if (descInp) { descInp.value = room.description || ''; descInp.readOnly = true; descInp.style.background = 'rgba(255,255,255,0.05)'; }
+                    if (iconInp) { iconInp.value = isDup ? 'fa-solid fa-layer-group' : 'fa-solid fa-house-chimney'; }
+                    if (colorInp) { colorInp.value = isDup ? '#06B6D4' : '#10B981'; }
+                    if (syncBanner) { syncBanner.style.display = 'flex'; }
+                    if (manualPhotosBox) { manualPhotosBox.style.display = 'none'; }
+                    if (roomPhotosNotice) { roomPhotosNotice.style.display = 'block'; }
+                } else {
+                    if (titleInp) { titleInp.readOnly = false; titleInp.style.background = ''; }
+                    if (catInp) { catInp.style.pointerEvents = ''; catInp.style.opacity = ''; }
+                    if (structInp) { structInp.style.pointerEvents = ''; structInp.style.opacity = ''; }
+                    if (priceInp) { priceInp.readOnly = false; priceInp.style.background = ''; }
+                    if (descInp) { descInp.readOnly = false; descInp.style.background = ''; }
+                    if (syncBanner) { syncBanner.style.display = 'none'; }
+                    if (manualPhotosBox) { manualPhotosBox.style.display = 'block'; }
+                    if (roomPhotosNotice) { roomPhotosNotice.style.display = 'none'; }
+                }
+            } else {
+                var idx = parseInt(target, 10);
+                var titleInp = document.getElementById('spot_title_' + idx);
+                var catInp = document.getElementById('spot_category_' + idx);
+                var structInp = document.getElementById('spot_structure_type_' + idx);
+                var priceInp = document.getElementById('spot_stay_price_' + idx);
+                var descInp = document.getElementById('spot_desc_' + idx);
+                var syncBanner = document.getElementById('spot_sync_banner_' + idx);
+                var photosManual = document.getElementById('spot_photos_manual_' + idx);
+                var photosSynced = document.getElementById('spot_photos_synced_' + idx);
+
+                if (room) {
+                    if (titleInp) {
+                        titleInp.value = room.title;
+                        titleInp.readOnly = true;
+                        titleInp.style.background = 'rgba(255,255,255,0.05)';
+                        if (typeof window.syncSpotTitleToPin === 'function') window.syncSpotTitleToPin(idx, room.title);
+                    }
+                    if (catInp) { catInp.value = 'stays'; catInp.style.pointerEvents = 'none'; catInp.style.opacity = '0.7'; }
+                    var isDup = (room.structure_type === 'duplex_hut');
+                    if (structInp) { structInp.value = isDup ? 'duplex_hut' : 'single_hut'; structInp.style.pointerEvents = 'none'; structInp.style.opacity = '0.7'; }
+                    if (priceInp) { priceInp.value = parseFloat(room.rate_per_night || 0); priceInp.readOnly = true; priceInp.style.background = 'rgba(255,255,255,0.05)'; }
+                    if (descInp) { descInp.value = room.description || ''; descInp.readOnly = true; descInp.style.background = 'rgba(255,255,255,0.05)'; }
+                    var defIcon = isDup ? 'fa-solid fa-layer-group' : 'fa-solid fa-house-chimney';
+                    var defCol = isDup ? '#06B6D4' : '#10B981';
+                    var iconInp = document.getElementById('spot_icon_class_' + idx);
+                    var colInp = document.getElementById('spot_pin_color_' + idx);
+                    if (iconInp && (!iconInp.value || iconInp.value === 'fa-solid fa-tree')) {
+                        iconInp.value = defIcon;
+                        if (typeof window.syncSpotIconToPin === 'function') window.syncSpotIconToPin(idx, defIcon);
+                    }
+                    if (colInp && (!colInp.value || colInp.value === '#10B981')) {
+                        colInp.value = defCol;
+                        if (typeof window.syncSpotColorToPin === 'function') window.syncSpotColorToPin(idx, defCol);
+                    }
+                    if (syncBanner) { syncBanner.style.display = 'flex'; }
+                    if (photosManual) { photosManual.style.display = 'none'; }
+                    if (photosSynced) { photosSynced.style.display = 'block'; }
+                } else {
+                    if (titleInp) { titleInp.readOnly = false; titleInp.style.background = ''; }
+                    if (catInp) { catInp.style.pointerEvents = ''; catInp.style.opacity = ''; }
+                    if (structInp) { structInp.style.pointerEvents = ''; structInp.style.opacity = ''; }
+                    if (priceInp) { priceInp.readOnly = false; priceInp.style.background = ''; }
+                    if (descInp) { descInp.readOnly = false; descInp.style.background = ''; }
+                    if (syncBanner) { syncBanner.style.display = 'none'; }
+                    if (photosManual) { photosManual.style.display = 'block'; }
+                    if (photosSynced) { photosSynced.style.display = 'none'; }
+                }
             }
         };
 

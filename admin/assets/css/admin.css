@@ -2732,6 +2732,12 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
     50% { transform: translate(-50%, -50%) scale(1.35); filter: drop-shadow(0 0 24px #ECC880); }
 }
 
+.adm-spot-item-card.is-highlighted {
+    border-color: var(--adm-gold) !important;
+    box-shadow: 0 0 22px rgba(197, 160, 89, 0.5) !important;
+    transition: all 0.3s ease;
+}
+
 .admin-pin-core {
     width: 32px;
     height: 32px;
