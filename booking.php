@@ -33,7 +33,7 @@ require_once __DIR__ . '/includes/header.php';
         <div class="container">
             <div class="booking-hero-header text-center">
                 <span class="section-label font-sans"><i class="fa-solid fa-map-location-dot"></i> INTERACTIVE ESTATE RESERVATIONS</span>
-                <h1 class="booking-page-title font-serif">Select Your Sanctuary Chalet</h1>
+                <h1 class="booking-page-title font-serif">Select Your Food Forest Stay</h1>
                 <p class="booking-page-subtitle font-sans">
                     Explore our high-altitude organic estate. Pick your cottage directly on the interactive topographic map, check real-time availability, and customize your stay.
                 </p>

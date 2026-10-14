@@ -2237,13 +2237,12 @@ label.adm-form-label {
 /* Universal Luxury Form Inputs & Textareas */
 .adm-form-control,
 input.adm-form-control,
-textarea.adm-form-control,
-select.adm-form-control {
+textarea.adm-form-control {
     width: 100%;
     background: #07120B !important;
     border: 1px solid rgba(197, 160, 89, 0.28) !important;
     border-radius: 9px;
-    padding: 12px 16px !important;
+    padding: 10px 14px !important;
     color: #FFFFFF !important;
     font-family: var(--adm-font-sans);
     font-size: 13.5px !important;
@@ -2254,11 +2253,51 @@ select.adm-form-control {
     display: block;
 }
 
+/* Dedicated Universal Luxury Select Dropdown Styling */
+select.adm-form-control {
+    width: 100%;
+    background-color: #07120B !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23C5A059' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 13px 13px !important;
+    border: 1px solid rgba(197, 160, 89, 0.28) !important;
+    border-radius: 9px;
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 40px 0 14px !important;
+    color: #FFFFFF !important;
+    font-family: var(--adm-font-sans);
+    font-size: 13px !important;
+    line-height: 40px !important;
+    box-sizing: border-box !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    cursor: pointer;
+    outline: none !important;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+select.adm-form-control option,
+select.adm-form-control optgroup {
+    background-color: #0B1910 !important;
+    color: #FFFFFF !important;
+    padding: 10px 14px !important;
+    font-size: 13.5px !important;
+    line-height: 1.5 !important;
+}
+
 .adm-form-control:hover,
 input.adm-form-control:hover,
-textarea.adm-form-control:hover {
-    border-color: rgba(197, 160, 89, 0.5) !important;
-    background: #09170E !important;
+textarea.adm-form-control:hover,
+select.adm-form-control:hover {
+    border-color: rgba(197, 160, 89, 0.55) !important;
+    background-color: #09170E !important;
 }
 
 .adm-form-control:focus,
@@ -2266,7 +2305,7 @@ input.adm-form-control:focus,
 textarea.adm-form-control:focus,
 select.adm-form-control:focus {
     border-color: var(--adm-gold) !important;
-    background: #0D2014 !important;
+    background-color: #0D2014 !important;
     box-shadow: 0 0 0 3px rgba(197, 160, 89, 0.22), 0 0 18px rgba(197, 160, 89, 0.15) !important;
     color: #FFFFFF !important;
 }

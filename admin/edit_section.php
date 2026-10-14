@@ -4804,7 +4804,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                 <span style="font-size: 11px; font-weight: 700; color: var(--adm-gold); white-space: nowrap;">
                                     <i class="fa-solid fa-plus-circle"></i> Add Landmark:
                                 </span>
-                                <select id="quick_add_node_select" class="adm-form-control" style="flex: 1; min-width: 220px; font-size: 12px; height: 34px;">
+                                <select id="quick_add_node_select" class="adm-form-control" style="flex: 1; min-width: 220px; font-size: 13px; height: 42px;">
                                     <optgroup label="Gates & Boundary Points">
                                         <option value="entrance">🚪 Main Entrance Gate</option>
                                         <option value="exit">🚪 Estate Exit Gate</option>
@@ -4980,11 +4980,11 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                 <div class="adm-accordion-body">
                                     
                                     <!-- Landmark Preset, Icon & Color Bar -->
-                                    <div style="background: rgba(0,0,0,0.32); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-                                        <div style="display: grid; grid-template-columns: 1.5fr 1fr 120px; gap: 10px; align-items: end;">
+                                    <div style="background: rgba(0,0,0,0.32); border: 1px solid rgba(197, 160, 89, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+                                        <div style="display: grid; grid-template-columns: 1.6fr 1fr 120px; gap: 12px; align-items: end;">
                                             <div class="adm-form-group" style="margin: 0;">
-                                                <label class="adm-form-label" style="font-size: 10px; color: var(--adm-gold);"><i class="fa-solid fa-icons"></i> Landmark Type Preset</label>
-                                                <select class="adm-form-control" onchange="applySpotPreset(this, <?php echo $idx; ?>);" style="font-size: 11.5px; height: 34px;">
+                                                <label class="adm-form-label" style="font-size: 10.5px; color: var(--adm-gold);"><i class="fa-solid fa-icons"></i> Landmark Type Preset</label>
+                                                <select class="adm-form-control" onchange="applySpotPreset(this, <?php echo $idx; ?>);" style="font-size: 13px; height: 42px;">
                                                     <option value="custom">-- Choose Landmark Preset --</option>
                                                     <option value="kitchen" data-icon="fa-solid fa-utensils" data-color="#F59E0B" data-cat="dining">🍽️ Kitchen & Farm Dining</option>
                                                     <option value="pool" data-icon="fa-solid fa-person-swimming" data-color="#0EA5E9" data-cat="amenities">🏊‍♂️ Natural Pool / Stream Plunge</option>
@@ -5003,12 +5003,12 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 </select>
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
-                                                <label class="adm-form-label" style="font-size: 10px;">Icon Class</label>
-                                                <input type="text" name="spot_icon_class[]" id="spot_icon_class_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px;" value="<?php echo e($sp_icon); ?>" placeholder="e.g. fa-solid fa-utensils" oninput="syncSpotIconToPin(<?php echo $idx; ?>, this.value);">
+                                                <label class="adm-form-label" style="font-size: 10.5px;">Icon Class</label>
+                                                <input type="text" name="spot_icon_class[]" id="spot_icon_class_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 13px; height: 42px;" value="<?php echo e($sp_icon); ?>" placeholder="e.g. fa-solid fa-utensils" oninput="syncSpotIconToPin(<?php echo $idx; ?>, this.value);">
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
-                                                <label class="adm-form-label" style="font-size: 10px;">Pin Color</label>
-                                                <input type="color" name="spot_pin_color[]" id="spot_pin_color_<?php echo $idx; ?>" class="adm-form-control" style="height: 34px; padding: 2px;" value="<?php echo e($sp_color); ?>" oninput="syncSpotColorToPin(<?php echo $idx; ?>, this.value);">
+                                                <label class="adm-form-label" style="font-size: 10.5px;">Pin Color</label>
+                                                <input type="color" name="spot_pin_color[]" id="spot_pin_color_<?php echo $idx; ?>" class="adm-form-control" style="height: 42px; padding: 3px;" value="<?php echo e($sp_color); ?>" oninput="syncSpotColorToPin(<?php echo $idx; ?>, this.value);">
                                             </div>
                                         </div>
                                     </div>
@@ -5026,10 +5026,10 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                             </a>
                                         </div>
 
-                                        <div style="display: grid; grid-template-columns: 1fr 130px 130px 110px; gap: 10px; align-items: end;">
+                                        <div style="display: grid; grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1.1fr) minmax(130px, 1fr) 115px; gap: 12px; align-items: end;">
                                             <div class="adm-form-group" style="margin: 0;">
-                                                <label class="adm-form-label" style="font-size: 10px; color: var(--adm-gold);"><i class="fa-solid fa-link"></i> Linked Room / Cottage</label>
-                                                <select name="spot_linked_room_slug[]" class="adm-form-control" style="font-size: 11.5px; height: 34px;" onchange="applyLinkedRoom(this.value, <?php echo $idx; ?>);">
+                                                <label class="adm-form-label" style="font-size: 10.5px; color: var(--adm-gold);"><i class="fa-solid fa-link"></i> Linked Room / Cottage</label>
+                                                <select name="spot_linked_room_slug[]" class="adm-form-control" style="font-size: 13px; height: 42px;" onchange="applyLinkedRoom(this.value, <?php echo $idx; ?>);">
                                                     <option value="">-- No Room Link (Custom Spot) --</option>
                                                     <?php if (!empty($all_rooms)): ?>
                                                         <?php foreach ($all_rooms as $rm): ?>
@@ -5041,8 +5041,8 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 </select>
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
-                                                <label class="adm-form-label" style="font-size: 10px;">Category</label>
-                                                <select name="spot_category[]" id="spot_category_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px; <?php echo $is_linked ? 'pointer-events: none; opacity: 0.7;' : ''; ?>">
+                                                <label class="adm-form-label" style="font-size: 10.5px;">Category</label>
+                                                <select name="spot_category[]" id="spot_category_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 13px; height: 42px; <?php echo $is_linked ? 'pointer-events: none; opacity: 0.7;' : ''; ?>">
                                                     <option value="stays" <?php echo ($sp['category'] === 'stays' || !empty($sp['is_stay'])) ? 'selected' : ''; ?>>🏡 Stay / Cottage</option>
                                                     <option value="dining" <?php echo ($sp['category'] === 'dining') ? 'selected' : ''; ?>>🍲 Farm Dining</option>
                                                     <option value="nature" <?php echo ($sp['category'] === 'nature') ? 'selected' : ''; ?>>🌿 Nature / Vista</option>
@@ -5050,15 +5050,15 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 </select>
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
-                                                <label class="adm-form-label" style="font-size: 10px;">Structure</label>
-                                                <select name="spot_structure_type[]" id="spot_structure_type_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px; <?php echo $is_linked ? 'pointer-events: none; opacity: 0.7;' : ''; ?>">
+                                                <label class="adm-form-label" style="font-size: 10.5px;">Structure</label>
+                                                <select name="spot_structure_type[]" id="spot_structure_type_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 13px; height: 42px; <?php echo $is_linked ? 'pointer-events: none; opacity: 0.7;' : ''; ?>">
                                                     <option value="single_hut" <?php echo (($sp['structure_type'] ?? '') === 'single_hut') ? 'selected' : ''; ?>>🏡 Single</option>
                                                     <option value="duplex_hut" <?php echo (($sp['structure_type'] ?? '') === 'duplex_hut') ? 'selected' : ''; ?>>🏰 Duplex</option>
                                                 </select>
                                             </div>
                                             <div class="adm-form-group" style="margin: 0;">
-                                                <label class="adm-form-label" style="font-size: 10px;">Rate (₹)</label>
-                                                <input type="number" step="0.01" name="spot_stay_price[]" id="spot_stay_price_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 11.5px; height: 34px; <?php echo $is_linked ? 'background: rgba(255,255,255,0.05); color: #2ecc71; font-weight: bold;' : ''; ?>" value="<?php echo !empty($sp['stay_price']) ? (float)$sp['stay_price'] : ''; ?>" placeholder="e.g. 5600" <?php echo $is_linked ? 'readonly' : ''; ?>>
+                                                <label class="adm-form-label" style="font-size: 10.5px;">Rate (₹)</label>
+                                                <input type="number" step="0.01" name="spot_stay_price[]" id="spot_stay_price_<?php echo $idx; ?>" class="adm-form-control" style="font-size: 13px; height: 42px; <?php echo $is_linked ? 'background: rgba(255,255,255,0.05); color: #2ecc71; font-weight: bold;' : ''; ?>" value="<?php echo !empty($sp['stay_price']) ? (float)$sp['stay_price'] : ''; ?>" placeholder="e.g. 5600" <?php echo $is_linked ? 'readonly' : ''; ?>>
                                             </div>
                                         </div>
                                     </div>
@@ -9033,7 +9033,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
                 <div class="adm-form-group" style="margin: 0;">
                     <label class="adm-form-label" style="font-size: 10.5px;">Category</label>
-                    <select id="qp_category" name="new_spot_category" class="adm-form-control" style="font-size: 11.5px; height: 34px;">
+                    <select id="qp_category" name="new_spot_category" class="adm-form-control" style="font-size: 13px; height: 42px;">
                         <option value="amenities">🌊 Amenity / Pool / Sports</option>
                         <option value="stays">🏡 Stay / Accommodation</option>
                         <option value="dining">🍲 Farm Dining</option>
@@ -9042,7 +9042,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                 </div>
                 <div class="adm-form-group" style="margin: 0;" id="qp_price_wrap">
                     <label class="adm-form-label" style="font-size: 10.5px;">Nightly Rate (₹)</label>
-                    <input type="number" step="0.01" id="qp_stay_price" name="new_spot_stay_price" class="adm-form-control" style="font-size: 11.5px; height: 34px;" placeholder="Optional">
+                    <input type="number" step="0.01" id="qp_stay_price" name="new_spot_stay_price" class="adm-form-control" style="font-size: 13px; height: 42px;" placeholder="Optional">
                 </div>
             </div>
 
