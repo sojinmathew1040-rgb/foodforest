@@ -249,6 +249,20 @@ try {
     $raw_skipped = $input['food_skipped'] ?? null;
     $is_explicitly_skipped = ($raw_skipped === true || $raw_skipped === 1 || $raw_skipped === '1' || $raw_skipped === 'true');
 
+    $global_target_meal = strtolower(trim($input['target_meal_time'] ?? ($input['dish_meal_time'] ?? ($input['meal_time'] ?? 'dinner'))));
+    if (strpos($global_target_meal, 'snack') !== false || strpos($global_target_meal, 'evening') !== false || strpos($global_target_meal, 'tea') !== false) {
+        $global_target_meal = 'snacks';
+    } elseif (strpos($global_target_meal, 'break') !== false || strpos($global_target_meal, 'morn') !== false) {
+        $global_target_meal = 'breakfast';
+    } elseif (strpos($global_target_meal, 'din') !== false || strpos($global_target_meal, 'night') !== false) {
+        $global_target_meal = 'dinner';
+    } elseif (strpos($global_target_meal, 'lunch') !== false || strpos($global_target_meal, 'noon') !== false) {
+        $global_target_meal = 'lunch';
+    }
+    if (!in_array($global_target_meal, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+        $global_target_meal = 'dinner';
+    }
+
     if (!$is_explicitly_skipped && !empty($food_items_array)) {
         foreach ($food_items_array as $fi) {
             $qty = max(0, (int)($fi['quantity'] ?? ($fi['sets'] ?? 0)));
@@ -275,18 +289,30 @@ try {
                     }
                 }
             }
-            $meal_time = strtolower(trim($fi['meal_time'] ?? $cat));
-            if (strpos($meal_time, 'snack') !== false || strpos($meal_time, 'evening') !== false || strpos($meal_time, 'tea') !== false) {
-                $meal_time = 'snacks';
-            } elseif (strpos($meal_time, 'break') !== false || strpos($meal_time, 'morn') !== false) {
+
+            $raw_meal = trim($fi['meal_time'] ?? ($fi['mealSlot'] ?? ($fi['meal_slot'] ?? '')));
+            $meal_time = strtolower($raw_meal);
+            if ($is_complimentary) {
                 $meal_time = 'breakfast';
-            } elseif (strpos($meal_time, 'din') !== false || strpos($meal_time, 'night') !== false) {
-                $meal_time = 'dinner';
-            } elseif (strpos($meal_time, 'lunch') !== false || strpos($meal_time, 'noon') !== false) {
-                $meal_time = 'lunch';
-            }
-            if (!in_array($meal_time, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
-                $meal_time = 'lunch';
+            } elseif (empty($meal_time) || !in_array($meal_time, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+                if (strpos($meal_time, 'snack') !== false || strpos($meal_time, 'evening') !== false || strpos($meal_time, 'tea') !== false) {
+                    $meal_time = 'snacks';
+                } elseif (strpos($meal_time, 'break') !== false || strpos($meal_time, 'morn') !== false) {
+                    $meal_time = 'breakfast';
+                } elseif (strpos($meal_time, 'din') !== false || strpos($meal_time, 'night') !== false) {
+                    $meal_time = 'dinner';
+                } elseif (strpos($meal_time, 'lunch') !== false || strpos($meal_time, 'noon') !== false) {
+                    $meal_time = 'lunch';
+                } else {
+                    $cat_lower = strtolower(trim($cat));
+                    if (in_array($cat_lower, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+                        $meal_time = $cat_lower;
+                    } elseif (!empty($global_target_meal) && in_array($global_target_meal, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+                        $meal_time = $global_target_meal;
+                    } else {
+                        $meal_time = 'dinner';
+                    }
+                }
             }
             if ($qty > 0 && !empty($fi['heading'])) {
                 $subtotal = $is_complimentary ? 0.00 : ($qty * $price);
@@ -314,14 +340,11 @@ try {
     }
 
     // Process Complimentary Breakfast Option
+    // POLICY: Complimentary breakfast provides the fixed daily chef spread at ₹0 (guests cannot choose/substitute dishes).
+    // Any specific additional dishes or customizations (including breakfast items) remain active as PAID items.
     $raw_comp_bfast = $input['complimentary_breakfast'] ?? null;
     $is_comp_bfast = ($raw_comp_bfast === true || $raw_comp_bfast === 1 || $raw_comp_bfast === '1' || $raw_comp_bfast === 'true');
     if ($is_comp_bfast) {
-        // Remove any paid breakfast items if user selected complimentary breakfast
-        $verified_food_items = array_values(array_filter($verified_food_items, function($it) {
-            return ($it['meal_time'] !== 'breakfast' || !empty($it['is_complimentary']));
-        }));
-
         $has_comp_bfast = false;
         foreach ($verified_food_items as $vfi) {
             if (!empty($vfi['is_complimentary']) && $vfi['meal_time'] === 'breakfast') {
@@ -334,8 +357,8 @@ try {
                 'id' => 0,
                 'category' => 'breakfast',
                 'category_title' => 'Complimentary Estate Breakfast',
-                'heading' => 'Complimentary Sanctuary Breakfast',
-                'subtitle' => "Chef's Daily Estate Morning Spread (Included in Stay)",
+                'heading' => 'Complimentary Sanctuary Breakfast (Chef\'s Fixed Daily Spread)',
+                'subtitle' => "Chef's Daily Estate Morning Spread (Included in Stay — No À La Carte Choice)",
                 'price' => 0.00,
                 'quantity' => max(1, $guests_count),
                 'subtotal' => 0.00,
@@ -379,6 +402,15 @@ try {
         ];
         $food_total += 3000.00;
     }
+
+    // Recompute food_total strictly from all non-complimentary food items
+    $calc_food_total = 0.0;
+    foreach ($verified_food_items as $vfi) {
+        if (empty($vfi['is_complimentary'])) {
+            $calc_food_total += (float)($vfi['subtotal'] ?? 0);
+        }
+    }
+    $food_total = $calc_food_total;
 
     $food_status = !empty($verified_food_items) ? 'selected' : 'skipped';
 
@@ -653,9 +685,12 @@ try {
         @mkdir($upload_dir, 0777, true);
     }
 
-    $safe_token = bin2hex(random_bytes(10));
+    $safe_token = bin2hex(random_bytes(5));
+    $safe_g = trim(preg_replace('/\s+/', '_', preg_replace('/[^a-zA-Z0-9_\-\s]/', '', $guest_name ?? 'Guest')), '_') ?: 'Guest';
+    $safe_num = trim(preg_replace('/[^a-zA-Z0-9_\-]/', '_', $id_proof_number ?? ''), '_');
+    $prefix = $safe_num ? "{$safe_g}_{$safe_num}" : "{$safe_g}_id";
     $safe_ref = preg_replace('/[^a-zA-Z0-9_-]/', '', $ref_code);
-    $new_filename = 'id_' . strtolower($safe_ref) . '_' . $safe_token . '.' . $ext;
+    $new_filename = 'id_' . strtolower(substr($prefix, 0, 45)) . '_' . strtolower($safe_ref) . '_' . $safe_token . '.' . $ext;
     $destination = $upload_dir . $new_filename;
 
     if (!move_uploaded_file($tmp_path, $destination)) {

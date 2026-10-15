@@ -1635,34 +1635,107 @@ $current_admin_user = current_admin();
             <button type="button" onclick="closeGeneralSettingsModal();" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #FFF; width: 34px; height: 34px; border-radius: 8px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;" aria-label="Close dialog"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <!-- 8 Tabs Header Bar -->
-        <div style="display: flex; gap: 6px; padding: 10px 20px; background: rgba(0,0,0,0.45); border-bottom: 1px solid rgba(255,255,255,0.08); overflow-x: auto; flex-shrink: 0; scrollbar-width: thin;" id="general-settings-tabs-bar">
-            <button type="button" class="adm-gen-tab-btn active" data-tab="branding" onclick="switchGeneralTab('branding');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid var(--adm-gold); background: rgba(197, 160, 89, 0.22); color: #FFF; white-space: nowrap; transition: all 0.2s;">
-                <i class="fa-solid fa-compass-drafting" style="color: var(--adm-gold);"></i> Branding &amp; Logo
+        <!-- Styles for Large Tab Navigation Arrows & Scrollbar -->
+        <style>
+        .adm-gen-scroll-arrow {
+            width: 44px;
+            height: 42px;
+            min-width: 44px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(28, 56, 38, 0.95), rgba(11, 24, 16, 0.95));
+            border: 1.5px solid var(--adm-gold);
+            color: var(--adm-gold);
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5), inset 0 0 10px rgba(197, 160, 89, 0.15);
+            flex-shrink: 0;
+            z-index: 2;
+        }
+        .adm-gen-scroll-arrow:hover {
+            background: var(--adm-gold) !important;
+            color: #06140b !important;
+            border-color: #FFFFFF !important;
+            box-shadow: 0 6px 20px rgba(197, 160, 89, 0.5) !important;
+            transform: translateY(-1px) scale(1.06);
+        }
+        .adm-gen-scroll-arrow:active {
+            transform: translateY(1px) scale(0.96);
+        }
+        .adm-gen-scroll-arrow.is-disabled {
+            opacity: 0.25 !important;
+            cursor: default !important;
+            pointer-events: none !important;
+            box-shadow: none !important;
+            border-color: rgba(255,255,255,0.12) !important;
+            color: rgba(255,255,255,0.3) !important;
+            background: rgba(255,255,255,0.03) !important;
+        }
+        #general-settings-tabs-bar::-webkit-scrollbar {
+            height: 6px;
+        }
+        #general-settings-tabs-bar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.45);
+            border-radius: 4px;
+        }
+        #general-settings-tabs-bar::-webkit-scrollbar-thumb {
+            background: rgba(197, 160, 89, 0.45);
+            border-radius: 4px;
+            border: 1px solid rgba(197, 160, 89, 0.25);
+        }
+        #general-settings-tabs-bar::-webkit-scrollbar-thumb:hover {
+            background: var(--adm-gold);
+        }
+        #general-settings-tabs-bar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(197, 160, 89, 0.45) rgba(0, 0, 0, 0.45);
+        }
+        </style>
+
+        <!-- 8 Tabs Navigation Header with Large Navigation Scroll Arrows -->
+        <div class="adm-gen-tabs-wrapper" style="position: relative; display: flex; align-items: center; background: rgba(0,0,0,0.55); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; flex-shrink: 0; gap: 10px;">
+            <!-- Left Scroll Arrow -->
+            <button type="button" id="btn-gen-tabs-scroll-left" onclick="scrollGeneralTabs('left');" class="adm-gen-scroll-arrow left" aria-label="Scroll tabs left" title="Scroll left to see previous tabs">
+                <i class="fa-solid fa-chevron-left"></i>
             </button>
-            <button type="button" class="adm-gen-tab-btn" data-tab="gst" onclick="switchGeneralTab('gst');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
-                <i class="fa-solid fa-receipt" style="color: #38BDF8;"></i> Multi-Tier GST
-            </button>
-            <button type="button" class="adm-gen-tab-btn" data-tab="food" onclick="switchGeneralTab('food');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
-                <i class="fa-solid fa-utensils" style="color: #2ECC71;"></i> Food Ordering
-            </button>
-            <button type="button" class="adm-gen-tab-btn" data-tab="preview" onclick="switchGeneralTab('preview');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
-                <i class="fa-solid fa-display" style="color: #A855F7;"></i> Live Preview
-            </button>
-            <button type="button" class="adm-gen-tab-btn" data-tab="sessions" onclick="switchGeneralTab('sessions');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
-                <i class="fa-solid fa-clock" style="color: #F59E0B;"></i> Session Timings
-            </button>
-            <button type="button" class="adm-gen-tab-btn" data-tab="security" onclick="switchGeneralTab('security');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
-                <i class="fa-solid fa-user-shield" style="color: #EC4899;"></i> Admin Security
-            </button>
-            <button type="button" class="adm-gen-tab-btn" data-tab="users" onclick="switchGeneralTab('users');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
-                <i class="fa-solid fa-users" style="color: #06B6D4;"></i> User Profiles Hub
-                <span class="adm-badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; font-size: 10px; padding: 1px 6px; border-radius: 10px;">
-                    <i class="fa-solid fa-circle-check"></i> <?php echo count($all_registered_users); ?>
-                </span>
-            </button>
-            <button type="button" class="adm-gen-tab-btn" data-tab="audit" onclick="switchGeneralTab('audit');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
-                <i class="fa-solid fa-clipboard-check" style="color: #10B981;"></i> Room Audit Checklist
+
+            <!-- Scrollable Tabs Track -->
+            <div style="display: flex; gap: 8px; padding: 4px 6px; overflow-x: auto; flex: 1; scroll-behavior: smooth; -webkit-overflow-scrolling: touch;" id="general-settings-tabs-bar">
+                <button type="button" class="adm-gen-tab-btn active" data-tab="branding" onclick="switchGeneralTab('branding');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1.5px solid var(--adm-gold); background: rgba(197, 160, 89, 0.25); color: #FFF; white-space: nowrap; transition: all 0.2s;">
+                    <i class="fa-solid fa-compass-drafting" style="color: var(--adm-gold);"></i> Branding &amp; Logo
+                </button>
+                <button type="button" class="adm-gen-tab-btn" data-tab="gst" onclick="switchGeneralTab('gst');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
+                    <i class="fa-solid fa-receipt" style="color: #38BDF8;"></i> Multi-Tier GST
+                </button>
+                <button type="button" class="adm-gen-tab-btn" data-tab="food" onclick="switchGeneralTab('food');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
+                    <i class="fa-solid fa-utensils" style="color: #2ECC71;"></i> Food Ordering
+                </button>
+                <button type="button" class="adm-gen-tab-btn" data-tab="preview" onclick="switchGeneralTab('preview');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
+                    <i class="fa-solid fa-display" style="color: #A855F7;"></i> Live Preview
+                </button>
+                <button type="button" class="adm-gen-tab-btn" data-tab="sessions" onclick="switchGeneralTab('sessions');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
+                    <i class="fa-solid fa-clock" style="color: #F59E0B;"></i> Session Timings
+                </button>
+                <button type="button" class="adm-gen-tab-btn" data-tab="security" onclick="switchGeneralTab('security');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
+                    <i class="fa-solid fa-user-shield" style="color: #EC4899;"></i> Admin Security
+                </button>
+                <button type="button" class="adm-gen-tab-btn" data-tab="users" onclick="switchGeneralTab('users');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
+                    <i class="fa-solid fa-users" style="color: #06B6D4;"></i> User Profiles Hub
+                    <span class="adm-badge" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; font-size: 10px; padding: 1px 6px; border-radius: 10px;">
+                        <i class="fa-solid fa-circle-check"></i> <?php echo count($all_registered_users); ?>
+                    </span>
+                </button>
+                <button type="button" class="adm-gen-tab-btn" data-tab="audit" onclick="switchGeneralTab('audit');" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--adm-text-secondary); white-space: nowrap; transition: all 0.2s;">
+                    <i class="fa-solid fa-clipboard-check" style="color: #10B981;"></i> Room Audit Checklist
+                </button>
+            </div>
+
+            <!-- Right Scroll Arrow -->
+            <button type="button" id="btn-gen-tabs-scroll-right" onclick="scrollGeneralTabs('right');" class="adm-gen-scroll-arrow right" aria-label="Scroll tabs right" title="Scroll right to see more tabs">
+                <i class="fa-solid fa-chevron-right"></i>
             </button>
         </div>
 
@@ -2544,7 +2617,11 @@ function openGeneralSettingsModal(initialTab) {
     if (modal) {
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+        initGeneralTabsDragScroll();
         switchGeneralTab(initialTab || 'branding');
+        setTimeout(function() {
+            updateGeneralTabsArrowState();
+        }, 120);
     }
 }
 
@@ -2556,19 +2633,116 @@ function closeGeneralSettingsModal() {
     }
 }
 
+function scrollGeneralTabs(direction) {
+    var bar = document.getElementById('general-settings-tabs-bar');
+    if (!bar) return;
+    var scrollAmount = 260;
+    bar.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+    });
+    setTimeout(updateGeneralTabsArrowState, 280);
+}
+
+function updateGeneralTabsArrowState() {
+    var bar = document.getElementById('general-settings-tabs-bar');
+    var btnLeft = document.getElementById('btn-gen-tabs-scroll-left');
+    var btnRight = document.getElementById('btn-gen-tabs-scroll-right');
+    if (!bar || !btnLeft || !btnRight) return;
+
+    var maxScroll = bar.scrollWidth - bar.clientWidth;
+    var canScrollLeft = bar.scrollLeft > 6;
+    var canScrollRight = maxScroll > 6 && bar.scrollLeft < (maxScroll - 6);
+
+    if (canScrollLeft) {
+        btnLeft.classList.remove('is-disabled');
+        btnLeft.style.opacity = '1';
+        btnLeft.style.pointerEvents = 'auto';
+        btnLeft.style.cursor = 'pointer';
+    } else {
+        btnLeft.classList.add('is-disabled');
+        btnLeft.style.opacity = '0.25';
+        btnLeft.style.pointerEvents = 'none';
+        btnLeft.style.cursor = 'default';
+    }
+
+    if (canScrollRight) {
+        btnRight.classList.remove('is-disabled');
+        btnRight.style.opacity = '1';
+        btnRight.style.pointerEvents = 'auto';
+        btnRight.style.cursor = 'pointer';
+    } else {
+        btnRight.classList.add('is-disabled');
+        btnRight.style.opacity = '0.25';
+        btnRight.style.pointerEvents = 'none';
+        btnRight.style.cursor = 'default';
+    }
+}
+
+function initGeneralTabsDragScroll() {
+    var bar = document.getElementById('general-settings-tabs-bar');
+    if (!bar || bar._hasDragInitialized) return;
+    bar._hasDragInitialized = true;
+
+    var isDown = false;
+    var startX = 0;
+    var scrollLeft = 0;
+
+    bar.addEventListener('mousedown', function(e) {
+        isDown = true;
+        startX = e.pageX - bar.offsetLeft;
+        scrollLeft = bar.scrollLeft;
+    });
+
+    bar.addEventListener('mouseleave', function() {
+        isDown = false;
+    });
+
+    bar.addEventListener('mouseup', function() {
+        isDown = false;
+        setTimeout(updateGeneralTabsArrowState, 80);
+    });
+
+    bar.addEventListener('mousemove', function(e) {
+        if (!isDown) return;
+        var x = e.pageX - bar.offsetLeft;
+        var walk = (x - startX) * 1.5;
+        if (Math.abs(walk) > 3) {
+            bar.scrollLeft = scrollLeft - walk;
+            updateGeneralTabsArrowState();
+        }
+    });
+
+    // Horizontal scroll on vertical wheel
+    bar.addEventListener('wheel', function(e) {
+        if (e.deltaY !== 0) {
+            e.preventDefault();
+            bar.scrollLeft += (e.deltaY > 0 ? 120 : -120);
+            updateGeneralTabsArrowState();
+        }
+    }, { passive: false });
+
+    bar.addEventListener('scroll', updateGeneralTabsArrowState);
+    window.addEventListener('resize', updateGeneralTabsArrowState);
+}
+
 function switchGeneralTab(tabKey) {
     var btns = document.querySelectorAll('#general-settings-tabs-bar .adm-gen-tab-btn');
+    var activeBtn = null;
     btns.forEach(function(b) {
         if (b.getAttribute('data-tab') === tabKey) {
             b.classList.add('active');
-            b.style.border = '1px solid var(--adm-gold)';
-            b.style.background = 'rgba(197, 160, 89, 0.22)';
+            b.style.border = '1.5px solid var(--adm-gold)';
+            b.style.background = 'rgba(197, 160, 89, 0.25)';
             b.style.color = '#FFFFFF';
+            b.style.boxShadow = '0 0 12px rgba(197, 160, 89, 0.25)';
+            activeBtn = b;
         } else {
             b.classList.remove('active');
             b.style.border = '1px solid rgba(255,255,255,0.1)';
             b.style.background = 'transparent';
             b.style.color = 'var(--adm-text-secondary)';
+            b.style.boxShadow = 'none';
         }
     });
 
@@ -2581,6 +2755,12 @@ function switchGeneralTab(tabKey) {
     if (targetPane) {
         targetPane.style.display = 'block';
     }
+
+    if (activeBtn && typeof activeBtn.scrollIntoView === 'function') {
+        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
+    setTimeout(updateGeneralTabsArrowState, 250);
 }
 
 // 1. Branding & Logo Handlers

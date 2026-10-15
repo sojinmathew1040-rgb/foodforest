@@ -216,7 +216,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                     <i class="fa-solid fa-circle-question"></i> What is a Duplex? View Layout Plan
                                 </button>
                             </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="modal-duplex-tier-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                                 <label class="modal-tier-radio-label" id="modal-tier-label-full" style="background: #FFFFFF; border: 1.5px solid var(--accent-gold); border-radius: 6px; padding: 10px; cursor: pointer; display: flex; align-items: flex-start; gap: 8px;">
                                     <input type="radio" name="modal_tier" value="full" checked style="margin-top: 2px; accent-color: var(--accent-gold);">
                                     <div>
@@ -282,7 +282,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         <label class="form-label font-sans" style="margin-bottom: 8px; color: #1E293B !important; font-weight: 700; font-size: 13.5px;">
                             <i class="fa-regular fa-calendar-days" style="color: var(--accent-gold); margin-right: 6px;"></i> Stay Dates
                         </label>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                        <div class="modal-dates-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                             <div>
                                 <span style="font-size: 11.5px; color: #64748B; display: block; margin-bottom: 4px; font-weight: 600;">Check-In Date</span>
                                 <div class="input-icon-wrapper">
@@ -395,6 +395,31 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                         </label>
                     </div>
 
+                    <!-- Target Serving Meal Time Selection Bar (Global Default for Selected Dishes) -->
+                    <div class="booking-meal-timing-bar font-sans" style="background: #F8FAF8; border: 1.5px solid rgba(28, 56, 38, 0.16); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 12.5px; font-weight: 700; color: #1C3826; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-bell-concierge" style="color: var(--accent-gold);"></i> Serving Meal Time:
+                            </span>
+                            <span style="font-size: 11.5px; color: #64748B;">(Dishes chosen will be scheduled for this dining shift)</span>
+                        </div>
+                        <div class="booking-global-meal-pills" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" class="btn-global-booking-meal" data-meal="breakfast" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px; border: 1.5px solid #CBD5E1; background: #FFFFFF; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease;">
+                                ☀️ Breakfast
+                            </button>
+                            <button type="button" class="btn-global-booking-meal" data-meal="lunch" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px; border: 1.5px solid #CBD5E1; background: #FFFFFF; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease;">
+                                🍛 Lunch
+                            </button>
+                            <button type="button" class="btn-global-booking-meal" data-meal="snacks" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px; border: 1.5px solid #CBD5E1; background: #FFFFFF; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease;">
+                                ☕ Evening Snacks
+                            </button>
+                            <button type="button" class="btn-global-booking-meal active" data-meal="dinner" style="padding: 5px 12px; font-size: 11.5px; font-weight: 700; border-radius: 6px; border: 1.5px solid var(--accent-green); background: var(--accent-green); color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s ease;">
+                                🌙 Dinner
+                            </button>
+                        </div>
+                        <input type="hidden" id="booking-global-target-meal" value="dinner">
+                    </div>
+
                     <!-- Category Filter Tabs & Expand/Collapse Control -->
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
                         <div class="modal-food-tabs-bar font-sans" style="display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; flex: 1; min-width: 250px;">
@@ -414,7 +439,7 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
 
                     <div id="food-selection-container" class="food-selection-wrapper">
                         <?php foreach ($modal_food_cats as $cat_key => $cat_data): 
-                            $is_initially_open = in_array($cat_key, ['breakfast', 'lunch', 'dinner']);
+                            $is_initially_open = false;
                         ?>
                             <div class="modal-meal-category-block <?php echo $is_initially_open ? 'is-open' : ''; ?>" id="modal-cat-block-<?php echo $cat_key; ?>" data-category="<?php echo $cat_key; ?>">
                                 
@@ -457,22 +482,31 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                                 <!-- Collapsible Dish Grid Panel -->
                                 <div class="modal-dishes-grid-panel" id="dishes-panel-<?php echo $cat_key; ?>" style="<?php echo $is_initially_open ? 'display: block;' : 'display: none;'; ?>">
                                     <?php if ($cat_key === 'breakfast'): ?>
-                                        <!-- Complimentary Breakfast Info Banner (Shown when Complimentary is checked) -->
-                                        <div class="complimentary-breakfast-banner" id="banner-complimentary-breakfast" style="display: none; background: #ECFDF5; border: 1.5px solid #10B981; border-radius: 8px; padding: 14px 18px; margin-bottom: 14px; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
-                                            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px;">
-                                                <div style="width: 42px; height: 42px; border-radius: 50%; background: #D1FAE5; display: flex; align-items: center; justify-content: center; color: #059669; font-size: 18px; flex-shrink: 0;">
-                                                    <i class="fa-solid fa-mug-saucer"></i>
+                                        <!-- Complimentary Breakfast Policy & Notice Banner -->
+                                        <div class="complimentary-breakfast-banner" id="banner-complimentary-breakfast" style="display: none; background: #ECFDF5; border: 1.5px solid #10B981; border-radius: 8px; padding: 14px 18px; margin-bottom: 14px; flex-direction: column; gap: 10px;">
+                                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; width: 100%;">
+                                                <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px;">
+                                                    <div style="width: 42px; height: 42px; border-radius: 50%; background: #D1FAE5; display: flex; align-items: center; justify-content: center; color: #059669; font-size: 18px; flex-shrink: 0;">
+                                                        <i class="fa-solid fa-mug-saucer"></i>
+                                                    </div>
+                                                    <div>
+                                                        <strong style="color: #065F46; font-size: 14px; display: block; margin-bottom: 2px;">Complimentary Breakfast (Chef's Daily Fixed Spread)</strong>
+                                                        <span style="color: #047857; font-size: 12px; line-height: 1.45; display: block;">
+                                                            Our estate kitchen provides the authentic daily morning spread (09:00 AM – 10:00 AM) at ₹0. <strong>Dishes are predetermined by the chef — guests have no option to choose or substitute the complimentary dishes.</strong>
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <strong style="color: #065F46; font-size: 14px; display: block; margin-bottom: 2px;">Complimentary Estate Breakfast Selected</strong>
-                                                    <span style="color: #047857; font-size: 12px; line-height: 1.4; display: block;">Chef's authentic morning spread (Steaming Appam, Idiyappam, Organic Eggs, Orchard Fruits, Cardamom Tea/Coffee) will be served from 09:00 AM – 10:00 AM. Free of charge — no à la carte selection needed.</span>
-                                                </div>
-                                            </div>
-                                            <div style="display: flex; align-items: center; gap: 10px;">
                                                 <span style="background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; white-space: nowrap; box-shadow: 0 2px 4px rgba(5,150,105,0.2);">
-                                                    <i class="fa-solid fa-gift"></i> INCLUDED (₹0.00)
+                                                    <i class="fa-solid fa-gift"></i> FIXED SPREAD INCLUDED (₹0.00)
                                                 </span>
                                             </div>
+                                            <div style="background: rgba(5, 150, 105, 0.08); border-left: 3px solid #059669; padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: 11.5px; color: #064E3B; line-height: 1.45;">
+                                                <i class="fa-solid fa-circle-info" style="color: #059669; margin-right: 4px;"></i>
+                                                <strong>Paid Customizations &amp; Extra Portions:</strong> If you wish to order specific additional breakfast items or customized dishes below, each additional item is charged at its regular menu rate.
+                                            </div>
+                                        </div>
+                                        <div id="breakfast-addon-helper-note" style="display: none; font-size: 11.5px; color: #047857; margin-bottom: 10px; font-weight: 600;">
+                                            <i class="fa-solid fa-plus-circle"></i> Additional breakfast dishes &amp; customizations selected below are billed at listed rates:
                                         </div>
                                     <?php endif; ?>
                                     <div class="modal-dishes-grid" id="dishes-grid-<?php echo $cat_key; ?>">
@@ -866,7 +900,12 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
                     <div id="modal-password-container" style="display: none; margin-top: 10px;">
                         <div class="form-field">
                             <label for="modal-password" class="form-label font-sans">Create Account Password *</label>
-                            <input type="password" id="modal-password" class="form-input font-sans" placeholder="Choose a secure password (min 4 characters)">
+                            <div style="position: relative; display: flex; align-items: center;">
+                                <input type="password" id="modal-password" class="form-input font-sans" placeholder="Choose a secure password (min 4 characters)" style="padding-right: 40px; width: 100%;">
+                                <button type="button" onclick="var p = document.getElementById('modal-password'); var i = this.querySelector('i'); if(p.type==='password'){p.type='text'; i.className='fa-regular fa-eye-slash'; this.setAttribute('title','Hide password');}else{p.type='password'; i.className='fa-regular fa-eye'; this.setAttribute('title','Preview password');}" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; padding: 6px; font-size: 14px; display: flex; align-items: center; justify-content: center;" title="Preview password" aria-label="Toggle password visibility">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -932,11 +971,12 @@ $logged_user = $is_logged_user ? get_logged_in_client_user() : null;
 
                 <!-- Action Buttons -->
                 <div class="booking-action-buttons">
-                    <button type="button" id="btn-submit-booking-direct" class="btn-primary font-sans" style="background: #C5A059; color: #101F15; font-weight: 700; padding: 14px 24px; border-radius: 6px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <!-- Primary action is handled by floating sticky bill bar (#btn-mscb-submit). In-form duplicate is hidden to prevent confusion -->
+                    <button type="button" id="btn-submit-booking-direct" class="btn-primary font-sans" style="display: none !important;" aria-hidden="true" tabindex="-1">
                         <i class="fa-solid fa-receipt"></i>
                         <span>Confirm Reservation & Generate PDF Receipt</span>
                     </button>
-                    <button type="button" id="btn-submit-whatsapp" class="btn-secondary btn-whatsapp-luxury font-sans" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <button type="button" id="btn-submit-whatsapp" class="btn-secondary btn-whatsapp-luxury font-sans" style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;">
                         <i class="fa-brands fa-whatsapp"></i>
                         <span>Instant WhatsApp Concierge Confirmation</span>
                     </button>

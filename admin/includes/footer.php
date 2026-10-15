@@ -56,6 +56,11 @@ $current_page_file = basename($_SERVER['PHP_SELF']);
 <!-- Mobile Sidebar Drawer Backdrop Overlay -->
 <div class="adm-mobile-sidebar-backdrop" id="adm-mobile-sidebar-backdrop"></div>
 
+<!-- Admin Sanctuary Scroll to Top Button -->
+<button type="button" class="adm-scroll-top" id="adm-scroll-top" aria-label="Scroll to top of console" title="Return to Top">
+    <i class="fa-solid fa-chevron-up"></i>
+</button>
+
 <!-- Admin Javascript -->
 <script src="assets/js/admin.js?v=<?php echo time(); ?>"></script>
 </body>

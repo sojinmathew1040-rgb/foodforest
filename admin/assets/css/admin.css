@@ -1033,6 +1033,639 @@ select optgroup {
 .adm-kpi-card.terracotta .adm-kpi-icon-wrap { background: var(--adm-terracotta-dim); color: var(--adm-terracotta-bright); }
 
 /* -------------------------------------------------------------
+   4b. Compact Horizontal KPI Strip & Collapsible Metrics
+   ------------------------------------------------------------- */
+.adm-kpi-strip-container {
+    background: var(--adm-bg-surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 10px 14px 12px;
+    margin-bottom: 20px;
+    box-shadow: var(--adm-shadow-sm);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.adm-kpi-strip-container:hover {
+    border-color: rgba(197, 160, 89, 0.22);
+}
+
+.adm-kpi-strip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 28px;
+    user-select: none;
+}
+
+.adm-kpi-strip-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.adm-kpi-strip-tag {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: var(--adm-gold-dim);
+    color: var(--adm-gold-light);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.adm-kpi-strip-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--adm-text-muted);
+    font-family: var(--adm-font-sans);
+    white-space: nowrap;
+}
+
+.adm-kpi-collapsed-summary {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-left: 6px;
+}
+
+.adm-kpi-summary-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-decoration: none;
+    transition: var(--adm-transition);
+}
+
+.adm-kpi-summary-pill.gold {
+    background: var(--adm-gold-dim);
+    border: 1px solid var(--adm-gold-border);
+    color: var(--adm-gold-light);
+}
+
+.adm-kpi-summary-pill.emerald {
+    background: var(--adm-emerald-dim);
+    border: 1px solid var(--adm-emerald-border);
+    color: var(--adm-emerald-bright);
+}
+
+.adm-kpi-summary-pill.amber {
+    background: var(--adm-amber-dim);
+    border: 1px solid var(--adm-amber-border);
+    color: var(--adm-amber-bright);
+}
+
+.adm-kpi-summary-pill.terracotta {
+    background: var(--adm-terracotta-dim);
+    border: 1px solid var(--adm-terracotta-border);
+    color: var(--adm-terracotta-bright);
+}
+
+.adm-kpi-summary-pill.cyan {
+    background: rgba(2, 132, 199, 0.16);
+    border: 1px solid rgba(2, 132, 199, 0.4);
+    color: #38BDF8;
+}
+
+.adm-kpi-summary-pill.purple {
+    background: rgba(139, 92, 246, 0.16);
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    color: #C084FC;
+}
+
+.adm-kpi-summary-pill.red {
+    background: rgba(231, 76, 60, 0.16);
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    color: #f87171;
+}
+
+.adm-kpi-summary-pill:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.15);
+}
+
+.adm-kpi-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: var(--adm-text-secondary);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--adm-transition);
+    flex-shrink: 0;
+}
+
+.adm-kpi-toggle-btn:hover {
+    background: var(--adm-gold-dim);
+    border-color: var(--adm-gold-border);
+    color: var(--adm-gold-light);
+}
+
+.adm-kpi-toggle-btn i {
+    font-size: 10px;
+    transition: transform 0.25s ease;
+}
+
+.adm-kpi-row-wrapper {
+    margin-top: 10px;
+    transition: all 0.25s ease;
+}
+
+.adm-kpi-compact-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.adm-kpi-mini-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--adm-bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 8px 12px;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    overflow: hidden;
+    transition: var(--adm-transition);
+    min-height: 50px;
+    box-sizing: border-box;
+}
+
+.adm-kpi-mini-card:hover {
+    transform: translateY(-2px);
+    background: var(--adm-bg-card-hover);
+    box-shadow: var(--adm-shadow-sm);
+}
+
+.adm-kpi-mini-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2.5px;
+}
+
+.adm-kpi-mini-card.gold::after { background: var(--adm-gold); }
+.adm-kpi-mini-card.emerald::after { background: var(--adm-emerald); }
+.adm-kpi-mini-card.amber::after { background: var(--adm-amber); }
+.adm-kpi-mini-card.terracotta::after { background: var(--adm-terracotta); }
+.adm-kpi-mini-card.cyan::after { background: #0284C7; }
+.adm-kpi-mini-card.purple::after { background: #8B5CF6; }
+.adm-kpi-mini-card.red::after { background: #e74c3c; }
+
+.adm-kpi-mini-card.gold:hover { border-color: var(--adm-gold-border); }
+.adm-kpi-mini-card.emerald:hover { border-color: var(--adm-emerald-border); }
+.adm-kpi-mini-card.amber:hover { border-color: var(--adm-amber-border); }
+.adm-kpi-mini-card.terracotta:hover { border-color: var(--adm-terracotta-border); }
+.adm-kpi-mini-card.cyan:hover { border-color: rgba(2, 132, 199, 0.45); }
+.adm-kpi-mini-card.purple:hover { border-color: rgba(139, 92, 246, 0.45); }
+.adm-kpi-mini-card.red:hover { border-color: rgba(231, 76, 60, 0.45); }
+
+.adm-kpi-mini-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.adm-kpi-mini-card.gold .adm-kpi-mini-icon {
+    background: var(--adm-gold-dim);
+    color: var(--adm-gold-light);
+}
+
+.adm-kpi-mini-card.emerald .adm-kpi-mini-icon {
+    background: var(--adm-emerald-dim);
+    color: var(--adm-emerald-bright);
+}
+
+.adm-kpi-mini-card.amber .adm-kpi-mini-icon {
+    background: var(--adm-amber-dim);
+    color: var(--adm-amber-bright);
+}
+
+.adm-kpi-mini-card.terracotta .adm-kpi-mini-icon {
+    background: var(--adm-terracotta-dim);
+    color: var(--adm-terracotta-bright);
+}
+
+.adm-kpi-mini-card.cyan .adm-kpi-mini-icon {
+    background: rgba(2, 132, 199, 0.16);
+    color: #38BDF8;
+}
+
+.adm-kpi-mini-card.purple .adm-kpi-mini-icon {
+    background: rgba(139, 92, 246, 0.16);
+    color: #C084FC;
+}
+
+.adm-kpi-mini-card.red .adm-kpi-mini-icon {
+    background: rgba(231, 76, 60, 0.16);
+    color: #f87171;
+}
+
+.adm-kpi-mini-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.adm-kpi-mini-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--adm-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.adm-kpi-mini-value {
+    font-family: var(--adm-font-title);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--adm-text-primary);
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.adm-kpi-mini-trend {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--adm-text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.adm-kpi-mini-trend.positive {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--adm-emerald-bright);
+}
+
+.adm-kpi-mini-trend.emerald-trend {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--adm-emerald-bright);
+}
+
+.adm-kpi-mini-trend.amber-trend {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--adm-amber-bright);
+}
+
+.adm-kpi-mini-trend.slate-trend {
+    background: rgba(148, 163, 184, 0.12);
+    color: var(--adm-text-secondary);
+}
+
+.adm-kpi-mini-trend.cyan-trend {
+    background: rgba(2, 132, 199, 0.12);
+    color: #38BDF8;
+}
+
+.adm-kpi-mini-trend.purple-trend {
+    background: rgba(139, 92, 246, 0.12);
+    color: #C084FC;
+}
+
+.adm-kpi-mini-trend.red-trend {
+    background: rgba(231, 76, 60, 0.12);
+    color: #f87171;
+}
+
+.adm-kpi-mini-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--adm-emerald);
+    display: inline-block;
+    box-shadow: 0 0 6px var(--adm-emerald);
+}
+
+.adm-kpi-badge-pulse {
+    display: inline-flex;
+    align-items: center;
+    color: var(--adm-amber-bright);
+    font-weight: 700;
+}
+
+@media (max-width: 960px) {
+    .adm-kpi-compact-row {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        gap: 10px;
+        padding-bottom: 4px;
+        scrollbar-width: thin;
+    }
+    .adm-kpi-mini-card {
+        flex: 0 0 210px;
+        min-width: 210px;
+        scroll-snap-align: start;
+    }
+}
+
+@media (max-width: 640px) {
+    .adm-kpi-strip-container {
+        padding: 9px 11px;
+    }
+    .adm-kpi-mini-card {
+        flex: 0 0 190px;
+        min-width: 190px;
+        padding: 7px 10px;
+    }
+    .adm-kpi-mini-value {
+        font-size: 16px;
+    }
+    .adm-kpi-collapsed-summary {
+        display: none !important;
+    }
+}
+
+/* -------------------------------------------------------------
+   4c. Mobile-Optimized Kitchen Filter Toolbar
+   ------------------------------------------------------------- */
+.adm-kitchen-filter-card {
+    background: var(--adm-bg-surface);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    box-shadow: var(--adm-shadow-sm);
+    transition: var(--adm-transition);
+}
+
+.adm-kitchen-filter-card:hover {
+    border-color: rgba(197, 160, 89, 0.22);
+}
+
+.adm-kitchen-filter-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.adm-kitchen-filter-track {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding-bottom: 2px !important;
+}
+
+.adm-kitchen-filter-track::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.adm-kitchen-shift-tag {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--adm-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+}
+
+.adm-kitchen-pill {
+    padding: 7px 14px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    transition: var(--adm-transition);
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: var(--adm-text-secondary) !important;
+    border: 1px solid rgba(255, 255, 255, 0.09) !important;
+    cursor: pointer;
+    line-height: 1 !important;
+    height: 32px !important;
+    box-sizing: border-box !important;
+}
+
+.adm-kitchen-pill:hover {
+    background: var(--adm-gold-dim) !important;
+    color: var(--adm-gold-light) !important;
+    border-color: var(--adm-gold-border) !important;
+}
+
+.adm-kitchen-pill.active {
+    background: var(--adm-gold-gradient) !important;
+    color: #0A160F !important;
+    font-weight: 700 !important;
+    border-color: var(--adm-gold) !important;
+    box-shadow: 0 2px 8px rgba(197, 160, 89, 0.35) !important;
+}
+
+.adm-kitchen-custom-toggle {
+    padding: 7px 14px !important;
+    border-radius: 999px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: var(--adm-text-secondary) !important;
+    border: 1px solid rgba(255, 255, 255, 0.09) !important;
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    transition: var(--adm-transition);
+    line-height: 1 !important;
+    height: 32px !important;
+    box-sizing: border-box !important;
+}
+
+.adm-kitchen-custom-toggle:hover,
+.adm-kitchen-custom-toggle.active {
+    background: var(--adm-gold-dim) !important;
+    color: var(--adm-gold-light) !important;
+    border-color: var(--adm-gold-border) !important;
+}
+
+.adm-kitchen-custom-drawer {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    animation: admFadeIn 0.2s ease-out;
+}
+
+.adm-kitchen-date-fields {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.adm-kitchen-date-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 5px 10px;
+}
+
+.adm-kitchen-date-group label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--adm-text-muted);
+    text-transform: uppercase;
+}
+
+.adm-kitchen-date-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #FFFFFF;
+    font-size: 12.5px;
+    font-family: inherit;
+    padding: 2px 0;
+    color-scheme: dark;
+}
+
+.adm-kitchen-filter-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 8px;
+    background: var(--adm-gold-gradient);
+    color: #0A160F;
+    font-size: 12.5px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: var(--adm-transition);
+}
+
+.adm-kitchen-filter-submit:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 2px 10px rgba(197, 160, 89, 0.4);
+}
+
+.adm-kitchen-filter-reset {
+    font-size: 12px;
+    color: var(--adm-terracotta-bright);
+    font-weight: 600;
+    text-decoration: underline;
+    margin-left: 4px;
+}
+
+/* Touch track scrollbars hidden */
+.adm-kitchen-filter-track,
+.adm-kpi-compact-row,
+.adm-meal-tabs-bar {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+.adm-kitchen-filter-track::-webkit-scrollbar,
+.adm-kpi-compact-row::-webkit-scrollbar,
+.adm-meal-tabs-bar::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+/* Mobile responsive rules */
+@media (max-width: 768px) {
+    .adm-kitchen-filter-main {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .adm-kitchen-date-fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+    }
+    .adm-kitchen-date-group {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .adm-kitchen-date-group input {
+        width: 100%;
+    }
+    .adm-kitchen-custom-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        grid-column: span 2;
+        margin-top: 4px;
+    }
+    .adm-kitchen-filter-submit {
+        flex: 1;
+        padding: 8px 14px;
+    }
+}
+
+/* -------------------------------------------------------------
    5. Action Toolbar & Filtering Controls
    ------------------------------------------------------------- */
 .adm-toolbar-card {
@@ -1184,6 +1817,702 @@ select optgroup {
 .adm-table-subtitle {
     font-size: 12px;
     color: var(--adm-text-muted);
+}
+
+/* View Mode Controls & Switcher */
+.adm-table-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.adm-view-switcher {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(8, 18, 12, 0.7);
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.adm-view-switcher-btn {
+    background: transparent;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--adm-text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.adm-view-switcher-btn i {
+    font-size: 11px;
+}
+
+.adm-view-switcher-btn:hover {
+    color: #FFFFFF;
+}
+
+.adm-view-switcher-btn.active {
+    background: linear-gradient(135deg, #c5a059 0%, #a68037 100%);
+    color: #0b1710 !important;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(197, 160, 89, 0.4);
+}
+
+/* View Mode Switcher Visibility Rules */
+.adm-table-card.view-mode-cards #bookings-cards-view,
+.adm-table-card.view-mode-cards #billing-cards-view,
+.adm-card.view-mode-cards #billing-cards-view {
+    display: block !important;
+}
+.adm-table-card.view-mode-cards #bookings-table-view,
+.adm-table-card.view-mode-cards #billing-table-view,
+.adm-card.view-mode-cards #billing-table-view {
+    display: none !important;
+}
+.adm-table-card.view-mode-table #bookings-cards-view,
+.adm-table-card.view-mode-table #billing-cards-view,
+.adm-card.view-mode-table #billing-cards-view {
+    display: none !important;
+}
+.adm-table-card.view-mode-table #bookings-table-view,
+.adm-table-card.view-mode-table #billing-table-view,
+.adm-card.view-mode-table #billing-table-view {
+    display: block !important;
+}
+
+/* Default responsive fallbacks before JS executes */
+@media (max-width: 768px) {
+    .adm-table-card:not(.view-mode-table) #bookings-cards-view,
+    .adm-table-card:not(.view-mode-table) #billing-cards-view,
+    .adm-card:not(.view-mode-table) #billing-cards-view {
+        display: block;
+    }
+    .adm-table-card:not(.view-mode-table) #bookings-table-view,
+    .adm-table-card:not(.view-mode-table) #billing-table-view,
+    .adm-card:not(.view-mode-table) #billing-table-view {
+        display: none;
+    }
+}
+@media (min-width: 769px) {
+    .adm-table-card:not(.view-mode-cards) #bookings-cards-view,
+    .adm-table-card:not(.view-mode-cards) #billing-cards-view,
+    .adm-card:not(.view-mode-cards) #billing-cards-view {
+        display: none;
+    }
+    .adm-table-card:not(.view-mode-cards) #bookings-table-view,
+    .adm-table-card:not(.view-mode-cards) #billing-table-view,
+    .adm-card:not(.view-mode-cards) #billing-table-view {
+        display: block;
+    }
+}
+
+/* Prominent Reservation View Mode Ribbon */
+.adm-res-view-options-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: linear-gradient(145deg, rgba(16, 31, 21, 0.95) 0%, rgba(10, 20, 14, 0.98) 100%);
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    flex-wrap: wrap;
+}
+
+.adm-res-view-options-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--adm-text-primary);
+}
+
+.adm-res-view-options-title {
+    color: var(--adm-gold-light);
+    font-family: var(--adm-font-title);
+    letter-spacing: 0.5px;
+}
+
+.adm-res-view-toggle-group {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(197, 160, 89, 0.3);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 4px;
+}
+
+.adm-res-toggle-btn {
+    background: transparent;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--adm-text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.2s ease;
+}
+
+.adm-res-toggle-btn:hover {
+    color: #FFFFFF;
+}
+
+.adm-res-toggle-btn.active {
+    background: linear-gradient(135deg, #c5a059 0%, #a68037 100%);
+    color: #0b1710 !important;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(197, 160, 89, 0.4);
+}
+
+.adm-res-opt-pill {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.adm-res-toggle-btn.active .adm-res-opt-pill {
+    background: #0b1710;
+    color: #c5a059;
+    border-color: rgba(0, 0, 0, 0.4);
+}
+
+/* Sticky Ref Column on Horizontal Scroll */
+.adm-col-sticky-ref {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 4 !important;
+    background: #08140c !important;
+    border-right: 1px solid rgba(197, 160, 89, 0.3) !important;
+    box-shadow: 3px 0 10px rgba(0, 0, 0, 0.4) !important;
+}
+
+th.adm-col-sticky-ref {
+    z-index: 5 !important;
+    background: #06110a !important;
+}
+
+/* In-Row Profile Buttons */
+.adm-row-profile-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.adm-btn-row-profile {
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+    border-radius: 5px !important;
+    background: rgba(197, 160, 89, 0.18) !important;
+    border: 1px solid rgba(197, 160, 89, 0.5) !important;
+    color: var(--adm-gold-light) !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    transition: all 0.15s ease !important;
+}
+
+.adm-btn-row-profile:hover {
+    background: var(--adm-gold) !important;
+    color: #101F15 !important;
+    border-color: var(--adm-gold) !important;
+}
+
+.adm-btn-row-expand {
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+    border-radius: 5px !important;
+    background: rgba(56, 189, 248, 0.14) !important;
+    border: 1px solid rgba(56, 189, 248, 0.45) !important;
+    color: #38bdf8 !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.adm-btn-row-expand:hover {
+    background: rgba(56, 189, 248, 0.28) !important;
+    border-color: #38bdf8 !important;
+}
+
+.adm-btn-row-expand.is-expanded {
+    background: rgba(245, 158, 11, 0.2) !important;
+    border-color: rgba(245, 158, 11, 0.55) !important;
+    color: #f59e0b !important;
+}
+
+.adm-btn-mob-ref-view {
+    display: none;
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    background: rgba(197, 160, 89, 0.15) !important;
+    border: 1px solid rgba(197, 160, 89, 0.35) !important;
+    color: var(--adm-gold-light) !important;
+    cursor: pointer !important;
+    margin-top: 4px !important;
+}
+
+@media (max-width: 768px) {
+    .adm-btn-mob-ref-view {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+}
+
+/* In-Table Drawer Row */
+.adm-row-drawer {
+    transition: all 0.25s ease;
+}
+
+.adm-row-drawer-cell {
+    padding: 0 !important;
+    background: #06110a !important;
+    border-bottom: 2px solid rgba(197, 160, 89, 0.4) !important;
+}
+
+.adm-drawer-content {
+    padding: 16px 20px;
+    background: linear-gradient(145deg, rgba(14, 28, 19, 0.95) 0%, rgba(8, 18, 12, 0.98) 100%);
+    border-left: 4px solid var(--adm-gold);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-sizing: border-box;
+}
+
+.adm-drawer-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 10px;
+}
+
+.adm-drawer-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.adm-drawer-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.adm-drawer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.adm-drawer-card {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.adm-drawer-card.highlight {
+    border-color: rgba(197, 160, 89, 0.4);
+    background: rgba(197, 160, 89, 0.08);
+}
+
+.adm-drawer-card-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--adm-text-muted);
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.adm-drawer-card-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--adm-text-primary);
+}
+
+.adm-drawer-details-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.adm-drawer-contact-pills {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.adm-drawer-notes-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.adm-drawer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 12px;
+}
+
+/* Table Swipe & Mobile Helper Banner */
+.adm-table-swipe-banner {
+    display: none;
+    background: linear-gradient(90deg, rgba(197, 160, 89, 0.15) 0%, rgba(14, 28, 19, 0.9) 100%);
+    border-bottom: 1px solid rgba(197, 160, 89, 0.3);
+    padding: 10px 16px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+    .adm-table-card.view-mode-table .adm-table-swipe-banner {
+        display: flex;
+    }
+}
+
+.adm-table-swipe-banner-text {
+    font-size: 11.5px;
+    color: var(--adm-gold-light);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1.4;
+}
+
+.adm-table-swipe-banner-text i {
+    color: var(--adm-gold);
+    font-size: 14px;
+}
+
+/* Reservation Cards Grid Container */
+.adm-booking-cards-container {
+    padding: 16px;
+    width: 100%;
+    box-sizing: border-box;
+    display: none;
+}
+
+.adm-booking-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+@media (min-width: 900px) {
+    .adm-booking-cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+        gap: 18px;
+    }
+}
+
+/* Individual Reservation Card */
+.adm-booking-card {
+    background: linear-gradient(145deg, rgba(16, 31, 21, 0.85) 0%, rgba(10, 20, 14, 0.95) 100%);
+    border: 1px solid rgba(197, 160, 89, 0.28);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.adm-booking-card:hover {
+    border-color: rgba(197, 160, 89, 0.55);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 0 14px rgba(197, 160, 89, 0.12);
+}
+
+/* Card Header */
+.adm-booking-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    padding-bottom: 10px;
+}
+
+.adm-booking-card-ref-wrap {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+/* Guest Info Area in Card */
+.adm-booking-card-guest {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.adm-card-guest-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--adm-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.adm-card-guest-title:hover {
+    color: var(--adm-gold-light);
+}
+
+.adm-card-contact-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+}
+
+.adm-contact-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--adm-text-secondary);
+    padding: 3px 9px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 11px;
+    transition: all 0.15s ease;
+}
+
+.adm-contact-pill:hover {
+    background: rgba(197, 160, 89, 0.15);
+    border-color: rgba(197, 160, 89, 0.35);
+    color: var(--adm-gold-light);
+}
+
+.adm-contact-pill.phone {
+    color: #6ee7b7;
+    border-color: rgba(110, 231, 183, 0.25);
+    background: rgba(110, 231, 183, 0.08);
+}
+
+.adm-contact-pill.id-proof {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border-color: rgba(34, 197, 94, 0.35);
+    font-weight: 600;
+}
+
+/* Stay Summary 2x2 Grid in Card */
+.adm-booking-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: rgba(8, 16, 11, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.adm-card-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+}
+
+.adm-card-stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--adm-text-muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.adm-card-stat-val {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--adm-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.adm-card-stat.highlight .adm-card-stat-val {
+    font-family: var(--adm-font-title);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--adm-gold-light);
+}
+
+/* Prominent Primary View Profile Button in Card */
+.adm-btn-card-view-profile {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(197, 160, 89, 0.22) 0%, rgba(197, 160, 89, 0.1) 100%);
+    border: 1px solid rgba(197, 160, 89, 0.45);
+    color: var(--adm-gold-light);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.adm-btn-card-view-profile:hover {
+    background: var(--adm-gold);
+    color: #101F15;
+    border-color: var(--adm-gold);
+    box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);
+    transform: translateY(-1px);
+}
+
+/* Secondary Actions Ribbon inside Card */
+.adm-booking-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.adm-booking-card-actions .adm-btn-stage {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+.adm-booking-card-actions .adm-btn-action {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+/* In-table mobile helper button & clickable guest link */
+.adm-guest-name-link {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.15s ease;
+    cursor: pointer;
+}
+
+.adm-guest-name-link:hover {
+    color: var(--adm-gold-light);
+}
+
+.adm-mob-quick-view-wrap {
+    display: none;
+    margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+    .adm-mob-quick-view-wrap {
+        display: block;
+    }
+}
+
+.adm-btn-mob-view {
+    font-size: 11px !important;
+    padding: 4px 9px !important;
+    white-space: nowrap !important;
+    border-radius: 5px !important;
+    background: rgba(197, 160, 89, 0.18) !important;
+    border: 1px solid rgba(197, 160, 89, 0.45) !important;
+    color: var(--adm-gold-light) !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    cursor: pointer !important;
+}
+
+.adm-btn-mob-view:hover {
+    background: var(--adm-gold) !important;
+    color: #101F15 !important;
+}
+
+/* Table Horizontal Swipe Hint for Mobile */
+.adm-table-swipe-hint {
+    display: none;
+    background: rgba(197, 160, 89, 0.08);
+    border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--adm-gold-light);
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .adm-table-card.view-mode-table .adm-table-swipe-hint {
+        display: flex;
+    }
 }
 
 .adm-table-responsive {
@@ -3868,6 +5197,704 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
     border: 1px solid rgba(59, 130, 246, 0.35);
 }
 
+/* Multi-Status Reservations Navigation: Mobile Menu Selector */
+.adm-res-mobile-menu-bar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: rgba(14, 28, 19, 0.9);
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.adm-res-mobile-menu-lbl {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--adm-gold);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+}
+
+.adm-res-select-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.adm-res-mobile-menu-select {
+    width: 100%;
+    background: rgba(8, 18, 12, 0.95);
+    color: #FFFFFF;
+    border: 1px solid rgba(197, 160, 89, 0.45);
+    border-radius: 8px;
+    padding: 8px 32px 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    outline: none;
+    transition: var(--adm-transition);
+}
+
+.adm-res-mobile-menu-select:focus {
+    border-color: var(--adm-gold);
+    box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.25);
+}
+
+.adm-res-select-arrow {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--adm-gold);
+    font-size: 11px;
+    pointer-events: none;
+}
+
+/* Quick Mobile Action Bar & Collapsible Drawer */
+.adm-bookings-quick-row {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.adm-filter-collapse-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: var(--adm-transition);
+}
+
+.adm-filter-chevron {
+    transition: transform 0.25s ease;
+    font-size: 11px;
+}
+
+.adm-filter-collapse-btn.is-filtered {
+    border-color: var(--adm-gold) !important;
+    color: var(--adm-gold-light) !important;
+    background: rgba(197, 160, 89, 0.15) !important;
+}
+
+.adm-adv-filters-wrap {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+}
+
+.adm-adv-filters-wrap .adm-btn-export-mob {
+    display: none;
+}
+
+/* ==========================================================================
+   Compact & Menu-Type Filtering Toolbar for Reservations
+   ========================================================================== */
+.adm-res-filter-box {
+    background: var(--adm-bg-surface);
+    border: 1px solid rgba(197, 160, 89, 0.22);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+    position: relative;
+}
+
+/* Top Row: Search + Filter Menu Button + Add Reservation */
+.adm-res-filter-toprow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.adm-res-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+}
+
+.adm-res-search-input {
+    width: 100%;
+    height: 38px;
+    background: var(--adm-bg-input);
+    border: 1px solid rgba(197, 160, 89, 0.25);
+    border-radius: 20px;
+    padding: 0 32px 0 36px;
+    color: var(--adm-text-primary);
+    font-size: 13px;
+    box-sizing: border-box;
+    outline: none;
+    transition: var(--adm-transition);
+}
+
+.adm-res-search-input:focus {
+    border-color: var(--adm-gold);
+    background: #0D1C13;
+    box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.25);
+}
+
+.adm-res-search-icon {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--adm-text-muted);
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.adm-res-search-clear {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--adm-text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+/* Filter Menu Button */
+.adm-filter-menu-btn {
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 20px;
+    background: rgba(197, 160, 89, 0.12);
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    color: var(--adm-gold);
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: var(--adm-transition);
+    user-select: none;
+}
+
+.adm-filter-menu-btn:hover {
+    background: rgba(197, 160, 89, 0.22);
+    border-color: var(--adm-gold);
+    transform: translateY(-1px);
+}
+
+.adm-filter-menu-btn.is-active {
+    background: var(--adm-gold);
+    color: #08120B;
+    border-color: var(--adm-gold);
+    box-shadow: 0 2px 10px rgba(197, 160, 89, 0.35);
+}
+
+.adm-filter-menu-btn.is-active i {
+    color: #08120B;
+}
+
+.adm-filter-count-badge {
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    line-height: 1.2;
+    min-width: 14px;
+    text-align: center;
+}
+
+.adm-filter-menu-btn.is-active .adm-filter-count-badge {
+    background: #08120B;
+    color: var(--adm-gold);
+}
+
+.adm-filter-caret {
+    font-size: 10px;
+    transition: transform 0.25s ease;
+}
+
+.adm-btn-add-res {
+    height: 38px !important;
+    padding: 0 14px !important;
+    border-radius: 20px !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+/* Secondary Row: Touch-Scrollable Chips Ribbon (Compact & Scrollable Menu Strip) */
+.adm-filter-scroll-strip {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding: 2px 1px 4px 1px !important;
+    box-sizing: border-box !important;
+}
+
+.adm-filter-scroll-strip::-webkit-scrollbar {
+    display: none !important;
+}
+
+.adm-filter-chip-wrapper {
+    position: relative;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+.adm-res-chip-select {
+    height: 32px !important;
+    min-height: 32px !important;
+    border-radius: 18px !important;
+    padding: 0 26px 0 11px !important;
+    background: rgba(14, 28, 19, 0.9) !important;
+    border: 1px solid rgba(197, 160, 89, 0.3) !important;
+    color: var(--adm-text-primary) !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    max-width: 220px !important;
+    outline: none !important;
+    cursor: pointer !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23C5A059'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 7px center !important;
+    background-size: 14px !important;
+    transition: var(--adm-transition) !important;
+    box-sizing: border-box !important;
+}
+
+.adm-filter-chip-wrapper.is-filtered .adm-res-chip-select,
+.adm-res-chip-select:focus,
+.adm-res-chip-select:hover {
+    border-color: var(--adm-gold) !important;
+    background-color: rgba(26, 52, 35, 0.95) !important;
+    box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.2) !important;
+}
+
+.adm-filter-chip-wrapper.is-filtered .adm-res-chip-select {
+    color: var(--adm-gold) !important;
+}
+
+.adm-res-chip-btn {
+    height: 32px !important;
+    min-height: 32px !important;
+    border-radius: 18px !important;
+    padding: 0 12px !important;
+    background: rgba(14, 28, 19, 0.9) !important;
+    border: 1px solid rgba(197, 160, 89, 0.3) !important;
+    color: var(--adm-text-primary) !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    transition: var(--adm-transition) !important;
+    box-sizing: border-box !important;
+}
+
+.adm-res-chip-btn:hover,
+.adm-res-chip-btn.is-filtered {
+    border-color: var(--adm-gold) !important;
+    background-color: rgba(26, 52, 35, 0.95) !important;
+    color: var(--adm-gold) !important;
+}
+
+.adm-chip-caret {
+    font-size: 9px;
+    opacity: 0.7;
+}
+
+.adm-res-chip-reset {
+    height: 32px !important;
+    min-height: 32px !important;
+    border-radius: 18px !important;
+    padding: 0 11px !important;
+    background: rgba(239, 68, 68, 0.12) !important;
+    border: 1px solid rgba(239, 68, 68, 0.4) !important;
+    color: #fca5a5 !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    text-decoration: none !important;
+    transition: var(--adm-transition) !important;
+}
+
+.adm-res-chip-reset:hover {
+    background: #ef4444 !important;
+    color: #fff !important;
+}
+
+/* ==========================================================================
+   Menu-Type Filter Drawer / Dropdown Panel
+   ========================================================================== */
+.adm-filter-menu-panel {
+    background: rgba(10, 22, 15, 0.98);
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    box-sizing: border-box;
+    animation: admFilterSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes admFilterSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.adm-fmenu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+    margin-bottom: 14px;
+}
+
+.adm-fmenu-title {
+    font-family: var(--adm-font-serif, serif);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--adm-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.adm-fmenu-close-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: var(--adm-text-muted);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: var(--adm-transition);
+}
+
+.adm-fmenu-close-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.adm-fmenu-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.adm-fmenu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.adm-fmenu-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.adm-fmenu-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--adm-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.adm-fmenu-select {
+    width: 100% !important;
+    height: 38px !important;
+    background: var(--adm-bg-input) !important;
+    border: 1px solid rgba(197, 160, 89, 0.25) !important;
+    border-radius: 8px !important;
+    padding: 0 12px !important;
+    color: var(--adm-text-primary) !important;
+    font-size: 13px !important;
+    outline: none !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    transition: var(--adm-transition) !important;
+}
+
+.adm-fmenu-select:focus {
+    border-color: var(--adm-gold) !important;
+    box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.2) !important;
+}
+
+.adm-fmenu-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.adm-fmenu-preset-btn {
+    background: rgba(197, 160, 89, 0.08);
+    border: 1px solid rgba(197, 160, 89, 0.2);
+    border-radius: 12px;
+    padding: 3px 9px;
+    color: var(--adm-text-secondary);
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--adm-transition);
+}
+
+.adm-fmenu-preset-btn:hover {
+    background: rgba(197, 160, 89, 0.22);
+    color: var(--adm-gold);
+    border-color: var(--adm-gold);
+}
+
+.adm-fmenu-dates-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.adm-fmenu-date-field {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.adm-date-sublabel {
+    font-size: 10px;
+    color: var(--adm-text-muted);
+}
+
+.adm-fmenu-date-input {
+    width: 100% !important;
+    height: 36px !important;
+    background: var(--adm-bg-input) !important;
+    border: 1px solid rgba(197, 160, 89, 0.25) !important;
+    border-radius: 8px !important;
+    padding: 0 8px !important;
+    color: var(--adm-text-primary) !important;
+    font-size: 12px !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+}
+
+.adm-fmenu-date-sep {
+    font-size: 11px;
+    color: var(--adm-text-muted);
+    padding-top: 14px;
+}
+
+.adm-fmenu-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(197, 160, 89, 0.2);
+}
+
+@media (max-width: 768px) {
+    .adm-res-filter-box {
+        padding: 8px 10px !important;
+        margin-bottom: 12px !important;
+        gap: 6px !important;
+    }
+
+    .adm-res-filter-toprow {
+        gap: 6px !important;
+    }
+
+    .adm-res-search-input {
+        font-size: 13px !important;
+        height: 36px !important;
+        padding-left: 32px !important;
+    }
+
+    .adm-filter-menu-btn {
+        height: 36px !important;
+        padding: 0 10px !important;
+        font-size: 11.5px !important;
+        gap: 5px !important;
+    }
+
+    .adm-btn-add-res {
+        height: 36px !important;
+        padding: 0 10px !important;
+        font-size: 11.5px !important;
+        gap: 4px !important;
+    }
+
+    .adm-fmenu-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .adm-filter-btn-text,
+    .adm-btn-add-text {
+        display: none !important;
+    }
+
+    .adm-filter-menu-btn {
+        padding: 0 10px !important;
+    }
+
+    .adm-btn-add-res {
+        padding: 0 10px !important;
+    }
+}
+
+/* ==========================================================================
+   Horizontal Scrollable Billing Tabs Strip & Navigation Pills
+   ========================================================================== */
+.adm-billing-tab-strip {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    gap: 8px !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin-bottom: 16px !important;
+    padding-bottom: 6px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-sizing: border-box !important;
+}
+
+.adm-billing-tab-strip::-webkit-scrollbar {
+    display: none !important;
+}
+
+.adm-billing-tab-pill {
+    padding: 8px 16px !important;
+    border-radius: 20px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: var(--adm-text-secondary) !important;
+    border: 1px solid rgba(197, 160, 89, 0.2) !important;
+    transition: var(--adm-transition) !important;
+}
+
+.adm-billing-tab-pill:hover {
+    background: rgba(197, 160, 89, 0.15) !important;
+    color: var(--adm-gold) !important;
+    border-color: var(--adm-gold) !important;
+}
+
+.adm-billing-tab-pill.active {
+    background: var(--adm-gold) !important;
+    color: #101F15 !important;
+    border-color: var(--adm-gold) !important;
+    box-shadow: 0 2px 10px rgba(197, 160, 89, 0.35) !important;
+}
+
+.adm-billing-tab-pill .adm-badge-count {
+    padding: 2px 7px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #FFF !important;
+}
+
+.adm-billing-tab-pill.active .adm-badge-count {
+    background: #101F15 !important;
+    color: var(--adm-gold) !important;
+}
+
+.adm-billing-tab-pill.bank-qr {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #34D399 !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+.adm-billing-tab-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+    margin-left: auto !important;
+}
+
+.adm-billing-quick-btn {
+    padding: 8px 16px !important;
+    border-radius: 20px !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+}
+
 /* ==========================================================================
    Admin Food Menu Management & Dish Accordion Cards
    ========================================================================== */
@@ -4393,32 +6420,136 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
 
     /* 3. Compact Mobile Topbar */
     .adm-topbar {
-        height: 58px;
-        padding: 0 14px;
+        height: 56px !important;
+        padding: 0 12px !important;
+        gap: 8px !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
     }
 
     .adm-topbar-left {
-        gap: 10px;
+        gap: 8px !important;
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+        overflow: hidden !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    .adm-mobile-toggle {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        padding: 0 !important;
+        flex-shrink: 0 !important;
+        font-size: 18px !important;
+    }
+
+    .adm-page-heading {
+        min-width: 0 !important;
+        overflow: hidden !important;
     }
 
     .adm-page-title {
-        font-size: 15px;
-        letter-spacing: 0.5px;
+        font-size: 13.5px !important;
+        letter-spacing: 0.3px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        margin: 0 !important;
     }
 
     .adm-page-sub {
-        display: none; /* Hide subtitle to preserve clean title in mobile header */
+        display: none !important;
     }
 
     .adm-estate-live-badge {
-        padding: 4px 9px;
-        font-size: 11px;
-        gap: 5px;
+        display: none !important;
     }
 
+    .adm-topbar-right {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Universal mobile text hide rule */
+    .adm-hide-mob {
+        display: none !important;
+    }
+
+    /* Compact Theme Toggle Button on Mobile */
+    .adm-theme-toggle-btn {
+        padding: 0 !important;
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        border-radius: 50% !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0 !important;
+        flex-shrink: 0 !important;
+    }
+
+    .adm-theme-toggle-label {
+        display: none !important;
+    }
+
+    .adm-theme-toggle-icon {
+        font-size: 13px !important;
+        margin: 0 !important;
+    }
+
+    /* Compact Topbar Icon Buttons */
+    .adm-topbar-right .adm-btn-action,
     .adm-btn-site-preview {
-        padding: 5px 10px;
-        font-size: 11.5px;
+        padding: 0 !important;
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        min-height: 34px !important;
+        border-radius: 8px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0 !important;
+        flex-shrink: 0 !important;
+        font-size: 13px !important;
+    }
+
+    .adm-topbar-right .adm-btn-action i,
+    .adm-btn-site-preview i {
+        margin: 0 !important;
+        font-size: 13px !important;
+    }
+
+    /* User Avatar Pill in Topbar on Mobile */
+    .adm-topbar-user {
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        gap: 0 !important;
+        border-radius: 50% !important;
+    }
+
+    .adm-topbar-user .adm-user-avatar {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+    }
+
+    .adm-topbar-user .adm-user-caret {
+        display: none !important;
     }
 
     /* 4. KPI Stat Cards: 2-Column App Grid */
@@ -4500,7 +6631,43 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
         gap: 12px !important;
     }
 
-    /* 7. Action Buttons & Filter Toolbars */
+    /* 7. Action Buttons, Toolbars & Reservation Tabs */
+    .adm-toolbar-card {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        padding: 14px 16px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .adm-toolbar-left {
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+    }
+
+    .adm-toolbar-right {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+
+    .adm-toolbar-right .adm-btn-action {
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 10px 14px !important;
+        box-sizing: border-box !important;
+    }
+
     .adm-toolbar-row,
     .adm-filter-bar,
     .adm-action-bar,
@@ -4514,6 +6681,109 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
     .adm-filter-select,
     .adm-btn-toolbar {
         width: 100% !important;
+    }
+
+    /* Reservation Status Navigation: Menu Selector & Horizontal Touch Carousel */
+    .adm-res-mobile-menu-bar {
+        display: flex !important;
+    }
+
+    .adm-reservation-tabs {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        gap: 6px !important;
+        padding: 6px !important;
+        margin-bottom: 14px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .adm-reservation-tabs::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .adm-res-tab-item {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+        padding: 7px 12px !important;
+        font-size: 12px !important;
+        gap: 6px !important;
+    }
+
+    /* Bookings Quick Action Bar & Drawer on Mobile */
+    .adm-bookings-quick-row {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .adm-bookings-quick-row .adm-btn-action {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        justify-content: center !important;
+        font-size: 12.5px !important;
+        padding: 10px 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    .adm-desktop-only-actions {
+        display: none !important;
+    }
+
+    .adm-adv-filters-wrap {
+        display: none;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        width: 100% !important;
+        margin-top: 10px !important;
+        padding-top: 12px !important;
+        border-top: 1px dashed rgba(197, 160, 89, 0.25) !important;
+        box-sizing: border-box !important;
+    }
+
+    .adm-adv-filters-wrap.is-open {
+        display: flex !important;
+    }
+
+    .adm-adv-filters-wrap .adm-filter-select,
+    .adm-adv-filters-wrap .adm-date-filter-form,
+    .adm-adv-filters-wrap .adm-btn-action {
+        width: 100% !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+    }
+
+    .adm-adv-filters-wrap .adm-btn-export-mob {
+        display: inline-flex !important;
+    }
+
+    /* Dashboard Tables & Card Headers */
+    .adm-table-card {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        margin-bottom: 20px !important;
+    }
+
+    .adm-table-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        padding: 14px 16px !important;
+    }
+
+    .adm-table-header > div:last-child {
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
     }
 
     /* 8. Settings & CMS Tabs: Horizontally Scrollable Touch Carousel */
@@ -4626,6 +6896,31 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
         border-radius: 12px !important;
     }
 
+    .adm-modal-footer {
+        flex-wrap: wrap !important;
+        justify-content: stretch !important;
+        gap: 8px !important;
+        padding: 12px 14px !important;
+    }
+
+    .adm-modal-footer .adm-btn-action,
+    .adm-modal-footer a.adm-btn-action {
+        flex: 1 1 calc(50% - 8px) !important;
+        text-align: center !important;
+        justify-content: center !important;
+        padding: 9px 10px !important;
+        font-size: 11.5px !important;
+    }
+
+    .adm-modal-footer #btn-modal-whatsapp {
+        margin-right: 0 !important;
+    }
+
+    .adm-table-header-controls {
+        width: 100% !important;
+        justify-content: space-between !important;
+    }
+
     /* 13. Settings Card Grid */
     .adm-settings-cards-grid {
         grid-template-columns: 1fr !important;
@@ -4728,12 +7023,12 @@ input[type="number"].adm-form-control::-webkit-outer-spin-button {
 }
 
 /* =========================================================================
-   EXTRA COMPACT SMARTPHONES (<= 400px)
+   EXTRA COMPACT SMARTPHONES (<= 480px)
    ========================================================================= */
-@media (max-width: 400px) {
+@media (max-width: 480px) {
     .adm-kpi-grid {
-        grid-template-columns: 1fr;
-        gap: 8px;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
     }
 
     .adm-mob-dock-item {
@@ -4906,10 +7201,30 @@ body.theme-light.adm-body {
 /* 4. Cards, Headers & Panels */
 [data-theme="light"] .adm-card,
 [data-theme="light"] .adm-table-card,
-[data-theme="light"] .adm-toolbar-card {
+[data-theme="light"] .adm-toolbar-card,
+[data-theme="light"] .adm-res-filter-box {
     background: #FFFFFF !important;
     border: 1px solid rgba(15, 29, 19, 0.12) !important;
     box-shadow: 0 4px 16px rgba(15, 29, 19, 0.06) !important;
+}
+
+[data-theme="light"] .adm-filter-menu-panel {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(197, 160, 89, 0.35) !important;
+    box-shadow: 0 12px 32px rgba(15, 29, 19, 0.12) !important;
+}
+
+[data-theme="light"] .adm-res-chip-select,
+[data-theme="light"] .adm-res-chip-btn {
+    background: #F4F7F4 !important;
+    border-color: rgba(197, 160, 89, 0.35) !important;
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-fmenu-select,
+[data-theme="light"] .adm-fmenu-date-input {
+    background: #F4F7F4 !important;
+    color: #0F1D13 !important;
 }
 
 [data-theme="light"] .adm-card-header,
@@ -4954,6 +7269,144 @@ body.theme-light.adm-body {
 
 [data-theme="light"] .adm-kpi-trend.positive {
     color: #0D8A5E !important;
+}
+
+/* Reservation Cards & View Switcher in Light Mode */
+[data-theme="light"] .adm-view-switcher {
+    background: #E8EDE9 !important;
+    border-color: rgba(179, 142, 59, 0.4) !important;
+}
+
+[data-theme="light"] .adm-view-switcher-btn {
+    color: #4A5568 !important;
+}
+
+[data-theme="light"] .adm-view-switcher-btn.active {
+    background: #C5A059 !important;
+    color: #101F15 !important;
+}
+
+[data-theme="light"] .adm-booking-card {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(179, 142, 59, 0.3) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="light"] .adm-booking-card-header {
+    border-bottom: 1px solid rgba(15, 29, 19, 0.08) !important;
+}
+
+[data-theme="light"] .adm-card-guest-title {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-contact-pill {
+    background: #F1F5F2 !important;
+    border-color: #DDE5DF !important;
+    color: #2D3748 !important;
+}
+
+[data-theme="light"] .adm-booking-card-grid {
+    background: #F7FAF8 !important;
+    border-color: #E2EAE4 !important;
+}
+
+[data-theme="light"] .adm-card-stat-val {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-card-stat.highlight .adm-card-stat-val {
+    color: #996B10 !important;
+}
+
+[data-theme="light"] .adm-btn-card-view-profile {
+    background: rgba(197, 160, 89, 0.15) !important;
+    border-color: rgba(197, 160, 89, 0.5) !important;
+    color: #8C620D !important;
+}
+
+[data-theme="light"] .adm-btn-card-view-profile:hover {
+    background: #C5A059 !important;
+    color: #FFFFFF !important;
+}
+
+[data-theme="light"] .adm-booking-card-actions {
+    border-top: 1px solid rgba(15, 29, 19, 0.08) !important;
+}
+
+[data-theme="light"] .adm-table-swipe-hint {
+    background: #FFFBEB !important;
+    border-bottom: 1px solid #FDE68A !important;
+    color: #92400E !important;
+}
+
+[data-theme="light"] .adm-res-view-options-bar {
+    background: #FFFFFF !important;
+    border-color: rgba(179, 142, 59, 0.35) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .adm-res-view-options-title {
+    color: #8C620D !important;
+}
+
+[data-theme="light"] .adm-res-view-toggle-group {
+    background: #F0F4F1 !important;
+    border-color: #DDE5DF !important;
+}
+
+[data-theme="light"] .adm-res-toggle-btn {
+    color: #4A5568 !important;
+}
+
+[data-theme="light"] .adm-res-toggle-btn.active {
+    background: #C5A059 !important;
+    color: #101F15 !important;
+}
+
+[data-theme="light"] .adm-col-sticky-ref {
+    background: #F7FAF8 !important;
+    border-right-color: #CAD7CE !important;
+    box-shadow: 3px 0 10px rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-theme="light"] th.adm-col-sticky-ref {
+    background: #E8EDE9 !important;
+}
+
+[data-theme="light"] .adm-row-drawer-cell {
+    background: #F2F6F3 !important;
+    border-bottom-color: rgba(179, 142, 59, 0.4) !important;
+}
+
+[data-theme="light"] .adm-drawer-content {
+    background: #FFFFFF !important;
+    border-left-color: #C5A059 !important;
+}
+
+[data-theme="light"] .adm-drawer-card {
+    background: #F7FAF8 !important;
+    border-color: #E2EAE4 !important;
+}
+
+[data-theme="light"] .adm-drawer-card.highlight {
+    background: rgba(197, 160, 89, 0.1) !important;
+    border-color: rgba(197, 160, 89, 0.35) !important;
+}
+
+[data-theme="light"] .adm-drawer-card-val {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-drawer-details-strip {
+    background: #F7FAF8 !important;
+    border-color: #E2EAE4 !important;
+}
+
+[data-theme="light"] .adm-table-swipe-banner {
+    background: #FFFBEB !important;
+    border-bottom-color: #FDE68A !important;
+    color: #92400E !important;
 }
 
 /* 6. Tables */
@@ -5011,11 +7464,18 @@ body.theme-light.adm-body {
 [data-theme="light"] .adm-select,
 [data-theme="light"] .adm-textarea,
 [data-theme="light"] .adm-section-jump-select,
-[data-theme="light"] .adm-filter-select {
+[data-theme="light"] .adm-filter-select,
+[data-theme="light"] .adm-res-mobile-menu-select {
     background: #FFFFFF !important;
     border: 1px solid #CAD7CE !important;
     color: #0F1D13 !important;
     box-shadow: none !important;
+}
+
+[data-theme="light"] .adm-res-mobile-menu-bar {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(15, 29, 19, 0.14) !important;
+    box-shadow: 0 2px 10px rgba(15, 29, 19, 0.05) !important;
 }
 
 [data-theme="light"] .adm-form-control:focus,
@@ -5982,6 +8442,739 @@ body.theme-light.adm-body {
 [data-theme="light"] .adm-users-table tr:hover td {
     background: #F3F7F4 !important;
 }
+
+/* =========================================================================
+   CALENDAR PAGE RESPONSIVE SYSTEM (Mobile & Desktop)
+   ========================================================================= */
+
+/* Controls Toolbar */
+.adm-cal-controls-card {
+    border-radius: 12px;
+}
+
+.adm-cal-controls-inner {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+}
+
+.adm-cal-month-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+}
+
+.adm-cal-month-heading {
+    font-family: var(--adm-font-title);
+    font-size: 20px;
+    color: #FFFFFF;
+    margin: 0;
+    min-width: 170px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.adm-cal-actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.adm-cal-filter-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.adm-cal-select {
+    padding: 6px 12px;
+    font-size: 12px;
+    min-width: 130px;
+    max-width: 180px;
+}
+
+.adm-cal-action-btns {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Calendar View Switcher (Grid vs List) */
+.adm-cal-view-toggle {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(197, 160, 89, 0.25);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+    margin-left: 4px;
+}
+
+.adm-cal-view-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.adm-cal-view-btn:hover {
+    color: #FFFFFF;
+}
+
+.adm-cal-view-btn.active {
+    background: var(--adm-gold);
+    color: #0d1a12;
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Legend Bar */
+.adm-cal-legend-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding: 10px 16px;
+    background: rgba(20, 40, 28, 0.45);
+    border: 1px solid rgba(197, 160, 89, 0.2);
+    border-radius: 8px;
+    font-size: 11.5px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.adm-cal-legend-bar::-webkit-scrollbar {
+    display: none !important;
+}
+
+.adm-cal-legend-title {
+    color: var(--adm-gold);
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.adm-cal-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #cbd5e1;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.adm-cal-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+/* Calendar Card & 100% Fit Grid */
+.adm-cal-wrapper {
+    width: 100%;
+    margin-bottom: 24px;
+}
+
+.adm-cal-card {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(197, 160, 89, 0.25);
+    background: #0e1f16;
+}
+
+.adm-cal-header-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    background: #14281c;
+    border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+    text-align: center;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--adm-gold);
+    padding: 12px 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.adm-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: rgba(197, 160, 89, 0.15);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.cal-day-cell {
+    min-height: 110px;
+    background: #0e1f16;
+    padding: 6px 8px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cal-day-cell:hover {
+    background: #132a1e;
+}
+
+.cal-day-cell.other-month {
+    background: #08130d;
+    opacity: 0.55;
+}
+
+.cal-day-cell.is-today {
+    background: rgba(197, 160, 89, 0.08);
+}
+
+.cal-cell-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    min-height: 20px;
+}
+
+.cal-day-num {
+    font-size: 12px;
+    font-weight: 600;
+    color: #FFFFFF;
+    line-height: 1;
+}
+
+.cal-day-cell.other-month .cal-day-num {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.cal-day-num.is-today {
+    color: var(--adm-gold);
+    background: rgba(197, 160, 89, 0.2);
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid var(--adm-gold);
+    font-weight: 800;
+}
+
+.cal-stay-count {
+    font-size: 9px;
+    color: var(--adm-gold);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cal-bookings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.cal-booking-pill {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1.3;
+    transition: transform 0.15s ease, filter 0.15s ease;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.cal-booking-pill:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.15);
+}
+
+.cal-booking-pill span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.cal-booking-pill i {
+    flex-shrink: 0;
+    font-size: 9px;
+}
+
+.cal-more-badge {
+    font-size: 9px;
+    color: var(--adm-gold);
+    font-weight: 700;
+    text-align: center;
+    padding: 1px 0;
+}
+
+/* Mobile Responsive Overrides */
+@media (max-width: 768px) {
+    .adm-cal-controls-inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .adm-cal-month-nav {
+        width: 100%;
+        justify-content: space-between;
+        gap: 6px;
+    }
+
+    .adm-cal-month-heading {
+        font-size: 16px;
+        min-width: 0;
+        flex: 1;
+        text-align: center;
+    }
+
+    .adm-cal-nav-btn {
+        padding: 6px 10px !important;
+    }
+
+    .adm-cal-today-btn {
+        padding: 6px 10px !important;
+        font-size: 10.5px !important;
+    }
+
+    .adm-cal-actions-bar {
+        width: 100%;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .adm-cal-filter-form {
+        width: 100%;
+        display: flex;
+        gap: 6px;
+    }
+
+    .adm-cal-select {
+        flex: 1;
+        min-width: 0;
+        max-width: none !important;
+        padding: 7px 8px !important;
+        font-size: 11.5px !important;
+    }
+
+    .adm-cal-action-btns {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+    }
+
+    .adm-cal-action-btns > * {
+        flex: 1;
+        justify-content: center;
+        text-align: center;
+    }
+
+    /* 100% Full-Width Mobile Grid Fitting */
+    .adm-cal-card {
+        border-radius: 8px;
+    }
+
+    .adm-cal-header-row {
+        font-size: 11px;
+        padding: 8px 0;
+        letter-spacing: 0.3px;
+    }
+
+    .cal-day-cell {
+        min-height: 70px;
+        padding: 4px 3px;
+    }
+
+    .cal-cell-header {
+        margin-bottom: 2px;
+        min-height: 16px;
+    }
+
+    .cal-day-num {
+        font-size: 11px;
+    }
+
+    .cal-day-num.is-today {
+        padding: 1px 4px;
+        border-radius: 8px;
+    }
+
+    .cal-stay-count {
+        font-size: 8px;
+    }
+
+    .cal-booking-pill {
+        padding: 2px 3px;
+        font-size: 8.5px;
+        border-radius: 3px;
+        gap: 2px;
+    }
+
+    .cal-booking-pill i {
+        font-size: 7.5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .adm-cal-header-row {
+        font-size: 9.5px;
+        padding: 6px 0;
+    }
+
+    .cal-day-cell {
+        min-height: 56px;
+        padding: 3px 2px;
+    }
+
+    .cal-day-num {
+        font-size: 10px;
+    }
+
+    .cal-stay-count {
+        display: none !important;
+    }
+
+    .cal-booking-pill {
+        padding: 1.5px 2px;
+        font-size: 8px;
+        line-height: 1.1;
+    }
+
+    .cal-booking-pill i {
+        display: none !important; /* Hide icon on narrowest screens to maximize guest name */
+    }
+
+    .cal-more-badge {
+        font-size: 8px;
+    }
+
+    .adm-hide-mob-small {
+        display: none !important;
+    }
+}
+
+/* Light Theme overrides for Calendar */
+[data-theme="light"] .adm-cal-card {
+    background: #FFFFFF;
+    border-color: rgba(15, 29, 19, 0.15);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .adm-cal-header-row {
+    background: #EAF0EC;
+    border-bottom-color: rgba(15, 29, 19, 0.12);
+    color: #164E2E;
+}
+
+[data-theme="light"] .adm-cal-grid {
+    background: rgba(15, 29, 19, 0.12);
+}
+
+[data-theme="light"] .cal-day-cell {
+    background: #FFFFFF;
+}
+
+[data-theme="light"] .cal-day-cell:hover {
+    background: #F4F8F5;
+}
+
+[data-theme="light"] .cal-day-cell.other-month {
+    background: #F8FAF8;
+    opacity: 0.6;
+}
+
+[data-theme="light"] .cal-day-cell.is-today {
+    background: #F0FDF4;
+}
+
+[data-theme="light"] .cal-day-num {
+    color: #0F1D13;
+}
+
+[data-theme="light"] .cal-day-cell.other-month .cal-day-num {
+    color: #94A3B8;
+}
+
+[data-theme="light"] .adm-cal-month-heading {
+    color: #0F1D13;
+}
+
+[data-theme="light"] .adm-cal-legend-bar {
+    background: #F4F8F5;
+    border-color: rgba(15, 29, 19, 0.15);
+}
+
+[data-theme="light"] .adm-cal-legend-item {
+    color: #334155;
+}
+
+[data-theme="light"] .adm-cal-agenda-card {
+    background: #FFFFFF !important;
+    border-color: rgba(15, 29, 19, 0.15) !important;
+}
+
+[data-theme="light"] .adm-cal-agenda-card strong {
+    color: #0F1D13 !important;
+}
+
+[data-theme="light"] .adm-cal-agenda-card span {
+    color: #475569 !important;
+}
+
+/* =========================================================================
+   SUITE PHOTO GALLERY & SHOWCASE CARDS (Responsive Desktop & Mobile)
+   ========================================================================= */
+.adm-room-gallery-section {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.adm-room-photo-card {
+    background: rgba(6, 17, 10, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: auto 120px 1fr auto;
+    grid-template-areas: "order thumb inputs actions";
+    gap: 12px;
+    align-items: center;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+}
+
+.adm-photo-col-order {
+    grid-area: order;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px;
+    flex-shrink: 0;
+}
+
+.adm-photo-col-thumb {
+    grid-area: thumb;
+    width: 120px;
+    height: 90px;
+    flex-shrink: 0;
+}
+
+.adm-photo-col-inputs {
+    grid-area: inputs;
+    min-width: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.adm-photo-col-actions {
+    grid-area: actions;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.adm-photo-col-inputs input.adm-form-control,
+.adm-photo-col-inputs textarea.adm-form-control {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Mobile Responsive Overrides for Photo Cards */
+@media (max-width: 768px) {
+    .adm-room-gallery-section {
+        padding: 12px 10px !important;
+    }
+
+    .adm-room-photo-card {
+        display: grid !important;
+        grid-template-columns: auto 1fr auto !important;
+        grid-template-areas: 
+            "order thumb actions"
+            "inputs inputs inputs" !important;
+        gap: 10px !important;
+        align-items: center !important;
+        padding: 12px 10px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .adm-photo-col-thumb {
+        width: 90px !important;
+        height: 68px !important;
+    }
+
+    .adm-photo-col-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 6px !important;
+        justify-self: end !important;
+    }
+
+    .adm-photo-col-actions .adm-btn-action {
+        padding: 6px 10px !important;
+        font-size: 11px !important;
+        margin: 0 !important;
+    }
+
+    .adm-photo-col-inputs {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-top: 4px !important;
+    }
+
+    .adm-photo-col-inputs input.adm-form-control,
+    .adm-photo-col-inputs textarea.adm-form-control {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        font-size: 13px !important;
+    }
+
+    .adm-photo-filename-label {
+        max-width: 130px !important;
+    }
+
+    .adm-photo-controls-row {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        margin-top: 6px !important;
+    }
+
+    .adm-room-photos-list {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+}
+
+/* =========================================================================
+   ADMIN SCROLL TO TOP BUTTON (Desktop, Mobile & Login)
+   ========================================================================= */
+.adm-scroll-top {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(6, 17, 10, 0.9);
+    border: 1.5px solid rgba(197, 160, 89, 0.45);
+    color: var(--adm-gold, #C5A059);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 15px rgba(197, 160, 89, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    cursor: pointer;
+    z-index: 1050;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(16px) scale(0.9);
+    transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0.3s ease,
+                background 0.2s ease,
+                border-color 0.2s ease,
+                color 0.2s ease,
+                box-shadow 0.2s ease;
+    outline: none;
+}
+
+.adm-scroll-top.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+
+.adm-scroll-top:hover {
+    background: var(--adm-gold, #C5A059);
+    color: #06110A;
+    border-color: var(--adm-gold, #C5A059);
+    transform: translateY(-3px) scale(1.08);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), 0 0 20px rgba(197, 160, 89, 0.45);
+}
+
+.adm-scroll-top:active {
+    transform: translateY(-1px) scale(0.96);
+}
+
+[data-theme="light"] .adm-scroll-top {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(15, 29, 19, 0.25);
+    color: #0F1D13;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .adm-scroll-top:hover {
+    background: var(--adm-gold, #C5A059);
+    color: #FFFFFF;
+    border-color: var(--adm-gold, #C5A059);
+}
+
+/* Mobile Overrides (Elevated Above App Bottom Dock) */
+@media (max-width: 768px) {
+    .adm-scroll-top {
+        bottom: 78px;
+        right: 16px;
+        width: 40px;
+        height: 40px;
+        font-size: 14px;
+    }
+
+    /* On login screen without dock, keep comfortable bottom spacing */
+    .adm-login-wrapper ~ .adm-scroll-top,
+    .adm-body:has(.adm-login-wrapper) .adm-scroll-top {
+        bottom: 24px !important;
+        right: 20px !important;
+    }
+}
+
+
+
 
 
 

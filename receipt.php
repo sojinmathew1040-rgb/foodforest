@@ -1334,5 +1334,73 @@ if (!empty($addons_text) && strtolower($addons_text) !== 'none') {
 
     </div>
 
+    <!-- Receipt Luxury Scroll to Top Button -->
+    <style>
+    .receipt-scroll-top {
+        position: fixed;
+        bottom: 28px;
+        right: 28px;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #101F15;
+        border: 1.5px solid #C5A059;
+        color: #C5A059;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        cursor: pointer;
+        z-index: 9999;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(16px);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        outline: none;
+    }
+    .receipt-scroll-top.is-visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
+    .receipt-scroll-top:hover {
+        background: #C5A059;
+        color: #101F15;
+        transform: translateY(-3px) scale(1.08);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    }
+    @media print {
+        .receipt-scroll-top { display: none !important; }
+    }
+    </style>
+
+    <button type="button" class="receipt-scroll-top" id="receipt-scroll-top" aria-label="Scroll to top" title="Scroll to top">
+        <i class="fa-solid fa-chevron-up"></i>
+    </button>
+
+    <script>
+    (function() {
+        var btn = document.getElementById('receipt-scroll-top');
+        if (!btn) return;
+        function checkScroll() {
+            var y = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+            if (y > 260) {
+                btn.classList.add('is-visible');
+            } else {
+                btn.classList.remove('is-visible');
+            }
+        }
+        window.addEventListener('scroll', checkScroll, { passive: true });
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        checkScroll();
+    })();
+    </script>
+
 </body>
 </html>

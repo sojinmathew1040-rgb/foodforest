@@ -218,7 +218,18 @@ $resolve_nav_url = function($raw_url, $item_id = 0) use ($is_home, $nav_prefix, 
     </div>
 
     <!-- Mobile Menu Overlay (Dynamic from Navigation Menu CMS) -->
-    <div class="mobile-menu font-serif">
+    <div class="mobile-menu font-serif" id="mobile-menu-overlay">
+        <!-- Prominent Luxury Close Button (Top-Right) -->
+        <button type="button" class="mobile-menu-close" id="mobile-menu-close-btn" aria-label="Close Navigation Menu" title="Close Menu">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <!-- Mobile Menu Brand Header -->
+        <div class="mobile-menu-header">
+            <span class="mobile-menu-brand-title font-serif"><?php echo htmlspecialchars($site_name); ?></span>
+            <span class="mobile-menu-brand-sub font-sans"><?php echo htmlspecialchars($site_tagline); ?></span>
+        </div>
+
         <div class="mobile-menu-links">
             <?php foreach ($nav_menu_items as $n_item): 
                 $item_href = $resolve_nav_url($n_item['url'], (int)$n_item['id']);
@@ -240,6 +251,11 @@ $resolve_nav_url = function($raw_url, $item_id = 0) use ($is_home, $nav_prefix, 
             <a href="booking.php" class="mobile-link btn-mobile-book font-sans" style="text-decoration: none; text-align: center;">
                 <i class="fa-solid fa-calendar-check"></i> Book Chalet Online
             </a>
+
+            <!-- Bottom Close Button for Easy Accessibility -->
+            <button type="button" class="mobile-menu-close-btn font-sans" aria-label="Close Navigation Menu">
+                <i class="fa-solid fa-xmark"></i> Close Navigation
+            </button>
         </div>
     </div>
 

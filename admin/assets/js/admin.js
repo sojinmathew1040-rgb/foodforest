@@ -368,5 +368,53 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // 9. Universal Admin Scroll To Top Engine
+    (function initAdminScrollTop() {
+        let btn = document.getElementById("adm-scroll-top");
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.type = "button";
+            btn.id = "adm-scroll-top";
+            btn.className = "adm-scroll-top";
+            btn.setAttribute("aria-label", "Scroll to top");
+            btn.setAttribute("title", "Scroll to top");
+            btn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+            document.body.appendChild(btn);
+        }
+
+        const mainViewport = document.querySelector(".adm-main-viewport") || document.querySelector(".adm-content-body");
+
+        function checkScroll() {
+            const winY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+            const vpY = mainViewport ? mainViewport.scrollTop : 0;
+            const scrolled = Math.max(winY, vpY);
+
+            if (scrolled > 260) {
+                btn.classList.add("is-visible");
+            } else {
+                btn.classList.remove("is-visible");
+            }
+        }
+
+        window.addEventListener("scroll", checkScroll, { passive: true });
+        document.addEventListener("scroll", checkScroll, { passive: true });
+        if (mainViewport) {
+            mainViewport.addEventListener("scroll", checkScroll, { passive: true });
+        }
+
+        btn.addEventListener("click", function(e) {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            document.documentElement.scrollTo({ top: 0, behavior: "smooth" });
+            document.body.scrollTo({ top: 0, behavior: "smooth" });
+            if (mainViewport) {
+                mainViewport.scrollTo({ top: 0, behavior: "smooth" });
+            }
+        });
+
+        checkScroll();
+    })();
+
 });
+
 

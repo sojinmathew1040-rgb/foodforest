@@ -54,53 +54,97 @@ $recent_inquiries = $pdo->query("
 ")->fetchAll();
 ?>
 
-<!-- KPI Stat Cards -->
-<section class="adm-kpi-grid">
-    <!-- Revenue -->
-    <div class="adm-kpi-card gold">
-        <div class="adm-kpi-data">
-            <span class="adm-kpi-label">Gross Confirmed Stays</span>
-            <div class="adm-kpi-number">₹<?php echo number_format($total_revenue, 0, '.', ','); ?></div>
-            <span class="adm-kpi-trend positive"><i class="fa-solid fa-arrow-trend-up"></i> Premium Organic Stays</span>
+<!-- Collapsible Compact KPI Metrics Strip (Single Horizontal Row) -->
+<section class="adm-kpi-strip-container" id="adm-kpi-container">
+    <!-- Header bar with Title, Summary Pills (when collapsed), and Toggle Button -->
+    <div class="adm-kpi-strip-header">
+        <div class="adm-kpi-strip-title-group">
+            <span class="adm-kpi-strip-tag"><i class="fa-solid fa-chart-line"></i></span>
+            <span class="adm-kpi-strip-title">Sanctuary Live Performance</span>
+
+            <!-- Compact inline preview pills visible when cards are collapsed -->
+            <div class="adm-kpi-collapsed-summary" id="adm-kpi-collapsed-summary">
+                <a href="reports.php" class="adm-kpi-summary-pill gold" title="Gross Confirmed Stays">
+                    <i class="fa-solid fa-coins"></i> ₹<?php echo number_format($total_revenue, 0, '.', ','); ?>
+                </a>
+                <a href="#occupied-table-wrap" class="adm-kpi-summary-pill emerald" title="Currently In-House Stays">
+                    <i class="fa-solid fa-bed"></i> <?php echo $occupied_count; ?> In-House
+                </a>
+                <a href="bookings.php?filter=pending" class="adm-kpi-summary-pill amber" title="Pending Concierge Requests">
+                    <i class="fa-solid fa-hourglass-half"></i> <?php echo $pending_bookings; ?> Pending
+                </a>
+                <a href="bookings.php" class="adm-kpi-summary-pill terracotta" title="Total Reservations">
+                    <i class="fa-solid fa-calendar-days"></i> <?php echo $total_bookings; ?> Total
+                </a>
+            </div>
         </div>
-        <div class="adm-kpi-icon-wrap">
-            <i class="fa-solid fa-coins"></i>
+
+        <div class="adm-kpi-strip-actions">
+            <button type="button" class="adm-kpi-toggle-btn" id="btn-toggle-kpi" onclick="toggleKpiStrip();" title="Collapse / Expand KPI Metrics" aria-expanded="true">
+                <span class="adm-kpi-toggle-label" id="adm-kpi-toggle-label">Collapse</span>
+                <i class="fa-solid fa-chevron-up" id="adm-kpi-toggle-icon"></i>
+            </button>
         </div>
     </div>
 
-    <!-- Currently Occupied / In-House Stays -->
-    <div class="adm-kpi-card emerald">
-        <div class="adm-kpi-data">
-            <span class="adm-kpi-label">Currently In-House Stays</span>
-            <div class="adm-kpi-number"><?php echo $occupied_count; ?></div>
-            <span class="adm-kpi-trend positive"><i class="fa-solid fa-hotel"></i> <?php echo $occupied_count > 0 ? $occupied_count . ' Active In-House ' . ($occupied_count === 1 ? 'Stay' : 'Stays') : 'All Villas Vacant Today'; ?></span>
-        </div>
-        <div class="adm-kpi-icon-wrap">
-            <i class="fa-solid fa-bed"></i>
-        </div>
-    </div>
+    <!-- 4 Small Compact Cards in a Single Horizontal Row -->
+    <div class="adm-kpi-row-wrapper" id="adm-kpi-row-wrapper">
+        <div class="adm-kpi-compact-row">
+            <!-- 1. Gross Revenue -->
+            <a href="reports.php" class="adm-kpi-mini-card gold" title="View Detailed Revenue & Reservation Analytics">
+                <div class="adm-kpi-mini-icon">
+                    <i class="fa-solid fa-coins"></i>
+                </div>
+                <div class="adm-kpi-mini-body">
+                    <div class="adm-kpi-mini-label">Gross Confirmed Stays</div>
+                    <div class="adm-kpi-mini-value">₹<?php echo number_format($total_revenue, 0, '.', ','); ?></div>
+                </div>
+                <div class="adm-kpi-mini-trend positive" title="Premium Organic Stays">
+                    <i class="fa-solid fa-arrow-trend-up"></i> Stays
+                </div>
+            </a>
 
-    <!-- Pending Review -->
-    <div class="adm-kpi-card amber">
-        <div class="adm-kpi-data">
-            <span class="adm-kpi-label">Pending Concierge</span>
-            <div class="adm-kpi-number"><?php echo $pending_bookings; ?></div>
-            <span class="adm-kpi-trend"><?php echo $pending_bookings > 0 ? 'Requires Concierge Attention' : 'All Requests Processed'; ?></span>
-        </div>
-        <div class="adm-kpi-icon-wrap">
-            <i class="fa-solid fa-hourglass-half"></i>
-        </div>
-    </div>
+            <!-- 2. Currently In-House Stays -->
+            <a href="#occupied-table-wrap" class="adm-kpi-mini-card emerald" title="Jump to Current In-House Guests Table">
+                <div class="adm-kpi-mini-icon">
+                    <i class="fa-solid fa-bed"></i>
+                </div>
+                <div class="adm-kpi-mini-body">
+                    <div class="adm-kpi-mini-label">Currently In-House</div>
+                    <div class="adm-kpi-mini-value"><?php echo $occupied_count; ?></div>
+                </div>
+                <div class="adm-kpi-mini-trend emerald-trend">
+                    <span class="adm-kpi-mini-dot"></span> <?php echo $occupied_count > 0 ? $occupied_count . ' Active' : 'Vacant'; ?>
+                </div>
+            </a>
 
-    <!-- Total All-Time Reservations -->
-    <div class="adm-kpi-card terracotta">
-        <div class="adm-kpi-data">
-            <span class="adm-kpi-label">Total Reservations</span>
-            <div class="adm-kpi-number"><?php echo $total_bookings; ?></div>
-            <span class="adm-kpi-trend">All Time Volume</span>
-        </div>
-        <div class="adm-kpi-icon-wrap">
-            <i class="fa-solid fa-calendar-days"></i>
+            <!-- 3. Pending Concierge Requests -->
+            <a href="bookings.php?filter=pending" class="adm-kpi-mini-card amber" title="View Pending Reservations Requiring Review">
+                <div class="adm-kpi-mini-icon">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+                <div class="adm-kpi-mini-body">
+                    <div class="adm-kpi-mini-label">Pending Concierge</div>
+                    <div class="adm-kpi-mini-value"><?php echo $pending_bookings; ?></div>
+                </div>
+                <div class="adm-kpi-mini-trend amber-trend">
+                    <?php echo $pending_bookings > 0 ? '<span class="adm-kpi-badge-pulse">' . $pending_bookings . ' Action</span>' : '<i class="fa-solid fa-check"></i> Clean'; ?>
+                </div>
+            </a>
+
+            <!-- 4. Total Reservations -->
+            <a href="bookings.php" class="adm-kpi-mini-card terracotta" title="View All Reservations in Master Log">
+                <div class="adm-kpi-mini-icon">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+                <div class="adm-kpi-mini-body">
+                    <div class="adm-kpi-mini-label">Total Reservations</div>
+                    <div class="adm-kpi-mini-value"><?php echo $total_bookings; ?></div>
+                </div>
+                <div class="adm-kpi-mini-trend slate-trend">
+                    All-Time
+                </div>
+            </a>
         </div>
     </div>
 </section>
@@ -345,6 +389,38 @@ $recent_inquiries = $pdo->query("
 <?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
 
 <script>
+function toggleKpiStrip(forceState) {
+    var wrapper = document.getElementById('adm-kpi-row-wrapper');
+    var summary = document.getElementById('adm-kpi-collapsed-summary');
+    var label = document.getElementById('adm-kpi-toggle-label');
+    var icon = document.getElementById('adm-kpi-toggle-icon');
+    var btn = document.getElementById('btn-toggle-kpi');
+    if (!wrapper) return;
+
+    var isCollapsing;
+    if (typeof forceState !== 'undefined') {
+        isCollapsing = !forceState;
+    } else {
+        isCollapsing = (wrapper.style.display !== 'none');
+    }
+
+    if (isCollapsing) {
+        wrapper.style.display = 'none';
+        if (summary) summary.style.display = 'flex';
+        if (label) label.textContent = 'Expand';
+        if (icon) icon.className = 'fa-solid fa-chevron-down';
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        try { localStorage.setItem('ff_dash_kpi_state', 'collapsed'); } catch(e){}
+    } else {
+        wrapper.style.display = 'block';
+        if (summary) summary.style.display = 'none';
+        if (label) label.textContent = 'Collapse';
+        if (icon) icon.className = 'fa-solid fa-chevron-up';
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        try { localStorage.setItem('ff_dash_kpi_state', 'expanded'); } catch(e){}
+    }
+}
+
 function toggleSectionCollapse(wrapId, btn) {
     var wrap = document.getElementById(wrapId);
     if (!wrap) return;
@@ -367,6 +443,13 @@ function toggleSectionCollapse(wrapId, btn) {
 
 // Restore saved collapse preferences
 document.addEventListener('DOMContentLoaded', function() {
+    try {
+        var kpiState = localStorage.getItem('ff_dash_kpi_state');
+        if (kpiState === 'collapsed') {
+            toggleKpiStrip(false);
+        }
+    } catch(e){}
+
     ['villas-table-wrap', 'occupied-table-wrap'].forEach(function(wrapId) {
         try {
             var state = localStorage.getItem('ff_dash_' + wrapId);

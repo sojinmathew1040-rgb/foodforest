@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             gsap.ticker.lagSmoothing(0);
         }
+        window.lenis = lenis;
     }
 
     // -------------------------------------------------------------
@@ -2254,7 +2255,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!isAllFoodSkipped) {
             if (isCompBfast) {
                 selectedFoodList.push({
-                    name: 'Complimentary Sanctuary Breakfast',
+                    name: "Complimentary Sanctuary Breakfast (Chef's Fixed Daily Spread)",
                     category: 'breakfast',
                     meal_time: 'breakfast',
                     qty: guestsCount,
@@ -2267,28 +2268,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.querySelectorAll('.modal-dish-card').forEach(card => {
                 const category = card.getAttribute('data-dish-category');
-                if (isCompBfast && category === 'breakfast') {
-                    // Do not include individual à la carte breakfast items when complimentary breakfast is active
-                    return;
-                }
                 const qtyInput = card.querySelector('.dish-qty-input');
                 const qty = parseInt(qtyInput?.value || "0", 10);
                 const name = card.getAttribute('data-dish-name') || 'Signature Dish';
-                const price = parseFloat(card.getAttribute('data-dish-price') || "0");
+                const globalTargetMeal = document.getElementById('booking-global-target-meal')?.value || 'dinner';
                 const mealTimeInp = card.querySelector('.dish-meal-time-val');
-                const mealTime = mealTimeInp ? mealTimeInp.value : (card.getAttribute('data-default-meal') || category || 'breakfast');
+                const mealTime = (mealTimeInp && mealTimeInp.value) ? mealTimeInp.value : globalTargetMeal;
 
                 if (qty > 0) {
                     const subtotal = qty * price;
                     foodTotal += subtotal;
                     foodSetsCount += qty;
+                    const isExtraBfast = (isCompBfast && category === 'breakfast');
                     selectedFoodList.push({
-                        name: name,
+                        name: isExtraBfast ? `${name} (Extra / Paid Customization)` : name,
                         category: category,
                         meal_time: mealTime,
                         qty: qty,
                         price: price,
-                        subtotal: subtotal
+                        subtotal: subtotal,
+                        is_additional: isExtraBfast
                     });
                     card.style.borderColor = '#059669';
                     card.style.background = '#F0FDF4';
@@ -2581,6 +2580,23 @@ document.addEventListener("DOMContentLoaded", () => {
             let val = parseInt(input.value || "0", 10);
             if (btn.classList.contains('plus')) {
                 if (val < 10) val++;
+                const card = input.closest('.modal-dish-card');
+                if (card && val > 0) {
+                    const globalMeal = document.getElementById('booking-global-target-meal')?.value || 'dinner';
+                    const hiddenInp = card.querySelector('.dish-meal-time-val');
+                    if (hiddenInp && (!hiddenInp.value || hiddenInp.getAttribute('data-user-customized') !== 'true')) {
+                        hiddenInp.value = globalMeal;
+                        card.querySelectorAll('.btn-meal-pill').forEach(p => {
+                            if (p.getAttribute('data-meal') === globalMeal) {
+                                p.classList.add('active');
+                            } else {
+                                p.classList.remove('active');
+                            }
+                        });
+                        const badge = card.querySelector('.dish-selected-meal-badge');
+                        if (badge) badge.innerText = globalMeal.toUpperCase();
+                    }
+                }
             } else if (btn.classList.contains('minus')) {
                 if (val > 0) val--;
             }
@@ -2612,9 +2628,12 @@ document.addEventListener("DOMContentLoaded", () => {
             card.querySelectorAll('.btn-meal-pill').forEach(p => p.classList.remove('active'));
             this.classList.add('active');
 
-            // Update hidden input
+            // Update hidden input and mark as explicitly user customized
             const hiddenInp = document.getElementById('dish-meal-' + dishId) || card.querySelector('.dish-meal-time-val');
-            if (hiddenInp) hiddenInp.value = meal;
+            if (hiddenInp) {
+                hiddenInp.value = meal;
+                hiddenInp.setAttribute('data-user-customized', 'true');
+            }
 
             // Update badge display
             const badge = document.getElementById('dish-badge-meal-' + dishId) || card.querySelector('.dish-selected-meal-badge');
@@ -2627,6 +2646,47 @@ document.addEventListener("DOMContentLoaded", () => {
                 card.style.borderColor = '#059669';
                 card.style.background = '#F0FDF4';
             }
+
+            recalculateBookingSummary();
+        });
+    });
+
+    // Global Serving Meal Time Selector Bar for Booking Modal
+    document.querySelectorAll('.btn-global-booking-meal').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const meal = this.getAttribute('data-meal');
+            document.querySelectorAll('.btn-global-booking-meal').forEach(b => {
+                b.classList.remove('active');
+                b.style.background = '#FFFFFF';
+                b.style.color = '#475569';
+                b.style.borderColor = '#CBD5E1';
+            });
+            this.classList.add('active');
+            this.style.background = 'var(--accent-green)';
+            this.style.color = '#FFFFFF';
+            this.style.borderColor = 'var(--accent-green)';
+
+            const globalInp = document.getElementById('booking-global-target-meal');
+            if (globalInp) globalInp.value = meal;
+
+            // Apply chosen meal time to all dishes in modal
+            document.querySelectorAll('.modal-dish-card').forEach(card => {
+                const hiddenInp = card.querySelector('.dish-meal-time-val');
+                if (hiddenInp) {
+                    hiddenInp.value = meal;
+                    hiddenInp.removeAttribute('data-user-customized');
+                }
+                card.querySelectorAll('.btn-meal-pill').forEach(p => {
+                    if (p.getAttribute('data-meal') === meal) {
+                        p.classList.add('active');
+                    } else {
+                        p.classList.remove('active');
+                    }
+                });
+                const badge = card.querySelector('.dish-selected-meal-badge');
+                if (badge) badge.innerText = meal.toUpperCase();
+            });
 
             recalculateBookingSummary();
         });
@@ -2742,6 +2802,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const block = document.getElementById('modal-cat-block-breakfast');
             const grid = document.getElementById('dishes-grid-breakfast');
             const banner = document.getElementById('banner-complimentary-breakfast');
+            const helperNote = document.getElementById('breakfast-addon-helper-note');
             const skipChk = document.querySelector('.cat-skip-checkbox[data-target-cat="breakfast"]');
             const btnWrap = this.closest('.meal-complimentary-btn');
 
@@ -2751,25 +2812,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     skipChk.checked = false;
                     if (block) block.style.opacity = '1';
                 }
-                // Reset all individual à la carte breakfast dish quantities to 0
+                // Keep the breakfast dish selection grid visible so guests can choose additional/customized paid items
                 if (grid) {
-                    grid.querySelectorAll('.dish-qty-input').forEach(inp => inp.value = 0);
-                    grid.querySelectorAll('.modal-dish-card').forEach(card => {
-                        card.style.borderColor = 'rgba(28, 56, 38, 0.14)';
-                        card.style.background = '#FFFFFF';
-                    });
-                    grid.style.display = 'none'; // Hide dish selection grid when complimentary is active
+                    grid.style.display = 'grid';
                 }
                 if (banner) banner.style.display = 'flex';
+                if (helperNote) helperNote.style.display = 'block';
                 if (block) {
                     block.classList.add('has-complimentary');
                     block.style.opacity = '1';
                 }
                 if (btnWrap) btnWrap.classList.add('active');
-                toggleMealCategory('breakfast', true); // Expand panel so the complimentary banner is prominent
+                toggleMealCategory('breakfast', true); // Expand panel so the complimentary banner and dishes are prominent
             } else {
-                if (grid) grid.style.display = 'grid';
                 if (banner) banner.style.display = 'none';
+                if (helperNote) helperNote.style.display = 'none';
                 if (block) block.classList.remove('has-complimentary');
                 if (btnWrap) btnWrap.classList.remove('active');
             }
@@ -3226,8 +3283,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     category: 'breakfast',
                     category_title: 'Complimentary Estate Breakfast',
                     meal_time: 'breakfast',
-                    heading: 'Complimentary Sanctuary Breakfast',
-                    subtitle: "Chef's Daily Estate Morning Spread (Included in Stay)",
+                    heading: "Complimentary Sanctuary Breakfast (Chef's Fixed Daily Spread)",
+                    subtitle: "Chef's Daily Estate Morning Spread (Included in Stay — No À La Carte Choice)",
                     price: 0,
                     quantity: guestsCount,
                     subtotal: 0,
@@ -3237,22 +3294,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.querySelectorAll('.modal-dish-card').forEach(card => {
                 const cat = card.getAttribute('data-dish-category');
-                if (isCompBfast && cat === 'breakfast') return;
                 const qtyInput = card.querySelector('.dish-qty-input');
                 const qty = parseInt(qtyInput?.value || "0", 10);
                 const price = parseFloat(card.getAttribute('data-dish-price') || "0");
+                const globalTargetMeal = document.getElementById('booking-global-target-meal')?.value || 'dinner';
                 const mealTimeInp = card.querySelector('.dish-meal-time-val');
-                const mealTime = mealTimeInp ? mealTimeInp.value : (card.getAttribute('data-default-meal') || cat || 'breakfast');
+                const mealTime = (mealTimeInp && mealTimeInp.value) ? mealTimeInp.value : (globalTargetMeal || card.getAttribute('data-default-meal') || cat || 'dinner');
                 if (qty > 0) {
+                    const isExtraBfast = (isCompBfast && cat === 'breakfast');
                     foodItems.push({
                         id: card.getAttribute('data-dish-id'),
                         category: cat,
                         meal_time: mealTime,
-                        heading: card.getAttribute('data-dish-name'),
+                        heading: isExtraBfast ? `${card.getAttribute('data-dish-name') || 'Signature Dish'} (Extra / Customization)` : (card.getAttribute('data-dish-name') || 'Signature Dish'),
                         subtitle: card.getAttribute('data-dish-subtitle') || '',
                         price: price,
                         quantity: qty,
-                        subtotal: qty * price
+                        subtotal: qty * price,
+                        is_complimentary: false
                     });
                 }
             });
@@ -3296,6 +3355,7 @@ document.addEventListener("DOMContentLoaded", () => {
             addons: addonsList.join(', '),
             notes: guestNotes,
             complimentary_breakfast: isCompBfast,
+            target_meal_time: document.getElementById('booking-global-target-meal')?.value || 'dinner',
             food_items: foodItems,
             food_skipped: isAllFoodSkipped || (foodItems.length === 0),
             billing_type: billingType,
@@ -3628,24 +3688,61 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // -------------------------------------------------------------
-    // 9. Mobile Menu Navigation Toggle
+    // 9. Mobile Menu Navigation Toggle & Close Handlers
     // -------------------------------------------------------------
     const navToggle = document.querySelector('.mobile-nav-toggle');
     const mobileMenu = document.querySelector('.mobile-menu');
 
+    function closeMobileMenu() {
+        if (navToggle) navToggle.classList.remove('active');
+        if (mobileMenu) mobileMenu.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    function openMobileMenu() {
+        if (navToggle) navToggle.classList.add('active');
+        if (mobileMenu) mobileMenu.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
     if (navToggle && mobileMenu) {
-        navToggle.addEventListener('click', () => {
-            navToggle.classList.toggle('active');
-            mobileMenu.classList.toggle('active');
-            document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+        navToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (mobileMenu.classList.contains('active')) {
+                closeMobileMenu();
+            } else {
+                openMobileMenu();
+            }
         });
 
+        // Close when clicking any close button inside the menu
+        document.querySelectorAll('.mobile-menu-close, .mobile-menu-close-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                closeMobileMenu();
+            });
+        });
+
+        // Close on clicking any navigation link
         document.querySelectorAll('.mobile-link').forEach(link => {
             link.addEventListener('click', () => {
-                navToggle.classList.remove('active');
-                mobileMenu.classList.remove('active');
-                document.body.style.overflow = '';
+                closeMobileMenu();
             });
+        });
+
+        // Close on clicking backdrop (empty area of mobile menu)
+        mobileMenu.addEventListener('click', (e) => {
+            if (e.target === mobileMenu) {
+                closeMobileMenu();
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && mobileMenu.classList.contains('active')) {
+                closeMobileMenu();
+            }
         });
     }
 

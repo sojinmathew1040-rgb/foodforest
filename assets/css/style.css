@@ -844,6 +844,104 @@ body::before {
     cursor: pointer;
 }
 
+/* Mobile Menu Close Button & Header Branding */
+.mobile-menu-close {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(11, 24, 16, 0.92);
+    border: 1.5px solid var(--accent-gold);
+    color: var(--accent-gold);
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 1250;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 12px rgba(197, 160, 89, 0.25);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mobile-menu-close:hover,
+.mobile-menu-close:active {
+    background: var(--accent-gold);
+    color: #07120B;
+    transform: rotate(90deg) scale(1.08);
+    box-shadow: 0 6px 24px rgba(197, 160, 89, 0.5);
+}
+
+.mobile-menu-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 24px;
+    text-align: center;
+    width: 100%;
+}
+
+.mobile-menu-brand-title {
+    font-size: 1.25rem;
+    color: #FFFFFF;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+}
+
+.mobile-menu-brand-sub {
+    font-size: 0.68rem;
+    color: var(--accent-gold);
+    letter-spacing: 0.22em;
+    margin-top: 3px;
+}
+
+.mobile-menu-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 24px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(197, 160, 89, 0.3);
+    color: rgba(248, 246, 240, 0.85);
+    font-size: 0.8rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border-radius: 24px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    align-self: center;
+}
+
+.mobile-menu-close-btn:hover,
+.mobile-menu-close-btn:active {
+    background: rgba(197, 160, 89, 0.2);
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+    transform: translateY(-1px);
+}
+
+.mobile-nav-toggle.active {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1250;
+}
+
+.mobile-nav-toggle.active .bar:nth-child(1) {
+    transform: translateY(4px) rotate(45deg);
+    background-color: var(--accent-gold);
+}
+
+.mobile-nav-toggle.active .bar:nth-child(2) {
+    transform: translateY(-4px) rotate(-45deg);
+    background-color: var(--accent-gold);
+}
+
 /* -------------------------------------------------------------
    4. Hero Section & Availability Booking Bar
    ------------------------------------------------------------- */
@@ -1090,6 +1188,10 @@ body::before {
     flex-shrink: 0;
 }
 
+.hero-submit-icon-cal {
+    display: none;
+}
+
 .hero-bar-submit:hover {
     background: var(--accent-gold);
     color: var(--forest-deep);
@@ -1098,7 +1200,7 @@ body::before {
     transform: translateY(-1px);
 }
 
-@media(max-width: 1140px) {
+@media(max-width: 1140px) and (min-width: 769px) {
     .hero-booking-bar {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -1115,17 +1217,6 @@ body::before {
         width: 100%;
         justify-content: center;
         height: 50px;
-    }
-}
-
-@media(max-width: 600px) {
-    .hero-booking-bar {
-        grid-template-columns: 1fr;
-        padding: 16px 18px;
-        gap: 14px;
-    }
-    .booking-bar-action {
-        grid-column: span 1;
     }
 }
 
@@ -5260,17 +5351,15 @@ select.form-input::-ms-expand,
 }
 
 /* Action Buttons */
-.booking-action-buttons {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
+#btn-submit-booking-direct {
+    display: none !important; /* Unified with floating live bill bar to prevent duplicate confirm buttons */
 }
 
-@media(max-width: 650px) {
-    .booking-action-buttons {
-        grid-template-columns: 1fr;
-    }
+.booking-action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
 }
 
 .btn-whatsapp-luxury {
@@ -9716,36 +9805,100 @@ html, body {
         box-shadow: 0 4px 18px rgba(197, 160, 89, 0.35);
     }
 
-    /* Hero Floating Booking Bar */
+    /* Hero Floating Booking Bar (Mobile View: Single Check Availability CTA to showcase scenic banner image) */
     .hero-booking-bar-wrapper {
         width: 100%;
         padding: 0 16px;
+        display: flex;
+        justify-content: center;
+        margin: 4px auto 10px;
     }
 
     .hero-booking-bar {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        padding: 16px;
-        border-radius: 12px;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 360px !important;
+        gap: 0 !important;
     }
 
-    .hero-booking-bar .booking-bar-field {
-        min-width: 0;
+    .hero-booking-bar:hover {
+        box-shadow: none !important;
     }
 
+    /* Hide 4 bulky form fields in mobile view to reveal the full preview of the banner image */
+    .hero-booking-bar .booking-bar-field,
     .hero-booking-bar .booking-bar-divider {
-        display: none;
+        display: none !important;
     }
 
     .hero-booking-bar .booking-bar-action {
-        grid-column: span 2;
+        width: 100% !important;
+        grid-column: auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        margin: 0 !important;
     }
 
     .hero-bar-submit {
-        width: 100%;
-        height: 48px;
-        justify-content: center;
+        width: 100% !important;
+        max-width: 320px !important;
+        height: 52px !important;
+        padding: 0 24px !important;
+        background: linear-gradient(135deg, #0f2918 0%, #163b24 100%) !important;
+        color: #F8F6F0 !important;
+        border: 1.5px solid var(--accent-gold) !important;
+        border-radius: 50px !important;
+        font-size: 0.82rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.12em !important;
+        text-transform: uppercase !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 18px rgba(197, 160, 89, 0.28) !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 10px !important;
+        transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease !important;
+    }
+
+    .hero-bar-submit:hover,
+    .hero-bar-submit:active {
+        background: linear-gradient(135deg, #C5A059 0%, #D4AF37 100%) !important;
+        color: #07120B !important;
+        border-color: #D4AF37 !important;
+        box-shadow: 0 12px 32px rgba(197, 160, 89, 0.5) !important;
+        transform: translateY(-2px) scale(1.02) !important;
+    }
+
+    .hero-bar-submit .hero-submit-icon-cal {
+        display: inline-block !important;
+        color: var(--accent-gold) !important;
+        font-size: 0.95rem !important;
+    }
+
+    .hero-bar-submit:hover .hero-submit-icon-cal,
+    .hero-bar-submit:active .hero-submit-icon-cal {
+        color: #07120B !important;
+    }
+
+    .hero-bar-submit .hero-submit-icon-arrow {
+        color: var(--accent-gold) !important;
+        font-size: 0.82rem !important;
+        transition: transform 0.25s ease, color 0.25s ease !important;
+    }
+
+    .hero-bar-submit:hover .hero-submit-icon-arrow,
+    .hero-bar-submit:active .hero-submit-icon-arrow {
+        color: #07120B !important;
+        transform: translateX(3px) !important;
     }
 
     /* Welcome Grid */
@@ -9904,14 +10057,11 @@ html, body {
         padding: 34px 0 !important;
     }
 
-    .hero-booking-bar {
-        grid-template-columns: 1fr;
-        gap: 10px;
-        padding: 14px 12px;
-    }
-
-    .hero-booking-bar .booking-bar-action {
-        grid-column: span 1;
+    .hero-bar-submit {
+        max-width: 290px !important;
+        font-size: 0.8rem !important;
+        height: 50px !important;
+        padding: 0 20px !important;
     }
 
     .welcome-details {
@@ -12294,24 +12444,557 @@ html, body {
     border-color: var(--accent-green) !important;
 }
 
-@media(max-width: 650px) {
-    .meal-cat-header-row {
+/* =========================================================================
+   COMPACT LUXURY MOBILE VIEW FOR BOOKING RESERVATION MODAL
+   Designed specifically for mobile devices (320px - 650px)
+   Eliminates visual collisions, button overlap, and footer bloat
+   ========================================================================= */
+
+@media (max-width: 650px) {
+    /* 1. Modal Overlay & Container */
+    .booking-modal-overlay {
+        padding: 8px !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .booking-modal-container {
+        width: 100% !important;
+        max-width: 480px !important;
+        max-height: 94vh !important;
+        border-radius: 14px !important;
+        margin: 0 auto !important;
+        overflow: hidden !important;
+    }
+
+    /* 2. Modal Close Button — dedicated safe position */
+    .booking-modal-close {
+        top: 12px !important;
+        right: 12px !important;
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 50% !important;
+        background: #FFFFFF !important;
+        border: 1.5px solid rgba(28, 56, 38, 0.22) !important;
+        color: var(--accent-green) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+        z-index: 100 !important;
+        font-size: 14px !important;
+    }
+
+    .booking-modal-close:hover {
+        background: var(--accent-green) !important;
+        color: #FFFFFF !important;
+    }
+
+    /* 3. Modal Scrollable Content Area */
+    .booking-modal-content {
+        padding: 14px 14px 85px 14px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* 4. Compact Modal Header */
+    .booking-modal-header {
+        text-align: left !important;
+        padding-bottom: 10px !important;
+        margin-bottom: 12px !important;
+        padding-right: 40px !important;
+    }
+
+    .booking-subtitle {
+        font-size: 0.65rem !important;
+        letter-spacing: 0.16em !important;
+    }
+
+    .booking-title {
+        font-size: 1.2rem !important;
+        margin: 2px 0 0 !important;
+        line-height: 1.25 !important;
+    }
+
+    .booking-tagline {
+        display: none !important;
+    }
+
+    .booking-trust-pills {
+        display: none !important;
+    }
+
+    .booking-section-group {
+        margin-bottom: 18px !important;
+    }
+
+    .group-title {
+        font-size: 1.05rem !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* 5. Compact Selected Cottage Card */
+    .modal-selected-chalet-card {
+        display: grid !important;
+        grid-template-columns: 72px 1fr !important;
+        gap: 8px 10px !important;
         padding: 10px 12px !important;
-        flex-wrap: wrap !important;
+        align-items: center !important;
+        border-radius: 8px !important;
     }
+
+    .msc-card-thumb-wrap {
+        width: 72px !important;
+        height: 60px !important;
+        border-radius: 6px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .msc-card-left {
+        gap: 3px !important;
+        min-width: 0 !important;
+    }
+
+    .msc-title {
+        font-size: 1.05rem !important;
+        margin: 0 !important;
+    }
+
+    .msc-badge-row {
+        gap: 4px !important;
+    }
+
+    .msc-type-pill,
+    .msc-struct-pill {
+        font-size: 10px !important;
+        padding: 1.5px 6px !important;
+    }
+
+    .msc-meta-row {
+        gap: 6px !important;
+        font-size: 11px !important;
+    }
+
+    .msc-rate-badge {
+        font-size: 11.5px !important;
+        font-weight: 700 !important;
+        padding: 1px 6px !important;
+    }
+
+    .msc-food-badge {
+        font-size: 11px !important;
+    }
+
+    .msc-card-right {
+        grid-column: span 2 !important;
+        width: 100% !important;
+    }
+
+    .btn-toggle-chalet-select {
+        width: 100% !important;
+        justify-content: center !important;
+        height: 34px !important;
+        padding: 0 12px !important;
+        font-size: 11.5px !important;
+        border-radius: 6px !important;
+    }
+
+    /* 6. Amenities Quick Strip */
+    .modal-amenities-quick-strip {
+        padding: 6px 10px !important;
+        gap: 6px !important;
+        font-size: 10.5px !important;
+        border-radius: 6px !important;
+    }
+
+    .modal-amenities-quick-strip > div {
+        gap: 6px !important;
+    }
+
+    /* 7. Duplex Tier Reservation Grid */
+    .modal-duplex-tier-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    .modal-tier-radio-label {
+        padding: 8px 10px !important;
+    }
+
+    /* 8. Stay Dates Grid & Inputs */
+    .modal-dates-grid {
+        gap: 8px !important;
+    }
+
+    .input-icon-wrapper .form-input {
+        padding: 8px 6px 8px 28px !important;
+        font-size: 12px !important;
+        height: 40px !important;
+        border-radius: 4px !important;
+    }
+
+    .input-icon-wrapper .input-icon {
+        left: 8px !important;
+        font-size: 12px !important;
+    }
+
+    /* 9. Guests & Occupancy Steppers */
+    .guest-steppers-container {
+        padding: 10px 12px !important;
+        margin-bottom: 14px !important;
+        border-radius: 8px !important;
+    }
+
+    .steppers-header-row {
+        margin-bottom: 6px !important;
+        gap: 4px !important;
+    }
+
+    .occupancy-note {
+        font-size: 10.5px !important;
+        line-height: 1.35 !important;
+    }
+
+    .guest-steppers-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    .guest-stepper-box {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 8px 12px !important;
+        border-radius: 6px !important;
+    }
+
+    .stepper-title {
+        font-size: 0.85rem !important;
+    }
+
+    .stepper-sub {
+        font-size: 0.72rem !important;
+    }
+
+    .stepper-controls {
+        gap: 3px !important;
+        padding: 2px 4px !important;
+    }
+
+    .btn-stepper {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 1rem !important;
+    }
+
+    .stepper-val {
+        width: 26px !important;
+        font-size: 13px !important;
+    }
+
+    /* 10. Availability Feedback Box */
+    .modal-availability-status-box {
+        padding: 10px 12px !important;
+        margin-top: 10px !important;
+        border-radius: 6px !important;
+    }
+
+    /* 11. Curate Dining & Kitchen Orders */
+    .section-heading-row {
+        gap: 6px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .optional-tag {
+        font-size: 11px !important;
+    }
+
+    .food-global-skip-toggle {
+        padding: 4px 10px !important;
+        font-size: 11px !important;
+    }
+
+    .booking-meal-timing-bar {
+        padding: 8px 10px !important;
+        gap: 6px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .booking-global-meal-pills {
+        gap: 4px !important;
+    }
+
+    .btn-global-booking-meal {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+    }
+
+    .modal-food-tabs-bar {
+        gap: 4px !important;
+        padding: 2px 0 !important;
+    }
+
+    .btn-food-filter-tab {
+        padding: 4px 10px !important;
+        font-size: 11px !important;
+    }
+
+    .btn-toggle-all-cats {
+        padding: 4px 10px !important;
+        font-size: 11px !important;
+    }
+
+    /* 12. Meal Category Header Row (Clean, Aligned Layout) */
+    .modal-meal-category-block {
+        margin-bottom: 8px !important;
+        border-radius: 8px !important;
+    }
+
+    .meal-cat-header-row {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        padding: 10px 12px !important;
+    }
+
+    .meal-cat-header-left {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .meal-cat-icon-wrap {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 13px !important;
+        border-radius: 6px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .meal-cat-title-wrap {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+
+    .meal-cat-title {
+        font-size: 14.5px !important;
+        margin: 0 !important;
+    }
+
     .meal-cat-meta-pills {
-        margin-top: 4px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        flex-wrap: wrap !important;
+        margin-top: 2px !important;
     }
+
+    .meal-cat-time-pill,
+    .meal-cat-count-pill,
+    .meal-cat-selected-badge {
+        font-size: 10px !important;
+        padding: 1.5px 5px !important;
+    }
+
     .meal-cat-header-right {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        gap: 8px !important;
+        padding-top: 6px !important;
+        border-top: 1px dashed rgba(28, 56, 38, 0.12) !important;
+        margin: 0 !important;
+    }
+
+    .meal-cat-header-right .meal-cat-chevron-btn {
         margin-left: auto !important;
     }
+
+    .meal-complimentary-btn,
+    .meal-skip-btn {
+        padding: 3px 8px !important;
+        font-size: 11px !important;
+        border-radius: 4px !important;
+    }
+
+    .modal-dishes-grid-panel {
+        padding: 10px 8px !important;
+    }
+
     .modal-dishes-grid {
         grid-template-columns: 1fr !important;
+        gap: 8px !important;
     }
-    .modal-dishes-grid-panel {
-        padding: 12px 10px !important;
+
+    .modal-dish-card {
+        padding: 10px 12px !important;
+        border-radius: 6px !important;
+    }
+
+    .complimentary-breakfast-banner {
+        padding: 10px 12px !important;
+        gap: 8px !important;
+    }
+
+    /* 13. Ultra-Compact Sticky Bill & Checkout Bar */
+    .modal-sticky-checkout-bar {
+        position: relative !important;
+        z-index: 60 !important;
+        padding: 8px 14px 10px !important;
+        background: linear-gradient(135deg, #0d2115 0%, #153222 100%) !important;
+        border-top: 1.5px solid rgba(197, 160, 89, 0.5) !important;
+        border-radius: 0 0 14px 14px !important;
+        box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    .mscb-content-wrap {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .mscb-main-info {
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+        gap: 2px !important;
+    }
+
+    .mscb-label-row {
+        display: none !important; /* Hide redundant label row to save vertical height */
+    }
+
+    .mscb-total-row {
+        display: flex !important;
+        align-items: baseline !important;
+        gap: 6px !important;
+    }
+
+    .mscb-amount {
+        font-size: 1.28rem !important;
+        color: #E5C378 !important;
+        font-weight: 700 !important;
+        line-height: 1 !important;
+    }
+
+    .mscb-nights-badge {
+        font-size: 11px !important;
+        color: #94A3B8 !important;
+    }
+
+    .mscb-breakdown-pills {
+        display: flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        flex-wrap: nowrap !important;
+        margin-top: 1px !important;
+    }
+
+    .mscb-pill {
+        font-size: 9.5px !important;
+        padding: 1.5px 5px !important;
+        white-space: nowrap !important;
+        line-height: 1.2 !important;
+    }
+
+    .mscb-actions {
+        flex-shrink: 0 !important;
+    }
+
+    .btn-mscb-reserve {
+        height: 40px !important;
+        padding: 0 16px !important;
+        font-size: 12.5px !important;
+        font-weight: 700 !important;
+        border-radius: 6px !important;
+        gap: 6px !important;
+        white-space: nowrap !important;
     }
 }
+
+@media (max-width: 420px) {
+    .btn-mscb-reserve {
+        padding: 0 12px !important;
+        font-size: 12px !important;
+    }
+
+    .mscb-amount {
+        font-size: 1.18rem !important;
+    }
+
+    .mscb-nights-badge {
+        font-size: 10px !important;
+    }
+}
+
+/* =========================================================================
+   SANCTUARY LUXURY SCROLL TO TOP (Responsive & Interactive)
+   ========================================================================= */
+.sanctuary-scroll-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(8, 20, 13, 0.88);
+    border: 1.5px solid rgba(197, 160, 89, 0.45);
+    color: var(--accent-gold, #C5A059);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 14px rgba(197, 160, 89, 0.18);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(18px) scale(0.9);
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0.35s ease,
+                background 0.25s ease,
+                border-color 0.25s ease,
+                color 0.25s ease,
+                box-shadow 0.25s ease;
+    outline: none;
+}
+
+.sanctuary-scroll-top.is-visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+
+.sanctuary-scroll-top:hover {
+    background: linear-gradient(135deg, #C5A059, #DFBA73);
+    color: #07100B;
+    border-color: #DFBA73;
+    transform: translateY(-4px) scale(1.08);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 22px rgba(197, 160, 89, 0.5);
+}
+
+.sanctuary-scroll-top:active {
+    transform: translateY(-1px) scale(0.96);
+}
+
+@media (max-width: 768px) {
+    .sanctuary-scroll-top {
+        bottom: 76px;
+        right: 18px;
+        width: 42px;
+        height: 42px;
+        font-size: 15px;
+    }
+}
+
 
 
 

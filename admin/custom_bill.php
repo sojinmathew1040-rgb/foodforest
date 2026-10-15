@@ -55,8 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $customer_address = trim($_POST['customer_address'] ?? '');
 
         // B2B GST Details
-        $is_gst_bill = !empty($_POST['is_gst_bill']) ? 1 : 0;
+        $gst_percentage = max(0, (float)($_POST['gst_percentage'] ?? 5.00));
         $has_b2b_gst = !empty($_POST['has_b2b_gst']) ? 1 : 0;
+        $is_gst_bill = (!empty($_POST['is_gst_bill']) || $has_b2b_gst || ($gst_percentage > 0)) ? 1 : 0;
         $gstin = $has_b2b_gst ? strtoupper(trim($_POST['gstin'] ?? '')) : '';
         $business_name = $has_b2b_gst ? trim($_POST['business_name'] ?? '') : '';
         $gst_address = $has_b2b_gst ? trim($_POST['gst_address'] ?? '') : '';
@@ -261,6 +262,7 @@ require_once __DIR__ . '/includes/header.php';
         <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
         <input type="hidden" name="invoice_id" value="<?php echo $val_id; ?>">
         <input type="hidden" name="submit_action" id="submitActionInput" value="save">
+        <input type="hidden" name="is_gst_bill" id="input_is_gst_bill" value="<?php echo $val_is_gst; ?>">
 
         <div style="display: grid; grid-template-columns: 2.1fr 1fr; gap: 24px; align-items: start;">
             
@@ -844,6 +846,13 @@ function calculateCustomBill() {
     }
 
     document.getElementById('disp_total_gst').innerText = '₹' + formatMoney(taxAmount);
+
+    // Sync is_gst_bill hidden field
+    var isGstInput = document.getElementById('input_is_gst_bill');
+    if (isGstInput) {
+        var hasB2B = document.getElementById('toggle_b2b_gst') && document.getElementById('toggle_b2b_gst').checked;
+        isGstInput.value = (gstPct > 0 || hasB2B) ? '1' : '0';
+    }
 
     // Grand Total
     var grandTotal = taxable + taxAmount;

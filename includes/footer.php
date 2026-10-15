@@ -229,6 +229,11 @@ $f_staff_url = get_setting('footer_staff_url', 'admin/');
 
     </div> <!-- End .smooth-scroll-wrapper -->
 
+    <!-- Sanctuary Luxury Scroll to Top Button -->
+    <button type="button" class="sanctuary-scroll-top" id="sanctuary-scroll-top" aria-label="Scroll to top of sanctuary" title="Return to Top">
+        <i class="fa-solid fa-chevron-up"></i>
+    </button>
+
     <!-- Load JavaScript Assets -->
     <?php
     $js_webgl_ver = @filemtime(__DIR__ . '/../assets/js/webgl.js') ?: get_setting('settings_updated_at', '1');
@@ -236,6 +241,30 @@ $f_staff_url = get_setting('footer_staff_url', 'admin/');
     ?>
     <script src="assets/js/webgl.js?v=<?php echo $js_webgl_ver; ?>"></script>
     <script src="assets/js/main.js?v=<?php echo $js_main_ver; ?>"></script>
+    <script>
+    (function() {
+        var btn = document.getElementById('sanctuary-scroll-top');
+        if (!btn) return;
+        function updateScrollTopVisibility() {
+            var scrolled = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+            if (scrolled > 260) {
+                btn.classList.add('is-visible');
+            } else {
+                btn.classList.remove('is-visible');
+            }
+        }
+        window.addEventListener('scroll', updateScrollTopVisibility, { passive: true });
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (window.lenis && typeof window.lenis.scrollTo === 'function') {
+                window.lenis.scrollTo(0, { immediate: false });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        });
+        updateScrollTopVisibility();
+    })();
+    </script>
 
     <?php if (get_setting('content_protection_enabled', '0') === '1'): ?>
     <!-- Content & Image Protection Shield (Configured in Admin Settings) -->

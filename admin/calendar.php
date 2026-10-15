@@ -210,65 +210,125 @@ $total_bookings_count = count($bookings);
         </div>
     <?php endif; ?>
 
-    <!-- Header KPI Row -->
-    <div class="adm-kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
-        <div class="adm-kpi-card">
-            <div class="adm-kpi-label">Active Bookings (<?php echo $month_name; ?>)</div>
-            <div class="adm-kpi-number"><?php echo $total_bookings_count; ?></div>
-            <span class="adm-kpi-trend">All Channels & Chalets</span>
+    <!-- Collapsible Compact Calendar KPI Metrics Strip (Single Horizontal Row) -->
+    <section class="adm-kpi-strip-container" id="adm-cal-kpi-container" style="margin-bottom: 18px;">
+        <div class="adm-kpi-strip-header">
+            <div class="adm-kpi-strip-title-group">
+                <span class="adm-kpi-strip-tag"><i class="fa-solid fa-calendar-days"></i></span>
+                <span class="adm-kpi-strip-title"><?php echo $month_name; ?> Occupancy Summary</span>
+
+                <!-- Compact inline preview pills visible when cards are collapsed -->
+                <div class="adm-kpi-collapsed-summary" id="adm-cal-kpi-collapsed-summary">
+                    <span class="adm-kpi-summary-pill emerald" title="Total Active Bookings">
+                        <i class="fa-solid fa-calendar-check"></i> <?php echo $total_bookings_count; ?> Stays
+                    </span>
+                    <span class="adm-kpi-summary-pill gold" title="Direct Website Bookings">
+                        <i class="fa-solid fa-globe"></i> <?php echo $source_counts['direct_website']; ?> Direct
+                    </span>
+                    <span class="adm-kpi-summary-pill red" title="MakeMyTrip Bookings">
+                        <i class="fa-solid fa-plane"></i> <?php echo $source_counts['makemytrip']; ?> MMT
+                    </span>
+                    <span class="adm-kpi-summary-pill purple" title="Airbnb / Booking.com">
+                        <i class="fa-brands fa-airbnb"></i> <?php echo $source_counts['airbnb'] + $source_counts['booking_com']; ?> OTA
+                    </span>
+                </div>
+            </div>
+
+            <button type="button" class="adm-kpi-toggle-btn" id="btn-toggle-cal-kpi" onclick="toggleCalendarKpiStrip();" aria-expanded="true" title="Collapse or expand occupancy metrics">
+                <i class="fa-solid fa-chevron-up" id="adm-cal-kpi-toggle-icon"></i>
+                <span id="adm-cal-kpi-toggle-label">Collapse</span>
+            </button>
         </div>
-        <div class="adm-kpi-card" style="border-left: 3px solid #C5A059;">
-            <div class="adm-kpi-label">🟡 Direct Website Stays</div>
-            <div class="adm-kpi-number"><?php echo $source_counts['direct_website']; ?></div>
-            <span class="adm-kpi-trend">Commission-Free Reservations</span>
+
+        <div class="adm-kpi-row-wrapper" id="adm-cal-kpi-row-wrapper">
+            <div class="adm-kpi-compact-row">
+                <!-- 1. Active Bookings -->
+                <div class="adm-kpi-mini-card emerald" title="Total Month Stays">
+                    <div class="adm-kpi-mini-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                    <div class="adm-kpi-mini-body">
+                        <div class="adm-kpi-mini-label">Active Bookings</div>
+                        <div class="adm-kpi-mini-value"><?php echo $total_bookings_count; ?></div>
+                    </div>
+                    <div class="adm-kpi-mini-trend emerald-trend">All Channels</div>
+                </div>
+
+                <!-- 2. Direct Website Stays -->
+                <div class="adm-kpi-mini-card gold" title="Commission-Free Direct Reservations">
+                    <div class="adm-kpi-mini-icon"><i class="fa-solid fa-globe"></i></div>
+                    <div class="adm-kpi-mini-body">
+                        <div class="adm-kpi-mini-label">Direct Stays</div>
+                        <div class="adm-kpi-mini-value"><?php echo $source_counts['direct_website']; ?></div>
+                    </div>
+                    <div class="adm-kpi-mini-trend gold-trend">Direct VIP</div>
+                </div>
+
+                <!-- 3. MakeMyTrip (InGoMMT) -->
+                <div class="adm-kpi-mini-card red" title="MakeMyTrip Stays">
+                    <div class="adm-kpi-mini-icon"><i class="fa-solid fa-plane-arrival"></i></div>
+                    <div class="adm-kpi-mini-body">
+                        <div class="adm-kpi-mini-label">MakeMyTrip</div>
+                        <div class="adm-kpi-mini-value"><?php echo $source_counts['makemytrip']; ?></div>
+                    </div>
+                    <div class="adm-kpi-mini-trend red-trend">InGoMMT</div>
+                </div>
+
+                <!-- 4. Airbnb / Booking.com -->
+                <div class="adm-kpi-mini-card purple" title="Airbnb / Booking.com Stays">
+                    <div class="adm-kpi-mini-icon"><i class="fa-brands fa-airbnb"></i></div>
+                    <div class="adm-kpi-mini-body">
+                        <div class="adm-kpi-mini-label">OTA Channels</div>
+                        <div class="adm-kpi-mini-value"><?php echo $source_counts['airbnb'] + $source_counts['booking_com']; ?></div>
+                    </div>
+                    <div class="adm-kpi-mini-trend purple-trend">Airbnb &amp; Booking</div>
+                </div>
+            </div>
         </div>
-        <div class="adm-kpi-card" style="border-left: 3px solid #e74c3c;">
-            <div class="adm-kpi-label">🔴 MakeMyTrip (InGoMMT)</div>
-            <div class="adm-kpi-number"><?php echo $source_counts['makemytrip']; ?></div>
-            <span class="adm-kpi-trend">Synced via iCal</span>
-        </div>
-        <div class="adm-kpi-card" style="border-left: 3px solid #FF5A5F;">
-            <div class="adm-kpi-label">🌺 Airbnb / Booking.com</div>
-            <div class="adm-kpi-number"><?php echo $source_counts['airbnb'] + $source_counts['booking_com']; ?></div>
-            <span class="adm-kpi-trend">External OTA Feeds</span>
-        </div>
-    </div>
+    </section>
 
     <!-- Calendar Controls Bar -->
-    <div class="adm-card" style="margin-bottom: 24px; padding: 16px 20px;">
-        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px;">
+    <div class="adm-card adm-cal-controls-card" style="margin-bottom: 18px; padding: 14px 18px;">
+        <div class="adm-cal-controls-inner">
             
-            <!-- Month Nav -->
-            <div style="display: flex; align-items: center; gap: 12px;">
+            <!-- Month Nav & View Switcher -->
+            <div class="adm-cal-month-nav">
                 <a href="calendar.php?month=<?php echo $prev_month; ?>&year=<?php echo $prev_year; ?>&room=<?php echo urlencode($selected_room); ?>&source=<?php echo urlencode($selected_source); ?>" 
-                   class="adm-btn-action outline" style="padding: 6px 14px;">
+                   class="adm-btn-action outline adm-cal-nav-btn" title="Previous Month">
                     <i class="fa-solid fa-chevron-left"></i>
                 </a>
                 
-                <h2 style="font-family: var(--adm-font-title); font-size: 20px; color: #FFFFFF; margin: 0; min-width: 170px; text-align: center;">
+                <h2 class="adm-cal-month-heading">
                     <?php echo $month_name . ' ' . $curr_year; ?>
                 </h2>
 
                 <a href="calendar.php?month=<?php echo $next_month; ?>&year=<?php echo $next_year; ?>&room=<?php echo urlencode($selected_room); ?>&source=<?php echo urlencode($selected_source); ?>" 
-                   class="adm-btn-action outline" style="padding: 6px 14px;">
+                   class="adm-btn-action outline adm-cal-nav-btn" title="Next Month">
                     <i class="fa-solid fa-chevron-right"></i>
                 </a>
 
                 <a href="calendar.php?month=<?php echo date('n'); ?>&year=<?php echo date('Y'); ?>&room=<?php echo urlencode($selected_room); ?>&source=<?php echo urlencode($selected_source); ?>" 
-                   class="adm-btn-action gold" style="padding: 6px 12px; font-size: 11px;">
+                   class="adm-btn-action gold adm-cal-today-btn" title="Jump to Current Month">
                     Today
                 </a>
+
+                <!-- View Switcher (Grid vs List) -->
+                <div class="adm-cal-view-toggle">
+                    <button type="button" class="adm-cal-view-btn active" id="btn-view-grid" onclick="switchCalendarView('grid')" title="Month Grid View">
+                        <i class="fa-solid fa-calendar-days"></i> <span class="adm-hide-mob-small">Grid</span>
+                    </button>
+                    <button type="button" class="adm-cal-view-btn" id="btn-view-agenda" onclick="switchCalendarView('agenda')" title="List / Agenda View">
+                        <i class="fa-solid fa-list-ul"></i> <span class="adm-hide-mob-small">List</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Filters & Actions -->
-            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
-                
-                <!-- Room Filter -->
-                <form method="GET" action="calendar.php" id="cal-filter-form" style="display: flex; gap: 8px;">
+            <div class="adm-cal-actions-bar">
+                <!-- Room & Channel Filters -->
+                <form method="GET" action="calendar.php" id="cal-filter-form" class="adm-cal-filter-form">
                     <input type="hidden" name="month" value="<?php echo $curr_month; ?>">
                     <input type="hidden" name="year" value="<?php echo $curr_year; ?>">
                     
-                    <select name="room" class="adm-input" style="padding: 6px 12px; font-size: 12px; max-width: 180px;" onchange="this.form.submit()">
+                    <select name="room" class="adm-input adm-cal-select" onchange="this.form.submit()" title="Filter by Chalet">
                         <option value="all" <?php echo $selected_room === 'all' ? 'selected' : ''; ?>>All Chalets</option>
                         <?php foreach ($rooms as $r): ?>
                             <option value="<?php echo htmlspecialchars($r['slug']); ?>" <?php echo $selected_room === $r['slug'] ? 'selected' : ''; ?>>
@@ -277,7 +337,7 @@ $total_bookings_count = count($bookings);
                         <?php endforeach; ?>
                     </select>
 
-                    <select name="source" class="adm-input" style="padding: 6px 12px; font-size: 12px; max-width: 160px;" onchange="this.form.submit()">
+                    <select name="source" class="adm-input adm-cal-select" onchange="this.form.submit()" title="Filter by Channel Source">
                         <option value="all" <?php echo $selected_source === 'all' ? 'selected' : ''; ?>>All Channels</option>
                         <option value="direct_website" <?php echo $selected_source === 'direct_website' ? 'selected' : ''; ?>>Direct Website</option>
                         <option value="makemytrip" <?php echo $selected_source === 'makemytrip' ? 'selected' : ''; ?>>MakeMyTrip</option>
@@ -287,129 +347,202 @@ $total_bookings_count = count($bookings);
                     </select>
                 </form>
 
-                <!-- Sync Now Trigger -->
-                <a href="channel_sync.php" class="adm-btn-action outline" title="Manage & Sync Feeds" style="padding: 7px 14px; font-size: 12px;">
-                    <i class="fa-solid fa-arrows-rotate"></i> OTA Sync
-                </a>
+                <!-- Action Buttons -->
+                <div class="adm-cal-action-btns">
+                    <!-- Sync Now Trigger -->
+                    <a href="channel_sync.php" class="adm-btn-action outline" title="Manage & Sync Feeds" style="padding: 7px 12px; font-size: 12px;">
+                        <i class="fa-solid fa-arrows-rotate"></i> <span>OTA Sync</span>
+                    </a>
 
-                <!-- Quick Block Button -->
-                <button type="button" class="adm-btn-action gold" onclick="openQuickBookModal()" style="padding: 7px 16px; font-size: 12px;">
-                    <i class="fa-solid fa-plus"></i> Block / Reserve
-                </button>
+                    <!-- Quick Block Button -->
+                    <button type="button" class="adm-btn-action gold" onclick="openQuickBookModal()" style="padding: 7px 14px; font-size: 12px;">
+                        <i class="fa-solid fa-plus"></i> <span>Block / Reserve</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Calendar Legend Bar -->
-    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 16px; padding: 10px 16px; background: rgba(20, 40, 28, 0.4); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 8px; font-size: 11.5px;">
-        <span style="color: var(--adm-gold); font-weight: 700; margin-right: 4px;"><i class="fa-solid fa-circle-info"></i> Channel Key:</span>
-        <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #C5A059;"></span> Direct Website</span>
-        <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #e74c3c;"></span> MakeMyTrip (InGoMMT)</span>
-        <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #FF5A5F;"></span> Airbnb</span>
-        <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #003580;"></span> Booking.com</span>
-        <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #27ae60;"></span> Offline / Walk-in</span>
+    <!-- Calendar Legend Bar (Touch-scrollable on mobile) -->
+    <div class="adm-cal-legend-bar">
+        <span class="adm-cal-legend-title"><i class="fa-solid fa-circle-info"></i> Channels:</span>
+        <span class="adm-cal-legend-item"><span class="adm-cal-dot" style="background: #C5A059;"></span> Direct Website</span>
+        <span class="adm-cal-legend-item"><span class="adm-cal-dot" style="background: #e74c3c;"></span> MakeMyTrip</span>
+        <span class="adm-cal-legend-item"><span class="adm-cal-dot" style="background: #FF5A5F;"></span> Airbnb</span>
+        <span class="adm-cal-legend-item"><span class="adm-cal-dot" style="background: #003580;"></span> Booking.com</span>
+        <span class="adm-cal-legend-item"><span class="adm-cal-dot" style="background: #27ae60;"></span> Offline / Walk-in</span>
     </div>
 
-    <!-- Monthly Calendar Grid Layout -->
-    <div class="adm-table-responsive" style="border: none; background: transparent; padding: 0; margin-bottom: 24px;">
-        <div class="adm-card" style="padding: 0; overflow: hidden; border-radius: 12px; min-width: 680px; margin-bottom: 0;">
+    <!-- Monthly Calendar Grid Layout (100% Fit Responsive) -->
+    <div class="adm-cal-wrapper" id="cal-view-grid-container">
+        <div class="adm-card adm-cal-card">
             
             <!-- Days Header (Sun - Sat) -->
-            <div style="display: grid; grid-template-columns: repeat(7, 1fr); background: #14281c; border-bottom: 1px solid rgba(197, 160, 89, 0.2); text-align: center; font-weight: 700; font-size: 12px; color: var(--adm-gold); padding: 12px 0;">
-            <div>SUN</div>
-            <div>MON</div>
-            <div>TUE</div>
-            <div>WED</div>
-            <div>THU</div>
-            <div>FRI</div>
-            <div>SAT</div>
-        </div>
+            <div class="adm-cal-header-row">
+                <div>SUN</div>
+                <div>MON</div>
+                <div>TUE</div>
+                <div>WED</div>
+                <div>THU</div>
+                <div>FRI</div>
+                <div>SAT</div>
+            </div>
 
-        <!-- Days Grid -->
-        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: rgba(197, 160, 89, 0.15);">
-            <?php 
-            $curr_cal_date = new DateTime($cal_start_date);
-            $today_str = date('Y-m-d');
+            <!-- Days Grid -->
+            <div class="adm-cal-grid">
+                <?php 
+                $curr_cal_date = new DateTime($cal_start_date);
+                $today_str = date('Y-m-d');
 
-            for ($i = 0; $i < $total_cells; $i++):
-                $d_str = $curr_cal_date->format('Y-m-d');
-                $d_num = (int)$curr_cal_date->format('j');
-                $is_current_month = ((int)$curr_cal_date->format('n') === $curr_month);
-                $is_today = ($d_str === $today_str);
-                $day_bookings = $bookings_by_date[$d_str] ?? [];
-            ?>
-                <div class="cal-day-cell <?php echo !$is_current_month ? 'other-month' : ''; ?> <?php echo $is_today ? 'is-today' : ''; ?>"
-                     style="min-height: 110px; background: <?php echo $is_current_month ? '#0e1f16' : '#08130d'; ?>; padding: 6px 8px; position: relative; cursor: pointer; transition: background 0.2s ease;"
-                     onclick="handleDayClick('<?php echo $d_str; ?>')">
-                    
-                    <!-- Date Number & Header -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <span style="font-size: 12px; font-weight: <?php echo $is_today ? '800' : '600'; ?>; color: <?php echo $is_today ? 'var(--adm-gold)' : ($is_current_month ? '#FFFFFF' : 'rgba(255,255,255,0.25)'); ?>; <?php echo $is_today ? 'background: rgba(197, 160, 89, 0.2); padding: 1px 6px; border-radius: 10px; border: 1px solid var(--adm-gold);' : ''; ?>">
-                            <?php echo $d_num; ?>
-                        </span>
+                for ($i = 0; $i < $total_cells; $i++):
+                    $d_str = $curr_cal_date->format('Y-m-d');
+                    $d_num = (int)$curr_cal_date->format('j');
+                    $is_current_month = ((int)$curr_cal_date->format('n') === $curr_month);
+                    $is_today = ($d_str === $today_str);
+                    $day_bookings = $bookings_by_date[$d_str] ?? [];
+                ?>
+                    <div class="cal-day-cell <?php echo !$is_current_month ? 'other-month' : ''; ?> <?php echo $is_today ? 'is-today' : ''; ?>"
+                         onclick="handleDayClick('<?php echo $d_str; ?>')">
                         
-                        <?php if (count($day_bookings) > 0): ?>
-                            <span style="font-size: 9px; color: var(--adm-gold); font-weight: 700;">
-                                <?php echo count($day_bookings); ?> Stay<?php echo count($day_bookings) > 1 ? 's' : ''; ?>
+                        <!-- Date Number & Header -->
+                        <div class="cal-cell-header">
+                            <span class="cal-day-num <?php echo $is_today ? 'is-today' : ''; ?>">
+                                <?php echo $d_num; ?>
                             </span>
-                        <?php endif; ?>
-                    </div>
-
-                    <!-- Bookings Pills -->
-                    <div style="display: flex; flex-direction: column; gap: 3px;">
-                        <?php 
-                        $max_show = 3;
-                        $rendered = 0;
-                        foreach ($day_bookings as $b):
-                            if ($rendered >= $max_show) break;
-                            $rendered++;
                             
-                            $src = strtolower(trim($b['booking_source'] ?: 'direct_website'));
-                            $pill_bg = '#C5A059';
-                            $pill_color = '#101F15';
-                            $badge_icon = 'fa-solid fa-house';
+                            <?php if (count($day_bookings) > 0): ?>
+                                <span class="cal-stay-count" title="<?php echo count($day_bookings); ?> Stays">
+                                    <?php echo count($day_bookings); ?> Stay<?php echo count($day_bookings) > 1 ? 's' : ''; ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
 
-                            if (stripos($src, 'make') !== false || stripos($src, 'mmt') !== false) {
-                                $pill_bg = '#e74c3c';
-                                $pill_color = '#FFFFFF';
-                                $badge_icon = 'fa-solid fa-plane-arrival';
-                            } elseif (stripos($src, 'air') !== false) {
-                                $pill_bg = '#FF5A5F';
-                                $pill_color = '#FFFFFF';
-                                $badge_icon = 'fa-brands fa-airbnb';
-                            } elseif (stripos($src, 'booking') !== false) {
-                                $pill_bg = '#003580';
-                                $pill_color = '#FFFFFF';
-                                $badge_icon = 'fa-solid fa-b';
-                            } elseif ($src === 'offline_direct') {
-                                $pill_bg = '#27ae60';
-                                $pill_color = '#FFFFFF';
-                                $badge_icon = 'fa-solid fa-phone';
-                            }
-                        ?>
-                            <div class="cal-booking-pill" 
-                                 onclick="event.stopPropagation(); openBookingDetailModal(<?php echo htmlspecialchars(json_encode($b)); ?>)"
-                                 style="background: <?php echo $pill_bg; ?>; color: <?php echo $pill_color; ?>; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px;"
-                                 title="<?php echo htmlspecialchars($b['guest_name'] . ' (' . ($b['room_title'] ?: $b['villa_type']) . ') - ' . $b['checkin_date'] . ' to ' . $b['checkout_date']); ?>">
-                                <i class="<?php echo $badge_icon; ?>" style="font-size: 9px;"></i>
-                                <span><?php echo htmlspecialchars($b['guest_name']); ?></span>
-                            </div>
-                        <?php endforeach; ?>
+                        <!-- Bookings Pills -->
+                        <div class="cal-bookings-list">
+                            <?php 
+                            $max_show = 3;
+                            $rendered = 0;
+                            foreach ($day_bookings as $b):
+                                if ($rendered >= $max_show) break;
+                                $rendered++;
+                                
+                                $src = strtolower(trim($b['booking_source'] ?: 'direct_website'));
+                                $pill_bg = '#C5A059';
+                                $pill_color = '#101F15';
+                                $badge_icon = 'fa-solid fa-house';
 
-                        <?php if (count($day_bookings) > $max_show): ?>
-                            <div style="font-size: 9px; color: var(--adm-gold); font-weight: 700; text-align: center;">
-                                +<?php echo count($day_bookings) - $max_show; ?> more
-                            </div>
-                        <?php endif; ?>
+                                if (stripos($src, 'make') !== false || stripos($src, 'mmt') !== false) {
+                                    $pill_bg = '#e74c3c';
+                                    $pill_color = '#FFFFFF';
+                                    $badge_icon = 'fa-solid fa-plane-arrival';
+                                } elseif (stripos($src, 'air') !== false) {
+                                    $pill_bg = '#FF5A5F';
+                                    $pill_color = '#FFFFFF';
+                                    $badge_icon = 'fa-brands fa-airbnb';
+                                } elseif (stripos($src, 'booking') !== false) {
+                                    $pill_bg = '#003580';
+                                    $pill_color = '#FFFFFF';
+                                    $badge_icon = 'fa-solid fa-b';
+                                } elseif ($src === 'offline_direct') {
+                                    $pill_bg = '#27ae60';
+                                    $pill_color = '#FFFFFF';
+                                    $badge_icon = 'fa-solid fa-phone';
+                                }
+                            ?>
+                                <div class="cal-booking-pill" 
+                                     onclick="event.stopPropagation(); openBookingDetailModal(<?php echo htmlspecialchars(json_encode($b)); ?>)"
+                                     style="background: <?php echo $pill_bg; ?>; color: <?php echo $pill_color; ?>;"
+                                     title="<?php echo htmlspecialchars($b['guest_name'] . ' (' . ($b['room_title'] ?: $b['villa_type']) . ') - ' . $b['checkin_date'] . ' to ' . $b['checkout_date']); ?>">
+                                    <i class="<?php echo $badge_icon; ?>"></i>
+                                    <span><?php echo htmlspecialchars($b['guest_name']); ?></span>
+                                </div>
+                            <?php endforeach; ?>
+
+                            <?php if (count($day_bookings) > $max_show): ?>
+                                <div class="cal-more-badge">
+                                    +<?php echo count($day_bookings) - $max_show; ?> more
+                                </div>
+                            <?php endif; ?>
+                        </div>
                     </div>
-                </div>
-            <?php 
-                $curr_cal_date->modify('+1 day');
-            endfor; 
-            ?>
+                <?php 
+                    $curr_cal_date->modify('+1 day');
+                endfor; 
+                ?>
+            </div>
         </div>
     </div>
-</div>
+
+    <!-- Month Agenda / Chronological Stays List View -->
+    <div class="adm-cal-agenda-wrapper" id="cal-view-agenda-container" style="display: none; margin-bottom: 24px;">
+        <div class="adm-card" style="padding: 16px 20px; border-radius: 12px; border: 1px solid rgba(197, 160, 89, 0.25);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(197,160,89,0.2); padding-bottom: 10px;">
+                <h3 style="font-family: var(--adm-font-title); font-size: 16px; color: #FFFFFF; margin: 0;">
+                    <i class="fa-solid fa-list-check" style="color: var(--adm-gold);"></i> 
+                    <?php echo $month_name . ' ' . $curr_year; ?> Reservations (<?php echo count($bookings); ?>)
+                </h3>
+                <span style="font-size: 11.5px; color: var(--adm-gold-light);">Chronological Stays</span>
+            </div>
+
+            <?php if (empty($bookings)): ?>
+                <div style="text-align: center; padding: 36px 16px; color: #94a3b8;">
+                    <i class="fa-regular fa-calendar-xmark" style="font-size: 36px; color: var(--adm-gold); margin-bottom: 12px; display: block; opacity: 0.6;"></i>
+                    <p style="font-size: 14px; margin: 0;">No active bookings found for <?php echo $month_name . ' ' . $curr_year; ?>.</p>
+                </div>
+            <?php else: ?>
+                <div class="adm-cal-agenda-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    <?php foreach ($bookings as $b): 
+                        $src = strtolower(trim($b['booking_source'] ?: 'direct_website'));
+                        $pill_bg = '#C5A059';
+                        $src_label = 'Direct Website';
+                        if (stripos($src, 'make') !== false || stripos($src, 'mmt') !== false) {
+                            $pill_bg = '#e74c3c';
+                            $src_label = 'MakeMyTrip';
+                        } elseif (stripos($src, 'air') !== false) {
+                            $pill_bg = '#FF5A5F';
+                            $src_label = 'Airbnb';
+                        } elseif (stripos($src, 'booking') !== false) {
+                            $pill_bg = '#003580';
+                            $src_label = 'Booking.com';
+                        } elseif ($src === 'offline_direct') {
+                            $pill_bg = '#27ae60';
+                            $src_label = 'Offline / Phone';
+                        }
+                    ?>
+                        <div class="adm-cal-agenda-card" 
+                             onclick="openBookingDetailModal(<?php echo htmlspecialchars(json_encode($b)); ?>)"
+                             style="background: #0e1f16; border: 1px solid rgba(197, 160, 89, 0.2); border-left: 4px solid <?php echo $pill_bg; ?>; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: all 0.2s ease;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+                                <div>
+                                    <strong style="color: #FFFFFF; font-size: 14px; display: block;">
+                                        <?php echo htmlspecialchars($b['guest_name']); ?>
+                                    </strong>
+                                    <span style="font-size: 11.5px; color: var(--adm-gold-light); font-weight: 600;">
+                                        <i class="fa-solid fa-hotel"></i> <?php echo htmlspecialchars($b['room_title'] ?: $b['villa_type']); ?>
+                                    </span>
+                                </div>
+                                <span style="background: <?php echo $pill_bg; ?>; color: #FFFFFF; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">
+                                    <?php echo $src_label; ?>
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #cbd5e1; flex-wrap: wrap; gap: 8px;">
+                                <span>
+                                    <i class="fa-regular fa-calendar"></i> 
+                                    <strong><?php echo date('d M', strtotime($b['checkin_date'])); ?></strong> → 
+                                    <strong><?php echo date('d M', strtotime($b['checkout_date'])); ?></strong> 
+                                    (<?php echo $b['nights']; ?> nt<?php echo $b['nights'] > 1 ? 's' : ''; ?>)
+                                </span>
+                                <span style="font-size: 11px; color: #94a3b8;">
+                                    <i class="fa-solid fa-users"></i> <?php echo $b['guests_count']; ?> Guests • 
+                                    <span style="color: var(--adm-gold); font-weight: 700;">₹<?php echo number_format($b['total_amount'], 0); ?></span>
+                                </span>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 
 </div>
 
@@ -669,6 +802,74 @@ function closeModal(modalId) {
     const m = document.getElementById(modalId);
     if (m) m.style.display = 'none';
 }
+
+function toggleCalendarKpiStrip(forceState) {
+    var wrapper = document.getElementById('adm-cal-kpi-row-wrapper');
+    var summary = document.getElementById('adm-cal-kpi-collapsed-summary');
+    var label = document.getElementById('adm-cal-kpi-toggle-label');
+    var icon = document.getElementById('adm-cal-kpi-toggle-icon');
+    var btn = document.getElementById('btn-toggle-cal-kpi');
+    if (!wrapper) return;
+
+    var isCollapsing;
+    if (typeof forceState !== 'undefined') {
+        isCollapsing = !forceState;
+    } else {
+        isCollapsing = (wrapper.style.display !== 'none');
+    }
+
+    if (isCollapsing) {
+        wrapper.style.display = 'none';
+        if (summary) summary.style.display = 'flex';
+        if (label) label.textContent = 'Expand';
+        if (icon) icon.className = 'fa-solid fa-chevron-down';
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        try { localStorage.setItem('ff_cal_kpi_state', 'collapsed'); } catch(e){}
+    } else {
+        wrapper.style.display = 'block';
+        if (summary) summary.style.display = 'none';
+        if (label) label.textContent = 'Collapse';
+        if (icon) icon.className = 'fa-solid fa-chevron-up';
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        try { localStorage.setItem('ff_cal_kpi_state', 'expanded'); } catch(e){}
+    }
+}
+
+function switchCalendarView(viewMode) {
+    var gridWrap = document.getElementById('cal-view-grid-container');
+    var agendaWrap = document.getElementById('cal-view-agenda-container');
+    var btnGrid = document.getElementById('btn-view-grid');
+    var btnAgenda = document.getElementById('btn-view-agenda');
+
+    if (viewMode === 'agenda' || viewMode === 'list') {
+        if (gridWrap) gridWrap.style.display = 'none';
+        if (agendaWrap) agendaWrap.style.display = 'block';
+        if (btnGrid) btnGrid.classList.remove('active');
+        if (btnAgenda) btnAgenda.classList.add('active');
+        try { localStorage.setItem('ff_cal_view_mode', 'agenda'); } catch(e){}
+    } else {
+        if (gridWrap) gridWrap.style.display = 'block';
+        if (agendaWrap) agendaWrap.style.display = 'none';
+        if (btnGrid) btnGrid.classList.add('active');
+        if (btnAgenda) btnAgenda.classList.remove('active');
+        try { localStorage.setItem('ff_cal_view_mode', 'grid'); } catch(e){}
+    }
+}
+
+// Restore saved preferences on load
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        var kState = localStorage.getItem('ff_cal_kpi_state');
+        if (kState === 'collapsed') {
+            toggleCalendarKpiStrip(false);
+        }
+
+        var vMode = localStorage.getItem('ff_cal_view_mode');
+        if (vMode === 'agenda') {
+            switchCalendarView('agenda');
+        }
+    } catch(e){}
+});
 </script>
 
 <?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>

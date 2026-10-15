@@ -93,8 +93,9 @@ $hero_rooms = get_all_rooms(true);
             <!-- Action Button -->
             <div class="booking-bar-action">
                 <button type="button" id="btn-hero-check-availability" class="hero-bar-submit font-sans magnetic" data-strength="15">
+                    <i class="fa-regular fa-calendar-check hero-submit-icon-cal"></i>
                     <span>Check Availability</span>
-                    <i class="fa-solid fa-arrow-right"></i>
+                    <i class="fa-solid fa-arrow-right hero-submit-icon-arrow"></i>
                 </button>
             </div>
         </div>

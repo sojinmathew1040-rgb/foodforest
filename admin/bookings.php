@@ -188,9 +188,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!is_dir($upload_dir)) {
                         @mkdir($upload_dir, 0777, true);
                     }
-                    $ext = strtolower(pathinfo($_FILES['id_proof_file']['name'], PATHINFO_EXTENSION));
                     if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'pdf'])) {
-                        $id_proof_file = 'id_adm_' . time() . '_' . rand(100, 999) . '.' . $ext;
+                        $safe_g = trim(preg_replace('/\s+/', '_', preg_replace('/[^a-zA-Z0-9_\-\s]/', '', $guest_name ?? 'Guest')), '_') ?: 'Guest';
+                        $safe_num = trim(preg_replace('/[^a-zA-Z0-9_\-]/', '_', $id_proof_number ?? ''), '_');
+                        $prefix = $safe_num ? "{$safe_g}_{$safe_num}" : "{$safe_g}_id";
+                        $id_proof_file = 'id_' . strtolower(substr($prefix, 0, 50)) . '_' . time() . '.' . $ext;
                         if (move_uploaded_file($_FILES['id_proof_file']['tmp_name'], $upload_dir . $id_proof_file)) {
                             if ($ext !== 'pdf' && (!isset($_POST['auto_compress']) || !empty($_POST['auto_compress']))) {
                                 compress_and_resize_image_file($upload_dir . $id_proof_file, ['max_dimension' => 1600]);
@@ -223,6 +225,13 @@ $filter_source = trim($_GET['source'] ?? '');
 $date_from = trim($_GET['date_from'] ?? '');
 $date_to = trim($_GET['date_to'] ?? '');
 $sort_by = trim($_GET['sort'] ?? 'checkin_desc');
+
+// Active filter count for badge indicator
+$active_filters_count = 0;
+if (!empty($filter_villa)) $active_filters_count++;
+if (!empty($filter_source)) $active_filters_count++;
+if (!empty($date_from) || !empty($date_to)) $active_filters_count++;
+if (!empty($sort_by) && $sort_by !== 'checkin_desc') $active_filters_count++;
 
 // Live badge counts from DB
 $count_all = (int)$pdo->query("SELECT COUNT(*) FROM bookings")->fetchColumn();
@@ -376,153 +385,635 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 <?php endif; ?>
 
-<!-- Multi-Status Reservations Tabs -->
-<div class="adm-reservation-tabs">
-    <a href="<?php echo build_tab_url('pending'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'pending') ? 'is-active' : ''; ?>" title="New online bookings needing approval">
-        <i class="fa-solid fa-hourglass-half" style="color: #f59e0b;"></i>
-        <span>Pending</span>
-        <span class="adm-res-tab-pill amber"><?php echo $count_pending; ?></span>
-    </a>
-    <a href="<?php echo build_tab_url('confirmed'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'confirmed') ? 'is-active' : ''; ?>" title="Approved upcoming stays">
-        <i class="fa-solid fa-circle-check" style="color: #2ecc71;"></i>
-        <span>Confirmed</span>
-        <span class="adm-res-tab-pill emerald"><?php echo $count_confirmed; ?></span>
-    </a>
-    <a href="<?php echo build_tab_url('waitlist'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'waitlist') ? 'is-active' : ''; ?>" title="Guests expected to arrive / check-in today">
-        <i class="fa-solid fa-user-clock" style="color: #38bdf8;"></i>
-        <span>Waiting List / Arrivals</span>
-        <span class="adm-res-tab-pill cyan"><?php echo $count_waitlist; ?></span>
-    </a>
-    <a href="<?php echo build_tab_url('inhouse'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'inhouse') ? 'is-active' : ''; ?>" title="Guests currently staying at the estate">
-        <i class="fa-solid fa-hotel" style="color: #06b6d4;"></i>
-        <span>In-House</span>
-        <span class="adm-res-tab-pill cyan"><?php echo $count_inhouse; ?></span>
-    </a>
-    <a href="<?php echo build_tab_url('completed'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'completed') ? 'is-active' : ''; ?>" title="Departed guests checked out in the last 24 hours">
-        <i class="fa-solid fa-door-open" style="color: #a855f7;"></i>
-        <span>Check-Out (24h)</span>
-        <span class="adm-res-tab-pill purple"><?php echo $count_completed; ?></span>
-    </a>
-    <a href="<?php echo build_tab_url('former'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'former') ? 'is-active' : ''; ?>" title="Historical record of past completed stays">
-        <i class="fa-solid fa-clock-rotate-left" style="color: #94a3b8;"></i>
-        <span>Former Guests</span>
-        <span class="adm-res-tab-pill slate"><?php echo $count_former; ?></span>
-    </a>
-    <a href="<?php echo build_tab_url('cancelled'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'cancelled') ? 'is-active' : ''; ?>" title="Cancelled or rejected bookings">
-        <i class="fa-solid fa-ban" style="color: #f43f5e;"></i>
-        <span>Cancelled</span>
-        <span class="adm-res-tab-pill rose"><?php echo $count_cancelled; ?></span>
-    </a>
-    <a href="<?php echo build_tab_url('all'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'all') ? 'is-active' : ''; ?>" title="All bookings across all statuses">
-        <i class="fa-solid fa-list-check"></i>
-        <span>All</span>
-        <span class="adm-res-tab-pill gold"><?php echo $count_all; ?></span>
-    </a>
-</div>
+<?php
+$active_filters_count = (!empty($filter_villa) ? 1 : 0) + (!empty($filter_source) ? 1 : 0) + (!empty($date_from) ? 1 : 0) + (!empty($date_to) ? 1 : 0) + (($sort_by !== 'checkin_desc') ? 1 : 0);
+?>
 
-<!-- Filtering & Action Toolbar -->
-<div class="adm-toolbar-card" style="flex-wrap: wrap; gap: 12px;">
-    <div class="adm-toolbar-left" style="flex-wrap: wrap; gap: 10px;">
-        <!-- Live Search Box -->
-        <form method="GET" class="adm-search-box" style="display:flex;">
-            <input type="text" name="search" id="adm-table-search" class="adm-search-input" placeholder="Search by name, phone, ref #..." value="<?php echo e($search); ?>">
-            <i class="fa-solid fa-magnifying-glass adm-search-icon"></i>
-            <?php if (!empty($active_tab)): ?>
-                <input type="hidden" name="tab" value="<?php echo e($active_tab); ?>">
-            <?php endif; ?>
-            <?php if (!empty($filter_villa)): ?>
-                <input type="hidden" name="villa" value="<?php echo e($filter_villa); ?>">
-            <?php endif; ?>
-            <?php if (!empty($sort_by)): ?>
-                <input type="hidden" name="sort" value="<?php echo e($sort_by); ?>">
-            <?php endif; ?>
-            <?php if (!empty($date_from)): ?>
-                <input type="hidden" name="date_from" value="<?php echo e($date_from); ?>">
-            <?php endif; ?>
-            <?php if (!empty($date_to)): ?>
-                <input type="hidden" name="date_to" value="<?php echo e($date_to); ?>">
-            <?php endif; ?>
-        </form>
-
-        <!-- Villa Filter Select -->
-        <select class="adm-filter-select" onchange="let url = new URL(window.location.href); url.searchParams.set('villa', this.value); window.location.href = url.toString();">
-            <option value="" <?php echo empty($filter_villa) ? 'selected' : ''; ?>>All Sanctuary Stays</option>
-            <?php foreach ($all_rooms_list as $r): ?>
-                <option value="<?php echo htmlspecialchars($r['slug']); ?>" <?php echo ($filter_villa === $r['slug']) ? 'selected' : ''; ?>>
-                    <?php echo ($r['stay_type'] === 'mudhouse' ? '🌿 ' : '🌲 ') . htmlspecialchars($r['title']); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-
-        <!-- Channel Source Filter Select -->
-        <select class="adm-filter-select" onchange="let url = new URL(window.location.href); url.searchParams.set('source', this.value); window.location.href = url.toString();">
-            <option value="" <?php echo empty($filter_source) ? 'selected' : ''; ?>>All Booking Sources</option>
-            <option value="direct_website" <?php echo ($filter_source === 'direct_website') ? 'selected' : ''; ?>>🟡 Direct Website</option>
-            <option value="MakeMyTrip" <?php echo (stripos($filter_source, 'make') !== false) ? 'selected' : ''; ?>>🔴 MakeMyTrip (InGoMMT)</option>
-            <option value="Airbnb" <?php echo (stripos($filter_source, 'air') !== false) ? 'selected' : ''; ?>>🌺 Airbnb</option>
-            <option value="Booking.com" <?php echo (stripos($filter_source, 'booking') !== false) ? 'selected' : ''; ?>>🔵 Booking.com</option>
-            <option value="offline_direct" <?php echo ($filter_source === 'offline_direct') ? 'selected' : ''; ?>>🟢 Offline / Phone</option>
-        </select>
-
-        <!-- Sort By Dropdown -->
-        <select class="adm-filter-select" onchange="let url = new URL(window.location.href); url.searchParams.set('sort', this.value); window.location.href = url.toString();" title="Sort Reservations">
-            <option value="checkin_desc" <?php echo ($sort_by === 'checkin_desc') ? 'selected' : ''; ?>>Check-In Date (Newest first)</option>
-            <option value="checkin_asc" <?php echo ($sort_by === 'checkin_asc') ? 'selected' : ''; ?>>Check-In Date (Oldest first)</option>
-            <option value="checkout_desc" <?php echo ($sort_by === 'checkout_desc') ? 'selected' : ''; ?>>Check-Out Date (Newest first)</option>
-            <option value="checkout_asc" <?php echo ($sort_by === 'checkout_asc') ? 'selected' : ''; ?>>Check-Out Date (Oldest first)</option>
-            <option value="amount_desc" <?php echo ($sort_by === 'amount_desc') ? 'selected' : ''; ?>>Tariff Amount (High to Low)</option>
-            <option value="name_asc" <?php echo ($sort_by === 'name_asc') ? 'selected' : ''; ?>>Guest Name (A → Z)</option>
-        </select>
-
-        <!-- Date Range Filter Form -->
-        <form method="GET" style="display: inline-flex; align-items: center; gap: 6px;">
-            <input type="hidden" name="tab" value="<?php echo e($active_tab); ?>">
-            <?php if (!empty($search)): ?><input type="hidden" name="search" value="<?php echo e($search); ?>"><?php endif; ?>
-            <?php if (!empty($filter_villa)): ?><input type="hidden" name="villa" value="<?php echo e($filter_villa); ?>"><?php endif; ?>
-            <?php if (!empty($sort_by)): ?><input type="hidden" name="sort" value="<?php echo e($sort_by); ?>"><?php endif; ?>
-            <input type="date" name="date_from" class="adm-input" style="padding: 6px 10px; font-size: 12px; width: 125px;" value="<?php echo e($date_from); ?>" title="Stay Date From">
-            <span style="font-size: 11px; color: var(--adm-text-muted);">to</span>
-            <input type="date" name="date_to" class="adm-input" style="padding: 6px 10px; font-size: 12px; width: 125px;" value="<?php echo e($date_to); ?>" title="Stay Date To">
-            <button type="submit" class="adm-btn-action outline" style="padding: 6px 10px; font-size: 11.5px;" title="Filter by date range">
-                <i class="fa-solid fa-filter"></i>
-            </button>
-        </form>
+<!-- Multi-Status Reservations Navigation: Mobile Menu Selector & Swipeable Touch Ribbon -->
+<div class="adm-res-nav-wrapper">
+    <!-- Mobile Status Menu Dropdown -->
+    <div class="adm-res-mobile-menu-bar">
+        <label for="adm-res-status-menu" class="adm-res-mobile-menu-lbl">
+            <i class="fa-solid fa-bars-staggered"></i> <span>Status Menu:</span>
+        </label>
+        <div class="adm-res-select-wrapper">
+            <select id="adm-res-status-menu" class="adm-res-mobile-menu-select" onchange="window.location.href = this.value;" aria-label="Select Reservation Status">
+                <option value="<?php echo build_tab_url('pending'); ?>" <?php echo ($active_tab === 'pending') ? 'selected' : ''; ?>>⏳ Pending Requests (<?php echo $count_pending; ?>)</option>
+                <option value="<?php echo build_tab_url('confirmed'); ?>" <?php echo ($active_tab === 'confirmed') ? 'selected' : ''; ?>>✅ Confirmed Upcoming (<?php echo $count_confirmed; ?>)</option>
+                <option value="<?php echo build_tab_url('waitlist'); ?>" <?php echo ($active_tab === 'waitlist') ? 'selected' : ''; ?>>👤 Waiting List / Arrivals (<?php echo $count_waitlist; ?>)</option>
+                <option value="<?php echo build_tab_url('inhouse'); ?>" <?php echo ($active_tab === 'inhouse') ? 'selected' : ''; ?>>🏨 In-House Guests (<?php echo $count_inhouse; ?>)</option>
+                <option value="<?php echo build_tab_url('completed'); ?>" <?php echo ($active_tab === 'completed') ? 'selected' : ''; ?>>🚪 Check-Out (24h) (<?php echo $count_completed; ?>)</option>
+                <option value="<?php echo build_tab_url('former'); ?>" <?php echo ($active_tab === 'former') ? 'selected' : ''; ?>>🕒 Former Guests (<?php echo $count_former; ?>)</option>
+                <option value="<?php echo build_tab_url('cancelled'); ?>" <?php echo ($active_tab === 'cancelled') ? 'selected' : ''; ?>>🚫 Cancelled (<?php echo $count_cancelled; ?>)</option>
+                <option value="<?php echo build_tab_url('all'); ?>" <?php echo ($active_tab === 'all') ? 'selected' : ''; ?>>📋 All Reservations (<?php echo $count_all; ?>)</option>
+            </select>
+            <i class="fa-solid fa-chevron-down adm-res-select-arrow"></i>
+        </div>
     </div>
 
-    <div class="adm-toolbar-right">
-        <!-- Export CSV Button -->
-        <a href="bookings.php?export=csv<?php echo !empty($active_tab) ? '&tab='.urlencode($active_tab) : ''; ?>" class="adm-btn-action outline" title="Export Filtered Bookings to CSV">
-            <i class="fa-solid fa-file-csv"></i>
+    <!-- Swipeable Touch Ribbon (Single row swipe on mobile, full grid on desktop) -->
+    <div class="adm-reservation-tabs">
+        <a href="<?php echo build_tab_url('pending'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'pending') ? 'is-active' : ''; ?>" title="New online bookings needing approval">
+            <i class="fa-solid fa-hourglass-half" style="color: #f59e0b;"></i>
+            <span>Pending</span>
+            <span class="adm-res-tab-pill amber"><?php echo $count_pending; ?></span>
+        </a>
+        <a href="<?php echo build_tab_url('confirmed'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'confirmed') ? 'is-active' : ''; ?>" title="Approved upcoming stays">
+            <i class="fa-solid fa-circle-check" style="color: #2ecc71;"></i>
+            <span>Confirmed</span>
+            <span class="adm-res-tab-pill emerald"><?php echo $count_confirmed; ?></span>
+        </a>
+        <a href="<?php echo build_tab_url('waitlist'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'waitlist') ? 'is-active' : ''; ?>" title="Guests expected to arrive / check-in today">
+            <i class="fa-solid fa-user-clock" style="color: #38bdf8;"></i>
+            <span>Waiting List / Arrivals</span>
+            <span class="adm-res-tab-pill cyan"><?php echo $count_waitlist; ?></span>
+        </a>
+        <a href="<?php echo build_tab_url('inhouse'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'inhouse') ? 'is-active' : ''; ?>" title="Guests currently staying at the estate">
+            <i class="fa-solid fa-hotel" style="color: #06b6d4;"></i>
+            <span>In-House</span>
+            <span class="adm-res-tab-pill cyan"><?php echo $count_inhouse; ?></span>
+        </a>
+        <a href="<?php echo build_tab_url('completed'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'completed') ? 'is-active' : ''; ?>" title="Departed guests checked out in the last 24 hours">
+            <i class="fa-solid fa-door-open" style="color: #a855f7;"></i>
+            <span>Check-Out (24h)</span>
+            <span class="adm-res-tab-pill purple"><?php echo $count_completed; ?></span>
+        </a>
+        <a href="<?php echo build_tab_url('former'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'former') ? 'is-active' : ''; ?>" title="Historical record of past completed stays">
+            <i class="fa-solid fa-clock-rotate-left" style="color: #94a3b8;"></i>
+            <span>Former Guests</span>
+            <span class="adm-res-tab-pill slate"><?php echo $count_former; ?></span>
+        </a>
+        <a href="<?php echo build_tab_url('cancelled'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'cancelled') ? 'is-active' : ''; ?>" title="Cancelled or rejected bookings">
+            <i class="fa-solid fa-ban" style="color: #f43f5e;"></i>
+            <span>Cancelled</span>
+            <span class="adm-res-tab-pill rose"><?php echo $count_cancelled; ?></span>
+        </a>
+        <a href="<?php echo build_tab_url('all'); ?>" class="adm-res-tab-item <?php echo ($active_tab === 'all') ? 'is-active' : ''; ?>" title="All bookings across all statuses">
+            <i class="fa-solid fa-list-check"></i>
+            <span>All</span>
+            <span class="adm-res-tab-pill gold"><?php echo $count_all; ?></span>
+        </a>
+    </div>
+</div>
+
+<!-- Filtering & Action Toolbar: Compact, Touch-Scrollable Ribbon & Menu-Type Drawer -->
+<div class="adm-res-filter-box" id="adm-res-filter-box">
+    <!-- Top Row: Live Search Input + Filter Menu Button + Add Reservation -->
+    <div class="adm-res-filter-toprow">
+        <!-- Live Instant Search Box -->
+        <form method="GET" class="adm-res-search-wrap" onsubmit="event.preventDefault();">
+            <i class="fa-solid fa-magnifying-glass adm-res-search-icon"></i>
+            <input type="text" name="search" id="adm-table-search" class="adm-res-search-input" placeholder="Search by name, phone, ref #..." value="<?php echo e($search); ?>" autocomplete="off">
+            <?php if (!empty($search)): ?>
+                <button type="button" class="adm-res-search-clear" onclick="document.getElementById('adm-table-search').value=''; document.getElementById('adm-table-search').dispatchEvent(new Event('input')); this.style.display='none';" title="Clear Search">✕</button>
+            <?php endif; ?>
+        </form>
+
+        <!-- Menu-Type Filter Button -->
+        <button type="button" class="adm-filter-menu-btn <?php echo $active_filters_count > 0 ? 'is-active' : ''; ?>" id="adm-filter-menu-toggle-btn" onclick="toggleBookingFilterMenu();" title="Toggle Filter Menu">
+            <i class="fa-solid fa-sliders"></i>
+            <span class="adm-filter-btn-text">Filters</span>
+            <?php if ($active_filters_count > 0): ?>
+                <span class="adm-filter-count-badge"><?php echo $active_filters_count; ?></span>
+            <?php endif; ?>
+            <i class="fa-solid fa-chevron-down adm-filter-caret" id="adm-filter-menu-caret"></i>
+        </button>
+
+        <!-- Add Reservation Quick Action -->
+        <button type="button" class="adm-btn-action gold adm-btn-add-res" onclick="openAdmModal('modal-add-booking');" title="Add Reservation">
+            <i class="fa-solid fa-plus"></i>
+            <span class="adm-btn-add-text">Add</span>
+        </button>
+    </div>
+
+    <!-- Secondary Row: Single-Line Horizontal Touch-Scrollable Filter Chips Ribbon -->
+    <div class="adm-filter-scroll-strip" id="adm-filter-scroll-strip">
+        <!-- Sanctuary Stay Quick Chip -->
+        <div class="adm-filter-chip-wrapper <?php echo !empty($filter_villa) ? 'is-filtered' : ''; ?>">
+            <select class="adm-res-chip-select" onchange="applySingleFilter('villa', this.value);" title="Filter by Sanctuary Stay">
+                <option value="" <?php echo empty($filter_villa) ? 'selected' : ''; ?>>🏡 All Stays</option>
+                <?php foreach ($all_rooms_list as $r): ?>
+                    <option value="<?php echo htmlspecialchars($r['slug']); ?>" <?php echo ($filter_villa === $r['slug']) ? 'selected' : ''; ?>>
+                        <?php echo ($r['stay_type'] === 'mudhouse' ? '🌿 ' : '🌲 ') . htmlspecialchars($r['title']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <!-- Booking Source Quick Chip -->
+        <div class="adm-filter-chip-wrapper <?php echo !empty($filter_source) ? 'is-filtered' : ''; ?>">
+            <select class="adm-res-chip-select" onchange="applySingleFilter('source', this.value);" title="Filter by Booking Channel Source">
+                <option value="" <?php echo empty($filter_source) ? 'selected' : ''; ?>>🏷️ All Sources</option>
+                <option value="direct_website" <?php echo ($filter_source === 'direct_website') ? 'selected' : ''; ?>>🟡 Direct Web</option>
+                <option value="MakeMyTrip" <?php echo (stripos($filter_source, 'make') !== false) ? 'selected' : ''; ?>>🔴 MMT</option>
+                <option value="Airbnb" <?php echo (stripos($filter_source, 'air') !== false) ? 'selected' : ''; ?>>🌺 Airbnb</option>
+                <option value="Booking.com" <?php echo (stripos($filter_source, 'booking') !== false) ? 'selected' : ''; ?>>🔵 Booking</option>
+                <option value="offline_direct" <?php echo ($filter_source === 'offline_direct') ? 'selected' : ''; ?>>🟢 Offline</option>
+            </select>
+        </div>
+
+        <!-- Sort Order Quick Chip -->
+        <div class="adm-filter-chip-wrapper <?php echo ($sort_by !== 'checkin_desc') ? 'is-filtered' : ''; ?>">
+            <select class="adm-res-chip-select" onchange="applySingleFilter('sort', this.value);" title="Sort Reservations">
+                <option value="checkin_desc" <?php echo ($sort_by === 'checkin_desc') ? 'selected' : ''; ?>>🔃 Check-In (Newest)</option>
+                <option value="checkin_asc" <?php echo ($sort_by === 'checkin_asc') ? 'selected' : ''; ?>>🔃 Check-In (Oldest)</option>
+                <option value="checkout_desc" <?php echo ($sort_by === 'checkout_desc') ? 'selected' : ''; ?>>🔃 Check-Out (Newest)</option>
+                <option value="checkout_asc" <?php echo ($sort_by === 'checkout_asc') ? 'selected' : ''; ?>>🔃 Check-Out (Oldest)</option>
+                <option value="amount_desc" <?php echo ($sort_by === 'amount_desc') ? 'selected' : ''; ?>>💰 Tariff (High to Low)</option>
+                <option value="name_asc" <?php echo ($sort_by === 'name_asc') ? 'selected' : ''; ?>>👤 Guest Name (A → Z)</option>
+            </select>
+        </div>
+
+        <!-- Date Range Quick Chip Button (opens date section in filter menu) -->
+        <button type="button" class="adm-res-chip-btn <?php echo (!empty($date_from) || !empty($date_to)) ? 'is-filtered' : ''; ?>" onclick="openFilterMenuToDates();" title="Filter by Stay Date Range">
+            <i class="fa-regular fa-calendar" style="color: var(--adm-gold);"></i>
+            <span>
+                <?php 
+                if (!empty($date_from) && !empty($date_to)) {
+                    echo date('M j', strtotime($date_from)) . ' - ' . date('M j', strtotime($date_to));
+                } elseif (!empty($date_from)) {
+                    echo 'From ' . date('M j', strtotime($date_from));
+                } elseif (!empty($date_to)) {
+                    echo 'Up to ' . date('M j', strtotime($date_to));
+                } else {
+                    echo 'Dates';
+                }
+                ?>
+            </span>
+            <i class="fa-solid fa-chevron-down adm-chip-caret"></i>
+        </button>
+
+        <!-- Export CSV Chip Button -->
+        <a href="bookings.php?export=csv<?php echo !empty($active_tab) ? '&tab='.urlencode($active_tab) : ''; ?><?php echo !empty($filter_villa) ? '&villa='.urlencode($filter_villa) : ''; ?><?php echo !empty($filter_source) ? '&source='.urlencode($filter_source) : ''; ?><?php echo !empty($date_from) ? '&date_from='.urlencode($date_from) : ''; ?><?php echo !empty($date_to) ? '&date_to='.urlencode($date_to) : ''; ?>" class="adm-res-chip-btn outline" title="Export Current Filtered List to CSV">
+            <i class="fa-solid fa-file-csv" style="color: #4ade80;"></i>
             <span>Export CSV</span>
         </a>
 
-        <!-- Add Manual Reservation -->
-        <button type="button" class="adm-btn-action gold" onclick="openAdmModal('modal-add-booking');">
-            <i class="fa-solid fa-plus"></i>
-            <span>Add Reservation</span>
-        </button>
+        <!-- Clear / Reset Chip (only shown when any filter is active) -->
+        <?php if ($active_filters_count > 0 || !empty($search)): ?>
+            <a href="bookings.php?tab=<?php echo urlencode($active_tab); ?>" class="adm-res-chip-reset" title="Reset all active filters">
+                <i class="fa-solid fa-xmark"></i>
+                <span>Clear All (<?php echo $active_filters_count; ?>)</span>
+            </a>
+        <?php endif; ?>
+    </div>
+
+    <!-- Dropdown / Collapsible Drawer: Filter Menu (Menu Type) -->
+    <div class="adm-filter-menu-panel" id="adm-booking-filter-drawer" style="display: none;">
+        <div class="adm-fmenu-header">
+            <div class="adm-fmenu-title">
+                <i class="fa-solid fa-sliders" style="color: var(--adm-gold);"></i>
+                <span>Filter Reservations Menu</span>
+                <?php if ($active_filters_count > 0): ?>
+                    <span class="adm-filter-count-badge"><?php echo $active_filters_count; ?> Active</span>
+                <?php endif; ?>
+            </div>
+            <button type="button" class="adm-fmenu-close-btn" onclick="toggleBookingFilterMenu(false);" title="Close Menu">✕</button>
+        </div>
+
+        <form method="GET" action="bookings.php" class="adm-fmenu-form" id="adm-filter-menu-form">
+            <input type="hidden" name="tab" value="<?php echo e($active_tab); ?>">
+            <?php if (!empty($search)): ?>
+                <input type="hidden" name="search" value="<?php echo e($search); ?>">
+            <?php endif; ?>
+
+            <div class="adm-fmenu-grid">
+                <!-- Stay Filter -->
+                <div class="adm-fmenu-group">
+                    <label class="adm-fmenu-label"><i class="fa-solid fa-hotel" style="color:var(--adm-gold);"></i> Sanctuary Stay</label>
+                    <select name="villa" class="adm-fmenu-select">
+                        <option value="" <?php echo empty($filter_villa) ? 'selected' : ''; ?>>All Sanctuary Stays</option>
+                        <?php foreach ($all_rooms_list as $r): ?>
+                            <option value="<?php echo htmlspecialchars($r['slug']); ?>" <?php echo ($filter_villa === $r['slug']) ? 'selected' : ''; ?>>
+                                <?php echo ($r['stay_type'] === 'mudhouse' ? '🌿 ' : '🌲 ') . htmlspecialchars($r['title']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <!-- Booking Source Filter -->
+                <div class="adm-fmenu-group">
+                    <label class="adm-fmenu-label"><i class="fa-solid fa-tags" style="color:var(--adm-gold);"></i> Booking Source / Channel</label>
+                    <select name="source" class="adm-fmenu-select">
+                        <option value="" <?php echo empty($filter_source) ? 'selected' : ''; ?>>All Booking Sources</option>
+                        <option value="direct_website" <?php echo ($filter_source === 'direct_website') ? 'selected' : ''; ?>>🟡 Direct Website</option>
+                        <option value="MakeMyTrip" <?php echo (stripos($filter_source, 'make') !== false) ? 'selected' : ''; ?>>🔴 MakeMyTrip (MMT)</option>
+                        <option value="Airbnb" <?php echo (stripos($filter_source, 'air') !== false) ? 'selected' : ''; ?>>🌺 Airbnb</option>
+                        <option value="Booking.com" <?php echo (stripos($filter_source, 'booking') !== false) ? 'selected' : ''; ?>>🔵 Booking.com</option>
+                        <option value="offline_direct" <?php echo ($filter_source === 'offline_direct') ? 'selected' : ''; ?>>🟢 Offline / Phone Direct</option>
+                    </select>
+                </div>
+
+                <!-- Sorting Selection -->
+                <div class="adm-fmenu-group">
+                    <label class="adm-fmenu-label"><i class="fa-solid fa-arrow-down-short-wide" style="color:var(--adm-gold);"></i> Sort Reservations</label>
+                    <select name="sort" class="adm-fmenu-select">
+                        <option value="checkin_desc" <?php echo ($sort_by === 'checkin_desc') ? 'selected' : ''; ?>>Check-In Date (Newest first)</option>
+                        <option value="checkin_asc" <?php echo ($sort_by === 'checkin_asc') ? 'selected' : ''; ?>>Check-In Date (Oldest first)</option>
+                        <option value="checkout_desc" <?php echo ($sort_by === 'checkout_desc') ? 'selected' : ''; ?>>Check-Out Date (Newest first)</option>
+                        <option value="checkout_asc" <?php echo ($sort_by === 'checkout_asc') ? 'selected' : ''; ?>>Check-Out Date (Oldest first)</option>
+                        <option value="amount_desc" <?php echo ($sort_by === 'amount_desc') ? 'selected' : ''; ?>>Tariff Amount (High to Low)</option>
+                        <option value="name_asc" <?php echo ($sort_by === 'name_asc') ? 'selected' : ''; ?>>Guest Name (A → Z)</option>
+                    </select>
+                </div>
+
+                <!-- Stay Date Range -->
+                <div class="adm-fmenu-group" id="adm-fmenu-dates-group">
+                    <label class="adm-fmenu-label"><i class="fa-regular fa-calendar-days" style="color:var(--adm-gold);"></i> Check-In Date Range</label>
+                    
+                    <!-- Quick Date Presets -->
+                    <div class="adm-fmenu-presets">
+                        <button type="button" class="adm-fmenu-preset-btn" onclick="setMenuDatePreset('all');">All Time</button>
+                        <button type="button" class="adm-fmenu-preset-btn" onclick="setMenuDatePreset('today');">Today</button>
+                        <button type="button" class="adm-fmenu-preset-btn" onclick="setMenuDatePreset('tomorrow');">Tomorrow</button>
+                        <button type="button" class="adm-fmenu-preset-btn" onclick="setMenuDatePreset('week');">This Week</button>
+                        <button type="button" class="adm-fmenu-preset-btn" onclick="setMenuDatePreset('month');">This Month</button>
+                    </div>
+
+                    <div class="adm-fmenu-dates-inputs">
+                        <div class="adm-fmenu-date-field">
+                            <span class="adm-date-sublabel">From</span>
+                            <input type="date" name="date_from" id="fmenu-date-from" class="adm-fmenu-date-input" value="<?php echo e($date_from); ?>">
+                        </div>
+                        <span class="adm-fmenu-date-sep">to</span>
+                        <div class="adm-fmenu-date-field">
+                            <span class="adm-date-sublabel">To</span>
+                            <input type="date" name="date_to" id="fmenu-date-to" class="adm-fmenu-date-input" value="<?php echo e($date_to); ?>">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div class="adm-fmenu-actions">
+                <a href="bookings.php?tab=<?php echo urlencode($active_tab); ?><?php echo !empty($search) ? '&search='.urlencode($search) : ''; ?>" class="adm-btn-action outline" style="flex: 1; justify-content: center;">
+                    <i class="fa-solid fa-rotate-left"></i> Reset All
+                </a>
+                <button type="submit" class="adm-btn-action gold" style="flex: 1.5; justify-content: center;">
+                    <i class="fa-solid fa-filter"></i> Apply Filters
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- Bookings Table -->
-<div class="adm-table-card">
+
+
+<!-- Bookings Table & Cards Container -->
+<div class="adm-table-card view-mode-cards" id="adm-bookings-main-card">
     <div class="adm-table-header">
         <div>
             <h2 class="adm-table-title"><?php echo $current_heading; ?> (<?php echo count($bookings); ?>)</h2>
             <p class="adm-table-subtitle">Showing guest itineraries matching active status & stay filters</p>
         </div>
-        <?php if (!empty($search) || ($active_tab !== 'pending') || !empty($filter_villa) || !empty($filter_source) || !empty($date_from) || !empty($date_to)): ?>
-            <a href="bookings.php" class="adm-btn-action outline" style="font-size: 12px; padding: 4px 10px;">
-                <i class="fa-solid fa-xmark"></i> Clear Filters
-            </a>
+        <div class="adm-table-header-controls">
+            <!-- View Mode Switcher: Cards vs Table -->
+            <div class="adm-view-switcher" id="adm-view-switcher" role="tablist" aria-label="Reservation View Mode">
+                <button type="button" class="adm-view-switcher-btn btn-view-cards active" id="btn-view-cards" onclick="setBookingsViewMode('cards');" title="Card View (Mobile Optimized - Full Profile Visible)">
+                    <i class="fa-solid fa-address-card"></i> <span>Cards</span>
+                </button>
+                <button type="button" class="adm-view-switcher-btn btn-view-table" id="btn-view-table" onclick="setBookingsViewMode('table');" title="Table View (Full Grid)">
+                    <i class="fa-solid fa-table-list"></i> <span>Table</span>
+                </button>
+            </div>
+            <?php if (!empty($search) || ($active_tab !== 'pending') || !empty($filter_villa) || !empty($filter_source) || !empty($date_from) || !empty($date_to)): ?>
+                <a href="bookings.php" class="adm-btn-action outline" style="font-size: 12px; padding: 4px 10px;">
+                    <i class="fa-solid fa-xmark"></i> Clear Filters
+                </a>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Option A & Mobile Default: Luxury Reservation Cards View (100% visible on all mobile screens) -->
+    <div class="adm-booking-cards-container" id="bookings-cards-view">
+        <?php if (empty($bookings)): ?>
+            <div style="text-align: center; padding: 50px 20px; color: var(--adm-text-muted);">
+                <i class="fa-solid fa-calendar-xmark" style="font-size: 32px; margin-bottom: 12px; display: block; color: var(--adm-text-muted);"></i>
+                No reservations found matching your criteria.
+            </div>
+        <?php else: ?>
+            <div class="adm-booking-cards-grid">
+                <?php foreach ($bookings as $b): 
+                    $room_info = $rooms_lookup[$b['villa_type']] ?? null;
+                    $villa_title = $room_info ? $room_info['title'] : (($b['villa_type'] === 'treehouse') ? 'Canopy Treehouse' : 'Earthen Mudhouse');
+                    $stay_type = $room_info ? ($room_info['stay_type'] ?? 'treehouse') : 'treehouse';
+                    $base_guests = $room_info ? (int)($room_info['base_guests'] ?? 2) : 2;
+                    $extra_guests = max(0, (int)$b['guests_count'] - $base_guests);
+
+                    $st = strtolower($b['status'] ?? 'pending');
+                    $today = date('Y-m-d');
+                    $cin = $b['checkin_date'] ?? '';
+                    $cout = $b['checkout_date'] ?? '';
+                    $is_inhouse_window = (!empty($cin) && !empty($cout) && $cin <= $today && $cout >= $today);
+                    $is_past = (!empty($cout) && $cout < $today);
+                    $is_recent_checkout = (!empty($b['checked_out_at']) && (strtotime($b['checked_out_at']) >= time() - 86400)) || (empty($b['checked_out_at']) && $cout === $today);
+
+                    if ($st === 'inhouse') {
+                        $icon = 'fa-hotel';
+                        $label = 'In-House';
+                        $badge_class = 'inhouse';
+                    } elseif ($st === 'confirmed') {
+                        if ($is_inhouse_window) {
+                            $icon = 'fa-user-clock';
+                            $label = 'Arrival Expected';
+                            $badge_class = 'waitlist';
+                        } elseif ($is_past) {
+                            $icon = 'fa-flag-checkered';
+                            $label = 'Past Stay';
+                            $badge_class = 'completed';
+                        } else {
+                            $icon = 'fa-circle-check';
+                            $label = 'Confirmed';
+                            $badge_class = 'confirmed';
+                        }
+                    } elseif ($st === 'waitlist') {
+                        $icon = 'fa-user-clock';
+                        $label = 'Arrival Expected';
+                        $badge_class = 'waitlist';
+                    } elseif ($st === 'completed') {
+                        $icon = $is_recent_checkout ? 'fa-door-open' : 'fa-clock-rotate-left';
+                        $label = $is_recent_checkout ? 'Checked-Out (24h)' : 'Former Guest';
+                        $badge_class = 'completed';
+                    } elseif ($st === 'cancelled' || $st === 'rejected') {
+                        $icon = 'fa-ban';
+                        $label = 'Cancelled';
+                        $badge_class = 'cancelled';
+                    } else {
+                        $icon = 'fa-clock';
+                        $label = 'Pending Review';
+                        $badge_class = 'pending';
+                    }
+
+                    $src_badge = strtolower($b['booking_source'] ?? 'direct_website');
+                ?>
+                    <div class="adm-booking-card" data-status="<?php echo e($b['status']); ?>">
+                        <!-- Card Header: Ref #, Source & Live Status -->
+                        <div class="adm-booking-card-header">
+                            <div class="adm-booking-card-ref-wrap">
+                                <span class="adm-ref-badge" title="Reservation Ref # (Click to View Profile)" onclick='viewBookingDetails(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES); ?>);' style="cursor: pointer;">
+                                    <?php echo e($b['reference_code']); ?>
+                                </span>
+                                <?php if (stripos($src_badge, 'make') !== false || stripos($src_badge, 'mmt') !== false): ?>
+                                    <div style="font-size: 9.5px; font-weight: 700; color: #FFFFFF; background: #e74c3c; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="fa-solid fa-plane-arrival"></i> MakeMyTrip
+                                    </div>
+                                <?php elseif (stripos($src_badge, 'air') !== false): ?>
+                                    <div style="font-size: 9.5px; font-weight: 700; color: #FFFFFF; background: #FF5A5F; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="fa-brands fa-airbnb"></i> Airbnb
+                                    </div>
+                                <?php elseif (stripos($src_badge, 'booking') !== false): ?>
+                                    <div style="font-size: 9.5px; font-weight: 700; color: #FFFFFF; background: #003580; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="fa-solid fa-b"></i> Booking.com
+                                    </div>
+                                <?php elseif ($src_badge === 'offline_direct'): ?>
+                                    <div style="font-size: 9.5px; font-weight: 700; color: #FFFFFF; background: #27ae60; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="fa-solid fa-phone"></i> Offline Direct
+                                    </div>
+                                <?php else: ?>
+                                    <div style="font-size: 9.5px; font-weight: 700; color: #101F15; background: #C5A059; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="fa-solid fa-globe"></i> Direct Web
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+
+                            <span class="adm-badge <?php echo e($badge_class); ?>" title="Status: <?php echo e($label); ?>">
+                                <span class="adm-badge-dot"></span>
+                                <i class="fa-solid <?php echo $icon; ?>" style="font-size: 10px;"></i>
+                                <span><?php echo $label; ?></span>
+                            </span>
+                        </div>
+
+                        <!-- Guest Profile & Contact Strip -->
+                        <div class="adm-booking-card-guest">
+                            <div class="adm-card-guest-title" onclick='viewBookingDetails(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES); ?>);' title="Click to view full reservation profile">
+                                <span><?php echo e($b['guest_name']); ?></span>
+                                <?php if (!empty($b['user_verified'])): ?>
+                                    <i class="fa-solid fa-circle-check" style="color: #38BDF8; font-size: 14px;" title="Verified Profile (Blue Tick)"></i>
+                                <?php endif; ?>
+                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 11px; color: var(--adm-gold); margin-left: auto;"></i>
+                            </div>
+
+                            <?php if (!empty($b['user_admin_notes'])): ?>
+                                <div style="font-size: 11px; color: #F59E0B; background: rgba(245, 158, 11, 0.12); border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 6px; padding: 4px 8px; display: flex; align-items: flex-start; gap: 6px;">
+                                    <i class="fa-solid fa-clipboard-user" style="margin-top: 2px;"></i>
+                                    <span><strong>Staff Note:</strong> <?php echo e($b['user_admin_notes']); ?></span>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="adm-card-contact-row">
+                                <a href="tel:<?php echo e($b['guest_phone']); ?>" class="adm-contact-pill phone" title="Call Guest">
+                                    <i class="fa-solid fa-phone"></i> <?php echo e($b['guest_phone']); ?>
+                                </a>
+                                <?php if (!empty($b['guest_email'])): ?>
+                                    <a href="mailto:<?php echo e($b['guest_email']); ?>" class="adm-contact-pill email" title="Email Guest">
+                                        <i class="fa-regular fa-envelope"></i> <?php echo e($b['guest_email']); ?>
+                                    </a>
+                                <?php endif; ?>
+                                <?php if (!empty($b['id_proof_file'])): 
+                                    $id_ext = strtolower(pathinfo($b['id_proof_file'], PATHINFO_EXTENSION)) ?: 'jpg';
+                                    $safe_gname = trim(preg_replace('/\s+/', '_', preg_replace('/[^a-zA-Z0-9_\-\s]/', '', $b['guest_name'] ?? 'Guest')), '_') ?: 'Guest';
+                                    $safe_idnum = trim(preg_replace('/[^a-zA-Z0-9_\-]/', '_', $b['id_proof_number'] ?? ''), '_');
+                                    $id_download_name = (!empty($safe_idnum) ? "{$safe_gname}_{$safe_idnum}" : "{$safe_gname}_ID") . '.' . $id_ext;
+                                ?>
+                                    <a href="download_id.php?id=<?php echo (int)$b['id']; ?>" 
+                                       target="_blank" 
+                                       download="<?php echo htmlspecialchars($id_download_name); ?>" 
+                                       class="adm-contact-pill id-proof" 
+                                       title="Download ID: <?php echo htmlspecialchars($id_download_name); ?>">
+                                        <i class="fa-solid fa-file-arrow-down"></i> ID Proof
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <!-- Stay Details 2x2 Grid -->
+                        <div class="adm-booking-card-grid">
+                            <div class="adm-card-stat">
+                                <span class="adm-card-stat-label">
+                                    <i class="fa-solid <?php echo $stay_type === 'mudhouse' ? 'fa-house-chimney' : 'fa-tree'; ?>" style="color: <?php echo $stay_type === 'mudhouse' ? '#fb923c' : '#2ecc71'; ?>;"></i>
+                                    Sanctuary
+                                </span>
+                                <span class="adm-card-stat-val" title="<?php echo e($villa_title); ?>"><?php echo e($villa_title); ?></span>
+                            </div>
+
+                            <div class="adm-card-stat">
+                                <span class="adm-card-stat-label">
+                                    <i class="fa-regular fa-calendar" style="color: var(--adm-gold);"></i>
+                                    Stay Dates
+                                </span>
+                                <span class="adm-card-stat-val">
+                                    <?php echo date('d M', strtotime($b['checkin_date'])); ?> → <?php echo date('d M Y', strtotime($b['checkout_date'])); ?>
+                                    <span class="adm-night-pill"><?php echo e($b['nights']); ?>N</span>
+                                </span>
+                            </div>
+
+                            <div class="adm-card-stat">
+                                <span class="adm-card-stat-label">
+                                    <i class="fa-solid fa-user-group" style="color: var(--adm-gold);"></i>
+                                    Party Size
+                                </span>
+                                <span class="adm-card-stat-val">
+                                    <?php echo e($b['guests_count']); ?> Guests
+                                    <?php if (!empty($b['adults_count'])): ?>
+                                        <span style="font-size: 11px; color: var(--adm-text-muted); font-weight: normal;">(<?php echo (int)$b['adults_count']; ?> Ad<?php echo !empty($b['kids_count']) ? ', ' . (int)$b['kids_count'] . ' Ch' : ''; ?>)</span>
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+
+                            <div class="adm-card-stat highlight">
+                                <span class="adm-card-stat-label">
+                                    <i class="fa-solid fa-indian-rupee-sign" style="color: var(--adm-gold);"></i>
+                                    Total Tariff
+                                </span>
+                                <span class="adm-card-stat-val">
+                                    ₹<?php echo number_format($b['total_amount'], 0, '.', ','); ?>
+                                </span>
+                            </div>
+                        </div>
+
+                        <?php if (!empty($b['checked_in_at']) || !empty($b['checked_out_at'])): ?>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; padding: 4px 8px; background: rgba(0,0,0,0.25); border-radius: 6px;">
+                                <?php if (!empty($b['checked_in_at'])): ?>
+                                    <span style="color: #22d3ee;"><i class="fa-solid fa-hotel"></i> Checked In: <?php echo date('d M, h:i A', strtotime($b['checked_in_at'])); ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($b['checked_out_at'])): ?>
+                                    <span style="color: #c084fc;"><i class="fa-solid fa-door-open"></i> Checked Out: <?php echo date('d M, h:i A', strtotime($b['checked_out_at'])); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- Prominent Primary View Profile Button -->
+                        <button type="button" class="adm-btn-card-view-profile" onclick='viewBookingDetails(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES); ?>);'>
+                            <i class="fa-solid fa-id-card"></i>
+                            <span>View Full Profile &amp; Manage</span>
+                        </button>
+
+                        <!-- Quick Secondary Actions Ribbon -->
+                        <div class="adm-booking-card-actions">
+                            <!-- WhatsApp Concierge Action -->
+                            <button type="button" class="adm-btn-action emerald" title="Send WhatsApp Concierge Message"
+                                onclick='openWhatsAppConcierge(<?php echo htmlspecialchars(json_encode([
+                                    'guest_name' => $b['guest_name'],
+                                    'phone' => $b['guest_phone'],
+                                    'reference_code' => $b['reference_code'],
+                                    'villa_title' => $villa_title,
+                                    'checkin_date' => $b['checkin_date'],
+                                    'checkout_date' => $b['checkout_date'],
+                                    'guests_count' => $b['guests_count'],
+                                    'total_amount' => $b['total_amount']
+                                ]), ENT_QUOTES); ?>)'>
+                                <i class="fa-brands fa-whatsapp"></i>
+                                <span>WhatsApp</span>
+                            </button>
+
+                            <!-- Contextual Stage Actions -->
+                            <?php if ($st === 'pending'): ?>
+                                <form method="POST" style="display:inline; margin:0;" title="Approve & Confirm Reservation">
+                                    <input type="hidden" name="action" value="update_status">
+                                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                    <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                    <input type="hidden" name="status" value="confirmed">
+                                    <button type="submit" class="adm-btn-stage approve" title="Approve & Confirm">
+                                        <i class="fa-solid fa-check"></i> <span>Approve</span>
+                                    </button>
+                                </form>
+                                <form method="POST" style="display:inline; margin:0;" onsubmit="return confirm('Reject this pending reservation for <?php echo htmlspecialchars($b['guest_name'], ENT_QUOTES); ?>?');" title="Reject Reservation">
+                                    <input type="hidden" name="action" value="update_status">
+                                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                    <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                    <input type="hidden" name="status" value="cancelled">
+                                    <button type="submit" class="adm-btn-stage" style="background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.4); color: #f87171;">
+                                        <i class="fa-solid fa-ban"></i> <span>Reject</span>
+                                    </button>
+                                </form>
+                            <?php elseif ($st === 'inhouse'): ?>
+                                <button type="button" class="adm-btn-stage checkout" title="Check-Out Guest" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
+                                    <i class="fa-solid fa-door-open"></i> <span>Check-Out</span>
+                                </button>
+                                <button type="button" class="adm-btn-stage" style="background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.35); color: #c084fc;" title="Audit Room & Food before Check-Out" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
+                                    <i class="fa-solid fa-list-check"></i> <span>Audit</span>
+                                </button>
+                            <?php elseif ($st === 'confirmed'): ?>
+                                <form method="POST" style="display:inline; margin:0;" title="Check-In Guest (Mark In-House)">
+                                    <input type="hidden" name="action" value="update_status">
+                                    <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                    <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                    <input type="hidden" name="status" value="inhouse">
+                                    <button type="submit" class="adm-btn-stage checkin" title="Guest Arrival / Check-In">
+                                        <i class="fa-solid fa-hotel"></i> <span>Check-In</span>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+
+                            <!-- Universal Revert / Status Switcher Dropdown -->
+                            <div class="adm-dropdown-wrap">
+                                <button type="button" class="adm-btn-icon" style="color: #60a5fa; border-color: rgba(96, 165, 250, 0.35); background: rgba(96, 165, 250, 0.12);" title="Revert or Change Status" onclick="toggleStatusDropdown(this, event);">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                                <div class="adm-dropdown-menu">
+                                    <div class="adm-dropdown-header">
+                                        <i class="fa-solid fa-sliders"></i> Revert / Change Status
+                                    </div>
+                                    <button type="button" class="adm-dropdown-item opt-pending" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'pending', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Pending Review');">
+                                        <i class="fa-solid fa-clock"></i> Revert to Pending Review
+                                    </button>
+                                    <button type="button" class="adm-dropdown-item opt-confirmed" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'confirmed', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Confirmed (Upcoming)');">
+                                        <i class="fa-solid fa-calendar-check"></i> Revert / Set Confirmed
+                                    </button>
+                                    <button type="button" class="adm-dropdown-item opt-inhouse" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'inhouse', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'In-House (Active Stay)');">
+                                        <i class="fa-solid fa-hotel"></i> Revert / Set In-House
+                                    </button>
+                                    <button type="button" class="adm-dropdown-item opt-checkout" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'completed', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Checked-Out & Completed');">
+                                        <i class="fa-solid fa-door-open"></i> Mark Checked-Out
+                                    </button>
+                                    <button type="button" class="adm-dropdown-item opt-waitlist" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'waitlist', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Waiting List');">
+                                        <i class="fa-solid fa-user-clock"></i> Move to Waiting List
+                                    </button>
+                                    <button type="button" class="adm-dropdown-item opt-cancel" onclick="submitRevertStatus(<?php echo $b['id']; ?>, 'cancelled', <?php echo htmlspecialchars(json_encode($b['guest_name']), ENT_QUOTES); ?>, 'Cancelled');">
+                                        <i class="fa-solid fa-ban"></i> Cancel Reservation
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Direct Print Stay Bill -->
+                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=stay" 
+                               target="_blank" 
+                               class="adm-btn-icon" 
+                               style="color: #4ade80; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3);" 
+                               title="Print Stay Bill">
+                                <i class="fa-solid fa-hotel"></i>
+                            </a>
+
+                            <!-- Direct Print Food Bill -->
+                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=other" 
+                               target="_blank" 
+                               class="adm-btn-icon" 
+                               style="color: #38bdf8; background: rgba(14, 116, 144, 0.2); border: 1px solid rgba(14, 116, 144, 0.4);" 
+                               title="Print Food Bill">
+                                <i class="fa-solid fa-utensils"></i>
+                            </a>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
     </div>
 
-    <div class="adm-table-responsive">
+    <!-- Option B: Table View (Default on Desktop, Switchable on Mobile) -->
+    <div class="adm-table-responsive" id="bookings-table-view">
+        <div class="adm-table-swipe-banner">
+            <div class="adm-table-swipe-banner-text">
+                <i class="fa-solid fa-arrows-left-right"></i>
+                <span>Table columns overflow on mobile. Swipe sideways, tap <strong>Expand Details ▼</strong>, or switch to <strong>Full Cards</strong>.</span>
+            </div>
+            <button type="button" class="adm-btn-action gold" style="font-size: 11px; padding: 5px 12px; white-space: nowrap;" onclick="setBookingsViewMode('cards');">
+                <i class="fa-solid fa-address-card"></i> Switch to Cards
+            </button>
+        </div>
         <table class="adm-data-table">
             <thead>
                 <tr>
-                    <th style="width: 85px;">Ref #</th>
+                    <th style="width: 95px;" class="adm-col-sticky-ref">Ref #</th>
                     <th>Guest Information</th>
                     <th>Sanctuary Stay</th>
                     <th style="width: 95px;">Guests</th>
@@ -547,10 +1038,54 @@ require_once __DIR__ . '/includes/header.php';
                         $stay_type = $room_info ? ($room_info['stay_type'] ?? 'treehouse') : 'treehouse';
                         $base_guests = $room_info ? (int)($room_info['base_guests'] ?? 2) : 2;
                         $extra_guests = max(0, (int)$b['guests_count'] - $base_guests);
+
+                        $st = strtolower($b['status'] ?? 'pending');
+                        $today = date('Y-m-d');
+                        $cin = $b['checkin_date'] ?? '';
+                        $cout = $b['checkout_date'] ?? '';
+                        $is_inhouse_window = (!empty($cin) && !empty($cout) && $cin <= $today && $cout >= $today);
+                        $is_past = (!empty($cout) && $cout < $today);
+                        $is_recent_checkout = (!empty($b['checked_out_at']) && (strtotime($b['checked_out_at']) >= time() - 86400)) || (empty($b['checked_out_at']) && $cout === $today);
+
+                        if ($st === 'inhouse') {
+                            $icon = 'fa-hotel';
+                            $label = 'In-House';
+                            $badge_class = 'inhouse';
+                        } elseif ($st === 'confirmed') {
+                            if ($is_inhouse_window) {
+                                $icon = 'fa-user-clock';
+                                $label = 'Arrival Expected';
+                                $badge_class = 'waitlist';
+                            } elseif ($is_past) {
+                                $icon = 'fa-flag-checkered';
+                                $label = 'Past Stay';
+                                $badge_class = 'completed';
+                            } else {
+                                $icon = 'fa-circle-check';
+                                $label = 'Confirmed';
+                                $badge_class = 'confirmed';
+                            }
+                        } elseif ($st === 'waitlist') {
+                            $icon = 'fa-user-clock';
+                            $label = 'Arrival Expected';
+                            $badge_class = 'waitlist';
+                        } elseif ($st === 'completed') {
+                            $icon = $is_recent_checkout ? 'fa-door-open' : 'fa-clock-rotate-left';
+                            $label = $is_recent_checkout ? 'Checked-Out (24h)' : 'Former Guest';
+                            $badge_class = 'completed';
+                        } elseif ($st === 'cancelled' || $st === 'rejected') {
+                            $icon = 'fa-ban';
+                            $label = 'Cancelled';
+                            $badge_class = 'cancelled';
+                        } else {
+                            $icon = 'fa-clock';
+                            $label = 'Pending Review';
+                            $badge_class = 'pending';
+                        }
                     ?>
-                        <tr data-status="<?php echo e($b['status']); ?>">
-                            <td>
-                                <span class="adm-ref-badge" title="Reservation Reference #">
+                        <tr data-status="<?php echo e($b['status']); ?>" id="booking-row-<?php echo $b['id']; ?>">
+                            <td class="adm-col-sticky-ref">
+                                <span class="adm-ref-badge" title="Reservation Reference # (Click to View Profile)" onclick='viewBookingDetails(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES); ?>);' style="cursor: pointer;">
                                     <?php echo e($b['reference_code']); ?>
                                 </span>
                                 <?php 
@@ -576,10 +1111,16 @@ require_once __DIR__ . '/includes/header.php';
                                         <i class="fa-solid fa-globe"></i> Direct Web
                                     </div>
                                 <?php endif; ?>
+                                <button type="button" class="adm-btn-mob-ref-view" onclick='viewBookingDetails(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES); ?>);' title="Quick View Full Profile Modal">
+                                    <i class="fa-solid fa-id-card"></i> Profile
+                                </button>
                             </td>
                             <td>
                                 <div style="font-weight: 700; color: var(--adm-text-primary); font-size: 14px; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                                    <span><?php echo e($b['guest_name']); ?></span>
+                                    <a href="javascript:void(0)" onclick='viewBookingDetails(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES); ?>);' class="adm-guest-name-link" title="Click to view full reservation profile">
+                                        <span><?php echo e($b['guest_name']); ?></span>
+                                        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; color: var(--adm-gold); margin-left: 3px;"></i>
+                                    </a>
                                     <?php if (!empty($b['user_verified'])): ?>
                                         <i class="fa-solid fa-circle-check" style="color: #38BDF8; font-size: 13.5px;" title="Verified Profile (Blue Tick)"></i>
                                     <?php endif; ?>
@@ -599,18 +1140,31 @@ require_once __DIR__ . '/includes/header.php';
                                         <a href="mailto:<?php echo e($b['guest_email']); ?>" style="color: inherit;" title="Email Guest"><?php echo e($b['guest_email']); ?></a>
                                     </div>
                                 <?php endif; ?>
-                                <?php if (!empty($b['id_proof_file'])): ?>
+                                <?php if (!empty($b['id_proof_file'])): 
+                                    $id_ext = strtolower(pathinfo($b['id_proof_file'], PATHINFO_EXTENSION)) ?: 'jpg';
+                                    $safe_gname = trim(preg_replace('/\s+/', '_', preg_replace('/[^a-zA-Z0-9_\-\s]/', '', $b['guest_name'] ?? 'Guest')), '_') ?: 'Guest';
+                                    $safe_idnum = trim(preg_replace('/[^a-zA-Z0-9_\-]/', '_', $b['id_proof_number'] ?? ''), '_');
+                                    $id_download_name = (!empty($safe_idnum) ? "{$safe_gname}_{$safe_idnum}" : "{$safe_gname}_ID") . '.' . $id_ext;
+                                ?>
                                     <div style="margin-top: 5px;">
-                                        <a href="../uploads/id_proofs/<?php echo urlencode($b['id_proof_file']); ?>" 
+                                        <a href="download_id.php?id=<?php echo (int)$b['id']; ?>" 
                                            target="_blank" 
-                                           download 
+                                           download="<?php echo htmlspecialchars($id_download_name); ?>" 
                                            class="adm-badge" 
                                            style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.35); font-size: 10px; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;" 
-                                           title="Download ID Document (<?php echo htmlspecialchars($b['id_proof_type'] ?? 'ID'); ?>)">
+                                           title="Download ID: <?php echo htmlspecialchars($id_download_name); ?>">
                                             <i class="fa-solid fa-file-arrow-down"></i> ID Proof
                                         </a>
                                     </div>
                                 <?php endif; ?>
+                                <div class="adm-row-profile-actions">
+                                    <button type="button" class="adm-btn-row-profile" onclick='viewBookingDetails(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES); ?>);' title="View complete guest itinerary & profile popup">
+                                        <i class="fa-solid fa-id-card"></i> <span>View Profile</span>
+                                    </button>
+                                    <button type="button" class="adm-btn-row-expand" id="btn-expand-<?php echo $b['id']; ?>" onclick="toggleRowDrawer(<?php echo $b['id']; ?>, this);" title="Expand full reservation details right here in this table">
+                                        <i class="fa-solid fa-chevron-down"></i> <span class="expand-text">Expand Details ▼</span>
+                                    </button>
+                                </div>
                             </td>
                             <td>
                                 <div style="font-size: 13px; font-weight: 600; color: #FFFFFF;">
@@ -934,6 +1488,203 @@ require_once __DIR__ . '/includes/header.php';
                                         onclick='viewBookingDetails(<?php echo json_encode($b); ?>)'>
                                         <i class="fa-solid fa-eye"></i>
                                     </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- In-Table Full Profile Expandable Drawer (Option to view 100% reservation profile inside table) -->
+                        <tr class="adm-row-drawer" id="row-drawer-<?php echo $b['id']; ?>" style="display: none;">
+                            <td colspan="8" class="adm-row-drawer-cell">
+                                <div class="adm-drawer-content">
+                                    <!-- Drawer Header -->
+                                    <div class="adm-drawer-topbar">
+                                        <div class="adm-drawer-topbar-left">
+                                            <span class="adm-ref-badge"><?php echo e($b['reference_code']); ?></span>
+                                            <strong style="color: #FFFFFF; font-size: 15px;"><?php echo e($b['guest_name']); ?></strong>
+                                            <?php if (!empty($b['user_verified'])): ?>
+                                                <i class="fa-solid fa-circle-check" style="color: #38BDF8; font-size: 14px;" title="Verified Profile (Blue Tick)"></i>
+                                            <?php endif; ?>
+                                            <span class="adm-badge <?php echo e($badge_class); ?>">
+                                                <span class="adm-badge-dot"></span>
+                                                <i class="fa-solid <?php echo $icon; ?>" style="font-size: 10px;"></i>
+                                                <span><?php echo $label; ?></span>
+                                            </span>
+                                        </div>
+                                        <div class="adm-drawer-topbar-right">
+                                            <button type="button" class="adm-btn-action gold" style="font-size: 11.5px; padding: 5px 12px;" onclick='viewBookingDetails(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES); ?>);' title="Open complete reservation profile popup">
+                                                <i class="fa-solid fa-up-right-and-down-left-from-center"></i> Full Modal View &amp; Edit
+                                            </button>
+                                            <button type="button" class="adm-btn-action outline" style="font-size: 11px; padding: 5px 10px;" onclick="toggleRowDrawer(<?php echo $b['id']; ?>, document.getElementById('btn-expand-<?php echo $b['id']; ?>'));" title="Collapse Drawer">
+                                                <i class="fa-solid fa-chevron-up"></i> Collapse
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- 4-Card Summary Grid -->
+                                    <div class="adm-drawer-grid">
+                                        <div class="adm-drawer-card">
+                                            <div class="adm-drawer-card-label">
+                                                <i class="fa-solid <?php echo $stay_type === 'mudhouse' ? 'fa-house-chimney' : 'fa-tree'; ?>" style="color: <?php echo $stay_type === 'mudhouse' ? '#fb923c' : '#2ecc71'; ?>;"></i>
+                                                Sanctuary Stay
+                                            </div>
+                                            <div class="adm-drawer-card-val"><?php echo e($villa_title); ?></div>
+                                            <div style="font-size: 11px; color: var(--adm-text-muted); margin-top: 3px;">
+                                                Base Capacity: <?php echo $base_guests; ?> Guests
+                                            </div>
+                                        </div>
+
+                                        <div class="adm-drawer-card">
+                                            <div class="adm-drawer-card-label">
+                                                <i class="fa-regular fa-calendar" style="color: var(--adm-gold);"></i>
+                                                Stay Dates &amp; Duration
+                                            </div>
+                                            <div class="adm-drawer-card-val">
+                                                <?php echo date('d M Y', strtotime($b['checkin_date'])); ?> → <?php echo date('d M Y', strtotime($b['checkout_date'])); ?>
+                                            </div>
+                                            <div style="font-size: 11px; color: var(--adm-gold-light); margin-top: 3px; font-weight: 600;">
+                                                <?php echo e($b['nights']); ?> Nights Stay
+                                            </div>
+                                        </div>
+
+                                        <div class="adm-drawer-card">
+                                            <div class="adm-drawer-card-label">
+                                                <i class="fa-solid fa-user-group" style="color: var(--adm-gold);"></i>
+                                                Party Size
+                                            </div>
+                                            <div class="adm-drawer-card-val">
+                                                <?php echo e($b['guests_count']); ?> Total Guests
+                                            </div>
+                                            <div style="font-size: 11px; color: var(--adm-text-muted); margin-top: 3px;">
+                                                <?php echo (int)($b['adults_count'] ?? $b['guests_count']); ?> Adults
+                                                <?php if (!empty($b['kids_count'])): ?>, <?php echo (int)$b['kids_count']; ?> Children<?php endif; ?>
+                                                <?php if ($extra_guests > 0): ?><span style="color: #2ecc71;">(+<?php echo $extra_guests; ?> Extra)</span><?php endif; ?>
+                                            </div>
+                                        </div>
+
+                                        <div class="adm-drawer-card highlight">
+                                            <div class="adm-drawer-card-label">
+                                                <i class="fa-solid fa-indian-rupee-sign" style="color: var(--adm-gold);"></i>
+                                                Total Tariff
+                                            </div>
+                                            <div class="adm-drawer-card-val" style="color: var(--adm-gold-light); font-size: 17px; font-weight: 700;">
+                                                ₹<?php echo number_format($b['total_amount'], 0, '.', ','); ?>
+                                            </div>
+                                            <div style="font-size: 10.5px; color: var(--adm-text-muted); margin-top: 3px;">
+                                                Source: <?php echo ucfirst(str_replace('_', ' ', $b['booking_source'] ?? 'Direct Website')); ?>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Contacts, ID Document, Notes & Timestamps Strip -->
+                                    <div class="adm-drawer-details-strip">
+                                        <div class="adm-drawer-contact-pills">
+                                            <a href="tel:<?php echo e($b['guest_phone']); ?>" class="adm-contact-pill phone" title="Call Guest">
+                                                <i class="fa-solid fa-phone"></i> <?php echo e($b['guest_phone']); ?>
+                                            </a>
+                                            <?php if (!empty($b['guest_email'])): ?>
+                                                <a href="mailto:<?php echo e($b['guest_email']); ?>" class="adm-contact-pill email" title="Email Guest">
+                                                    <i class="fa-regular fa-envelope"></i> <?php echo e($b['guest_email']); ?>
+                                                </a>
+                                            <?php endif; ?>
+                                            <?php if (!empty($b['city_state'])): ?>
+                                                <span class="adm-contact-pill origin" style="color: var(--adm-text-muted);">
+                                                    <i class="fa-solid fa-location-dot"></i> <?php echo e($b['city_state']); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($b['id_proof_file'])): 
+                                                $id_ext = strtolower(pathinfo($b['id_proof_file'], PATHINFO_EXTENSION)) ?: 'jpg';
+                                                $safe_gname = trim(preg_replace('/\s+/', '_', preg_replace('/[^a-zA-Z0-9_\-\s]/', '', $b['guest_name'] ?? 'Guest')), '_') ?: 'Guest';
+                                                $safe_idnum = trim(preg_replace('/[^a-zA-Z0-9_\-]/', '_', $b['id_proof_number'] ?? ''), '_');
+                                                $id_download_name = (!empty($safe_idnum) ? "{$safe_gname}_{$safe_idnum}" : "{$safe_gname}_ID") . '.' . $id_ext;
+                                            ?>
+                                                <a href="download_id.php?id=<?php echo (int)$b['id']; ?>" 
+                                                   target="_blank" 
+                                                   download="<?php echo htmlspecialchars($id_download_name); ?>" 
+                                                   class="adm-contact-pill id-proof" 
+                                                   title="Download ID: <?php echo htmlspecialchars($id_download_name); ?>">
+                                                    <i class="fa-solid fa-file-arrow-down"></i> ID: <?php echo htmlspecialchars($b['id_proof_type'] ?? 'Govt ID'); ?><?php echo !empty($b['id_proof_number']) ? ' (' . htmlspecialchars($b['id_proof_number']) . ')' : ''; ?>
+                                                </a>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <?php if (!empty($b['addons']) || !empty($b['special_notes']) || !empty($b['user_admin_notes'])): ?>
+                                            <div class="adm-drawer-notes-strip">
+                                                <?php if (!empty($b['addons'])): ?>
+                                                    <div style="font-size: 11px; color: var(--adm-gold-light);"><i class="fa-solid fa-sparkles"></i> <strong>Add-ons:</strong> <?php echo e($b['addons']); ?></div>
+                                                <?php endif; ?>
+                                                <?php if (!empty($b['special_notes'])): ?>
+                                                    <div style="font-size: 11px; color: var(--adm-text-muted);"><i class="fa-solid fa-comment-dots"></i> <strong>Requests:</strong> <?php echo e($b['special_notes']); ?></div>
+                                                <?php endif; ?>
+                                                <?php if (!empty($b['user_admin_notes'])): ?>
+                                                    <div style="font-size: 11px; color: #f59e0b;"><i class="fa-solid fa-clipboard-user"></i> <strong>Staff Note:</strong> <?php echo e($b['user_admin_notes']); ?></div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <?php if (!empty($b['checked_in_at']) || !empty($b['checked_out_at'])): ?>
+                                            <div style="font-size: 11px; display: flex; gap: 12px; flex-wrap: wrap; color: var(--adm-text-muted); background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 6px;">
+                                                <?php if (!empty($b['checked_in_at'])): ?>
+                                                    <span style="color: #22d3ee;"><i class="fa-solid fa-hotel"></i> Checked-In: <?php echo date('d M, h:i A', strtotime($b['checked_in_at'])); ?></span>
+                                                <?php endif; ?>
+                                                <?php if (!empty($b['checked_out_at'])): ?>
+                                                    <span style="color: #c084fc;"><i class="fa-solid fa-door-open"></i> Checked-Out: <?php echo date('d M, h:i A', strtotime($b['checked_out_at'])); ?></span>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <!-- Drawer Action Toolbar -->
+                                    <div class="adm-drawer-actions">
+                                        <button type="button" class="adm-btn-action emerald" onclick='openWhatsAppConcierge(<?php echo htmlspecialchars(json_encode([
+                                            'guest_name' => $b['guest_name'],
+                                            'phone' => $b['guest_phone'],
+                                            'reference_code' => $b['reference_code'],
+                                            'villa_title' => $villa_title,
+                                            'checkin_date' => $b['checkin_date'],
+                                            'checkout_date' => $b['checkout_date'],
+                                            'guests_count' => $b['guests_count'],
+                                            'total_amount' => $b['total_amount']
+                                        ]), ENT_QUOTES); ?>)'>
+                                            <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                                        </button>
+                                        <a href="tel:<?php echo e($b['guest_phone']); ?>" class="adm-btn-action outline" style="color: #60a5fa; border-color: rgba(96, 165, 250, 0.4);">
+                                            <i class="fa-solid fa-phone"></i> Call
+                                        </a>
+                                        <?php if ($st === 'inhouse'): ?>
+                                            <button type="button" class="adm-btn-stage checkout" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>);">
+                                                <i class="fa-solid fa-door-open"></i> Check-Out &amp; Audit
+                                            </button>
+                                        <?php elseif ($st === 'confirmed'): ?>
+                                            <form method="POST" style="display:inline; margin:0;">
+                                                <input type="hidden" name="action" value="update_status">
+                                                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                                <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                                <input type="hidden" name="status" value="inhouse">
+                                                <button type="submit" class="adm-btn-stage checkin">
+                                                    <i class="fa-solid fa-hotel"></i> Check-In
+                                                </button>
+                                            </form>
+                                        <?php elseif ($st === 'pending'): ?>
+                                            <form method="POST" style="display:inline; margin:0;">
+                                                <input type="hidden" name="action" value="update_status">
+                                                <input type="hidden" name="csrf_token" value="<?php echo csrf_token(); ?>">
+                                                <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                                <input type="hidden" name="status" value="confirmed">
+                                                <button type="submit" class="adm-btn-stage approve">
+                                                    <i class="fa-solid fa-check"></i> Approve
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=stay" target="_blank" class="adm-btn-action outline" style="color: #4ade80; border-color: rgba(34, 197, 94, 0.4);" title="Print Stay Bill">
+                                            <i class="fa-solid fa-hotel"></i> Stay Bill
+                                        </a>
+                                        <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=other" target="_blank" class="adm-btn-action outline" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.4);" title="Print Food Bill">
+                                            <i class="fa-solid fa-utensils"></i> Food Bill
+                                        </a>
+                                        <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=combined" target="_blank" class="adm-btn-action gold" title="Print Master Bill">
+                                            <i class="fa-solid fa-file-invoice"></i> Master Bill
+                                        </a>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -1331,6 +2082,171 @@ require_once __DIR__ . '/includes/header.php';
 <script>
 window.allRoomsLookup = <?php echo json_encode($rooms_lookup); ?>;
 
+function toggleRowDrawer(bookingId, btn) {
+    const drawer = document.getElementById('row-drawer-' + bookingId);
+    if (!drawer) return;
+    const isHidden = (drawer.style.display === 'none' || drawer.style.display === '');
+    if (isHidden) {
+        drawer.style.display = 'table-row';
+        if (btn) {
+            btn.classList.add('is-expanded');
+            const txt = btn.querySelector('.expand-text');
+            if (txt) txt.innerText = 'Collapse Details ▲';
+        }
+    } else {
+        drawer.style.display = 'none';
+        if (btn) {
+            btn.classList.remove('is-expanded');
+            const txt = btn.querySelector('.expand-text');
+            if (txt) txt.innerText = 'Expand Details ▼';
+        }
+    }
+}
+
+function setBookingsViewMode(mode, savePref = true) {
+    const cardEl = document.getElementById('adm-bookings-main-card');
+    const btnsCards = document.querySelectorAll('.btn-view-cards, #btn-view-cards, #btn-toggle-cards');
+    const btnsTable = document.querySelectorAll('.btn-view-table, #btn-view-table, #btn-toggle-table');
+    if (!cardEl) return;
+    
+    if (mode === 'cards') {
+        cardEl.classList.remove('view-mode-table');
+        cardEl.classList.add('view-mode-cards');
+        btnsCards.forEach(b => b.classList.add('active'));
+        btnsTable.forEach(b => b.classList.remove('active'));
+    } else {
+        cardEl.classList.remove('view-mode-cards');
+        cardEl.classList.add('view-mode-table');
+        btnsTable.forEach(b => b.classList.add('active'));
+        btnsCards.forEach(b => b.classList.remove('active'));
+    }
+    
+    if (savePref) {
+        try { localStorage.setItem('adm_bookings_view_mode', mode); } catch(e){}
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    let saved = null;
+    try { saved = localStorage.getItem('adm_bookings_view_mode'); } catch(e){}
+    const mode = saved || 'cards';
+    setBookingsViewMode(mode, false);
+
+    // Live search synchronization for both table rows & cards
+    const searchInput = document.getElementById('adm-table-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+            const cards = document.querySelectorAll('.adm-booking-card');
+            cards.forEach(card => {
+                const text = card.innerText.toLowerCase();
+                card.style.display = (!query || text.includes(query)) ? '' : 'none';
+            });
+            const rows = document.querySelectorAll('.adm-data-table tbody tr:not(.adm-row-drawer)');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                const bId = row.id ? row.id.replace('booking-row-', '') : null;
+                const drawer = bId ? document.getElementById('row-drawer-' + bId) : null;
+                const matches = (!query || text.includes(query));
+                row.style.display = matches ? '' : 'none';
+                if (!matches && drawer) {
+                    drawer.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+
+function toggleBookingFilterMenu(forceState) {
+    const drawer = document.getElementById('adm-booking-filter-drawer');
+    const caret = document.getElementById('adm-filter-menu-caret');
+    const btn = document.getElementById('adm-filter-menu-toggle-btn');
+    if (!drawer) return;
+    
+    let shouldOpen;
+    if (typeof forceState === 'boolean') {
+        shouldOpen = forceState;
+    } else {
+        shouldOpen = (drawer.style.display === 'none' || drawer.style.display === '');
+    }
+
+    if (shouldOpen) {
+        drawer.style.display = 'block';
+        if (caret) caret.style.transform = 'rotate(180deg)';
+        if (btn) btn.classList.add('is-active');
+    } else {
+        drawer.style.display = 'none';
+        if (caret) caret.style.transform = 'rotate(0deg)';
+        const hasFilters = <?php echo ($active_filters_count > 0) ? 'true' : 'false'; ?>;
+        if (btn && !hasFilters) btn.classList.remove('is-active');
+    }
+}
+
+// Backward compatibility alias
+function toggleAdvBookingFilters() {
+    toggleBookingFilterMenu();
+}
+
+function openFilterMenuToDates() {
+    toggleBookingFilterMenu(true);
+    const dateGroup = document.getElementById('adm-fmenu-dates-group');
+    if (dateGroup) {
+        dateGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const fromInput = document.getElementById('fmenu-date-from');
+        if (fromInput) fromInput.focus();
+    }
+}
+
+function applySingleFilter(paramName, paramVal) {
+    let url = new URL(window.location.href);
+    if (paramVal && paramVal.trim() !== '') {
+        url.searchParams.set(paramName, paramVal.trim());
+    } else {
+        url.searchParams.delete(paramName);
+    }
+    window.location.href = url.toString();
+}
+
+function setMenuDatePreset(preset) {
+    const fromEl = document.getElementById('fmenu-date-from');
+    const toEl = document.getElementById('fmenu-date-to');
+    if (!fromEl || !toEl) return;
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    const now = new Date();
+
+    if (preset === 'all') {
+        fromEl.value = '';
+        toEl.value = '';
+    } else if (preset === 'today') {
+        const todayStr = fmt(now);
+        fromEl.value = todayStr;
+        toEl.value = todayStr;
+    } else if (preset === 'tomorrow') {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const tomStr = fmt(tomorrow);
+        fromEl.value = tomStr;
+        toEl.value = tomStr;
+    } else if (preset === 'week') {
+        const d = new Date(now);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.setDate(diff));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        fromEl.value = fmt(monday);
+        toEl.value = fmt(sunday);
+    } else if (preset === 'month') {
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        fromEl.value = fmt(firstDay);
+        toEl.value = fmt(lastDay);
+    }
+}
+
 function submitRevertStatus(bookingId, targetStatus, guestName, label) {
     if (targetStatus === 'completed') {
         openCheckoutAuditModal(bookingId);
@@ -1449,7 +2365,14 @@ function viewBookingDetails(b) {
     if (b.id_proof_file) {
         if (idFileWrap) idFileWrap.style.display = 'block';
         if (idDownloadBtn) {
-            idDownloadBtn.href = '../uploads/id_proofs/' + encodeURIComponent(b.id_proof_file);
+            const ext = (b.id_proof_file.split('.').pop() || 'file').toLowerCase();
+            const safeName = (b.guest_name || 'Guest').replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().replace(/\s+/g, '_') || 'Guest';
+            const safeNum = (b.id_proof_number || '').replace(/[^a-zA-Z0-9_\-]/g, '_').replace(/^_+|_+$/g, '');
+            const downloadFilename = (safeNum ? `${safeName}_${safeNum}` : `${safeName}_ID`) + '.' + ext;
+
+            idDownloadBtn.href = 'download_id.php?id=' + encodeURIComponent(b.id);
+            idDownloadBtn.setAttribute('download', downloadFilename);
+            idDownloadBtn.title = 'Download: ' + downloadFilename;
         }
         if (idExtSpan) {
             const ext = (b.id_proof_file.split('.').pop() || 'FILE').toUpperCase();

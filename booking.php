@@ -1021,7 +1021,7 @@ require_once __DIR__ . '/includes/header.php';
 
                                 <div class="chalet-features-row font-sans">
                                     <span><i class="fa-solid fa-users"></i> Base <?php echo (int)($rm['base_guests'] ?? 2); ?> (Max <?php echo (int)($rm['max_guests'] ?? 4); ?>)</span>
-                                    <span><i class="fa-solid fa-utensils"></i> All Meals Included</span>
+                                    <span><i class="fa-solid fa-utensils"></i> Farm Breakfast Included</span>
                                     <span><i class="fa-solid fa-wifi"></i> Forest Wi-Fi</span>
                                 </div>
 
@@ -1145,7 +1145,7 @@ window.conciergeWhatsApp = <?php echo json_encode($concierge_wa); ?>;
             <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(197, 160, 89, 0.2); border-radius: 10px; padding: 14px;">
                 <h4 style="color: var(--accent-gold); font-size: 13.5px; margin-bottom: 8px;"><i class="fa-solid fa-utensils"></i> 5. Food &amp; Drink (Gastronomy)</h4>
                 <ul style="font-size: 12px; color: #D3E0D8; line-height: 1.6; padding-left: 18px; margin: 0;">
-                    <li><strong>All 4 Farm Meals Included</strong> in Base Tariff</li>
+                    <li><strong>Complimentary Farm Breakfast Included</strong> in Base Tariff (Chef's fixed daily morning spread; extra à la carte dishes &amp; customizations are paid)</li>
                     <li>Woodfire Hearth Dining Pavilion &amp; Orchard Gazebo</li>
                     <li>100% Farm-to-Table Organic Kerala Feasts</li>
                     <li>High-Range Evening Plantation Chai Ritual</li>

@@ -202,11 +202,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $batch_added_subtotal = 0;
                     $kitchen_notes = trim($_POST['kitchen_notes'] ?? '');
 
+                    $raw_global_meal = strtolower(trim($_POST['dish_meal_time'] ?? 'lunch'));
+                    if (strpos($raw_global_meal, 'snack') !== false || strpos($raw_global_meal, 'tea') !== false || strpos($raw_global_meal, 'evening') !== false) {
+                        $global_meal = 'snacks';
+                    } elseif (strpos($raw_global_meal, 'break') !== false || strpos($raw_global_meal, 'morn') !== false) {
+                        $global_meal = 'breakfast';
+                    } elseif (strpos($raw_global_meal, 'din') !== false || strpos($raw_global_meal, 'night') !== false) {
+                        $global_meal = 'dinner';
+                    } elseif (strpos($raw_global_meal, 'lunch') !== false || strpos($raw_global_meal, 'noon') !== false) {
+                        $global_meal = 'lunch';
+                    } else {
+                        $global_meal = 'lunch';
+                    }
+
                     foreach ($items_to_add as $it) {
                         $dish_id = (int)($it['dishId'] ?? ($it['dish_id'] ?? ($it['id'] ?? 0)));
                         $qty = max(1, min(50, (int)($it['quantity'] ?? ($it['qty'] ?? 1))));
-                        $chosen_meal = strtolower(trim($it['mealSlot'] ?? ($it['meal_time'] ?? ($it['dish_meal_time'] ?? 'lunch'))));
-                        if (strpos($chosen_meal, 'snack') !== false || strpos($chosen_meal, 'tea') !== false) {
+                        
+                        $raw_chosen = trim($it['mealSlot'] ?? ($it['meal_time'] ?? ($it['dish_meal_time'] ?? '')));
+                        if (empty($raw_chosen) || in_array(strtolower($raw_chosen), ['juices', 'millet', 'curries'])) {
+                            $raw_chosen = $global_meal;
+                        }
+                        $chosen_meal = strtolower($raw_chosen);
+                        if (strpos($chosen_meal, 'snack') !== false || strpos($chosen_meal, 'tea') !== false || strpos($chosen_meal, 'evening') !== false) {
                             $chosen_meal = 'snacks';
                         } elseif (strpos($chosen_meal, 'break') !== false || strpos($chosen_meal, 'morn') !== false) {
                             $chosen_meal = 'breakfast';
@@ -214,9 +232,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             $chosen_meal = 'dinner';
                         } elseif (strpos($chosen_meal, 'lunch') !== false || strpos($chosen_meal, 'noon') !== false) {
                             $chosen_meal = 'lunch';
+                        } else {
+                            $chosen_meal = $global_meal;
                         }
                         if (!in_array($chosen_meal, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
-                            $chosen_meal = 'lunch';
+                            $chosen_meal = $global_meal;
                         }
                         $item_notes = trim($it['special_notes'] ?? ($it['notes'] ?? $kitchen_notes));
 
@@ -457,14 +477,19 @@ foreach ($all_matching_bookings as $b) {
     $b_room_name = format_chalet_label($b['villa_type'], $room_map);
 
     foreach ($f_list as $item) {
-        $slot = strtolower(trim($item['meal_time'] ?? $item['category'] ?? 'lunch'));
-        if (strpos($slot, 'snack') !== false || strpos($slot, 'evening') !== false || strpos($slot, 'tea') !== false) {
+        $raw_slot = strtolower(trim($item['meal_time'] ?? ''));
+        if (empty($raw_slot) || in_array($raw_slot, ['juices', 'millet', 'curries'])) {
+            $raw_slot = strtolower(trim($item['category'] ?? 'lunch'));
+        }
+        if (strpos($raw_slot, 'snack') !== false || strpos($raw_slot, 'evening') !== false || strpos($raw_slot, 'tea') !== false) {
             $slot = 'snacks';
-        } elseif (strpos($slot, 'break') !== false || strpos($slot, 'morn') !== false) {
+        } elseif (strpos($raw_slot, 'break') !== false || strpos($raw_slot, 'morn') !== false) {
             $slot = 'breakfast';
-        } elseif (strpos($slot, 'din') !== false || strpos($slot, 'night') !== false) {
+        } elseif (strpos($raw_slot, 'din') !== false || strpos($raw_slot, 'night') !== false) {
             $slot = 'dinner';
-        } elseif (strpos($slot, 'lunch') !== false || strpos($slot, 'noon') !== false) {
+        } elseif (strpos($raw_slot, 'lunch') !== false || strpos($raw_slot, 'noon') !== false) {
+            $slot = 'lunch';
+        } else {
             $slot = 'lunch';
         }
         if (!in_array($slot, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
@@ -570,97 +595,170 @@ foreach ($all_matching_bookings as $b) {
         </div>
     </div>
 
-    <!-- Quick Date Filter Toolbar (Today, This Week, Tomorrow, Custom Range) -->
-    <div class="adm-card" style="margin-bottom: 22px; padding: 16px 20px; background: var(--bg-card, #FFFFFF); border: 1.5px solid rgba(28, 56, 38, 0.12); border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-        <form method="GET" action="kitchen.php" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+    <!-- Mobile-Optimized Quick Shift & Date Filter Toolbar -->
+    <div class="adm-kitchen-filter-card">
+        <form method="GET" action="kitchen.php" id="kitchen-filter-form">
             <input type="hidden" name="meal" value="<?php echo htmlspecialchars($meal_filter); ?>">
+            <input type="hidden" name="filter" value="custom">
 
-            <!-- Quick Pill Buttons -->
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <span class="font-sans" style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px;">
-                    <i class="fa-regular fa-calendar"></i> Shift Date:
-                </span>
-                
-                <a href="kitchen.php?filter=today&meal=<?php echo urlencode($meal_filter); ?>" 
-                   class="btn-date-filter-pill <?php echo ($filter === 'today') ? 'active' : ''; ?>"
-                   style="padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; <?php echo ($filter === 'today') ? 'background: #1C3826; color: #FFFFFF; border: 1.5px solid #1C3826;' : 'background: #F1F5F9; color: #334155; border: 1.5px solid #CBD5E1;'; ?>">
-                    🌟 Today (<?php echo date('d M'); ?>)
-                </a>
+            <div class="adm-kitchen-filter-main">
+                <!-- Shift Date Quick Swipeable Pills Track -->
+                <div class="adm-kitchen-filter-track">
+                    <span class="adm-kitchen-shift-tag">
+                        <i class="fa-regular fa-calendar" style="color: var(--adm-gold);"></i> Shift:
+                    </span>
 
-                <a href="kitchen.php?filter=tomorrow&meal=<?php echo urlencode($meal_filter); ?>" 
-                   class="btn-date-filter-pill <?php echo ($filter === 'tomorrow') ? 'active' : ''; ?>"
-                   style="padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; <?php echo ($filter === 'tomorrow') ? 'background: #1C3826; color: #FFFFFF; border: 1.5px solid #1C3826;' : 'background: #F1F5F9; color: #334155; border: 1.5px solid #CBD5E1;'; ?>">
-                    📆 Tomorrow
-                </a>
+                    <a href="kitchen.php?filter=today&meal=<?php echo urlencode($meal_filter); ?>" 
+                       class="adm-kitchen-pill <?php echo ($filter === 'today') ? 'active' : ''; ?>"
+                       title="View Today's Prep Schedule">
+                        🌟 Today (<?php echo date('d M'); ?>)
+                    </a>
 
-                <a href="kitchen.php?filter=this_week&meal=<?php echo urlencode($meal_filter); ?>" 
-                   class="btn-date-filter-pill <?php echo ($filter === 'this_week') ? 'active' : ''; ?>"
-                   style="padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; <?php echo ($filter === 'this_week') ? 'background: #1C3826; color: #FFFFFF; border: 1.5px solid #1C3826;' : 'background: #F1F5F9; color: #334155; border: 1.5px solid #CBD5E1;'; ?>">
-                    📅 This Week
-                </a>
+                    <a href="kitchen.php?filter=tomorrow&meal=<?php echo urlencode($meal_filter); ?>" 
+                       class="adm-kitchen-pill <?php echo ($filter === 'tomorrow') ? 'active' : ''; ?>"
+                       title="View Tomorrow's Prep Schedule">
+                        📆 Tomorrow
+                    </a>
 
-                <a href="kitchen.php?filter=all_active&meal=<?php echo urlencode($meal_filter); ?>" 
-                   class="btn-date-filter-pill <?php echo ($filter === 'all_active') ? 'active' : ''; ?>"
-                   style="padding: 6px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease; <?php echo ($filter === 'all_active') ? 'background: #1C3826; color: #FFFFFF; border: 1.5px solid #1C3826;' : 'background: #F1F5F9; color: #334155; border: 1.5px solid #CBD5E1;'; ?>">
-                    🌿 All In-House &amp; Active
-                </a>
+                    <a href="kitchen.php?filter=this_week&meal=<?php echo urlencode($meal_filter); ?>" 
+                       class="adm-kitchen-pill <?php echo ($filter === 'this_week') ? 'active' : ''; ?>"
+                       title="View Current Week Schedule">
+                        📅 This Week
+                    </a>
+
+                    <a href="kitchen.php?filter=all_active&meal=<?php echo urlencode($meal_filter); ?>" 
+                       class="adm-kitchen-pill <?php echo ($filter === 'all_active') ? 'active' : ''; ?>"
+                       title="View All Active In-House Rooms">
+                        🌿 In-House &amp; Active
+                    </a>
+
+                    <!-- Custom Date Range Toggle Pill -->
+                    <button type="button" class="adm-kitchen-custom-toggle <?php echo ($filter === 'custom') ? 'active' : ''; ?>" id="btn-toggle-custom-dates" onclick="toggleKitchenCustomDates();" title="Filter by custom dates">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Custom Dates</span>
+                        <i class="fa-solid fa-chevron-down" id="custom-dates-caret" style="font-size: 10px; transition: transform 0.2s; <?php echo ($filter === 'custom') ? 'transform: rotate(180deg);' : ''; ?>"></i>
+                    </button>
+                </div>
             </div>
 
-            <!-- Custom From Date - To Date Form -->
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <input type="hidden" name="filter" value="custom">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <label for="k_from_date" style="font-size: 12px; font-weight: 600; color: #64748B;">From:</label>
-                    <input type="date" id="k_from_date" name="from_date" value="<?php echo htmlspecialchars($from_date); ?>" class="adm-form-input font-sans" style="padding: 5px 10px; font-size: 12.5px; border-radius: 6px; border: 1px solid #CBD5E1;">
+            <!-- Custom From - To Date Range Drawer -->
+            <div class="adm-kitchen-custom-drawer" id="kitchen-custom-dates-drawer" style="<?php echo ($filter === 'custom') ? 'display: block;' : 'display: none;'; ?>">
+                <div class="adm-kitchen-date-fields">
+                    <div class="adm-kitchen-date-group">
+                        <label for="k_from_date">From</label>
+                        <input type="date" id="k_from_date" name="from_date" value="<?php echo htmlspecialchars($from_date); ?>" class="adm-kitchen-date-input">
+                    </div>
+                    <div class="adm-kitchen-date-group">
+                        <label for="k_to_date">To</label>
+                        <input type="date" id="k_to_date" name="to_date" value="<?php echo htmlspecialchars($to_date); ?>" class="adm-kitchen-date-input">
+                    </div>
+                    <div class="adm-kitchen-custom-actions">
+                        <button type="submit" class="adm-kitchen-filter-submit">
+                            <i class="fa-solid fa-filter"></i> Apply Range
+                        </button>
+                        <?php if ($filter !== 'today'): ?>
+                            <a href="kitchen.php?filter=today&meal=<?php echo urlencode($meal_filter); ?>" class="adm-kitchen-filter-reset">Reset to Today</a>
+                        <?php endif; ?>
+                    </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <label for="k_to_date" style="font-size: 12px; font-weight: 600; color: #64748B;">To:</label>
-                    <input type="date" id="k_to_date" name="to_date" value="<?php echo htmlspecialchars($to_date); ?>" class="adm-form-input font-sans" style="padding: 5px 10px; font-size: 12.5px; border-radius: 6px; border: 1px solid #CBD5E1;">
-                </div>
-                <button type="submit" class="adm-btn-action" style="padding: 6px 14px; font-size: 12.5px; background: #0E7490; color: #fff; border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
-                    <i class="fa-solid fa-filter"></i> Filter
-                </button>
-                <?php if ($filter !== 'today'): ?>
-                    <a href="kitchen.php?filter=today" style="font-size: 12px; color: #EF4444; font-weight: 600; text-decoration: underline;">Reset</a>
-                <?php endif; ?>
             </div>
         </form>
     </div>
 
-    <!-- Top KPI Highlights -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 24px;">
-        <div class="adm-card" style="padding: 16px 18px; border-radius: 10px; background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.1); border-left: 4px solid #10B981; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-            <span style="font-size: 11.5px; font-weight: 700; color: #64748B; text-transform: uppercase;">Active Food Bookings</span>
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
-                <span style="font-size: 26px; font-weight: 800; color: #1C3826; font-family: monospace;"><?php echo count($kitchen_bookings); ?></span>
-                <span style="font-size: 12px; color: #059669; font-weight: 600;"><i class="fa-solid fa-bed"></i> Rooms</span>
+    <!-- Collapsible Compact Kitchen KPI Metrics Strip (Single Horizontal Row) -->
+    <section class="adm-kpi-strip-container" id="adm-kitchen-kpi-container" style="margin-bottom: 22px;">
+        <!-- Header bar with Title, Summary Pills (when collapsed), and Toggle Button -->
+        <div class="adm-kpi-strip-header">
+            <div class="adm-kpi-strip-title-group">
+                <span class="adm-kpi-strip-tag"><i class="fa-solid fa-utensils"></i></span>
+                <span class="adm-kpi-strip-title">Kitchen Operations Live Highlights</span>
+
+                <!-- Compact inline preview pills visible when cards are collapsed -->
+                <div class="adm-kpi-collapsed-summary" id="adm-kitchen-kpi-collapsed-summary">
+                    <span class="adm-kpi-summary-pill emerald" title="Active Food Bookings">
+                        <i class="fa-solid fa-bed"></i> <?php echo count($kitchen_bookings); ?> Rooms
+                    </span>
+                    <span class="adm-kpi-summary-pill amber" title="Total Dishes / Portions">
+                        <i class="fa-solid fa-utensils"></i> <?php echo $total_portions; ?> Dishes
+                    </span>
+                    <span class="adm-kpi-summary-pill cyan" title="Guests Dining">
+                        <i class="fa-solid fa-users"></i> <?php echo $total_guests_dining; ?> Guests
+                    </span>
+                    <span class="adm-kpi-summary-pill purple" title="Total Food Value">
+                        <i class="fa-solid fa-receipt"></i> ₹<?php echo number_format($total_food_revenue, 0); ?>
+                    </span>
+                </div>
+            </div>
+
+            <div class="adm-kpi-strip-actions">
+                <button type="button" class="adm-kpi-toggle-btn" id="btn-toggle-kitchen-kpi" onclick="toggleKitchenKpiStrip();" title="Collapse / Expand Kitchen Metrics" aria-expanded="true">
+                    <span class="adm-kpi-toggle-label" id="adm-kitchen-kpi-toggle-label">Collapse</span>
+                    <i class="fa-solid fa-chevron-up" id="adm-kitchen-kpi-toggle-icon"></i>
+                </button>
             </div>
         </div>
 
-        <div class="adm-card" style="padding: 16px 18px; border-radius: 10px; background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.1); border-left: 4px solid #F59E0B; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-            <span style="font-size: 11.5px; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Dishes / Portions</span>
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
-                <span style="font-size: 26px; font-weight: 800; color: #92400E; font-family: monospace;"><?php echo $total_portions; ?></span>
-                <span style="font-size: 12px; color: #D97706; font-weight: 600;"><i class="fa-solid fa-utensils"></i> Total Items</span>
-            </div>
-        </div>
+        <!-- 4 Small Compact Cards in a Single Horizontal Row -->
+        <div class="adm-kpi-row-wrapper" id="adm-kitchen-kpi-row-wrapper">
+            <div class="adm-kpi-compact-row">
+                <!-- 1. Active Food Bookings -->
+                <div class="adm-kpi-mini-card emerald" title="In-House Rooms with Active Food Requests">
+                    <div class="adm-kpi-mini-icon">
+                        <i class="fa-solid fa-bed"></i>
+                    </div>
+                    <div class="adm-kpi-mini-body">
+                        <div class="adm-kpi-mini-label">Active Bookings</div>
+                        <div class="adm-kpi-mini-value"><?php echo count($kitchen_bookings); ?></div>
+                    </div>
+                    <div class="adm-kpi-mini-trend emerald-trend">
+                        <i class="fa-solid fa-door-open"></i> Rooms
+                    </div>
+                </div>
 
-        <div class="adm-card" style="padding: 16px 18px; border-radius: 10px; background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.1); border-left: 4px solid #0284C7; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-            <span style="font-size: 11.5px; font-weight: 700; color: #64748B; text-transform: uppercase;">Guests Dining</span>
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
-                <span style="font-size: 26px; font-weight: 800; color: #0369A1; font-family: monospace;"><?php echo $total_guests_dining; ?></span>
-                <span style="font-size: 12px; color: #0284C7; font-weight: 600;"><i class="fa-solid fa-users"></i> Persons</span>
-            </div>
-        </div>
+                <!-- 2. Total Dishes / Portions -->
+                <div class="adm-kpi-mini-card amber" title="Total Chef Preparation Portions">
+                    <div class="adm-kpi-mini-icon">
+                        <i class="fa-solid fa-utensils"></i>
+                    </div>
+                    <div class="adm-kpi-mini-body">
+                        <div class="adm-kpi-mini-label">Total Portions</div>
+                        <div class="adm-kpi-mini-value"><?php echo $total_portions; ?></div>
+                    </div>
+                    <div class="adm-kpi-mini-trend amber-trend">
+                        Items
+                    </div>
+                </div>
 
-        <div class="adm-card" style="padding: 16px 18px; border-radius: 10px; background: #FFFFFF; border: 1.5px solid rgba(28, 56, 38, 0.1); border-left: 4px solid #8B5CF6; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
-            <span style="font-size: 11.5px; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Food Value</span>
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
-                <span style="font-size: 26px; font-weight: 800; color: #6D28D9; font-family: monospace;">₹<?php echo number_format($total_food_revenue, 0); ?></span>
-                <span style="font-size: 12px; color: #7C3AED; font-weight: 600;"><i class="fa-solid fa-receipt"></i> Billed</span>
+                <!-- 3. Guests Dining -->
+                <div class="adm-kpi-mini-card cyan" title="Total Guests Dining Today">
+                    <div class="adm-kpi-mini-icon">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <div class="adm-kpi-mini-body">
+                        <div class="adm-kpi-mini-label">Guests Dining</div>
+                        <div class="adm-kpi-mini-value"><?php echo $total_guests_dining; ?></div>
+                    </div>
+                    <div class="adm-kpi-mini-trend cyan-trend">
+                        Persons
+                    </div>
+                </div>
+
+                <!-- 4. Total Food Value -->
+                <div class="adm-kpi-mini-card purple" title="Cumulative Billed Food Value">
+                    <div class="adm-kpi-mini-icon">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <div class="adm-kpi-mini-body">
+                        <div class="adm-kpi-mini-label">Total Value</div>
+                        <div class="adm-kpi-mini-value">₹<?php echo number_format($total_food_revenue, 0); ?></div>
+                    </div>
+                    <div class="adm-kpi-mini-trend purple-trend">
+                        Billed
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- Meal Time Filter Tabs (All, Breakfast, Lunch, Evening Snacks, Dinner) -->
     <div class="adm-meal-tabs-bar" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 22px; -webkit-overflow-scrolling: touch;">
@@ -999,7 +1097,21 @@ foreach ($all_matching_bookings as $b) {
                                             $dish_price = (float)($dish_item['price'] ?? 0);
                                             $dish_sub = (float)($dish_item['subtotal'] ?? ($dish_qty * $dish_price));
                                             $ticket_subtotal += $dish_sub;
-                                            $dish_slot = strtolower(trim($dish_item['meal_time'] ?? $dish_item['category'] ?? 'lunch'));
+                                            $raw_d_slot = strtolower(trim($dish_item['meal_time'] ?? ''));
+                                            if (empty($raw_d_slot) || in_array($raw_d_slot, ['juices', 'millet', 'curries'])) {
+                                                $raw_d_slot = strtolower(trim($dish_item['category'] ?? 'lunch'));
+                                            }
+                                            if (strpos($raw_d_slot, 'snack') !== false || strpos($raw_d_slot, 'evening') !== false || strpos($raw_d_slot, 'tea') !== false) {
+                                                $dish_slot = 'snacks';
+                                            } elseif (strpos($raw_d_slot, 'break') !== false || strpos($raw_d_slot, 'morn') !== false) {
+                                                $dish_slot = 'breakfast';
+                                            } elseif (strpos($raw_d_slot, 'din') !== false || strpos($raw_d_slot, 'night') !== false) {
+                                                $dish_slot = 'dinner';
+                                            } elseif (strpos($raw_d_slot, 'lunch') !== false || strpos($raw_d_slot, 'noon') !== false) {
+                                                $dish_slot = 'lunch';
+                                            } else {
+                                                $dish_slot = 'lunch';
+                                            }
                                             $is_veg = (($dish_item['dietary_type'] ?? 'veg') === 'veg');
                                             $d_served = !empty($dish_item['served']);
                                             $d_status = $d_served ? 'served' : strtolower(trim($dish_item['status'] ?? $st_val));
@@ -1138,11 +1250,14 @@ foreach ($all_matching_bookings as $b) {
                     <label style="font-size: 12px; font-weight: 700; color: #1E293B; display: block; margin-bottom: 4px;">
                         2. Default Serving Meal Time *
                     </label>
+                    <?php
+                    $active_quick_slot = in_array($meal_filter, ['breakfast', 'lunch', 'snacks', 'dinner']) ? $meal_filter : 'lunch';
+                    ?>
                     <select name="dish_meal_time" id="quick_meal_select" onchange="onGlobalMealSlotChange(this.value);" required class="adm-form-input font-sans" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1.5px solid #94A3B8; font-size: 13px; font-weight: 600; color: #0F172A; background: #FFFFFF;">
-                        <option value="breakfast">☀️ Breakfast (09:00 AM – 10:00 AM)</option>
-                        <option value="lunch" selected>🍛 Lunch (12:30 PM – 02:30 PM)</option>
-                        <option value="snacks">☕ Evening Snacks (04:30 PM – 06:30 PM)</option>
-                        <option value="dinner">🌙 Dinner (07:00 PM – 09:00 PM)</option>
+                        <option value="breakfast" <?php echo ($active_quick_slot === 'breakfast') ? 'selected' : ''; ?>>☀️ Breakfast (09:00 AM – 10:00 AM)</option>
+                        <option value="lunch" <?php echo ($active_quick_slot === 'lunch') ? 'selected' : ''; ?>>🍛 Lunch (12:30 PM – 02:30 PM)</option>
+                        <option value="snacks" <?php echo ($active_quick_slot === 'snacks') ? 'selected' : ''; ?>>☕ Evening Snacks (04:30 PM – 06:30 PM)</option>
+                        <option value="dinner" <?php echo ($active_quick_slot === 'dinner') ? 'selected' : ''; ?>>🌙 Dinner (07:00 PM – 09:00 PM)</option>
                     </select>
                 </div>
 
@@ -1309,8 +1424,9 @@ foreach ($all_matching_bookings as $b) {
                                         <div class="dish-name-label" style="font-size: 13px; font-weight: 600; color: #1E293B; line-height: 1.3;">
                                             <?php echo htmlspecialchars($dish['heading']); ?>
                                         </div>
-                                        <div style="font-size: 11px; color: #64748B; margin-top: 2px; text-transform: capitalize;">
-                                            <i class="fa-solid fa-clock" style="font-size: 9px; margin-right: 3px;"></i> <?php echo htmlspecialchars($dish['default_meal_time']); ?>
+                                        <div class="dish-serving-tag font-sans" style="font-size: 11px; color: #0E7490; margin-top: 2px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                                            <i class="fa-solid fa-bell-concierge" style="font-size: 9.5px; color: #0284C7;"></i>
+                                            <span>Orders for: <strong class="dish-active-serving-label" style="text-transform: capitalize; color: #0369A1;"><?php echo htmlspecialchars($active_quick_slot ?? 'lunch'); ?></strong></span>
                                         </div>
                                     </div>
                                 </div>
@@ -1534,11 +1650,27 @@ var foodGstRate = <?php echo json_encode($gst_rate_food); ?>;
 // Global default meal slot
 function getSelectedMealSlot() {
     var sel = document.getElementById('quick_meal_select');
-    return sel ? sel.value : 'lunch';
+    return (sel && sel.value) ? sel.value.toLowerCase().trim() : 'lunch';
+}
+
+function updateDishCardsServingTimeLabel(slot) {
+    var s = slot || getSelectedMealSlot();
+    var label = s ? (s.charAt(0).toUpperCase() + s.slice(1)) : 'Lunch';
+    document.querySelectorAll('.dish-active-serving-label').forEach(function(el) {
+        el.textContent = label;
+    });
 }
 
 function onGlobalMealSlotChange(newSlot) {
-    // Optional: could notify or update new additions
+    newSlot = (newSlot || 'lunch').toLowerCase().trim();
+    if (kitchenCart && kitchenCart.length > 0) {
+        kitchenCart.forEach(function(item) {
+            item.mealSlot = newSlot;
+        });
+        renderKitchenCart();
+        showKitchenToast('✓ Serving meal time updated to ' + newSlot.toUpperCase() + ' for all cart items', true);
+    }
+    updateDishCardsServingTimeLabel(newSlot);
 }
 
 // Add Dish to Cart (or increment qty if already present)
@@ -1547,28 +1679,29 @@ function addDishToCart(dishId) {
     var dish = allFoodDishesMap[dishId];
     if (!dish) return;
 
+    var curSlot = getSelectedMealSlot() || 'lunch';
+
     var existing = kitchenCart.find(function(it) {
         return it.dishId === dishId;
     });
 
-    var defSlot = getSelectedMealSlot() || dish.default_meal_time || 'lunch';
-
     if (existing) {
         existing.quantity = Math.min(50, existing.quantity + 1);
+        existing.mealSlot = curSlot;
     } else {
         kitchenCart.push({
             dishId: dishId,
             dishName: dish.heading,
             price: parseFloat(dish.price) || 0,
             quantity: 1,
-            mealSlot: defSlot,
+            mealSlot: curSlot,
             dietaryType: dish.dietary_type || 'veg',
             category: dish.category || 'lunch'
         });
     }
 
     renderKitchenCart();
-    showKitchenToast('✓ Added ' + dish.heading + ' to cart', true);
+    showKitchenToast('✓ Added ' + dish.heading + ' (' + curSlot.toUpperCase() + ') to cart', true);
 }
 
 // Clicking card body
@@ -1852,6 +1985,7 @@ async function dispatchKitchenCartOrder() {
         formData.append('action', 'quick_add_batch_dishes');
         formData.append('booking_id', roomSelect.value);
         formData.append('kitchen_notes', notes);
+        formData.append('dish_meal_time', getSelectedMealSlot());
         formData.append('items_payload', JSON.stringify(kitchenCart));
 
         var res = await fetch('kitchen.php?filter=<?php echo urlencode($filter); ?>&from_date=<?php echo urlencode($from_date); ?>&to_date=<?php echo urlencode($to_date); ?>&meal=<?php echo urlencode($meal_filter); ?>', {
@@ -2272,6 +2406,67 @@ async function updateSingleDishStatus(bookingId, itemIndex, newStatus) {
         showKitchenToast('Failed to update dish status', false);
     }
 }
+
+function toggleKitchenKpiStrip(forceState) {
+    var wrapper = document.getElementById('adm-kitchen-kpi-row-wrapper');
+    var summary = document.getElementById('adm-kitchen-kpi-collapsed-summary');
+    var label = document.getElementById('adm-kitchen-kpi-toggle-label');
+    var icon = document.getElementById('adm-kitchen-kpi-toggle-icon');
+    var btn = document.getElementById('btn-toggle-kitchen-kpi');
+    if (!wrapper) return;
+
+    var isCollapsing;
+    if (typeof forceState !== 'undefined') {
+        isCollapsing = !forceState;
+    } else {
+        isCollapsing = (wrapper.style.display !== 'none');
+    }
+
+    if (isCollapsing) {
+        wrapper.style.display = 'none';
+        if (summary) summary.style.display = 'flex';
+        if (label) label.textContent = 'Expand';
+        if (icon) icon.className = 'fa-solid fa-chevron-down';
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        try { localStorage.setItem('ff_kitchen_kpi_state', 'collapsed'); } catch(e){}
+    } else {
+        wrapper.style.display = 'block';
+        if (summary) summary.style.display = 'none';
+        if (label) label.textContent = 'Collapse';
+        if (icon) icon.className = 'fa-solid fa-chevron-up';
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        try { localStorage.setItem('ff_kitchen_kpi_state', 'expanded'); } catch(e){}
+    }
+}
+
+function toggleKitchenCustomDates() {
+    var drawer = document.getElementById('kitchen-custom-dates-drawer');
+    var caret = document.getElementById('custom-dates-caret');
+    var btn = document.getElementById('btn-toggle-custom-dates');
+    if (!drawer) return;
+    var isHidden = (drawer.style.display === 'none' || !drawer.style.display);
+    if (isHidden) {
+        drawer.style.display = 'block';
+        if (caret) caret.style.transform = 'rotate(180deg)';
+        if (btn) btn.classList.add('active');
+    } else {
+        drawer.style.display = 'none';
+        if (caret) caret.style.transform = 'rotate(0deg)';
+        if (btn) btn.classList.remove('active');
+    }
+}
+
+// Initialise active serving slot labels on load & restore KPI collapse state
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        var kState = localStorage.getItem('ff_kitchen_kpi_state');
+        if (kState === 'collapsed') {
+            toggleKitchenKpiStrip(false);
+        }
+    } catch(e){}
+
+    updateDishCardsServingTimeLabel(getSelectedMealSlot());
+});
 </script>
 
 <?php

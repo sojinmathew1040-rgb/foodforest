@@ -400,6 +400,17 @@ try {
     }
 
     // 4. Resolve Dish Items (Batch or Single)
+    $global_order_meal = strtolower(trim($input['meal_time'] ?? ($input['dish_meal_time'] ?? ($input['target_meal_time'] ?? ''))));
+    if (strpos($global_order_meal, 'snack') !== false || strpos($global_order_meal, 'tea') !== false || strpos($global_order_meal, 'evening') !== false) {
+        $global_order_meal = 'snacks';
+    } elseif (strpos($global_order_meal, 'break') !== false || strpos($global_order_meal, 'morn') !== false) {
+        $global_order_meal = 'breakfast';
+    } elseif (strpos($global_order_meal, 'din') !== false || strpos($global_order_meal, 'night') !== false) {
+        $global_order_meal = 'dinner';
+    } elseif (strpos($global_order_meal, 'lunch') !== false || strpos($global_order_meal, 'noon') !== false) {
+        $global_order_meal = 'lunch';
+    }
+
     $incoming_items = [];
     if (!empty($input['items']) && is_array($input['items'])) {
         $incoming_items = $input['items'];
@@ -407,7 +418,7 @@ try {
         $incoming_items[] = [
             'dish_id' => (int)$input['dish_id'],
             'quantity' => (int)($input['quantity'] ?? ($input['qty'] ?? 1)),
-            'meal_time' => $input['meal_time'] ?? 'lunch',
+            'meal_time' => !empty($global_order_meal) ? $global_order_meal : ($input['meal_time'] ?? 'dinner'),
             'special_notes' => $input['special_notes'] ?? ($input['notes'] ?? '')
         ];
     }
@@ -436,8 +447,10 @@ try {
         $dish = $dstmt->fetch(PDO::FETCH_ASSOC);
         if (!$dish) continue;
 
-        $meal_time = strtolower(trim($itm['meal_time'] ?? ($dish['default_meal_time'] ?? 'lunch')));
-        if (strpos($meal_time, 'snack') !== false || strpos($meal_time, 'tea') !== false) {
+        $raw_meal = trim($itm['meal_time'] ?? ($itm['mealSlot'] ?? ($itm['meal_slot'] ?? '')));
+        $chosen_meal = !empty($raw_meal) ? $raw_meal : (!empty($global_order_meal) ? $global_order_meal : ($dish['default_meal_time'] ?? ''));
+        $meal_time = strtolower($chosen_meal);
+        if (strpos($meal_time, 'snack') !== false || strpos($meal_time, 'tea') !== false || strpos($meal_time, 'evening') !== false) {
             $meal_time = 'snacks';
         } elseif (strpos($meal_time, 'break') !== false || strpos($meal_time, 'morn') !== false) {
             $meal_time = 'breakfast';
@@ -447,7 +460,14 @@ try {
             $meal_time = 'lunch';
         }
         if (!in_array($meal_time, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
-            $meal_time = 'lunch';
+            $dish_cat = strtolower(trim($dish['category'] ?? ''));
+            if (in_array($dish_cat, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+                $meal_time = $dish_cat;
+            } elseif (!empty($global_order_meal) && in_array($global_order_meal, ['breakfast', 'lunch', 'snacks', 'dinner'])) {
+                $meal_time = $global_order_meal;
+            } else {
+                $meal_time = 'dinner';
+            }
         }
 
         $price = (float)$dish['price'];

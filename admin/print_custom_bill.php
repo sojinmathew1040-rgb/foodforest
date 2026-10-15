@@ -58,8 +58,33 @@ $show_qr = isset($_GET['show_qr']) ? ($_GET['show_qr'] == '1') : (!empty($invoic
 $auto_print = isset($_GET['auto_print']) && $_GET['auto_print'] == '1';
 
 $is_b2b = !empty($invoice['gstin']) || !empty($invoice['business_name']);
-$is_gst = !empty($invoice['is_gst_bill']);
+$is_gst = !empty($invoice['is_gst_bill']) || ((float)($invoice['tax_amount'] ?? 0) > 0) || ((float)($invoice['gst_percentage'] ?? 0) > 0);
 $bill_date = !empty($invoice['invoice_date']) ? date('d M Y, h:i A', strtotime($invoice['invoice_date'])) : date('d M Y, h:i A', strtotime($invoice['created_at']));
+
+if ($is_gst) {
+    if ((float)($invoice['taxable_amount'] ?? 0) <= 0 && (float)($invoice['subtotal'] ?? 0) > 0) {
+        $invoice['taxable_amount'] = max(0, (float)$invoice['subtotal'] - (float)($invoice['discount_amount'] ?? 0));
+    }
+    $gst_p = (float)($invoice['gst_percentage'] ?? 0);
+    if ($gst_p <= 0 && (float)($invoice['tax_amount'] ?? 0) > 0 && (float)$invoice['taxable_amount'] > 0) {
+        $gst_p = round(((float)$invoice['tax_amount'] / (float)$invoice['taxable_amount']) * 100, 1);
+        $invoice['gst_percentage'] = $gst_p;
+    }
+    $is_inter = ($invoice['gst_type'] ?? 'intra_state') === 'inter_state';
+    if ($is_inter) {
+        if ((float)($invoice['igst_amount'] ?? 0) <= 0) {
+            $invoice['igst_amount'] = (float)($invoice['tax_amount'] ?? 0);
+        }
+        $invoice['igst_percentage'] = $gst_p;
+    } else {
+        if ((float)($invoice['cgst_amount'] ?? 0) <= 0 && (float)($invoice['tax_amount'] ?? 0) > 0) {
+            $invoice['cgst_amount'] = round((float)$invoice['tax_amount'] / 2, 2);
+            $invoice['sgst_amount'] = round((float)$invoice['tax_amount'] - $invoice['cgst_amount'], 2);
+        }
+        $invoice['cgst_percentage'] = round($gst_p / 2, 2);
+        $invoice['sgst_percentage'] = round($gst_p / 2, 2);
+    }
+}
 
 $bill_title_text = $is_b2b ? "TAX INVOICE (B2B REGISTERED)" : "TAX INVOICE — BESPOKE BILL";
 $bill_category_badge = $is_b2b ? "🏢 B2B CORPORATE TAX INVOICE" : "🧾 CUSTOM TAX INVOICE";
@@ -1107,6 +1132,12 @@ $wa_url = "https://wa.me/" . $wa_phone_clean . "?text=" . urlencode($wa_msg);
                                     <td>State GST (SGST <?php echo $invoice['sgst_percentage']; ?>%):</td>
                                     <td class="amount-cell">+<?php echo $currency . number_format($invoice['sgst_amount'], 2); ?></td>
                                 </tr>
+                                <?php if ((float)$invoice['tax_amount'] > 0): ?>
+                                    <tr style="border-top: 1px dashed var(--border-light); font-weight: 600; color: var(--emerald);">
+                                        <td>Total GST Amount (<?php echo (float)$invoice['gst_percentage']; ?>%):</td>
+                                        <td class="amount-cell" style="font-weight: 700; color: var(--emerald);">+<?php echo $currency . number_format($invoice['tax_amount'], 2); ?></td>
+                                    </tr>
+                                <?php endif; ?>
                             <?php endif; ?>
                         <?php endif; ?>
 

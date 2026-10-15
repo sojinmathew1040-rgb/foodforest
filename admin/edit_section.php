@@ -1536,6 +1536,45 @@ ensure_experiences_details_columns($pdo);
                     echo json_encode(['success' => true, 'id' => $rej_id, 'action' => 'rejected', 'message' => $alert_message]);
                     exit;
                 }
+            } elseif ($action === 'batch_approve_pending') {
+                $stream_source = trim($_POST['source'] ?? 'google_maps');
+                if ($stream_source === 'all') {
+                    $upd_stmt = $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE status = 'pending'");
+                    $upd_stmt->execute();
+                } else {
+                    $upd_stmt = $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE status = 'pending' AND source = ?");
+                    $upd_stmt->execute([$stream_source]);
+                }
+                $cnt = $upd_stmt->rowCount();
+                $alert_message = "Successfully approved and published {$cnt} pending reviews live!";
+                if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true, 'count' => $cnt, 'message' => $alert_message]);
+                    exit;
+                }
+            } elseif ($action === 'update_single_testimonial') {
+                $tid = (int)($_POST['single_target_id'] ?? $_POST['testimonial_id'] ?? 0);
+                if ($tid > 0) {
+                    $gn = trim($_POST['guest_name'] ?? '');
+                    $gl = trim($_POST['guest_location'] ?? '');
+                    $sb = trim($_POST['stay_badge'] ?? '');
+                    $ti = trim($_POST['review_title'] ?? '');
+                    $st = max(0.5, min(5.0, (float)($_POST['stars'] ?? 5.0)));
+                    $st = round($st * 2) / 2;
+                    $q = trim($_POST['quote'] ?? '');
+                    $stat = trim($_POST['status'] ?? 'approved');
+                    $ia = ($stat === 'approved' && !empty($_POST['is_active'])) ? 1 : (($stat === 'approved') ? 1 : 0);
+                    $rep = trim($_POST['admin_reply'] ?? '');
+
+                    $upd_single = $pdo->prepare("UPDATE testimonials SET guest_name = ?, guest_location = ?, stay_badge = ?, title = ?, stars = ?, quote = ?, is_active = ?, status = ?, admin_reply = ?, admin_reply_at = CASE WHEN ? != '' AND (admin_reply IS NULL OR admin_reply = '') THEN NOW() ELSE admin_reply_at END WHERE id = ?");
+                    $upd_single->execute([$gn, $gl, $sb, $ti, $st, $q, $ia, $stat, $rep, $rep, $tid]);
+                    $alert_message = "Review for {$gn} successfully updated.";
+                }
+                if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true, 'id' => $tid, 'message' => $alert_message]);
+                    exit;
+                }
             } elseif ($action === 'sync_google_reviews') {
                 // Google Maps Review Sync / Importer
                 $google_place_id = trim($_POST['google_place_id'] ?? '');
@@ -5670,9 +5709,9 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                             $is_cover_item = ($gallery_type === 'general' && $p_url === ($room['image_url'] ?? ''));
                                         ?>
                                             <!-- Individual Photo Card Item -->
-                                            <div class="adm-room-photo-card" data-room-id="<?php echo $r_id; ?>" data-gallery-type="<?php echo $gallery_type; ?>" style="background: rgba(6, 17, 10, 0.85); border: 1px solid <?php echo $is_cover_item ? 'rgba(197, 160, 89, 0.6)' : 'rgba(255,255,255,0.08)'; ?>; border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;">
+                                            <div class="adm-room-photo-card" data-room-id="<?php echo $r_id; ?>" data-gallery-type="<?php echo $gallery_type; ?>" style="border-color: <?php echo $is_cover_item ? 'rgba(197, 160, 89, 0.6)' : 'rgba(255,255,255,0.08)'; ?>;">
                                                 <!-- Order Badge -->
-                                                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
+                                                <div class="adm-photo-col-order" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
                                                     <span class="adm-room-photo-order-badge" style="background: <?php echo $accent_color; ?>; color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
                                                         <?php echo $p_seq; ?>
                                                     </span>
@@ -5680,7 +5719,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 </div>
 
                                                 <!-- Photo Thumbnail & Aspect Preview -->
-                                                <div class="adm-room-photo-thumb-box" style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1.5px solid <?php echo $is_cover_item ? 'var(--adm-gold)' : 'rgba(197, 160, 89, 0.3)'; ?>; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+                                                <div class="adm-photo-col-thumb adm-room-photo-thumb-box" style="position: relative; border-radius: 8px; overflow: hidden; background: #000; border: 1.5px solid <?php echo $is_cover_item ? 'var(--adm-gold)' : 'rgba(197, 160, 89, 0.3)'; ?>; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
                                                     <img src="<?php echo admin_img_src($p_url); ?>" alt="Suite Photo" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" onerror="this.src='../assets/images/treehouse_exterior.png';" onload="detectImgOrientation(this);">
                                                     <a href="../<?php echo htmlspecialchars($p_url); ?>" target="_blank" title="View Full High-Res Photo" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);">
                                                         <i class="fa-solid fa-arrow-up-right-from-square"></i>
@@ -5691,7 +5730,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 </div>
 
                                                 <!-- Title & Description Inputs -->
-                                                <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+                                                <div class="adm-photo-col-inputs" style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
                                                     <div>
                                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
                                                             <span style="font-size: 11px; font-weight: 700; color: <?php echo $accent_color; ?>;">
@@ -5711,7 +5750,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                     </div>
                                                     
                                                     <!-- Card Controls: Cover & Replace -->
-                                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
+                                                    <div class="adm-photo-controls-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
                                                         <div class="adm-cover-action-slot">
                                                             <?php if ($is_cover_item): ?>
                                                                 <span class="adm-cover-badge" style="background: rgba(197, 160, 89, 0.25); color: var(--adm-gold); border: 1px solid var(--adm-gold); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
@@ -5730,7 +5769,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                         <div style="display: flex; align-items: center; gap: 6px;">
                                                             <label class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Replace this photo with a new image">
                                                                 <i class="fa-solid fa-arrow-rotate-right"></i> Replace Photo
-                                                                <input type="file" accept="image/*" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '<?php echo $r_id; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>', '<?php echo $gallery_type; ?>');">
+                                                                <input type="file" accept="image/*" data-no-compress="true" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '<?php echo $r_id; ?>', '<?php echo htmlspecialchars($p_url, ENT_QUOTES); ?>', '<?php echo $gallery_type; ?>');">
                                                             </label>
                                                         </div>
                                                     </div>
@@ -5739,7 +5778,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 </div>
 
                                                 <!-- Reordering & Delete Actions -->
-                                                <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+                                                <div class="adm-photo-col-actions" style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
                                                     <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, -1);" title="Move Up (Display earlier to guests)">
                                                         <i class="fa-solid fa-arrow-up"></i>
                                                     </button>
@@ -6634,9 +6673,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                         <i class="fa-brands fa-google" style="color: #4285F4; font-size: 15px;"></i>
                         <span>1. Google Maps Reviews</span>
                         <span class="adm-stream-count-pill" id="badge-stream-google"><?php echo count($google_testimonials); ?></span>
-                        <?php if (count($pending_google) > 0): ?>
-                            <span class="adm-stream-count-pill alert"><?php echo count($pending_google); ?> Pending</span>
-                        <?php endif; ?>
+                        <span class="adm-stream-count-pill alert" id="pending-pill-google" style="<?php echo (count($pending_google) > 0) ? '' : 'display: none;'; ?>"><?php echo count($pending_google); ?> Pending</span>
                     </button>
 
                     <!-- Tab 2: Client Submissions -->
@@ -6644,9 +6681,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                         <i class="fa-solid fa-users-line" style="color: #2ecc71; font-size: 15px;"></i>
                         <span>2. Guest & Client Submissions</span>
                         <span class="adm-stream-count-pill" id="badge-stream-client"><?php echo count($client_testimonials); ?></span>
-                        <?php if (count($pending_client) > 0): ?>
-                            <span class="adm-stream-count-pill alert"><?php echo count($pending_client); ?> Pending</span>
-                        <?php endif; ?>
+                        <span class="adm-stream-count-pill alert" id="pending-pill-client" style="<?php echo (count($pending_client) > 0) ? '' : 'display: none;'; ?>"><?php echo count($pending_client); ?> Pending</span>
                     </button>
 
                     <!-- Tab 3: Admin Direct Chronicles -->
@@ -6716,6 +6751,11 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                     </span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <?php if (count($pendingStreamReviews) > 0): ?>
+                                        <button type="button" id="batch-approve-btn-<?php echo $streamKey; ?>" onclick="batchApproveStreamPending('<?php echo $streamKey; ?>', this);" class="adm-btn-action emerald" style="padding: 4px 12px; font-size: 11px; font-weight: 700;" title="Approve and publish all pending reviews in this stream live">
+                                            <i class="fa-solid fa-check-double"></i> Approve All Pending (<?php echo count($pendingStreamReviews); ?>)
+                                        </button>
+                                    <?php endif; ?>
                                     <button type="button" onclick="setStreamQuickFilter('<?php echo $streamKey; ?>', 'pending');" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(234, 88, 12, 0.2); color: #fb923c; border: 1px solid rgba(234, 88, 12, 0.4);">
                                         <i class="fa-solid fa-hourglass-half"></i> Show Pending
                                     </button>
@@ -6832,6 +6872,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                     <span class="adm-badge" style="background: rgba(197, 160, 89, 0.12); color: var(--adm-gold); font-size: 9.5px; padding: 2px 7px; border-radius: 6px;">
                                                         <?php echo e($t['stay_badge'] ?: 'Sanctuary Stay'); ?>
                                                     </span>
+                                                    <span id="review-status-badge-<?php echo $global_id; ?>" class="adm-review-status-badge">
                                                     <?php if ($t_status === 'approved' && $t['is_active']): ?>
                                                         <span class="adm-badge confirmed" style="font-size: 9px; padding: 1px 6px;"><i class="fa-solid fa-check"></i> Live</span>
                                                     <?php elseif ($t_status === 'pending'): ?>
@@ -6839,6 +6880,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                     <?php else: ?>
                                                         <span class="adm-badge cancelled" style="font-size: 9px; padding: 1px 6px;">Archived</span>
                                                     <?php endif; ?>
+                                                    </span>
                                                 </div>
                                                 <div style="font-size: 11.5px; color: var(--adm-text-secondary); margin-top: 2px;">
                                                     <span><?php echo e($t['guest_location']); ?></span>
@@ -6850,10 +6892,10 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                         </div>
 
                                         <!-- Right Column: Action Buttons -->
-                                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                        <div id="review-actions-<?php echo $global_id; ?>" style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
                                             <?php if ($t_status !== 'approved' || !$t['is_active']): ?>
                                                 <!-- Approve / Publish Live Button -->
-                                                <button type="submit" form="form-edit-testimonials" onclick="this.form.action.value='approve_testimonial'; this.form.single_target_id.value='<?php echo (int)$global_id; ?>';" class="adm-btn-action emerald" style="padding: 4px 10px; font-size: 11px; font-weight: 700;" title="Approve and publish live">
+                                                <button type="button" onclick="handleReviewApproval(<?php echo (int)$global_id; ?>, 'approve', this);" class="adm-btn-action emerald" style="padding: 4px 10px; font-size: 11px; font-weight: 700;" title="Approve and publish live">
                                                     <i class="fa-solid fa-circle-check"></i> Approve Live
                                                 </button>
                                             <?php else: ?>
@@ -6865,7 +6907,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
 
                                             <?php if ($t_status !== 'rejected'): ?>
                                                 <!-- Reject Button -->
-                                                <button type="submit" form="form-edit-testimonials" onclick="if(!confirm('Archive/reject this review?')) return false; this.form.action.value='reject_testimonial'; this.form.single_target_id.value='<?php echo (int)$global_id; ?>';" class="adm-btn-action" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" title="Reject / Archive">
+                                                <button type="button" onclick="handleReviewApproval(<?php echo (int)$global_id; ?>, 'reject', this);" class="adm-btn-action" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" title="Reject / Archive">
                                                     <i class="fa-solid fa-ban"></i> Reject
                                                 </button>
                                             <?php endif; ?>
@@ -6998,7 +7040,12 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                                 <input type="checkbox" name="is_active[<?php echo $global_id; ?>]" id="test_active_<?php echo $t['id']; ?>" value="1" <?php echo ($t['is_active'] ? 'checked' : ''); ?> style="width: 16px; height: 16px; accent-color: var(--adm-gold);">
                                                 <label for="test_active_<?php echo $t['id']; ?>" style="cursor: pointer; color: #FFFFFF; font-weight: 600; font-size: 12px;">Show in Live Website Carousel</label>
                                             </div>
-                                            <button type="button" class="adm-btn-action outline" onclick="toggleReviewEditor('edit-box-<?php echo $global_id; ?>');" style="padding: 4px 12px; font-size: 11px;">Done Editing</button>
+                                            <div style="display: flex; gap: 6px; align-items: center;">
+                                                <button type="button" class="adm-btn-action gold" onclick="saveSingleReview(<?php echo (int)$global_id; ?>, this);" style="padding: 4px 12px; font-size: 11px; font-weight: 700;" title="Save updates to this specific review immediately">
+                                                    <i class="fa-solid fa-floppy-disk"></i> Save Review
+                                                </button>
+                                                <button type="button" class="adm-btn-action outline" onclick="toggleReviewEditor('edit-box-<?php echo $global_id; ?>');" style="padding: 4px 12px; font-size: 11px;">Done Editing</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -7308,6 +7355,299 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
             field.value = text;
             field.focus();
         }
+    }
+
+    function handleReviewApproval(id, action, btn) {
+        if (action === 'reject' && !confirm('Archive/reject this review?')) {
+            return;
+        }
+
+        var originalHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + (action === 'approve' ? 'Approving...' : 'Rejecting...');
+        }
+
+        var csrfInput = document.querySelector('input[name="csrf_token"]');
+        var csrfVal = csrfInput ? csrfInput.value : '';
+
+        var fd = new FormData();
+        fd.append('csrf_token', csrfVal);
+        fd.append('form_type', 'testimonials_settings');
+        fd.append('action', action === 'approve' ? 'approve_testimonial' : 'reject_testimonial');
+        fd.append('single_target_id', id);
+        fd.append('ajax', '1');
+
+        fetch('edit_section.php?section=testimonials', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var card = document.getElementById('review-card-' + id);
+                var badgeContainer = document.getElementById('review-status-badge-' + id);
+                var actionsContainer = document.getElementById('review-actions-' + id);
+
+                if (action === 'approve') {
+                    if (card) {
+                        card.setAttribute('data-status', 'approved');
+                        card.style.borderColor = 'rgba(197, 160, 89, 0.2)';
+                    }
+                    if (badgeContainer) {
+                        badgeContainer.innerHTML = '<span class="adm-badge confirmed" style="font-size: 9px; padding: 1px 6px;"><i class="fa-solid fa-check"></i> Live</span>';
+                    }
+                    if (actionsContainer) {
+                        actionsContainer.innerHTML = '<span style="font-size: 11px; color: #2ecc71; font-weight: 600; padding: 4px 8px; background: rgba(46, 204, 113, 0.1); border: 1px solid rgba(46, 204, 113, 0.25); border-radius: 4px;"><i class="fa-solid fa-check-double"></i> Published</span> ' +
+                            '<button type="button" onclick="handleReviewApproval(' + id + ', \'reject\', this);" class="adm-btn-action" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" title="Reject / Archive"><i class="fa-solid fa-ban"></i> Reject</button> ' +
+                            '<button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);" onclick="toggleReviewEditor(\'edit-box-' + id + '\');" title="Open full edit form"><i class="fa-solid fa-pen-to-square"></i> Edit</button> ' +
+                            '<button type="button" class="adm-btn-danger-outline" style="padding: 4px 8px; font-size: 11px;" onclick="confirmDeleteItem(\'testimonials_settings\', \'delete_testimonial_id\', ' + id + ', \'Review #' + id + '\', \'testimonials\');" title="Delete permanently"><i class="fa-solid fa-trash-can"></i></button>';
+                    }
+
+                    // Decrement pending pill counters if present
+                    ['google', 'client'].forEach(function(sk) {
+                        var pill = document.getElementById('pending-pill-' + sk);
+                        var streamGrid = document.getElementById('grid-stream-' + sk);
+                        if (streamGrid && streamGrid.contains(card)) {
+                            var currentPending = streamGrid.querySelectorAll('.stream-item-' + sk + '[data-status="pending"]').length;
+                            if (pill) {
+                                if (currentPending <= 0) {
+                                    pill.style.display = 'none';
+                                } else {
+                                    pill.innerText = currentPending + ' Pending';
+                                }
+                            }
+                            var batchBtn = document.getElementById('batch-approve-btn-' + sk);
+                            if (batchBtn && currentPending <= 0) {
+                                batchBtn.style.display = 'none';
+                            }
+                        }
+                    });
+
+                    if (typeof window.showAdmToast === 'function') {
+                        window.showAdmToast('Review approved and published live to website!', 'success');
+                    }
+                } else {
+                    if (card) {
+                        card.setAttribute('data-status', 'rejected');
+                        card.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    }
+                    if (badgeContainer) {
+                        badgeContainer.innerHTML = '<span class="adm-badge cancelled" style="font-size: 9px; padding: 1px 6px;">Archived</span>';
+                    }
+                    if (actionsContainer) {
+                        actionsContainer.innerHTML = '<button type="button" onclick="handleReviewApproval(' + id + ', \'approve\', this);" class="adm-btn-action emerald" style="padding: 4px 10px; font-size: 11px; font-weight: 700;" title="Approve and publish live"><i class="fa-solid fa-circle-check"></i> Approve Live</button> ' +
+                            '<button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);" onclick="toggleReviewEditor(\'edit-box-' + id + '\');" title="Open full edit form"><i class="fa-solid fa-pen-to-square"></i> Edit</button> ' +
+                            '<button type="button" class="adm-btn-danger-outline" style="padding: 4px 8px; font-size: 11px;" onclick="confirmDeleteItem(\'testimonials_settings\', \'delete_testimonial_id\', ' + id + ', \'Review #' + id + '\', \'testimonials\');" title="Delete permanently"><i class="fa-solid fa-trash-can"></i></button>';
+                    }
+                    if (typeof window.showAdmToast === 'function') {
+                        window.showAdmToast('Review archived / rejected.', 'info');
+                    }
+                }
+            } else {
+                alert(res.message || 'Error updating review.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            alert('Request failed. Please try again.');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    }
+
+    function batchApproveStreamPending(streamKey, btn) {
+        if (!confirm('Approve and publish all pending reviews in this stream live to the website?')) {
+            return;
+        }
+
+        var originalHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Approving All...';
+        }
+
+        var sourceMap = {
+            'google': 'google_maps',
+            'client': 'guest_portal',
+            'admin': 'admin'
+        };
+        var streamSource = sourceMap[streamKey] || 'all';
+
+        var csrfInput = document.querySelector('input[name="csrf_token"]');
+        var csrfVal = csrfInput ? csrfInput.value : '';
+
+        var fd = new FormData();
+        fd.append('csrf_token', csrfVal);
+        fd.append('form_type', 'testimonials_settings');
+        fd.append('action', 'batch_approve_pending');
+        fd.append('source', streamSource);
+        fd.append('ajax', '1');
+
+        fetch('edit_section.php?section=testimonials', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                if (typeof window.showAdmToast === 'function') {
+                    window.showAdmToast(res.message || 'All pending reviews published live!', 'success');
+                }
+
+                var cards = document.querySelectorAll('#grid-stream-' + streamKey + ' .stream-item-' + streamKey);
+                cards.forEach(function(card) {
+                    if (card.getAttribute('data-status') === 'pending') {
+                        card.setAttribute('data-status', 'approved');
+                        card.style.borderColor = 'rgba(197, 160, 89, 0.2)';
+                        var cardId = card.id ? card.id.replace('review-card-', '') : '';
+                        if (cardId) {
+                            var badgeContainer = document.getElementById('review-status-badge-' + cardId);
+                            if (badgeContainer) {
+                                badgeContainer.innerHTML = '<span class="adm-badge confirmed" style="font-size: 9px; padding: 1px 6px;"><i class="fa-solid fa-check"></i> Live</span>';
+                            }
+                            var actionsContainer = document.getElementById('review-actions-' + cardId);
+                            if (actionsContainer) {
+                                actionsContainer.innerHTML = '<span style="font-size: 11px; color: #2ecc71; font-weight: 600; padding: 4px 8px; background: rgba(46, 204, 113, 0.1); border: 1px solid rgba(46, 204, 113, 0.25); border-radius: 4px;"><i class="fa-solid fa-check-double"></i> Published</span> ' +
+                                    '<button type="button" onclick="handleReviewApproval(' + cardId + ', \'reject\', this);" class="adm-btn-action" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" title="Reject / Archive"><i class="fa-solid fa-ban"></i> Reject</button> ' +
+                                    '<button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);" onclick="toggleReviewEditor(\'edit-box-' + cardId + '\');" title="Open full edit form"><i class="fa-solid fa-pen-to-square"></i> Edit</button> ' +
+                                    '<button type="button" class="adm-btn-danger-outline" style="padding: 4px 8px; font-size: 11px;" onclick="confirmDeleteItem(\'testimonials_settings\', \'delete_testimonial_id\', ' + cardId + ', \'Review #' + cardId + '\', \'testimonials\');" title="Delete permanently"><i class="fa-solid fa-trash-can"></i></button>';
+                            }
+                        }
+                    }
+                });
+
+                if (btn) btn.style.display = 'none';
+
+                var pill = document.getElementById('pending-pill-' + streamKey);
+                if (pill) pill.style.display = 'none';
+
+                filterStreamReviews(streamKey);
+            } else {
+                alert(res.message || 'Batch approval failed.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            alert('Batch approval failed. Please try again.');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    }
+
+    function saveSingleReview(id, btn) {
+        var box = document.getElementById('edit-box-' + id);
+        if (!box) return;
+
+        var originalHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        }
+
+        var csrfInput = document.querySelector('input[name="csrf_token"]');
+        var csrfVal = csrfInput ? csrfInput.value : '';
+
+        var fd = new FormData();
+        fd.append('csrf_token', csrfVal);
+        fd.append('form_type', 'testimonials_settings');
+        fd.append('action', 'update_single_testimonial');
+        fd.append('single_target_id', id);
+        fd.append('ajax', '1');
+
+        var nameInput = box.querySelector('input[name="guest_name[]"]');
+        if (nameInput) fd.append('guest_name', nameInput.value);
+
+        var locInput = box.querySelector('input[name="guest_location[]"]');
+        if (locInput) fd.append('guest_location', locInput.value);
+
+        var badgeSel = box.querySelector('select[name="stay_badge[]"]');
+        if (badgeSel) fd.append('stay_badge', badgeSel.value);
+
+        var starsInput = box.querySelector('input[name="stars[]"]');
+        if (starsInput) fd.append('stars', starsInput.value);
+
+        var titleInput = box.querySelector('input[name="review_title[]"]');
+        if (titleInput) fd.append('review_title', titleInput.value);
+
+        var quoteText = box.querySelector('textarea[name="quote[]"]');
+        if (quoteText) fd.append('quote', quoteText.value);
+
+        var replyText = box.querySelector('textarea[name="admin_reply[]"]');
+        if (replyText) fd.append('admin_reply', replyText.value);
+
+        var statusSel = box.querySelector('select[name="status[]"]');
+        if (statusSel) fd.append('status', statusSel.value);
+
+        var activeCheck = box.querySelector('input[type="checkbox"]');
+        fd.append('is_active', (activeCheck && activeCheck.checked) ? '1' : '0');
+
+        fetch('edit_section.php?section=testimonials', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+            if (res.success) {
+                if (typeof window.showAdmToast === 'function') {
+                    window.showAdmToast(res.message || 'Review successfully saved!', 'success');
+                }
+                var card = document.getElementById('review-card-' + id);
+                var statusVal = statusSel ? statusSel.value : 'approved';
+                var isActiveVal = (activeCheck && activeCheck.checked);
+
+                if (card) {
+                    if (nameInput) card.setAttribute('data-guest-name', nameInput.value.toLowerCase());
+                    if (locInput) card.setAttribute('data-location', locInput.value.toLowerCase());
+                    if (titleInput) card.setAttribute('data-title', titleInput.value.toLowerCase());
+                    if (quoteText) card.setAttribute('data-quote', quoteText.value.toLowerCase());
+                    if (starsInput) card.setAttribute('data-stars', parseFloat(starsInput.value).toFixed(1));
+                    card.setAttribute('data-status', statusVal);
+                }
+
+                var badgeContainer = document.getElementById('review-status-badge-' + id);
+                if (badgeContainer) {
+                    if (statusVal === 'approved' && isActiveVal) {
+                        badgeContainer.innerHTML = '<span class="adm-badge confirmed" style="font-size: 9px; padding: 1px 6px;"><i class="fa-solid fa-check"></i> Live</span>';
+                    } else if (statusVal === 'pending') {
+                        badgeContainer.innerHTML = '<span class="adm-badge" style="background: rgba(234, 88, 12, 0.25); color: #fb923c; font-size: 9px; padding: 1px 6px;">⏳ Pending Approval</span>';
+                    } else {
+                        badgeContainer.innerHTML = '<span class="adm-badge cancelled" style="font-size: 9px; padding: 1px 6px;">Archived</span>';
+                    }
+                }
+
+                toggleReviewEditor('edit-box-' + id);
+            } else {
+                alert(res.message || 'Error updating review.');
+            }
+        })
+        .catch(function(err) {
+            console.error(err);
+            alert('Save failed. Please check network connection.');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -9499,7 +9839,7 @@ function createRoomPhotoCardElement(roomId, photo, isCover, galleryType) {
     
     var accentColor = galleryType === 'left' ? '#4ADE80' : (galleryType === 'right' ? '#60A5FA' : 'var(--adm-gold)');
     var borderStyle = isCover ? 'rgba(197, 160, 89, 0.6)' : (galleryType === 'left' ? 'rgba(74, 222, 128, 0.4)' : (galleryType === 'right' ? 'rgba(96, 165, 250, 0.4)' : 'rgba(46, 204, 113, 0.4)'));
-    card.style = 'background: rgba(6, 17, 10, 0.85); border: 1px solid ' + borderStyle + '; border-radius: 10px; padding: 12px; display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center; transition: all 0.2s ease;';
+    card.style = 'border-color: ' + borderStyle + ';';
     
     var orientationUpper = (photo.orientation || 'landscape').toUpperCase();
     var badgeColor = orientationUpper === 'PORTRAIT' ? '#c084fc' : (orientationUpper === 'SQUARE' ? '#38bdf8' : '#2ecc71');
@@ -9525,13 +9865,13 @@ function createRoomPhotoCardElement(roomId, photo, isCover, galleryType) {
     }
 
     card.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
+        <div class="adm-photo-col-order" style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 4px;">
             <span class="adm-room-photo-order-badge" style="background: ${accentColor}; color: #07100B; font-weight: 800; font-size: 11px; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
                 #
             </span>
             <span style="font-size: 9px; color: var(--adm-text-secondary); font-weight: 700; text-transform: uppercase;">ORDER</span>
         </div>
-        <div class="adm-room-photo-thumb-box" style="position: relative; width: 120px; height: 90px; border-radius: 8px; overflow: hidden; background: #000; border: 1.5px solid ${isCover ? 'var(--adm-gold)' : 'rgba(197, 160, 89, 0.3)'}; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+        <div class="adm-photo-col-thumb adm-room-photo-thumb-box" style="position: relative; border-radius: 8px; overflow: hidden; background: #000; border: 1.5px solid ${isCover ? 'var(--adm-gold)' : 'rgba(197, 160, 89, 0.3)'}; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
             <img src="../${photo.url}" alt="Suite Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
             <a href="../${photo.url}" target="_blank" title="View Full High-Res Photo" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2);">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i>
@@ -9540,7 +9880,7 @@ function createRoomPhotoCardElement(roomId, photo, isCover, galleryType) {
                 ${orientationUpper}
             </span>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+        <div class="adm-photo-col-inputs" style="display: flex; flex-direction: column; gap: 8px; min-width: 0;">
             <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
                     <span style="font-size: 11px; font-weight: 700; color: ${accentColor};">
@@ -9558,20 +9898,20 @@ function createRoomPhotoCardElement(roomId, photo, isCover, galleryType) {
                 </span>
                 <textarea name="${descFieldName}" rows="2" class="adm-form-control" style="font-size: 11.5px; padding: 6px 10px; resize: vertical;" placeholder="e.g. Handcrafted timber bed facing misty tea garden valley with floor-to-ceiling panoramic glass.">${escapedDesc}</textarea>
             </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
+            <div class="adm-photo-controls-row" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;">
                 <div class="adm-cover-action-slot">
                     ${coverActionHtml}
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <label class="adm-btn-action" style="padding: 3px 8px; font-size: 10px; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Replace this photo with a new image">
                         <i class="fa-solid fa-arrow-rotate-right"></i> Replace Photo
-                        <input type="file" accept="image/*" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '${roomId}', '${photo.url}', '${galleryType}');">
+                        <input type="file" accept="image/*" data-no-compress="true" class="adm-room-photo-replace-input" style="display: none;" onchange="handleReplaceRoomPhotoFile(this, '${roomId}', '${photo.url}', '${galleryType}');">
                     </label>
                 </div>
             </div>
             <input type="hidden" name="${urlFieldName}" value="${photo.url}">
         </div>
-        <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+        <div class="adm-photo-col-actions" style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
             <button type="button" class="adm-btn-action" style="padding: 6px 10px; font-size: 11px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.15);" onclick="moveRoomPhotoCard(this, -1);" title="Move Up (Display earlier to guests)">
                 <i class="fa-solid fa-arrow-up"></i>
             </button>

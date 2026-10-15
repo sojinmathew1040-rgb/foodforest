@@ -13,7 +13,14 @@ if (!headers_sent()) {
     header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 }
 
-// 1. Enforce 5-Minute Inactivity Auto-Logout Server-Side
+// Explicit Logout Action via GET or POST
+if ((isset($_GET['action']) && $_GET['action'] === 'logout') || (isset($_POST['action']) && $_POST['action'] === 'logout')) {
+    client_logout();
+    header("Location: guest_portal.php");
+    exit;
+}
+
+// 1. Enforce Inactivity Auto-Logout Server-Side
 if (check_client_inactivity_timeout()) {
     header("Location: guest_portal.php?timeout=1");
     exit;
@@ -424,6 +431,37 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
         color: var(--adm-text-muted);
         font-size: 14px;
         pointer-events: none;
+    }
+
+    .guest-toggle-pwd {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        color: var(--adm-text-muted);
+        font-size: 15px;
+        cursor: pointer;
+        padding: 6px 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s ease, transform 0.15s ease;
+        z-index: 3;
+    }
+
+    .guest-toggle-pwd:hover {
+        color: var(--adm-gold);
+    }
+
+    .guest-toggle-pwd:focus {
+        outline: none;
+        color: var(--adm-gold-bright);
+    }
+
+    .guest-input.has-pwd-toggle {
+        padding-right: 44px;
     }
 
     .guest-btn-submit {
@@ -1439,6 +1477,67 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
             padding: 16px;
         }
     }
+
+    /* =========================================================================
+       GUEST PORTAL & LOGIN SCROLL TO TOP
+       ========================================================================= */
+    .portal-scroll-top {
+        position: fixed;
+        bottom: 26px;
+        right: 26px;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(8, 20, 13, 0.9);
+        border: 1.5px solid rgba(197, 160, 89, 0.45);
+        color: var(--adm-gold, #C5A059);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 15px rgba(197, 160, 89, 0.2);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        cursor: pointer;
+        z-index: 9999;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(16px) scale(0.9);
+        transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                    visibility 0.3s ease,
+                    background 0.2s ease,
+                    border-color 0.2s ease,
+                    color 0.2s ease,
+                    box-shadow 0.2s ease;
+        outline: none;
+    }
+    .portal-scroll-top.is-visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0) scale(1);
+    }
+    .portal-scroll-top:hover {
+        background: var(--adm-gold, #C5A059);
+        color: #08120B;
+        border-color: var(--adm-gold, #C5A059);
+        transform: translateY(-3px) scale(1.08);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), 0 0 20px rgba(197, 160, 89, 0.45);
+    }
+    .portal-scroll-top:active {
+        transform: translateY(-1px) scale(0.96);
+    }
+    @media (max-width: 768px) {
+        .portal-scroll-top {
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            font-size: 14px;
+        }
+    }
     </style>
 </head>
 <body>
@@ -1487,7 +1586,10 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                         <label for="login-password" class="guest-label">Password</label>
                         <div class="guest-input-wrap">
                             <i class="fa-solid fa-lock guest-input-icon"></i>
-                            <input type="password" id="login-password" class="guest-input" required placeholder="••••••••••••" autocomplete="current-password">
+                            <input type="password" id="login-password" class="guest-input has-pwd-toggle" required placeholder="••••••••••••" autocomplete="current-password">
+                            <button type="button" class="guest-toggle-pwd" onclick="togglePasswordVisibility('login-password', this)" title="Preview password" aria-label="Toggle password visibility">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -1641,7 +1743,10 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                         <label for="reg-password" class="guest-label">Create Password *</label>
                         <div class="guest-input-wrap">
                             <i class="fa-solid fa-lock guest-input-icon"></i>
-                            <input type="password" id="reg-password" class="guest-input" required placeholder="Minimum 6 characters">
+                            <input type="password" id="reg-password" class="guest-input has-pwd-toggle" required placeholder="Minimum 6 characters">
+                            <button type="button" class="guest-toggle-pwd" onclick="togglePasswordVisibility('reg-password', this)" title="Preview password" aria-label="Toggle password visibility">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -1744,7 +1849,10 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                             <label for="forgot-new-password" class="guest-label">New Password *</label>
                             <div class="guest-input-wrap">
                                 <i class="fa-solid fa-lock guest-input-icon"></i>
-                                <input type="password" id="forgot-new-password" class="guest-input" required placeholder="Minimum 6 characters">
+                                <input type="password" id="forgot-new-password" class="guest-input has-pwd-toggle" required placeholder="Minimum 6 characters">
+                                <button type="button" class="guest-toggle-pwd" onclick="togglePasswordVisibility('forgot-new-password', this)" title="Preview password" aria-label="Toggle password visibility">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
                             </div>
                         </div>
 
@@ -1831,21 +1939,21 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
             <ul class="guest-nav-list font-sans">
                 
                 <li class="guest-nav-item">
-                    <a class="guest-nav-link active" data-view="dashboard" onclick="switchGuestTab('dashboard')">
+                    <a class="guest-nav-link active" data-view="dashboard" href="#dashboard" onclick="event.preventDefault(); switchGuestTab('dashboard')">
                         <i class="fa-solid fa-compass"></i>
                         <span>Stay Dashboard</span>
                     </a>
                 </li>
 
                 <li class="guest-nav-item">
-                    <a class="guest-nav-link" data-view="my_villa" onclick="switchGuestTab('my_villa')">
+                    <a class="guest-nav-link" data-view="my_villa" href="#my_villa" onclick="event.preventDefault(); switchGuestTab('my_villa')">
                         <i class="fa-solid fa-hotel"></i>
                         <span>My Villa &amp; Details</span>
                     </a>
                 </li>
 
                 <li class="guest-nav-item">
-                    <a class="guest-nav-link" data-view="kitchen" onclick="switchGuestTab('kitchen')">
+                    <a class="guest-nav-link" data-view="kitchen" href="#kitchen" onclick="event.preventDefault(); switchGuestTab('kitchen')">
                         <i class="fa-solid fa-kitchen-set"></i>
                         <span>Our Kitchen</span>
                         <?php if ($b_food_count > 0): ?>
@@ -1856,7 +1964,7 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
 
                 <?php if ($food_ordering_enabled): ?>
                 <li class="guest-nav-item">
-                    <a class="guest-nav-link" data-view="menu" onclick="switchGuestTab('menu')">
+                    <a class="guest-nav-link" data-view="menu" href="#menu" onclick="event.preventDefault(); switchGuestTab('menu')">
                         <i class="fa-solid fa-utensils"></i>
                         <span>Our Farm Menu</span>
                     </a>
@@ -1864,21 +1972,21 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                 <?php endif; ?>
 
                 <li class="guest-nav-item">
-                    <a class="guest-nav-link" data-view="experiences" onclick="switchGuestTab('experiences')">
+                    <a class="guest-nav-link" data-view="experiences" href="#experiences" onclick="event.preventDefault(); switchGuestTab('experiences')">
                         <i class="fa-solid fa-sparkles"></i>
                         <span>Other Experiences</span>
                     </a>
                 </li>
 
                 <li class="guest-nav-item">
-                    <a class="guest-nav-link" data-view="folio" onclick="switchGuestTab('folio')">
+                    <a class="guest-nav-link" data-view="folio" href="#folio" onclick="event.preventDefault(); switchGuestTab('folio')">
                         <i class="fa-solid fa-receipt"></i>
                         <span>Payable Folio &amp; Bills</span>
                     </a>
                 </li>
 
                 <li class="guest-nav-item">
-                    <a class="guest-nav-link" data-view="feedback" onclick="switchGuestTab('feedback')">
+                    <a class="guest-nav-link" data-view="feedback" href="#feedback" onclick="event.preventDefault(); switchGuestTab('feedback')">
                         <i class="fa-solid fa-comment-dots"></i>
                         <span>Guest Feedback &amp; Review</span>
                     </a>
@@ -1894,7 +2002,7 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                 </li>
 
                 <li class="guest-nav-item">
-                    <a onclick="portalLogout()" class="guest-nav-link" style="color: #F87171;">
+                    <a href="guest_portal.php?action=logout" onclick="event.preventDefault(); portalLogout();" class="guest-nav-link" style="color: #F87171; cursor: pointer;">
                         <i class="fa-solid fa-right-from-bracket" style="color: #EF4444;"></i>
                         <span>Sign Out</span>
                     </a>
@@ -1966,7 +2074,7 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                     </a>
 
                     <!-- Sign Out Button -->
-                    <button type="button" onclick="portalLogout()" class="btn-topbar-action" style="color: #F87171;" title="Sign out securely">
+                    <button type="button" onclick="portalLogout()" class="btn-topbar-action" style="color: #F87171; cursor: pointer;" title="Sign out securely">
                         <i class="fa-solid fa-power-off"></i>
                     </button>
                 </div>
@@ -2242,9 +2350,13 @@ $concierge_phone = get_setting('concierge_phone', '+91 923 456 7890');
                                 </div>
                                 <?php if (!empty($room_photos)): ?>
                                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
-                                        <?php foreach (array_slice($room_photos, 0, 4) as $p_item): ?>
+                                        <?php foreach (array_slice($room_photos, 0, 4) as $p_item): 
+                                            $p_src = is_array($p_item) ? ($p_item['url'] ?? '') : (string)$p_item;
+                                            $p_title = is_array($p_item) ? ($p_item['title'] ?? 'Photo') : 'Photo';
+                                            if (empty($p_src)) continue;
+                                        ?>
                                             <div style="border-radius: 8px; overflow: hidden; height: 125px; border: 1px solid rgba(255, 255, 255, 0.1);">
-                                                <img src="<?php echo htmlspecialchars($p_item); ?>" alt="Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='assets/images/treehouse_interior.png'">
+                                                <img src="<?php echo htmlspecialchars($p_src); ?>" alt="<?php echo htmlspecialchars($p_title); ?>" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='assets/images/treehouse_interior.png'">
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
@@ -3364,12 +3476,16 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-// Auto-activate tab from URL Hash on page load
-window.addEventListener('DOMContentLoaded', function() {
+// Auto-activate tab from URL Hash on page load & hash changes
+function activateTabFromHash() {
     var hash = window.location.hash.replace('#', '');
     if (hash && document.getElementById('view-' + hash)) {
         switchGuestTab(hash);
     }
+}
+window.addEventListener('DOMContentLoaded', activateTabFromHash);
+window.addEventListener('hashchange', activateTabFromHash);
+window.addEventListener('DOMContentLoaded', function() {
 
     // Auth screen view switcher
     window.showAuthView = function(viewName) {
@@ -3486,6 +3602,28 @@ function clearAlert() {
     if (box) {
         box.style.display = 'none';
         box.innerHTML = '';
+    }
+}
+
+// Password Visibility Toggle Preview
+function togglePasswordVisibility(targetId, btn) {
+    var input = document.getElementById(targetId);
+    if (!input) return;
+    var icon = btn ? btn.querySelector('i') : null;
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        }
+        if (btn) btn.setAttribute('title', 'Hide password');
+    } else {
+        input.type = 'password';
+        if (icon) {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+        if (btn) btn.setAttribute('title', 'Preview password');
     }
 }
 
@@ -3868,7 +4006,7 @@ async function portalLogout(reason) {
     if (reason === 'timeout') {
         window.location.href = 'guest_portal.php?timeout=1';
     } else {
-        window.location.href = 'guest_portal.php';
+        window.location.href = 'guest_portal.php?action=logout';
     }
 }
 
@@ -4559,7 +4697,49 @@ function orderDishToCottage(bookingId, refCode, dishId, dishName, unitPrice) {
     addToDiningTray(dishId, dishName, unitPrice, 'veg');
     openOrderReviewModal();
 }
+
+// Universal Resident Portal & Login Scroll to Top Engine
+(function() {
+    var btn = document.getElementById('portal-scroll-top');
+    if (!btn) return;
+    var contentBody = document.querySelector('.guest-content-body');
+
+    function checkScroll() {
+        var winY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+        var bodyY = contentBody ? contentBody.scrollTop : 0;
+        var scrolled = Math.max(winY, bodyY);
+
+        if (scrolled > 260) {
+            btn.classList.add('is-visible');
+        } else {
+            btn.classList.remove('is-visible');
+        }
+    }
+
+    window.addEventListener('scroll', checkScroll, { passive: true });
+    document.addEventListener('scroll', checkScroll, { passive: true });
+    if (contentBody) {
+        contentBody.addEventListener('scroll', checkScroll, { passive: true });
+    }
+
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
+        document.body.scrollTo({ top: 0, behavior: 'smooth' });
+        if (contentBody) {
+            contentBody.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+
+    checkScroll();
+})();
 </script>
+
+<!-- Resident Guest Portal & Login Scroll to Top -->
+<button type="button" class="portal-scroll-top" id="portal-scroll-top" aria-label="Scroll to top of portal" title="Return to Top">
+    <i class="fa-solid fa-chevron-up"></i>
+</button>
 
 </body>
 </html>

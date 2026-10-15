@@ -282,8 +282,14 @@ $active_tab = trim($_GET['tab'] ?? 'inhouse');
 $filter_villa = trim($_GET['villa'] ?? '');
 $filter_date_preset = trim($_GET['date_preset'] ?? '');
 $date_from = trim($_GET['date_from'] ?? '');
-$date_to = trim($_GET['date_to'] ?? '');
 $sort_by = trim($_GET['sort'] ?? 'checkin_desc');
+
+// Active filter count for badge indicator
+$active_filters_count = 0;
+if (!empty($filter_villa)) $active_filters_count++;
+if (!empty($filter_date_preset)) $active_filters_count++;
+if (!empty($date_from) || !empty($date_to)) $active_filters_count++;
+if ($sort_by !== 'checkin_desc') $active_filters_count++;
 
 // Resolve date preset shortcuts
 if ($filter_date_preset === 'today') {
@@ -404,86 +410,103 @@ $currency = get_setting('currency_symbol', '₹');
     <?php endif; ?>
 
 
-    <!-- Main Navigation Filter Tabs -->
-    <div class="adm-tab-bar" style="margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
-        
+    <!-- Main Navigation Filter Tabs: Single-Line Horizontal Touch-Scrollable Strip -->
+    <div class="adm-billing-tab-strip" id="adm-billing-tab-strip">
         <a href="?tab=inhouse<?php echo !empty($search) ? '&search='.urlencode($search) : ''; ?>" 
-           class="adm-tab-btn <?php echo ($active_tab === 'inhouse') ? 'active' : ''; ?>"
-           style="padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; <?php echo ($active_tab === 'inhouse') ? 'background: var(--adm-gold); color: #101F15;' : 'background: rgba(255,255,255,0.05); color: var(--adm-text-secondary);'; ?>">
+           class="adm-billing-tab-pill <?php echo ($active_tab === 'inhouse') ? 'active' : ''; ?>">
             <i class="fa-solid fa-bell-concierge"></i>
             <span>Currently In-House</span>
-            <span class="adm-badge-count" style="padding: 2px 7px; border-radius: 12px; font-size: 11px; <?php echo ($active_tab === 'inhouse') ? 'background: #101F15; color: #FFF;' : 'background: rgba(255,255,255,0.1); color: #FFF;'; ?>"><?php echo $tab_count_inhouse; ?></span>
+            <span class="adm-badge-count"><?php echo $tab_count_inhouse; ?></span>
         </a>
 
         <a href="?tab=recent_checkouts<?php echo !empty($search) ? '&search='.urlencode($search) : ''; ?>" 
-           class="adm-tab-btn <?php echo ($active_tab === 'recent_checkouts') ? 'active' : ''; ?>"
-           style="padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; <?php echo ($active_tab === 'recent_checkouts') ? 'background: var(--adm-gold); color: #101F15;' : 'background: rgba(255,255,255,0.05); color: var(--adm-text-secondary);'; ?>">
+           class="adm-billing-tab-pill <?php echo ($active_tab === 'recent_checkouts') ? 'active' : ''; ?>">
             <i class="fa-solid fa-person-walking-luggage"></i>
             <span>Recent Check-Outs (48h)</span>
-            <span class="adm-badge-count" style="padding: 2px 7px; border-radius: 12px; font-size: 11px; <?php echo ($active_tab === 'recent_checkouts') ? 'background: #101F15; color: #FFF;' : 'background: rgba(255,255,255,0.1); color: #FFF;'; ?>"><?php echo $tab_count_recent; ?></span>
+            <span class="adm-badge-count"><?php echo $tab_count_recent; ?></span>
         </a>
 
         <a href="?tab=upcoming<?php echo !empty($search) ? '&search='.urlencode($search) : ''; ?>" 
-           class="adm-tab-btn <?php echo ($active_tab === 'upcoming') ? 'active' : ''; ?>"
-           style="padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; <?php echo ($active_tab === 'upcoming') ? 'background: var(--adm-gold); color: #101F15;' : 'background: rgba(255,255,255,0.05); color: var(--adm-text-secondary);'; ?>">
+           class="adm-billing-tab-pill <?php echo ($active_tab === 'upcoming') ? 'active' : ''; ?>">
             <i class="fa-solid fa-calendar-check"></i>
             <span>Upcoming Confirmed</span>
-            <span class="adm-badge-count" style="padding: 2px 7px; border-radius: 12px; font-size: 11px; <?php echo ($active_tab === 'upcoming') ? 'background: #101F15; color: #FFF;' : 'background: rgba(255,255,255,0.1); color: #FFF;'; ?>"><?php echo $tab_count_upcoming; ?></span>
+            <span class="adm-badge-count"><?php echo $tab_count_upcoming; ?></span>
         </a>
 
         <a href="?tab=all<?php echo !empty($search) ? '&search='.urlencode($search) : ''; ?>" 
-           class="adm-tab-btn <?php echo ($active_tab === 'all') ? 'active' : ''; ?>"
-           style="padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; <?php echo ($active_tab === 'all') ? 'background: var(--adm-gold); color: #101F15;' : 'background: rgba(255,255,255,0.05); color: var(--adm-text-secondary);'; ?>">
+           class="adm-billing-tab-pill <?php echo ($active_tab === 'all') ? 'active' : ''; ?>">
             <i class="fa-solid fa-box-archive"></i>
             <span>All Bookings Archive</span>
-            <span class="adm-badge-count" style="padding: 2px 7px; border-radius: 12px; font-size: 11px; <?php echo ($active_tab === 'all') ? 'background: #101F15; color: #FFF;' : 'background: rgba(255,255,255,0.1); color: #FFF;'; ?>"><?php echo $tab_count_all; ?></span>
+            <span class="adm-badge-count"><?php echo $tab_count_all; ?></span>
         </a>
 
         <!-- Custom Invoices Tab -->
         <a href="?tab=custom_invoices<?php echo !empty($search) ? '&search='.urlencode($search) : ''; ?>" 
-           class="adm-tab-btn <?php echo ($active_tab === 'custom_invoices') ? 'active' : ''; ?>"
-           style="padding: 9px 18px; border-radius: 8px; font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; <?php echo ($active_tab === 'custom_invoices') ? 'background: var(--adm-gold); color: #101F15;' : 'background: rgba(255,255,255,0.05); color: var(--adm-text-secondary);'; ?>">
+           class="adm-billing-tab-pill <?php echo ($active_tab === 'custom_invoices') ? 'active' : ''; ?>">
             <i class="fa-solid fa-file-invoice-dollar"></i>
             <span>Custom Invoices</span>
-            <span class="adm-badge-count" style="padding: 2px 7px; border-radius: 12px; font-size: 11px; <?php echo ($active_tab === 'custom_invoices') ? 'background: #101F15; color: #FFF;' : 'background: rgba(255,255,255,0.1); color: #FFF;'; ?>"><?php echo $tab_count_custom; ?></span>
+            <span class="adm-badge-count"><?php echo $tab_count_custom; ?></span>
         </a>
 
-        <div style="margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <div class="adm-billing-tab-actions">
             <a href="custom_bill.php" 
-               class="adm-btn-action gold" 
-               style="padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 4px 14px rgba(197, 160, 89, 0.35);" 
+               class="adm-btn-action gold adm-billing-quick-btn" 
                title="Create a new custom tax invoice or bespoke bill">
                 <i class="fa-solid fa-file-circle-plus"></i>
                 <span>+ Create Custom Bill</span>
             </a>
 
             <a href="edit_section.php?section=bank" 
-               class="adm-tab-btn" 
-               style="padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35);" 
+               class="adm-billing-tab-pill bank-qr" 
                title="Configure Bank Account Number, IFSC, UPI ID & Payment QR">
                 <i class="fa-solid fa-building-columns"></i>
                 <span>Bank &amp; UPI QR</span>
             </a>
         </div>
-
     </div>
 
-    <!-- Multi-Filter & Search Bar -->
-    <div class="adm-card" style="margin-bottom: 24px; padding: 18px 24px;">
-        <form method="GET" action="billing.php" class="adm-form-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 120px 80px; gap: 14px; align-items: end;">
-            <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+    <!-- Multi-Filter & Search Bar: Compact, Touch-Scrollable Ribbon & Menu-Type Drawer -->
+    <div class="adm-res-filter-box" id="adm-billing-filter-box">
+        <!-- Top Row: Search + Filter Menu Button + Create Bill -->
+        <div class="adm-res-filter-toprow">
+            <form method="GET" action="billing.php" class="adm-res-search-wrap" id="adm-billing-search-form">
+                <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+                <?php if (!empty($filter_villa)): ?><input type="hidden" name="villa" value="<?php echo htmlspecialchars($filter_villa); ?>"><?php endif; ?>
+                <?php if (!empty($filter_date_preset)): ?><input type="hidden" name="date_preset" value="<?php echo htmlspecialchars($filter_date_preset); ?>"><?php endif; ?>
+                <?php if (!empty($date_from)): ?><input type="hidden" name="date_from" value="<?php echo htmlspecialchars($date_from); ?>"><?php endif; ?>
+                <?php if (!empty($date_to)): ?><input type="hidden" name="date_to" value="<?php echo htmlspecialchars($date_to); ?>"><?php endif; ?>
+                <?php if (!empty($sort_by)): ?><input type="hidden" name="sort" value="<?php echo htmlspecialchars($sort_by); ?>"><?php endif; ?>
 
-            <!-- Search Guest / Ref -->
-            <div>
-                <label class="adm-form-label" style="font-size: 12px;"><i class="fa-solid fa-magnifying-glass"></i> Search Reservation</label>
-                <input type="text" name="search" class="adm-input" placeholder="Guest Name, Phone, #FF-xxxx..." value="<?php echo htmlspecialchars($search); ?>">
-            </div>
+                <i class="fa-solid fa-magnifying-glass adm-res-search-icon"></i>
+                <input type="text" name="search" id="adm-billing-search" class="adm-res-search-input" placeholder="Search by guest, phone, #FF-xxxx..." value="<?php echo htmlspecialchars($search); ?>" autocomplete="off">
+                <?php if (!empty($search)): ?>
+                    <a href="billing.php?tab=<?php echo urlencode($active_tab); ?>" class="adm-res-search-clear" title="Clear Search">✕</a>
+                <?php endif; ?>
+            </form>
 
-            <!-- Property Filter -->
-            <div>
-                <label class="adm-form-label" style="font-size: 12px;"><i class="fa-solid fa-tree"></i> Sanctuary Villa</label>
-                <select name="villa" class="adm-input adm-select-clean" style="height: 42px;">
-                    <option value="">All Properties / Villas</option>
+            <!-- Filter Menu Button -->
+            <button type="button" class="adm-filter-menu-btn <?php echo $active_filters_count > 0 ? 'is-active' : ''; ?>" id="adm-billing-filter-toggle-btn" onclick="toggleBillingFilterMenu();" title="Toggle Filter Menu">
+                <i class="fa-solid fa-sliders"></i>
+                <span class="adm-filter-btn-text">Filters</span>
+                <?php if ($active_filters_count > 0): ?>
+                    <span class="adm-filter-count-badge"><?php echo $active_filters_count; ?></span>
+                <?php endif; ?>
+                <i class="fa-solid fa-chevron-down adm-filter-caret" id="adm-billing-filter-caret"></i>
+            </button>
+
+            <!-- Quick Add / Create Bill Button -->
+            <a href="custom_bill.php" class="adm-btn-action gold adm-btn-add-res" title="Create Custom Bill">
+                <i class="fa-solid fa-plus"></i>
+                <span class="adm-btn-add-text">Bill</span>
+            </a>
+        </div>
+
+        <!-- Secondary Row: Single-Line Horizontal Touch-Scrollable Filter Chips Ribbon -->
+        <div class="adm-filter-scroll-strip" id="adm-billing-chips-strip">
+            <!-- Sanctuary Villa Quick Chip -->
+            <div class="adm-filter-chip-wrapper <?php echo !empty($filter_villa) ? 'is-filtered' : ''; ?>">
+                <select class="adm-res-chip-select" onchange="applyBillingFilter('villa', this.value);" title="Filter by Sanctuary Villa">
+                    <option value="" <?php echo empty($filter_villa) ? 'selected' : ''; ?>>🏡 All Properties</option>
                     <?php foreach ($all_rooms as $r): ?>
                         <option value="<?php echo $r['slug']; ?>" <?php echo ($filter_villa === $r['slug']) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($r['title']); ?>
@@ -492,11 +515,10 @@ $currency = get_setting('currency_symbol', '₹');
                 </select>
             </div>
 
-            <!-- Date Preset Shortcut -->
-            <div>
-                <label class="adm-form-label" style="font-size: 12px;"><i class="fa-regular fa-clock"></i> Quick Date Filter</label>
-                <select name="date_preset" class="adm-input adm-select-clean" style="height: 42px;" onchange="this.form.submit()">
-                    <option value="">Custom / All Dates</option>
+            <!-- Quick Date Shortcut Chip -->
+            <div class="adm-filter-chip-wrapper <?php echo !empty($filter_date_preset) ? 'is-filtered' : ''; ?>">
+                <select class="adm-res-chip-select" onchange="applyBillingFilter('date_preset', this.value);" title="Quick Date Filter">
+                    <option value="" <?php echo empty($filter_date_preset) ? 'selected' : ''; ?>>⏱️ All Dates</option>
                     <option value="today" <?php echo ($filter_date_preset === 'today') ? 'selected' : ''; ?>>Today</option>
                     <option value="yesterday" <?php echo ($filter_date_preset === 'yesterday') ? 'selected' : ''; ?>>Yesterday</option>
                     <option value="this_week" <?php echo ($filter_date_preset === 'this_week') ? 'selected' : ''; ?>>This Week</option>
@@ -504,49 +526,145 @@ $currency = get_setting('currency_symbol', '₹');
                 </select>
             </div>
 
-            <!-- Date From / To -->
-            <div>
-                <label class="adm-form-label" style="font-size: 12px;"><i class="fa-regular fa-calendar"></i> Check-In From</label>
-                <input type="date" name="date_from" class="adm-input" value="<?php echo htmlspecialchars($date_from); ?>">
-            </div>
-
-            <div>
-                <label class="adm-form-label" style="font-size: 12px;"><i class="fa-regular fa-calendar"></i> Check-In To</label>
-                <input type="date" name="date_to" class="adm-input" value="<?php echo htmlspecialchars($date_to); ?>">
-            </div>
-
-            <!-- Sort Option -->
-            <div>
-                <label class="adm-form-label" style="font-size: 12px;"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort By</label>
-                <select name="sort" class="adm-input adm-select-clean" style="height: 42px;">
-                    <option value="checkin_desc" <?php echo ($sort_by === 'checkin_desc') ? 'selected' : ''; ?>>Check-In (Newest)</option>
-                    <option value="checkin_asc" <?php echo ($sort_by === 'checkin_asc') ? 'selected' : ''; ?>>Check-In (Oldest)</option>
-                    <option value="checkout_desc" <?php echo ($sort_by === 'checkout_desc') ? 'selected' : ''; ?>>Check-Out (Newest)</option>
-                    <option value="amount_desc" <?php echo ($sort_by === 'amount_desc') ? 'selected' : ''; ?>>Amount (Highest)</option>
-                    <option value="guest_asc" <?php echo ($sort_by === 'guest_asc') ? 'selected' : ''; ?>>Guest Name (A-Z)</option>
+            <!-- Sort Order Quick Chip -->
+            <div class="adm-filter-chip-wrapper <?php echo ($sort_by !== 'checkin_desc') ? 'is-filtered' : ''; ?>">
+                <select class="adm-res-chip-select" onchange="applyBillingFilter('sort', this.value);" title="Sort Reservations">
+                    <option value="checkin_desc" <?php echo ($sort_by === 'checkin_desc') ? 'selected' : ''; ?>>🔃 Check-In (Newest)</option>
+                    <option value="checkin_asc" <?php echo ($sort_by === 'checkin_asc') ? 'selected' : ''; ?>>🔃 Check-In (Oldest)</option>
+                    <option value="checkout_desc" <?php echo ($sort_by === 'checkout_desc') ? 'selected' : ''; ?>>🔃 Check-Out (Newest)</option>
+                    <option value="amount_desc" <?php echo ($sort_by === 'amount_desc') ? 'selected' : ''; ?>>💰 Amount (Highest)</option>
+                    <option value="guest_asc" <?php echo ($sort_by === 'guest_asc') ? 'selected' : ''; ?>>👤 Guest Name (A-Z)</option>
                 </select>
             </div>
 
-            <!-- Submit Button -->
-            <div>
-                <button type="submit" class="adm-btn adm-btn-primary" style="width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                    <i class="fa-solid fa-filter"></i>
-                    <span>Filter</span>
-                </button>
-            </div>
+            <!-- Date Range Quick Chip Button (opens date section in filter menu) -->
+            <button type="button" class="adm-res-chip-btn <?php echo (!empty($date_from) || !empty($date_to)) ? 'is-filtered' : ''; ?>" onclick="openBillingFilterToDates();" title="Filter by Check-In Date Range">
+                <i class="fa-regular fa-calendar" style="color: var(--adm-gold);"></i>
+                <span>
+                    <?php 
+                    if (!empty($date_from) && !empty($date_to)) {
+                        echo date('M j', strtotime($date_from)) . ' - ' . date('M j', strtotime($date_to));
+                    } elseif (!empty($date_from)) {
+                        echo 'From ' . date('M j', strtotime($date_from));
+                    } elseif (!empty($date_to)) {
+                        echo 'Up to ' . date('M j', strtotime($date_to));
+                    } else {
+                        echo 'Dates';
+                    }
+                    ?>
+                </span>
+                <i class="fa-solid fa-chevron-down adm-chip-caret"></i>
+            </button>
 
-            <!-- Reset Button -->
-            <div>
-                <a href="billing.php?tab=<?php echo urlencode($active_tab); ?>" class="adm-btn adm-btn-secondary" style="width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; text-decoration: none;" title="Clear Filters">
-                    <i class="fa-solid fa-rotate-left"></i>
+            <!-- Clear / Reset Chip (only shown when any filter is active) -->
+            <?php if ($active_filters_count > 0 || !empty($search)): ?>
+                <a href="billing.php?tab=<?php echo urlencode($active_tab); ?>" class="adm-res-chip-reset" title="Reset all active filters">
+                    <i class="fa-solid fa-xmark"></i>
+                    <span>Clear All (<?php echo $active_filters_count; ?>)</span>
                 </a>
+            <?php endif; ?>
+        </div>
+
+        <!-- Dropdown / Collapsible Drawer: Filter Menu (Menu Type) -->
+        <div class="adm-filter-menu-panel" id="adm-billing-filter-drawer" style="display: none;">
+            <div class="adm-fmenu-header">
+                <div class="adm-fmenu-title">
+                    <i class="fa-solid fa-sliders" style="color: var(--adm-gold);"></i>
+                    <span>Filter Invoices &amp; Folios Menu</span>
+                    <?php if ($active_filters_count > 0): ?>
+                        <span class="adm-filter-count-badge"><?php echo $active_filters_count; ?> Active</span>
+                    <?php endif; ?>
+                </div>
+                <button type="button" class="adm-fmenu-close-btn" onclick="toggleBillingFilterMenu(false);" title="Close Menu">✕</button>
             </div>
 
-        </form>
+            <form method="GET" action="billing.php" class="adm-fmenu-form" id="adm-billing-filter-form">
+                <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+                <?php if (!empty($search)): ?>
+                    <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
+                <?php endif; ?>
+
+                <div class="adm-fmenu-grid">
+                    <!-- Property Filter -->
+                    <div class="adm-fmenu-group">
+                        <label class="adm-fmenu-label"><i class="fa-solid fa-tree" style="color:var(--adm-gold);"></i> Sanctuary Villa</label>
+                        <select name="villa" class="adm-fmenu-select">
+                            <option value="" <?php echo empty($filter_villa) ? 'selected' : ''; ?>>All Properties / Villas</option>
+                            <?php foreach ($all_rooms as $r): ?>
+                                <option value="<?php echo $r['slug']; ?>" <?php echo ($filter_villa === $r['slug']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($r['title']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Quick Date Preset -->
+                    <div class="adm-fmenu-group">
+                        <label class="adm-fmenu-label"><i class="fa-regular fa-clock" style="color:var(--adm-gold);"></i> Quick Date Shortcut</label>
+                        <select name="date_preset" class="adm-fmenu-select">
+                            <option value="" <?php echo empty($filter_date_preset) ? 'selected' : ''; ?>>Custom / All Dates</option>
+                            <option value="today" <?php echo ($filter_date_preset === 'today') ? 'selected' : ''; ?>>Today</option>
+                            <option value="yesterday" <?php echo ($filter_date_preset === 'yesterday') ? 'selected' : ''; ?>>Yesterday</option>
+                            <option value="this_week" <?php echo ($filter_date_preset === 'this_week') ? 'selected' : ''; ?>>This Week</option>
+                            <option value="this_month" <?php echo ($filter_date_preset === 'this_month') ? 'selected' : ''; ?>>This Month</option>
+                        </select>
+                    </div>
+
+                    <!-- Sort Option -->
+                    <div class="adm-fmenu-group">
+                        <label class="adm-fmenu-label"><i class="fa-solid fa-arrow-down-short-wide" style="color:var(--adm-gold);"></i> Sort Invoices</label>
+                        <select name="sort" class="adm-fmenu-select">
+                            <option value="checkin_desc" <?php echo ($sort_by === 'checkin_desc') ? 'selected' : ''; ?>>Check-In (Newest)</option>
+                            <option value="checkin_asc" <?php echo ($sort_by === 'checkin_asc') ? 'selected' : ''; ?>>Check-In (Oldest)</option>
+                            <option value="checkout_desc" <?php echo ($sort_by === 'checkout_desc') ? 'selected' : ''; ?>>Check-Out (Newest)</option>
+                            <option value="amount_desc" <?php echo ($sort_by === 'amount_desc') ? 'selected' : ''; ?>>Amount (Highest)</option>
+                            <option value="guest_asc" <?php echo ($sort_by === 'guest_asc') ? 'selected' : ''; ?>>Guest Name (A-Z)</option>
+                        </select>
+                    </div>
+
+                    <!-- Stay Date Range -->
+                    <div class="adm-fmenu-group" id="adm-billing-dates-group">
+                        <label class="adm-fmenu-label"><i class="fa-regular fa-calendar-days" style="color:var(--adm-gold);"></i> Check-In Date Range</label>
+                        
+                        <div class="adm-fmenu-presets">
+                            <button type="button" class="adm-fmenu-preset-btn" onclick="setBillingDatePreset('all');">All Time</button>
+                            <button type="button" class="adm-fmenu-preset-btn" onclick="setBillingDatePreset('today');">Today</button>
+                            <button type="button" class="adm-fmenu-preset-btn" onclick="setBillingDatePreset('yesterday');">Yesterday</button>
+                            <button type="button" class="adm-fmenu-preset-btn" onclick="setBillingDatePreset('week');">This Week</button>
+                            <button type="button" class="adm-fmenu-preset-btn" onclick="setBillingDatePreset('month');">This Month</button>
+                        </div>
+
+                        <div class="adm-fmenu-dates-inputs">
+                            <div class="adm-fmenu-date-field">
+                                <span class="adm-date-sublabel">From</span>
+                                <input type="date" name="date_from" id="bfmenu-date-from" class="adm-fmenu-date-input" value="<?php echo htmlspecialchars($date_from); ?>">
+                            </div>
+                            <span class="adm-fmenu-date-sep">to</span>
+                            <div class="adm-fmenu-date-field">
+                                <span class="adm-date-sublabel">To</span>
+                                <input type="date" name="date_to" id="bfmenu-date-to" class="adm-fmenu-date-input" value="<?php echo htmlspecialchars($date_to); ?>">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Action Buttons -->
+                <div class="adm-fmenu-actions">
+                    <a href="billing.php?tab=<?php echo urlencode($active_tab); ?><?php echo !empty($search) ? '&search='.urlencode($search) : ''; ?>" class="adm-btn-action outline" style="flex: 1; justify-content: center;">
+                        <i class="fa-solid fa-rotate-left"></i> Reset All
+                    </a>
+                    <button type="submit" class="adm-btn-action gold" style="flex: 1.5; justify-content: center;">
+                        <i class="fa-solid fa-filter"></i> Apply Filters
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
-    <!-- Invoices & Billing Table -->
-    <div class="adm-card" style="padding: 0; overflow: hidden;">
+
+
+    <!-- Invoices & Billing Main Card -->
+    <div class="adm-card view-mode-cards" id="adm-billing-main-card" style="padding: 0; overflow: hidden;">
         
         <div style="padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div>
@@ -568,7 +686,17 @@ $currency = get_setting('currency_symbol', '₹');
                 </p>
             </div>
 
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <!-- View Mode Switcher: Cards vs Table -->
+                <div class="adm-view-switcher" id="adm-view-switcher" role="tablist" aria-label="Folio View Mode">
+                    <button type="button" class="adm-view-switcher-btn btn-view-cards active" id="btn-view-cards" onclick="setBillingViewMode('cards');" title="Card View (Mobile Optimized - Full Profile Visible)">
+                        <i class="fa-solid fa-address-card"></i> <span>Cards</span>
+                    </button>
+                    <button type="button" class="adm-view-switcher-btn btn-view-table" id="btn-view-table" onclick="setBillingViewMode('table');" title="Table View (Full Grid)">
+                        <i class="fa-solid fa-table-list"></i> <span>Table</span>
+                    </button>
+                </div>
+
                 <?php if ($active_tab === 'custom_invoices'): ?>
                     <a href="custom_bill.php" class="adm-btn adm-btn-primary" style="padding: 8px 16px; border-radius: 20px; font-size: 12.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
                         <i class="fa-solid fa-plus"></i>
@@ -582,6 +710,441 @@ $currency = get_setting('currency_symbol', '₹');
             </div>
         </div>
 
+        <!-- Option A & Mobile Default: Luxury Reservation & Custom Folio Cards View (100% visible on all mobile screens) -->
+        <div class="adm-booking-cards-container" id="billing-cards-view">
+            <?php if ($active_tab === 'custom_invoices'): ?>
+                <?php if (empty($custom_invoices)): ?>
+                    <div style="text-align: center; padding: 50px 20px; color: var(--adm-text-muted);">
+                        <i class="fa-solid fa-file-invoice-dollar" style="font-size: 38px; margin-bottom: 12px; display: block; color: var(--adm-gold); opacity: 0.7;"></i>
+                        <h4 style="color: #FFFFFF; font-size: 16px; margin-bottom: 6px;">No Custom Invoices Found</h4>
+                        <p style="font-size: 12.5px; max-width: 400px; margin: 0 auto 14px;">No custom invoices found matching your criteria.</p>
+                        <a href="custom_bill.php" class="adm-btn adm-btn-primary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 8px 16px; font-weight: 600;">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Create Custom Bill</span>
+                        </a>
+                    </div>
+                <?php else: ?>
+                    <div class="adm-booking-cards-grid">
+                        <?php foreach ($custom_invoices as $ci): 
+                            $items = json_decode($ci['items_json'] ?? '[]', true) ?: [];
+                            $item_count = count($items);
+                            $phone_clean = preg_replace('/[^0-9]/', '', $ci['customer_phone'] ?? '');
+                            $status_color = ($ci['payment_status'] === 'Paid') ? '#22c55e' : (($ci['payment_status'] === 'Partial') ? '#f59e0b' : '#ef4444');
+                            $status_bg = ($ci['payment_status'] === 'Paid') ? 'rgba(34,197,94,0.12)' : (($ci['payment_status'] === 'Partial') ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)');
+                        ?>
+                            <div class="adm-booking-card">
+                                <div class="adm-booking-card-header">
+                                    <div class="adm-booking-card-ref-wrap">
+                                        <span class="adm-ref-badge">
+                                            #<?php echo htmlspecialchars($ci['invoice_no']); ?>
+                                        </span>
+                                        <span style="font-size: 11px; color: var(--adm-text-muted);">
+                                            <i class="fa-regular fa-calendar"></i> <?php echo date('d M Y', strtotime($ci['invoice_date'])); ?>
+                                        </span>
+                                    </div>
+                                    <span class="adm-badge" style="background: <?php echo $status_bg; ?>; color: <?php echo $status_color; ?>; border: 1px solid <?php echo $status_color; ?>40; font-size: 11px; padding: 2px 9px; font-weight: 600; text-transform: uppercase;">
+                                        <?php echo htmlspecialchars($ci['payment_status']); ?>
+                                    </span>
+                                </div>
+
+                                <div class="adm-booking-card-guest">
+                                    <div class="adm-card-guest-title">
+                                        <span><?php echo htmlspecialchars($ci['customer_name']); ?></span>
+                                        <?php if (!empty($ci['customer_gstin'])): ?>
+                                            <span class="adm-badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; font-size: 10px; padding: 2px 6px;">
+                                                GSTIN: <?php echo htmlspecialchars($ci['customer_gstin']); ?>
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="adm-card-contact-row">
+                                        <?php if (!empty($ci['customer_phone'])): ?>
+                                            <a href="tel:<?php echo htmlspecialchars($ci['customer_phone']); ?>" class="adm-contact-pill phone">
+                                                <i class="fa-solid fa-phone"></i> <?php echo htmlspecialchars($ci['customer_phone']); ?>
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if (!empty($ci['customer_email'])): ?>
+                                            <a href="mailto:<?php echo htmlspecialchars($ci['customer_email']); ?>" class="adm-contact-pill email">
+                                                <i class="fa-regular fa-envelope"></i> <?php echo htmlspecialchars($ci['customer_email']); ?>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <div style="background: rgba(0,0,0,0.25); border-radius: 8px; padding: 10px; font-size: 12px;">
+                                    <div style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; margin-bottom: 6px;">
+                                        <i class="fa-solid fa-boxes-stacked"></i> Rendered Goods / Services (<?php echo $item_count; ?>):
+                                    </div>
+                                    <?php foreach ($items as $itm): 
+                                        $desc = $itm['desc'] ?? 'Item';
+                                        $qty = (float)($itm['qty'] ?? 1);
+                                        $rate = (float)($itm['rate'] ?? 0);
+                                        $tot = (float)($itm['total'] ?? ($qty * $rate));
+                                    ?>
+                                        <div style="display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dashed rgba(255,255,255,0.06); font-size: 11.5px;">
+                                            <span style="color: #FFFFFF;">• <?php echo htmlspecialchars($desc); ?></span>
+                                            <span style="color: var(--adm-text-muted); font-family: monospace; white-space: nowrap;">
+                                                <?php echo $qty; ?> × ₹<?php echo number_format($rate, 0); ?> = <strong style="color: var(--adm-gold);">₹<?php echo number_format($tot, 0); ?></strong>
+                                            </span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+
+                                <div class="adm-booking-card-grid">
+                                    <div class="adm-card-stat">
+                                        <span class="adm-card-stat-label">Taxable &amp; GST</span>
+                                        <span class="adm-card-stat-val">
+                                            ₹<?php echo number_format($ci['taxable_amount'], 2); ?>
+                                            <span style="font-size: 10.5px; color: var(--adm-gold); font-weight: normal;">(<?php echo (float)$ci['gst_percentage']; ?>% <?php echo $ci['gst_type'] === 'inter' ? 'IGST' : 'CGST+SGST'; ?>)</span>
+                                        </span>
+                                    </div>
+                                    <div class="adm-card-stat highlight">
+                                        <span class="adm-card-stat-label">Grand Total</span>
+                                        <span class="adm-card-stat-val">₹<?php echo number_format($ci['grand_total'], 2); ?></span>
+                                    </div>
+                                    <div class="adm-card-stat">
+                                        <span class="adm-card-stat-label">Advance / Paid</span>
+                                        <span class="adm-card-stat-val" style="color: #22c55e;">₹<?php echo number_format($ci['advance_paid'], 2); ?></span>
+                                    </div>
+                                    <div class="adm-card-stat">
+                                        <span class="adm-card-stat-label">Balance Due</span>
+                                        <span class="adm-card-stat-val" style="<?php echo $ci['balance_due'] > 0 ? 'color: #ef4444; font-weight: 700;' : 'color: #22c55e;'; ?>">
+                                            <?php echo $ci['balance_due'] > 0 ? '₹' . number_format($ci['balance_due'], 2) : 'Settled'; ?>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                                    <a href="print_custom_bill.php?id=<?php echo $ci['id']; ?>" target="_blank" class="adm-btn adm-btn-primary" style="justify-content: center; text-decoration: none; padding: 8px 12px; font-size: 12.5px; font-weight: 600;">
+                                        <i class="fa-solid fa-print"></i> Print Bill (A4 / Thermal)
+                                    </a>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                        <a href="custom_bill.php?id=<?php echo $ci['id']; ?>" class="adm-btn adm-btn-secondary" style="justify-content: center; text-decoration: none; padding: 6px; font-size: 11.5px;">
+                                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                                        </a>
+                                        <a href="custom_bill.php?clone=<?php echo $ci['id']; ?>" class="adm-btn" style="justify-content: center; text-decoration: none; padding: 6px; font-size: 11.5px; background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12);">
+                                            <i class="fa-solid fa-copy"></i> Clone
+                                        </a>
+                                    </div>
+                                    <div style="display: flex; gap: 6px;">
+                                        <?php if (!empty($phone_clean)): 
+                                            $sec_token = substr(hash('sha256', (string)$ci['invoice_no'] . 'ff_sanctuary_folio_secret'), 0, 16);
+                                            $bill_link = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['PHP_SELF']), '/\\') . "/print_custom_bill.php?id={$ci['id']}&token={$sec_token}";
+                                            $wa_url = "https://api.whatsapp.com/send?phone=91{$phone_clean}&text=" . urlencode("Greetings from Food Forest Sanctuary!\n\nHere is your bespoke invoice #{$ci['invoice_no']} for ₹" . number_format($ci['grand_total'], 2) . ".\n\nView/Download your bill:\n{$bill_link}\n\nThank you!");
+                                        ?>
+                                            <a href="<?php echo $wa_url; ?>" target="_blank" class="adm-btn" style="flex: 2; justify-content: center; text-decoration: none; padding: 6px; font-size: 11.5px; background: rgba(37, 211, 102, 0.15); color: #25D366; border: 1px solid rgba(37, 211, 102, 0.3);">
+                                                <i class="fa-brands fa-whatsapp"></i> Share WhatsApp
+                                            </a>
+                                        <?php endif; ?>
+                                        <form method="POST" action="billing.php?tab=custom_invoices" style="flex: 1; margin: 0;" onsubmit="return confirm('Are you sure you want to permanently delete custom invoice <?php echo htmlspecialchars($ci['invoice_no']); ?>?');">
+                                            <input type="hidden" name="action" value="delete_custom_invoice">
+                                            <input type="hidden" name="custom_invoice_id" value="<?php echo $ci['id']; ?>">
+                                            <button type="submit" class="adm-btn" style="width: 100%; justify-content: center; padding: 6px; font-size: 11.5px; background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); cursor: pointer;">
+                                                <i class="fa-solid fa-trash-can"></i> Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            <?php else: ?>
+                <?php if (empty($billing_records)): ?>
+                    <div style="text-align: center; padding: 50px 20px; color: var(--adm-text-muted);">
+                        <i class="fa-solid fa-receipt" style="font-size: 38px; color: var(--adm-gold); margin-bottom: 12px; opacity: 0.6; display: block;"></i>
+                        <h4 style="color: #FFFFFF; font-size: 16px; margin-bottom: 6px;">No Reservation Folios Found</h4>
+                        <p style="font-size: 12.5px; max-width: 400px; margin: 0 auto 14px;">No bookings matched your active filter or search criteria.</p>
+                        <a href="billing.php?tab=all" class="adm-btn adm-btn-secondary" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            <span>Show All Reservations</span>
+                        </a>
+                    </div>
+                <?php else: ?>
+                    <div class="adm-booking-cards-grid">
+                        <?php foreach ($billing_records as $b): 
+                            $bp = $b['parsed'];
+                            $guest_phone_clean = preg_replace('/[^0-9]/', '', $b['guest_phone']);
+                            $st = strtolower($b['status'] ?? 'pending');
+                            
+                            if ($st === 'inhouse') {
+                                $st_icon = 'fa-hotel';
+                                $st_label = 'IN-HOUSE';
+                                $st_badge = 'inhouse';
+                            } elseif ($st === 'completed') {
+                                $st_icon = 'fa-door-open';
+                                $st_label = 'CHECKED OUT';
+                                $st_badge = 'completed';
+                            } elseif ($st === 'confirmed') {
+                                $st_icon = 'fa-circle-check';
+                                $st_label = 'CONFIRMED';
+                                $st_badge = 'confirmed';
+                            } else {
+                                $st_icon = 'fa-clock';
+                                $st_label = strtoupper($b['status']);
+                                $st_badge = 'pending';
+                            }
+                        ?>
+                            <div class="adm-booking-card" data-status="<?php echo htmlspecialchars($b['status']); ?>">
+                                <!-- Card Header: Ref, ID, Status -->
+                                <div class="adm-booking-card-header">
+                                    <div class="adm-booking-card-ref-wrap">
+                                        <span class="adm-ref-badge" title="Reservation Reference #">
+                                            #<?php echo htmlspecialchars($b['reference_code']); ?>
+                                        </span>
+                                        <span style="font-size: 11px; color: var(--adm-text-muted);">
+                                            ID: #<?php echo $b['id']; ?>
+                                        </span>
+                                    </div>
+
+                                    <span class="adm-badge <?php echo $st_badge; ?>" title="Status: <?php echo $st_label; ?>">
+                                        <span class="adm-badge-dot"></span>
+                                        <i class="fa-solid <?php echo $st_icon; ?>" style="font-size: 10px;"></i>
+                                        <span><?php echo $st_label; ?></span>
+                                    </span>
+                                </div>
+
+                                <!-- Guest Profile & Contact Strip -->
+                                <div class="adm-booking-card-guest">
+                                    <div class="adm-card-guest-title">
+                                        <span><?php echo htmlspecialchars($b['guest_name']); ?></span>
+                                        <?php if (!empty($bp['is_b2b_gst'])): ?>
+                                            <span class="adm-badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(16,185,129,0.3); font-size: 10px; font-weight: 700; padding: 2px 6px; margin-left: auto;">
+                                                <i class="fa-solid fa-building-flag"></i> GSTIN: <?php echo htmlspecialchars($bp['guest_gst_number'] ?? 'Yes'); ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="adm-badge" style="background: rgba(2, 132, 199, 0.18); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35); font-size: 10px; font-weight: 700; padding: 2px 6px; margin-left: auto;">
+                                                <i class="fa-solid fa-file-invoice"></i> Regular GST
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <div class="adm-card-contact-row">
+                                        <a href="tel:<?php echo htmlspecialchars($b['guest_phone']); ?>" class="adm-contact-pill phone" title="Call Guest">
+                                            <i class="fa-solid fa-phone"></i> <?php echo htmlspecialchars($b['guest_phone']); ?>
+                                        </a>
+                                        <?php if (!empty($b['guest_email'])): ?>
+                                            <a href="mailto:<?php echo htmlspecialchars($b['guest_email']); ?>" class="adm-contact-pill email" title="Email Guest">
+                                                <i class="fa-regular fa-envelope"></i> <?php echo htmlspecialchars($b['guest_email']); ?>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <!-- Property & Stay Banner -->
+                                <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                    <img src="<?php echo htmlspecialchars($b['room_image']); ?>" 
+                                         alt="Villa" 
+                                         style="width: 48px; height: 48px; border-radius: 6px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1);"
+                                         onerror="this.src='../assets/images/treehouse_exterior.png'">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-weight: 600; color: #FFFFFF; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            <?php echo htmlspecialchars($b['room_title']); ?>
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--adm-text-muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px;">
+                                            <span><i class="fa-regular fa-calendar" style="color: var(--adm-gold);"></i> <?php echo date('d M', strtotime($b['checkin_date'])); ?> → <?php echo date('d M Y', strtotime($b['checkout_date'])); ?> (<strong><?php echo $bp['nights']; ?>N</strong>)</span>
+                                            <span><i class="fa-solid fa-users" style="color: var(--adm-gold);"></i> <?php echo $bp['adults_count']; ?> Ad<?php echo $bp['kids_count'] > 0 ? ', ' . $bp['kids_count'] . ' Ch' : ''; ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- What They Ate & Did Section (Full, unclipped!) -->
+                                <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 8px;">
+                                    <!-- Gastronomy List -->
+                                    <div>
+                                        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--adm-gold); letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between;">
+                                            <span><i class="fa-solid fa-utensils"></i> Gastronomy (<?php echo count($bp['food_items']); ?>):</span>
+                                            <span style="color: #38bdf8; font-weight: 600; font-family: monospace;"><?php echo $currency . number_format($bp['other_total'], 0); ?></span>
+                                        </div>
+                                        <?php if (!empty($bp['food_items'])): ?>
+                                            <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 4px;">
+                                                <?php foreach ($bp['food_items'] as $fi): 
+                                                    $qty = $fi['quantity'] ?? 1;
+                                                    $rate = $fi['price'] ?? 0;
+                                                    $tot = $qty * $rate;
+                                                ?>
+                                                    <div style="font-size: 11.5px; color: var(--adm-text-secondary); display: flex; justify-content: space-between; gap: 8px; padding-bottom: 2px; border-bottom: 1px dashed rgba(255,255,255,0.04);">
+                                                        <span style="color: #FFFFFF;">• <?php echo htmlspecialchars($fi['heading']); ?> (×<?php echo $qty; ?>)</span>
+                                                        <span style="font-family: monospace; color: var(--adm-text-muted); white-space: nowrap;">
+                                                            ₹<?php echo number_format($tot, 0); ?>
+                                                        </span>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <div style="font-size: 11.5px; color: var(--adm-text-muted); margin-top: 2px; font-style: italic;">
+                                                None pre-ordered
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+
+                                    <!-- Experiences List -->
+                                    <div style="border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 6px;">
+                                        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #34D399; letter-spacing: 0.5px;">
+                                            <i class="fa-solid fa-compass"></i> Experiences &amp; Activities (<?php echo count($bp['activities']); ?>):
+                                        </div>
+                                        <?php if (!empty($bp['activities'])): ?>
+                                            <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 4px;">
+                                                <?php foreach ($bp['activities'] as $ac): ?>
+                                                    <div style="font-size: 11.5px; color: var(--adm-text-secondary); display: flex; justify-content: space-between;">
+                                                        <span style="color: #FFFFFF;">• <?php echo htmlspecialchars($ac['title']); ?></span>
+                                                        <span style="font-size: 11px; color: #34D399;"><?php echo htmlspecialchars($ac['timing'] ?? 'Booked'); ?></span>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <div style="font-size: 11.5px; color: var(--adm-text-muted); margin-top: 2px; font-style: italic;">
+                                                Standard Complimentary Sanctuary Walk
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+
+                                <!-- 4-Stat Financial Breakdown Grid -->
+                                <div class="adm-booking-card-grid">
+                                    <div class="adm-card-stat">
+                                        <span class="adm-card-stat-label">
+                                            <i class="fa-solid fa-hotel" style="color: #4ade80;"></i> Stay Tariff
+                                        </span>
+                                        <span class="adm-card-stat-val" style="color: #86efac;">
+                                            <?php echo $currency . number_format($bp['stay_total'], 0); ?>
+                                        </span>
+                                    </div>
+
+                                    <div class="adm-card-stat">
+                                        <span class="adm-card-stat-label">
+                                            <i class="fa-solid fa-utensils" style="color: #38bdf8;"></i> Other / Food
+                                        </span>
+                                        <span class="adm-card-stat-val" style="color: #7dd3fc;">
+                                            <?php echo $currency . number_format($bp['other_total'], 0); ?>
+                                        </span>
+                                    </div>
+
+                                    <div class="adm-card-stat highlight">
+                                        <span class="adm-card-stat-label">
+                                            <i class="fa-solid fa-indian-rupee-sign" style="color: var(--adm-gold);"></i> Net Grand Total
+                                        </span>
+                                        <span class="adm-card-stat-val" style="font-weight: 700;">
+                                            <?php echo $currency . number_format($bp['net_total'], 2); ?>
+                                        </span>
+                                    </div>
+
+                                    <div class="adm-card-stat">
+                                        <span class="adm-card-stat-label">
+                                            <i class="fa-solid fa-scale-balanced"></i> Dues &amp; Payment
+                                        </span>
+                                        <span class="adm-card-stat-val">
+                                            <?php if ($bp['balance_due'] <= 0): ?>
+                                                <span style="color: #34D399; font-weight: 700;"><i class="fa-solid fa-check"></i> SETTLED</span>
+                                            <?php else: ?>
+                                                <span style="color: #F87171; font-weight: 700;">Due: <?php echo $currency . number_format($bp['balance_due'], 2); ?></span>
+                                            <?php endif; ?>
+                                            <div style="font-size: 10.5px; color: var(--adm-text-muted); font-weight: normal; margin-top: 1px;">
+                                                Adv Paid: <?php echo $currency . number_format($bp['advance_paid'], 0); ?>
+                                            </div>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Prominent Print & Action Ribbon -->
+                                <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                                    <!-- Split Print: Stay Bill & Other Bill -->
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                        <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=stay" 
+                                           target="_blank" 
+                                           class="adm-btn adm-btn-primary" 
+                                           style="padding: 7px 10px; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;"
+                                           title="Open Printable Property Stay Bill (Villa Tariff only)">
+                                            <i class="fa-solid fa-hotel"></i>
+                                            <span>Print Stay Bill</span>
+                                        </a>
+                                        <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=other" 
+                                           target="_blank" 
+                                           class="adm-btn" 
+                                           style="padding: 7px 10px; font-size: 12px; font-weight: 600; background: rgba(14, 116, 144, 0.25); color: #38bdf8; border: 1px solid rgba(14, 116, 144, 0.5); display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;"
+                                           title="Open Printable Other Bill (Food/Gastronomy & Activities)">
+                                            <i class="fa-solid fa-utensils"></i>
+                                            <span>Print Other Bill</span>
+                                        </a>
+                                    </div>
+
+                                    <!-- Combined Master Folio & Edit Buttons -->
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                        <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=combined" 
+                                           target="_blank" 
+                                           class="adm-btn" 
+                                           style="padding: 6px 8px; font-size: 11.5px; background: rgba(255, 255, 255, 0.05); color: var(--adm-text-secondary); border: 1px solid rgba(255, 255, 255, 0.12); display: flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none;"
+                                           title="Consolidated Master Folio (All Charges)">
+                                            <i class="fa-solid fa-file-lines"></i>
+                                            <span>Combined Master</span>
+                                        </a>
+                                        <button type="button" 
+                                                onclick="openBillEditModal(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES, 'UTF-8'); ?>)"
+                                                class="adm-btn adm-btn-secondary" 
+                                                style="padding: 6px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 5px;"
+                                                title="Add food items, extra activities, discounts, or record payment">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                            <span>Customize / Edit</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Stay Audit & Check-Out Verification Wizard -->
+                                    <button type="button" 
+                                            onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>)"
+                                            class="adm-btn" 
+                                            style="padding: 6px 10px; font-size: 11.5px; background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); display: flex; align-items: center; justify-content: center; gap: 6px;"
+                                            title="Step-by-Step Guest Stay Audit (Room, Meals & Experiences Verification)">
+                                        <i class="fa-solid fa-list-check"></i>
+                                        <span>Stay Audit &amp; Check-Out Wizard</span>
+                                    </button>
+
+                                    <!-- WhatsApp & Digital Links -->
+                                    <div style="display: flex; gap: 4px;">
+                                        <?php if (!empty($b['guest_phone'])): ?>
+                                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=stay" 
+                                               target="_blank" 
+                                               class="adm-btn" 
+                                               style="flex: 1; padding: 5px 6px; font-size: 11px; background: rgba(37, 211, 102, 0.12); color: #25D366; border: 1px solid rgba(37, 211, 102, 0.25); text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px;"
+                                               title="View Stay Bill">
+                                                <i class="fa-brands fa-whatsapp"></i> Stay
+                                            </a>
+                                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=other" 
+                                               target="_blank" 
+                                               class="adm-btn" 
+                                               style="flex: 1; padding: 5px 6px; font-size: 11px; background: rgba(37, 211, 102, 0.12); color: #25D366; border: 1px solid rgba(37, 211, 102, 0.25); text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px;"
+                                               title="View Other Bill">
+                                                <i class="fa-brands fa-whatsapp"></i> Other
+                                            </a>
+                                        <?php endif; ?>
+                                        <a href="../receipt.php?ref=<?php echo urlencode($b['reference_code']); ?>" 
+                                           target="_blank" 
+                                           class="adm-btn" 
+                                           style="flex: 1; padding: 5px 6px; font-size: 11px; background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px;" 
+                                           title="View guest web receipt">
+                                            <i class="fa-solid fa-eye"></i> Receipt
+                                        </a>
+                                        <form method="POST" action="billing.php<?php echo !empty($_SERVER['QUERY_STRING']) ? '?' . htmlspecialchars($_SERVER['QUERY_STRING']) : ''; ?>" style="margin: 0; flex: 1;" onsubmit="return confirm('Are you sure you want to permanently delete reservation folio #<?php echo htmlspecialchars($b['reference_code']); ?> (<?php echo htmlspecialchars($b['guest_name']); ?>)? This action cannot be undone.');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo generate_csrf_token(); ?>">
+                                            <input type="hidden" name="action" value="delete_booking_folio">
+                                            <input type="hidden" name="booking_id" value="<?php echo (int)$b['id']; ?>">
+                                            <button type="submit" 
+                                                    class="adm-btn" 
+                                                    style="width: 100%; padding: 5px 6px; font-size: 11px; background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); display: flex; align-items: center; justify-content: center; gap: 4px;" 
+                                                    title="Permanently delete this bill/folio record">
+                                                <i class="fa-solid fa-trash-can"></i> Del
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+
+        <!-- Option B: Traditional Data Grid Table View -->
+        <div id="billing-table-view">
         <?php if ($active_tab === 'custom_invoices'): ?>
             <?php if (!empty($custom_invoices)): ?>
                 <div class="adm-table-responsive">
@@ -839,7 +1402,7 @@ $currency = get_setting('currency_symbol', '₹');
                 <table class="adm-table" style="width: 100%; text-align: left;">
                     <thead>
                         <tr>
-                            <th style="width: 100px;">Ref ID</th>
+                            <th class="adm-col-sticky-ref" style="width: 120px;">Ref ID</th>
                             <th>Guest Information</th>
                             <th>Property & Occupancy</th>
                             <th>Stay Dates & Status</th>
@@ -852,17 +1415,38 @@ $currency = get_setting('currency_symbol', '₹');
                         <?php foreach ($billing_records as $b): 
                             $bp = $b['parsed'];
                             $guest_phone_clean = preg_replace('/[^0-9]/', '', $b['guest_phone']);
+                            $st = strtolower($b['status'] ?? 'pending');
+                            if ($st === 'inhouse') {
+                                $st_icon = 'fa-hotel';
+                                $st_label = 'IN-HOUSE';
+                                $st_badge = 'inhouse';
+                            } elseif ($st === 'completed') {
+                                $st_icon = 'fa-door-open';
+                                $st_label = 'CHECKED OUT';
+                                $st_badge = 'completed';
+                            } elseif ($st === 'confirmed') {
+                                $st_icon = 'fa-circle-check';
+                                $st_label = 'CONFIRMED';
+                                $st_badge = 'confirmed';
+                            } else {
+                                $st_icon = 'fa-clock';
+                                $st_label = strtoupper($b['status']);
+                                $st_badge = 'pending';
+                            }
                         ?>
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06); transition: background 0.15s ease;">
                                 
                                 <!-- Ref ID -->
-                                <td>
+                                <td class="adm-col-sticky-ref">
                                     <div style="font-family: monospace; font-size: 13.5px; font-weight: 700; color: var(--adm-gold);">
                                         #<?php echo htmlspecialchars($b['reference_code']); ?>
                                     </div>
                                     <div style="font-size: 11px; color: var(--adm-text-muted); margin-top: 4px;">
                                         ID: #<?php echo $b['id']; ?>
                                     </div>
+                                    <button type="button" class="adm-btn-row-expand" id="btn-expand-<?php echo $b['id']; ?>" onclick="toggleBillingRowDrawer(<?php echo $b['id']; ?>, this);" title="Expand full reservation details right here in this table" style="margin-top: 6px;">
+                                        <i class="fa-solid fa-chevron-down"></i> <span class="expand-text">Full Details ▼</span>
+                                    </button>
                                 </td>
 
                                 <!-- Guest Info -->
@@ -1122,6 +1706,144 @@ $currency = get_setting('currency_symbol', '₹');
                                 </td>
 
                             </tr>
+
+                            <!-- In-Table Expandable Drawer -->
+                            <tr class="adm-row-drawer" id="row-drawer-<?php echo $b['id']; ?>" style="display: none;">
+                                <td colspan="7" class="adm-row-drawer-cell">
+                                    <div class="adm-drawer-content">
+                                        <div class="adm-drawer-topbar">
+                                            <div class="adm-drawer-topbar-left">
+                                                <span class="adm-ref-badge">#<?php echo htmlspecialchars($b['reference_code']); ?></span>
+                                                <strong style="color: #FFFFFF; font-size: 15px;"><?php echo htmlspecialchars($b['guest_name']); ?></strong>
+                                                <span class="adm-badge <?php echo $st_badge; ?>">
+                                                    <span class="adm-badge-dot"></span>
+                                                    <i class="fa-solid <?php echo $st_icon; ?>" style="font-size: 10px;"></i>
+                                                    <span><?php echo $st_label; ?></span>
+                                                </span>
+                                                <span style="font-size: 12px; color: var(--adm-text-secondary); margin-left: 6px;">
+                                                    <i class="fa-solid fa-phone" style="color: var(--adm-gold);"></i> <?php echo htmlspecialchars($b['guest_phone']); ?>
+                                                </span>
+                                            </div>
+                                            <div class="adm-drawer-topbar-right">
+                                                <button type="button" class="adm-btn-action gold" style="font-size: 11.5px; padding: 5px 12px;" onclick="openBillEditModal(<?php echo htmlspecialchars(json_encode($b), ENT_QUOTES, 'UTF-8'); ?>)" title="Customize / Edit this folio">
+                                                    <i class="fa-solid fa-pen-to-square"></i> Customize / Edit
+                                                </button>
+                                                <button type="button" class="adm-btn-action outline" style="font-size: 11px; padding: 5px 10px;" onclick="toggleBillingRowDrawer(<?php echo $b['id']; ?>, document.getElementById('btn-expand-<?php echo $b['id']; ?>'));" title="Collapse Drawer">
+                                                    <i class="fa-solid fa-chevron-up"></i> Collapse
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- In-Drawer Details Grid -->
+                                        <div class="adm-drawer-grid">
+                                            <div class="adm-drawer-card">
+                                                <div class="adm-drawer-card-label">
+                                                    <i class="fa-solid fa-tree" style="color: #2ecc71;"></i> Sanctuary Accommodation
+                                                </div>
+                                                <div class="adm-drawer-card-val"><?php echo htmlspecialchars($b['room_title']); ?></div>
+                                                <div style="font-size: 11px; color: var(--adm-text-muted); margin-top: 3px;">
+                                                    Stay Tariff: <strong style="color: #86efac;"><?php echo $currency . number_format($bp['stay_total'], 0); ?></strong>
+                                                </div>
+                                            </div>
+
+                                            <div class="adm-drawer-card">
+                                                <div class="adm-drawer-card-label">
+                                                    <i class="fa-regular fa-calendar" style="color: var(--adm-gold);"></i> Stay Dates &amp; Duration
+                                                </div>
+                                                <div class="adm-drawer-card-val">
+                                                    <?php echo date('d M Y', strtotime($b['checkin_date'])); ?> → <?php echo date('d M Y', strtotime($b['checkout_date'])); ?>
+                                                </div>
+                                                <div style="font-size: 11px; color: var(--adm-gold-light); margin-top: 3px; font-weight: 600;">
+                                                    <?php echo $bp['nights']; ?> Night<?php echo $bp['nights'] > 1 ? 's' : ''; ?> (<?php echo $bp['adults_count']; ?> Adults<?php echo $bp['kids_count'] > 0 ? ', ' . $bp['kids_count'] . ' Kids' : ''; ?>)
+                                                </div>
+                                            </div>
+
+                                            <div class="adm-drawer-card">
+                                                <div class="adm-drawer-card-label">
+                                                    <i class="fa-solid fa-utensils" style="color: #38bdf8;"></i> Gastronomy &amp; Activities
+                                                </div>
+                                                <div class="adm-drawer-card-val" style="color: #7dd3fc;"><?php echo $currency . number_format($bp['other_total'], 0); ?></div>
+                                                <div style="font-size: 11px; color: var(--adm-text-muted); margin-top: 3px;">
+                                                    <?php echo count($bp['food_items']); ?> Food Item(s), <?php echo count($bp['activities']); ?> Activity/Activities
+                                                </div>
+                                            </div>
+
+                                            <div class="adm-drawer-card highlight">
+                                                <div class="adm-drawer-card-label">
+                                                    <i class="fa-solid fa-indian-rupee-sign" style="color: var(--adm-gold);"></i> Total &amp; Balance Due
+                                                </div>
+                                                <div class="adm-drawer-card-val" style="font-size: 16px;">
+                                                    <?php echo $currency . number_format($bp['net_total'], 2); ?>
+                                                </div>
+                                                <div style="font-size: 11px; margin-top: 3px;">
+                                                    <?php if ($bp['balance_due'] <= 0): ?>
+                                                        <span style="color: #34D399; font-weight: 700;"><i class="fa-solid fa-check"></i> SETTLED</span>
+                                                    <?php else: ?>
+                                                        <span style="color: #F87171; font-weight: 700;">Due: <?php echo $currency . number_format($bp['balance_due'], 2); ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Complete Food Items & Experiences Breakdown -->
+                                        <?php if (!empty($bp['food_items']) || !empty($bp['activities'])): ?>
+                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">
+                                                <?php if (!empty($bp['food_items'])): ?>
+                                                    <div>
+                                                        <div style="font-size: 11px; font-weight: 700; color: var(--adm-gold); text-transform: uppercase; margin-bottom: 6px;">
+                                                            <i class="fa-solid fa-utensils"></i> Complete Gastronomy Pre-Orders:
+                                                        </div>
+                                                        <div style="display: flex; flex-direction: column; gap: 3px;">
+                                                            <?php foreach ($bp['food_items'] as $fi): 
+                                                                $qty = $fi['quantity'] ?? 1;
+                                                                $rate = $fi['price'] ?? 0;
+                                                                $tot = $qty * $rate;
+                                                            ?>
+                                                                <div style="font-size: 11.5px; color: var(--adm-text-secondary); display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 2px;">
+                                                                    <span style="color: #FFFFFF;">• <?php echo htmlspecialchars($fi['heading']); ?> (×<?php echo $qty; ?>)</span>
+                                                                    <span style="font-family: monospace; color: var(--adm-text-muted);">₹<?php echo number_format($tot, 0); ?></span>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if (!empty($bp['activities'])): ?>
+                                                    <div>
+                                                        <div style="font-size: 11px; font-weight: 700; color: #34D399; text-transform: uppercase; margin-bottom: 6px;">
+                                                            <i class="fa-solid fa-compass"></i> Scheduled Sanctuary Experiences:
+                                                        </div>
+                                                        <div style="display: flex; flex-direction: column; gap: 3px;">
+                                                            <?php foreach ($bp['activities'] as $ac): ?>
+                                                                <div style="font-size: 11.5px; color: var(--adm-text-secondary); display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 2px;">
+                                                                    <span style="color: #FFFFFF;">• <?php echo htmlspecialchars($ac['title']); ?></span>
+                                                                    <span style="color: #34D399; font-size: 11px;"><?php echo htmlspecialchars($ac['timing'] ?? 'Booked'); ?></span>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <!-- Action Buttons Ribbon in Drawer -->
+                                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=stay" target="_blank" class="adm-btn adm-btn-primary" style="padding: 6px 12px; font-size: 11.5px; text-decoration: none;">
+                                                <i class="fa-solid fa-hotel"></i> Print Stay Bill
+                                            </a>
+                                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=other" target="_blank" class="adm-btn" style="padding: 6px 12px; font-size: 11.5px; background: rgba(14, 116, 144, 0.25); color: #38bdf8; border: 1px solid rgba(14, 116, 144, 0.5); text-decoration: none;">
+                                                <i class="fa-solid fa-utensils"></i> Print Other Bill
+                                            </a>
+                                            <a href="print_bill.php?ref=<?php echo urlencode($b['reference_code']); ?>&type=combined" target="_blank" class="adm-btn" style="padding: 6px 12px; font-size: 11.5px; background: rgba(255,255,255,0.06); color: var(--adm-text-secondary); border: 1px solid rgba(255,255,255,0.12); text-decoration: none;">
+                                                <i class="fa-solid fa-file-lines"></i> Combined Master Folio
+                                            </a>
+                                            <button type="button" onclick="openCheckoutAuditModal(<?php echo $b['id']; ?>)" class="adm-btn" style="padding: 6px 12px; font-size: 11.5px; background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);">
+                                                <i class="fa-solid fa-list-check"></i> Stay Audit &amp; Check-Out
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -1141,6 +1863,7 @@ $currency = get_setting('currency_symbol', '₹');
         <?php endif; ?>
 
         <?php endif; ?>
+        </div><!-- /#billing-table-view -->
 
     </div>
 
@@ -1813,15 +2536,178 @@ window.onclick = function(event) {
     }
 };
 
-// Check if URL specifies auto-open audit or edit
+// Check if URL specifies auto-open audit or edit & Initialize View Mode
 document.addEventListener('DOMContentLoaded', function() {
+    let saved = null;
+    try { saved = localStorage.getItem('adm_billing_view_mode'); } catch(e){}
+    const mode = saved || 'cards';
+    setBillingViewMode(mode, false);
+
     const urlParams = new URLSearchParams(window.location.search);
     const bId = urlParams.get('booking_id');
     const autoAudit = urlParams.get('audit');
     if (bId && autoAudit === '1') {
         openCheckoutAuditModal(bId);
     }
+
+    // Live instant search for both cards & table rows
+    const bSearch = document.getElementById('adm-billing-search');
+    if (bSearch) {
+        bSearch.addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase().trim();
+            // Filter cards
+            const cards = document.querySelectorAll('#billing-cards-view .adm-booking-card');
+            cards.forEach(card => {
+                const text = card.innerText.toLowerCase();
+                card.style.display = (!query || text.includes(query)) ? '' : 'none';
+            });
+            // Filter table rows
+            const rows = document.querySelectorAll('#billing-table-view .adm-table tbody tr:not(.adm-row-drawer)');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                const match = (!query || text.includes(query));
+                row.style.display = match ? '' : 'none';
+                const nextDrawer = row.nextElementSibling;
+                if (nextDrawer && nextDrawer.classList.contains('adm-row-drawer') && !match) {
+                    nextDrawer.style.display = 'none';
+                }
+            });
+        });
+    }
 });
+
+function setBillingViewMode(mode, savePref = true) {
+    const cardEl = document.getElementById('adm-billing-main-card');
+    const btnsCards = document.querySelectorAll('.btn-view-cards, #btn-view-cards, #btn-toggle-cards');
+    const btnsTable = document.querySelectorAll('.btn-view-table, #btn-view-table, #btn-toggle-table');
+    if (!cardEl) return;
+    
+    if (mode === 'cards') {
+        cardEl.classList.remove('view-mode-table');
+        cardEl.classList.add('view-mode-cards');
+        btnsCards.forEach(b => b.classList.add('active'));
+        btnsTable.forEach(b => b.classList.remove('active'));
+    } else {
+        cardEl.classList.remove('view-mode-cards');
+        cardEl.classList.add('view-mode-table');
+        btnsTable.forEach(b => b.classList.add('active'));
+        btnsCards.forEach(b => b.classList.remove('active'));
+    }
+    
+    if (savePref) {
+        try { localStorage.setItem('adm_billing_view_mode', mode); } catch(e){}
+    }
+}
+
+function toggleBillingRowDrawer(bookingId, btn) {
+    const drawer = document.getElementById('row-drawer-' + bookingId);
+    if (!drawer) return;
+    const isHidden = (drawer.style.display === 'none' || drawer.style.display === '');
+    if (isHidden) {
+        drawer.style.display = 'table-row';
+        if (btn) {
+            btn.classList.add('is-expanded');
+            const txt = btn.querySelector('.expand-text');
+            if (txt) txt.innerText = 'Collapse ▲';
+        }
+    } else {
+        drawer.style.display = 'none';
+        if (btn) {
+            btn.classList.remove('is-expanded');
+            const txt = btn.querySelector('.expand-text');
+            if (txt) txt.innerText = 'Full Details ▼';
+        }
+    }
+}
+
+function toggleBillingFilterMenu(forceState) {
+    const drawer = document.getElementById('adm-billing-filter-drawer');
+    const caret = document.getElementById('adm-billing-filter-caret');
+    const btn = document.getElementById('adm-billing-filter-toggle-btn');
+    if (!drawer) return;
+    
+    let shouldOpen;
+    if (typeof forceState === 'boolean') {
+        shouldOpen = forceState;
+    } else {
+        shouldOpen = (drawer.style.display === 'none' || drawer.style.display === '');
+    }
+
+    if (shouldOpen) {
+        drawer.style.display = 'block';
+        if (caret) caret.style.transform = 'rotate(180deg)';
+        if (btn) btn.classList.add('is-active');
+    } else {
+        drawer.style.display = 'none';
+        if (caret) caret.style.transform = 'rotate(0deg)';
+        const hasFilters = <?php echo ($active_filters_count > 0) ? 'true' : 'false'; ?>;
+        if (btn && !hasFilters) btn.classList.remove('is-active');
+    }
+}
+
+function openBillingFilterToDates() {
+    toggleBillingFilterMenu(true);
+    const dateGroup = document.getElementById('adm-billing-dates-group');
+    if (dateGroup) {
+        dateGroup.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const fromInput = document.getElementById('bfmenu-date-from');
+        if (fromInput) fromInput.focus();
+    }
+}
+
+function applyBillingFilter(paramName, paramVal) {
+    let url = new URL(window.location.href);
+    if (paramVal && paramVal.trim() !== '') {
+        url.searchParams.set(paramName, paramVal.trim());
+    } else {
+        url.searchParams.delete(paramName);
+    }
+    if (paramName === 'date_preset') {
+        url.searchParams.delete('date_from');
+        url.searchParams.delete('date_to');
+    }
+    window.location.href = url.toString();
+}
+
+function setBillingDatePreset(preset) {
+    const fromEl = document.getElementById('bfmenu-date-from');
+    const toEl = document.getElementById('bfmenu-date-to');
+    if (!fromEl || !toEl) return;
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    const now = new Date();
+
+    if (preset === 'all') {
+        fromEl.value = '';
+        toEl.value = '';
+    } else if (preset === 'today') {
+        const todayStr = fmt(now);
+        fromEl.value = todayStr;
+        toEl.value = todayStr;
+    } else if (preset === 'yesterday') {
+        const yest = new Date(now);
+        yest.setDate(now.getDate() - 1);
+        const yestStr = fmt(yest);
+        fromEl.value = yestStr;
+        toEl.value = yestStr;
+    } else if (preset === 'week') {
+        const d = new Date(now);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.setDate(diff));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        fromEl.value = fmt(monday);
+        toEl.value = fmt(sunday);
+    } else if (preset === 'month') {
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        fromEl.value = fmt(firstDay);
+        toEl.value = fmt(lastDay);
+    }
+}
 </script>
 
 <?php require_once __DIR__ . '/includes/checkout_audit_modal.php'; ?>
