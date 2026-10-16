@@ -9432,6 +9432,72 @@ body.theme-light.adm-body {
     color: #FCA5A5;
 }
 
+/* Language Selector Bar (English, Malayalam, Tamil) */
+.adm-bot-lang-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 16px;
+    background: rgba(8, 18, 12, 0.85);
+    border-bottom: 1px solid rgba(197, 160, 89, 0.18);
+    font-size: 11.5px;
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+}
+
+.adm-bot-lang-label {
+    color: var(--adm-text-muted, #94A3B8);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.adm-bot-lang-label i {
+    color: var(--adm-gold, #C5A059);
+    font-size: 12px;
+}
+
+.adm-bot-lang-pills {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 2px 3px;
+    border-radius: 20px;
+    border: 1px solid rgba(197, 160, 89, 0.22);
+}
+
+.adm-bot-lang-btn {
+    background: transparent;
+    border: none;
+    color: var(--adm-text-secondary, #CBD5E1);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: inherit;
+    line-height: 1.25;
+}
+
+.adm-bot-lang-btn:hover {
+    color: #FFFFFF;
+    background: rgba(197, 160, 89, 0.15);
+}
+
+.adm-bot-lang-btn.active {
+    background: linear-gradient(135deg, var(--adm-gold, #C5A059) 0%, #A37E36 100%);
+    color: #051109;
+    box-shadow: 0 2px 6px rgba(197, 160, 89, 0.3);
+    font-weight: 700;
+}
+
 /* Chat Messages Container */
 .adm-bot-messages {
     flex: 1;
@@ -9845,6 +9911,30 @@ body.theme-light.adm-body {
 [data-theme="light"] .adm-bot-header {
     background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
     border-bottom-color: rgba(197, 160, 89, 0.3);
+}
+
+[data-theme="light"] .adm-bot-lang-bar {
+    background: #F1F5F9;
+    border-bottom-color: rgba(197, 160, 89, 0.25);
+}
+
+[data-theme="light"] .adm-bot-lang-pills {
+    background: #E2E8F0;
+    border-color: rgba(197, 160, 89, 0.3);
+}
+
+[data-theme="light"] .adm-bot-lang-btn {
+    color: #475569;
+}
+
+[data-theme="light"] .adm-bot-lang-btn:hover {
+    color: #0F172A;
+    background: rgba(197, 160, 89, 0.2);
+}
+
+[data-theme="light"] .adm-bot-lang-btn.active {
+    background: linear-gradient(135deg, var(--adm-gold, #C5A059) 0%, #A37E36 100%);
+    color: #051109;
 }
 
 [data-theme="light"] .adm-bot-header-info h3.adm-bot-title {
