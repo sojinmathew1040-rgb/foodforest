@@ -61,6 +61,9 @@ $current_page_file = basename($_SERVER['PHP_SELF']);
     <i class="fa-solid fa-chevron-up"></i>
 </button>
 
+<!-- Admin AI Concierge & Helpdesk Chatbot Modal -->
+<?php require_once __DIR__ . '/chatbot_modal.php'; ?>
+
 <!-- Admin Javascript -->
 <script src="assets/js/admin.js?v=<?php echo time(); ?>"></script>
 </body>

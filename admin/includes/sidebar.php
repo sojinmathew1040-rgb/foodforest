@@ -151,6 +151,14 @@ $site_logo = get_setting('site_logo', '');
                 <span class="adm-nav-badge" style="background: rgba(197, 160, 89, 0.25); color: #DFC289; border: 1px solid rgba(197, 160, 89, 0.4);">Guide</span>
             </a>
         </li>
+
+        <li class="adm-nav-item">
+            <a href="javascript:void(0);" onclick="if(window.openAdminBot) window.openAdminBot();" class="adm-nav-link" title="Ask Doubts & Procedures from Admin AI Guide">
+                <i class="fa-solid fa-headset" style="color: var(--adm-gold);"></i>
+                <span>Admin AI Guide</span>
+                <span class="adm-nav-badge" style="background: rgba(16, 185, 129, 0.25); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4);">Bot</span>
+            </a>
+        </li>
     </ul>
 
     <!-- Sidebar Bottom User Profile & Logout -->

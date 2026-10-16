@@ -1789,6 +1789,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <span class="adm-theme-toggle-label" id="adm-theme-toggle-label">Dark</span>
                 </button>
 
+                <!-- Admin AI Helpdesk & Chatbot Trigger Button -->
+                <button type="button" class="adm-btn-action gold adm-btn-open-assistant" onclick="if(window.openAdminBot) window.openAdminBot();" title="Ask doubts about panel settings & get step-by-step procedures" style="cursor: pointer;">
+                    <i class="fa-solid fa-headset"></i>
+                    <span class="adm-hide-mob">AI Guide</span>
+                </button>
+
                 <!-- Instant Cache Purge Button -->
                 <a href="settings.php?action=purge_cache" class="adm-btn-action outline" style="border-color: rgba(16, 185, 129, 0.4); color: #10B981;" title="Purge server and browser caches so photo/text edits show immediately" onclick="return confirm('Purge server cache and refresh all live photos and texts immediately?');">
                     <i class="fa-solid fa-bolt"></i>
