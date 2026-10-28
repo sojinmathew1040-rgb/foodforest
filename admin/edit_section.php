@@ -1410,6 +1410,45 @@ ensure_experiences_details_columns($pdo);
                 $del = $pdo->prepare("DELETE FROM gallery WHERE id = ?");
                 $del->execute([$del_id]);
                 $alert_message = 'Gallery album collection permanently removed from archive.';
+            } elseif (($_POST['action'] ?? '') === 'reorder_gallery_photos') {
+                $gid = (int)($_POST['gallery_id'] ?? 0);
+                $photos = isset($_POST['photos_order']) && is_array($_POST['photos_order'])
+                    ? array_values(array_unique(array_filter(array_map('trim', $_POST['photos_order']))))
+                    : [];
+                if ($gid > 0 && !empty($photos)) {
+                    $primary_img = $photos[0];
+                    $photos_json = json_encode($photos);
+                    $pdo->prepare("UPDATE gallery SET image_url = ?, photos = ?, is_active = 1 WHERE id = ?")
+                        ->execute([$primary_img, $photos_json, $gid]);
+                    if (function_exists('sanctuary_purge_all_caches')) {
+                        sanctuary_purge_all_caches();
+                    }
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true, 'cover_image' => $primary_img, 'count' => count($photos)]);
+                    exit;
+                }
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid gallery collection or empty photo list.']);
+                exit;
+            } elseif (($_POST['action'] ?? '') === 'reorder_gallery_albums') {
+                $album_ids = isset($_POST['album_ids']) && is_array($_POST['album_ids'])
+                    ? array_values(array_filter(array_map('intval', $_POST['album_ids'])))
+                    : [];
+                if (!empty($album_ids)) {
+                    $upd_ord = $pdo->prepare("UPDATE gallery SET display_order = ? WHERE id = ?");
+                    foreach ($album_ids as $ord_idx => $aid) {
+                        $upd_ord->execute([$ord_idx + 1, $aid]);
+                    }
+                    if (function_exists('sanctuary_purge_all_caches')) {
+                        sanctuary_purge_all_caches();
+                    }
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true]);
+                    exit;
+                }
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'No album order provided.']);
+                exit;
             } elseif (($_POST['action'] ?? '') === 'add_gallery') {
                 $gt = trim($_POST['new_gal_title'] ?? '');
                 $gtag = trim($_POST['new_gal_tag'] ?? 'SANCTUARY CAPTURE');
@@ -1461,7 +1500,7 @@ ensure_experiences_details_columns($pdo);
 
                 // Update individual collections and multi-photos
                 if (isset($_POST['gallery_id']) && is_array($_POST['gallery_id'])) {
-                    $upd_gal = $pdo->prepare("UPDATE gallery SET title = ?, tag = ?, category = ?, category_slug = ?, caption = ?, image_url = ?, photos = ?, is_active = 1 WHERE id = ?");
+                    $upd_gal = $pdo->prepare("UPDATE gallery SET title = ?, tag = ?, category = ?, category_slug = ?, caption = ?, image_url = ?, photos = ?, display_order = ?, is_active = 1 WHERE id = ?");
                     foreach ($_POST['gallery_id'] as $idx => $gid) {
                         $gt = trim($_POST['gal_title'][$idx] ?? '');
                         $gtag = trim($_POST['gal_tag'][$idx] ?? '');
@@ -1501,7 +1540,7 @@ ensure_experiences_details_columns($pdo);
                         $primary_img = $retained[0];
                         $photos_json = json_encode($retained);
 
-                        $upd_gal->execute([$gt, $gtag, $gcat, $cat_slug, $gcap, $primary_img, $photos_json, (int)$gid]);
+                        $upd_gal->execute([$gt, $gtag, $gcat, $cat_slug, $gcap, $primary_img, $photos_json, $idx + 1, (int)$gid]);
                     }
                 }
                 $alert_message = 'Gallery collections, sub-images, album covers & header copy successfully updated.';
@@ -6474,7 +6513,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                     </div>
                 </div>
 
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
+                <div id="adm-gallery-albums-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
                     <?php if (empty($all_gallery)): ?>
                         <div style="text-align: center; padding: 40px 20px; background: rgba(8, 18, 12, 0.6); border: 1px dashed rgba(197, 160, 89, 0.3); border-radius: 12px;">
                             <i class="fa-solid fa-camera-retro" style="font-size: 32px; color: var(--adm-gold); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
@@ -6489,7 +6528,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                         $first_p = !empty($photo['photos_list']) ? $photo['photos_list'][0] : ($photo['image_url'] ?? 'assets/images/treehouse_exterior.png');
                         $photo_count = count($photo['photos_list'] ?? []);
                     ?>
-                        <div class="adm-gal-item-card adm-accordion-card">
+                        <div class="adm-gal-item-card adm-accordion-card" data-album-id="<?php echo (int)$photo['id']; ?>">
                             <input type="hidden" name="gallery_id[]" value="<?php echo $photo['id']; ?>">
                             <input type="hidden" name="gal_fallback_image[]" value="<?php echo e($photo['image_url']); ?>">
 
@@ -6501,7 +6540,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                     </div>
                                     <div style="min-width: 0;">
                                         <div class="adm-accordion-meta-title">
-                                            <span style="font-size: 10px; font-weight: 700; color: #2dd4bf; background: rgba(45, 212, 191, 0.15); border: 1px solid rgba(45, 212, 191, 0.3); padding: 2px 7px; border-radius: 6px; text-transform: uppercase;">
+                                            <span class="adm-gal-rank-badge" style="font-size: 10px; font-weight: 700; color: #2dd4bf; background: rgba(45, 212, 191, 0.15); border: 1px solid rgba(45, 212, 191, 0.3); padding: 2px 7px; border-radius: 6px; text-transform: uppercase;">
                                                 #<?php echo ($idx + 1); ?>
                                             </span>
                                             <span style="color: #FFFFFF; font-weight: 700; font-size: 13.5px;">
@@ -6514,14 +6553,22 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                             <?php endif; ?>
                                         </div>
                                         <div class="adm-accordion-meta-sub">
-                                            <span><i class="fa-solid fa-layer-group" style="color: #2dd4bf;"></i> <strong><?php echo $photo_count; ?> Sub-Photos</strong> in Collection</span>
+                                            <span><i class="fa-solid fa-layer-group" style="color: #2dd4bf;"></i> <strong class="adm-gal-subphoto-count" data-gal-id="<?php echo (int)$photo['id']; ?>"><?php echo $photo_count; ?> Sub-Photos</strong> in Collection</span>
                                             <span>• <?php echo e($photo['category'] ?? 'Landscape'); ?></span>
                                             <span>• ID: <?php echo $photo['id']; ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                                <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                    <div style="display: inline-flex; gap: 3px; margin-right: 4px;" onclick="event.stopPropagation();">
+                                        <button type="button" onclick="moveGalleryAlbumCard(this, -1, event);" title="Move Album Up" style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(197, 160, 89, 0.35); background: rgba(197, 160, 89, 0.1); color: var(--adm-gold); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">
+                                            <i class="fa-solid fa-arrow-up"></i>
+                                        </button>
+                                        <button type="button" onclick="moveGalleryAlbumCard(this, 1, event);" title="Move Album Down" style="width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(197, 160, 89, 0.35); background: rgba(197, 160, 89, 0.1); color: var(--adm-gold); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">
+                                            <i class="fa-solid fa-arrow-down"></i>
+                                        </button>
+                                    </div>
                                     <button type="button" class="adm-btn-danger-outline" onclick="confirmDeleteItem('gallery_settings', 'delete_gal_id', <?php echo (int)$photo['id']; ?>, '<?php echo e(addslashes($photo['title'])); ?>', 'gallery');" title="Delete this collection album">
                                         <i class="fa-solid fa-trash-can"></i> Delete
                                     </button>
@@ -6560,24 +6607,47 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                 <!-- Multi-Photo Collection Gallery Manager -->
                                 <div class="adm-form-group" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                                        <label class="adm-form-label" style="font-size: 11px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 6px;">
-                                            <i class="fa-solid fa-images"></i> Collection Sub-Images (<?php echo $photo_count; ?> Photos)
-                                        </label>
+                                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                            <label class="adm-form-label" style="font-size: 11px; color: var(--adm-gold); margin: 0; display: flex; align-items: center; gap: 6px;">
+                                                <i class="fa-solid fa-images"></i> Collection Sub-Images (<span class="adm-gal-subphoto-num" data-gal-id="<?php echo (int)$photo['id']; ?>"><?php echo $photo_count; ?></span> Photos)
+                                            </label>
+                                            <span style="font-size: 10.5px; color: #2dd4bf; background: rgba(45, 212, 191, 0.1); border: 1px solid rgba(45, 212, 191, 0.25); padding: 2px 8px; border-radius: 999px;">
+                                                <i class="fa-solid fa-arrows-up-down-left-right"></i> Drag photos or use ◀ ▶ / ★ to arrange order (#1 is Album Cover)
+                                            </span>
+                                        </div>
                                         <label class="adm-uploader-btn" for="gal_new_file_<?php echo $photo['id']; ?>" style="padding: 4px 10px; font-size: 11px; margin: 0; cursor: pointer;">
                                             <i class="fa-solid fa-plus"></i> Add More Sub-Images
                                         </label>
                                         <input type="file" name="gal_new_photos_<?php echo $photo['id']; ?>[]" id="gal_new_file_<?php echo $photo['id']; ?>" class="adm-uploader-input" accept="image/*" multiple onchange="previewMultiSpotUpload(this, 'gal_new_prev_<?php echo $photo['id']; ?>');">
                                     </div>
 
-                                    <!-- Existing Photos Thumbnails Grid with Delete (x) Button -->
-                                    <div class="adm-spot-photos-grid" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                                    <!-- Existing Photos Thumbnails Grid with Reorder (Drag / ◀ ▶ / ★ Cover) & Delete (✕) -->
+                                    <div class="adm-spot-photos-grid adm-sortable-photo-grid" data-gallery-id="<?php echo (int)$photo['id']; ?>" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                                         <?php if (!empty($photo['photos_list'])): ?>
-                                            <?php foreach ($photo['photos_list'] as $p_idx => $p_url): ?>
-                                                <div class="adm-spot-photo-thumb" style="position: relative; width: 78px; height: 78px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(45, 212, 191, 0.4); transition: all 0.2s ease;">
-                                                    <img src="../<?php echo e($p_url); ?>" alt="Sub-Photo" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='../assets/images/treehouse_exterior.png';">
+                                            <?php foreach ($photo['photos_list'] as $p_idx => $p_url): 
+                                                $is_cover = ($p_idx === 0);
+                                            ?>
+                                                <div class="adm-spot-photo-thumb<?php echo $is_cover ? ' is-cover-photo' : ''; ?>" draggable="true" style="position: relative; width: 92px; height: 92px; border-radius: 8px; overflow: hidden; border: <?php echo $is_cover ? '2px solid #C5A059' : '1px solid rgba(45, 212, 191, 0.4)'; ?>; transition: all 0.2s ease; cursor: grab; user-select: none; background: #07120b;">
+                                                    <img src="../<?php echo e($p_url); ?>" alt="Sub-Photo" draggable="false" style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;" onerror="this.src='../assets/images/treehouse_exterior.png';">
                                                     <input type="hidden" name="gal_existing_photos[<?php echo $photo['id']; ?>][]" value="<?php echo e($p_url); ?>">
-                                                    <span style="position: absolute; bottom: 2px; left: 2px; background: rgba(0,0,0,0.75); color: #2dd4bf; font-size: 9px; padding: 1px 4px; border-radius: 3px;"><?php echo $p_idx + 1; ?></span>
-                                                    <button type="button" onclick="removeSpotPhotoThumbnail(this);" title="Remove this photo from collection" style="position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; background: rgba(220, 53, 69, 0.85); color: #fff; border: none; border-radius: 50%; font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">✕</button>
+                                                    
+                                                    <!-- Top-Left Index / Cover Badge + Set as Cover Button -->
+                                                    <div style="position: absolute; top: 3px; left: 3px; display: flex; align-items: center; gap: 3px; z-index: 2;">
+                                                        <span class="adm-photo-idx-badge" style="background: <?php echo $is_cover ? 'rgba(197, 160, 89, 0.95)' : 'rgba(0,0,0,0.8)'; ?>; color: <?php echo $is_cover ? '#07120b' : '#2dd4bf'; ?>; font-weight: 700; font-size: 9.5px; padding: 1px 5px; border-radius: 4px; line-height: 1.3;">
+                                                            <?php echo $is_cover ? '1 ★' : ($p_idx + 1); ?>
+                                                        </span>
+                                                        <button type="button" class="adm-photo-cover-btn" onclick="setSpotPhotoAsCover(this);" title="Set as #1 Album Cover" style="display: <?php echo $is_cover ? 'none' : 'inline-flex'; ?>; width: 18px; height: 18px; background: rgba(0,0,0,0.75); color: #C5A059; border: 1px solid rgba(197,160,89,0.5); border-radius: 4px; font-size: 9px; align-items: center; justify-content: center; cursor: pointer; padding: 0;">★</button>
+                                                    </div>
+
+                                                    <!-- Top-Right Delete Button -->
+                                                    <button type="button" onclick="removeSpotPhotoThumbnail(this);" title="Remove this photo from collection" style="position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; background: rgba(220, 53, 69, 0.9); color: #fff; border: none; border-radius: 50%; font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 2;">✕</button>
+
+                                                    <!-- Bottom Reorder Controls Bar (◀ Move Left | Drag | Move Right ▶) -->
+                                                    <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 22px; background: linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.65)); display: flex; align-items: center; justify-content: space-between; padding: 0 3px; z-index: 2;">
+                                                        <button type="button" onclick="moveSpotPhotoThumbnail(this, -1);" title="Move Photo Left (Earlier)" style="width: 22px; height: 18px; background: rgba(255,255,255,0.12); color: #fff; border: none; border-radius: 3px; font-size: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">◀</button>
+                                                        <span title="Drag to reorder" style="color: rgba(255,255,255,0.55); font-size: 9px; letter-spacing: 1px; pointer-events: none;">⋮⋮</span>
+                                                        <button type="button" onclick="moveSpotPhotoThumbnail(this, 1);" title="Move Photo Right (Later)" style="width: 22px; height: 18px; background: rgba(255,255,255,0.12); color: #fff; border: none; border-radius: 3px; font-size: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;">▶</button>
+                                                    </div>
                                                 </div>
                                             <?php endforeach; ?>
                                         <?php endif; ?>

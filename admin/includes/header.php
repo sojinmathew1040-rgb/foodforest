@@ -1553,18 +1553,199 @@ $current_page = basename($_SERVER['PHP_SELF']);
         setTimeout(initAdminMasterMapStudio, 50);
     }
 
+    var _galReorderSaveTimer = {};
+    function syncSpotPhotoGridOrder(grid, doAjaxSave) {
+        if (!grid) return;
+        var items = Array.from(grid.querySelectorAll('.adm-spot-photo-thumb'));
+        items.forEach(function(item, idx) {
+            var isCover = (idx === 0);
+            item.classList.toggle('is-cover-photo', isCover);
+            item.style.border = isCover ? '2px solid #C5A059' : '1px solid rgba(45, 212, 191, 0.4)';
+
+            var badge = item.querySelector('.adm-photo-idx-badge') || item.querySelector('span');
+            if (badge) {
+                badge.textContent = isCover ? '1 ★' : String(idx + 1);
+                badge.style.background = isCover ? 'rgba(197, 160, 89, 0.95)' : 'rgba(0,0,0,0.8)';
+                badge.style.color = isCover ? '#07120b' : '#2dd4bf';
+                badge.style.fontWeight = '700';
+            }
+            var coverBtn = item.querySelector('.adm-photo-cover-btn');
+            if (coverBtn) {
+                coverBtn.style.display = isCover ? 'none' : 'inline-flex';
+            }
+        });
+
+        var galId = grid.getAttribute('data-gallery-id');
+        if (galId) {
+            if (items.length > 0) {
+                var firstImg = items[0].querySelector('img');
+                var headerThumb = document.getElementById('gal_prev_thumb_' + galId);
+                if (firstImg && headerThumb) {
+                    headerThumb.src = firstImg.src;
+                }
+            }
+            document.querySelectorAll('.adm-gal-subphoto-count[data-gal-id="' + galId + '"]').forEach(function(el) {
+                el.textContent = items.length + ' Sub-Photos';
+            });
+            document.querySelectorAll('.adm-gal-subphoto-num[data-gal-id="' + galId + '"]').forEach(function(el) {
+                el.textContent = String(items.length);
+            });
+
+            if (doAjaxSave !== false && items.length > 0) {
+                if (_galReorderSaveTimer[galId]) clearTimeout(_galReorderSaveTimer[galId]);
+                _galReorderSaveTimer[galId] = setTimeout(function() {
+                    var csrf = document.querySelector('input[name="csrf_token"]');
+                    var fd = new FormData();
+                    fd.append('ajax', '1');
+                    fd.append('form_type', 'gallery_settings');
+                    fd.append('action', 'reorder_gallery_photos');
+                    fd.append('gallery_id', galId);
+                    if (csrf) fd.append('csrf_token', csrf.value);
+                    items.forEach(function(item) {
+                        var hid = item.querySelector('input[type="hidden"]');
+                        if (hid && hid.value) fd.append('photos_order[]', hid.value);
+                    });
+                    fetch('edit_section.php?section=gallery', {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: fd
+                    }).then(function(r) { return r.json(); }).then(function(res) {
+                        if (res && res.success && window.showToast) {
+                            window.showToast('Gallery photo order saved (#1 is Album Cover)', 'success');
+                        }
+                    }).catch(function() {});
+                }, 250);
+            }
+        }
+    }
+    window.syncSpotPhotoGridOrder = syncSpotPhotoGridOrder;
+
+    function moveSpotPhotoThumbnail(btn, dir) {
+        if (!btn) return;
+        var item = btn.closest('.adm-spot-photo-thumb');
+        var grid = item ? item.parentElement : null;
+        if (!item || !grid) return;
+        if (dir < 0 && item.previousElementSibling) {
+            grid.insertBefore(item, item.previousElementSibling);
+            syncSpotPhotoGridOrder(grid, true);
+        } else if (dir > 0 && item.nextElementSibling) {
+            grid.insertBefore(item.nextElementSibling, item);
+            syncSpotPhotoGridOrder(grid, true);
+        }
+    }
+    window.moveSpotPhotoThumbnail = moveSpotPhotoThumbnail;
+
+    function setSpotPhotoAsCover(btn) {
+        if (!btn) return;
+        var item = btn.closest('.adm-spot-photo-thumb');
+        var grid = item ? item.parentElement : null;
+        if (!item || !grid || grid.firstElementChild === item) return;
+        grid.insertBefore(item, grid.firstElementChild);
+        syncSpotPhotoGridOrder(grid, true);
+    }
+    window.setSpotPhotoAsCover = setSpotPhotoAsCover;
+
     function removeSpotPhotoThumbnail(btn) {
         if (!btn) return;
         var item = btn.closest('.adm-spot-photo-thumb');
+        var grid = item ? item.parentElement : null;
         if (item) {
             item.style.opacity = '0';
             item.style.transform = 'scale(0.8)';
             setTimeout(function() {
                 item.remove();
+                if (grid) syncSpotPhotoGridOrder(grid, true);
             }, 150);
         }
     }
     window.removeSpotPhotoThumbnail = removeSpotPhotoThumbnail;
+
+    // Drag & Drop support for .adm-spot-photo-thumb inside .adm-spot-photos-grid
+    var _draggedSpotThumb = null;
+    document.addEventListener('dragstart', function(e) {
+        var thumb = e.target.closest ? e.target.closest('.adm-spot-photo-thumb') : null;
+        if (!thumb) return;
+        _draggedSpotThumb = thumb;
+        thumb.style.opacity = '0.45';
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', 'reorder'); } catch (err) {}
+        }
+    });
+    document.addEventListener('dragover', function(e) {
+        if (!_draggedSpotThumb) return;
+        var overThumb = e.target.closest ? e.target.closest('.adm-spot-photo-thumb') : null;
+        if (!overThumb || overThumb === _draggedSpotThumb || overThumb.parentElement !== _draggedSpotThumb.parentElement) return;
+        e.preventDefault();
+        var grid = overThumb.parentElement;
+        var rect = overThumb.getBoundingClientRect();
+        var after = (e.clientX - rect.left) > (rect.width / 2);
+        if (after) {
+            grid.insertBefore(_draggedSpotThumb, overThumb.nextSibling);
+        } else {
+            grid.insertBefore(_draggedSpotThumb, overThumb);
+        }
+    });
+    document.addEventListener('drop', function(e) {
+        if (!_draggedSpotThumb) return;
+        var grid = _draggedSpotThumb.parentElement;
+        if (grid && grid.classList.contains('adm-spot-photos-grid')) {
+            e.preventDefault();
+            syncSpotPhotoGridOrder(grid, true);
+        }
+    });
+    document.addEventListener('dragend', function() {
+        if (_draggedSpotThumb) {
+            _draggedSpotThumb.style.opacity = '1';
+            var grid = _draggedSpotThumb.parentElement;
+            _draggedSpotThumb = null;
+            if (grid && grid.classList.contains('adm-spot-photos-grid')) {
+                syncSpotPhotoGridOrder(grid, true);
+            }
+        }
+    });
+
+    function moveGalleryAlbumCard(btn, dir, event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        var card = btn ? btn.closest('.adm-gal-item-card') : null;
+        var list = card ? card.parentElement : null;
+        if (!card || !list) return;
+        if (dir < 0 && card.previousElementSibling && card.previousElementSibling.classList.contains('adm-gal-item-card')) {
+            list.insertBefore(card, card.previousElementSibling);
+        } else if (dir > 0 && card.nextElementSibling && card.nextElementSibling.classList.contains('adm-gal-item-card')) {
+            list.insertBefore(card.nextElementSibling, card);
+        } else {
+            return;
+        }
+        var allCards = Array.from(list.querySelectorAll('.adm-gal-item-card'));
+        var fd = new FormData();
+        fd.append('ajax', '1');
+        fd.append('form_type', 'gallery_settings');
+        fd.append('action', 'reorder_gallery_albums');
+        var csrf = document.querySelector('input[name="csrf_token"]');
+        if (csrf) fd.append('csrf_token', csrf.value);
+
+        allCards.forEach(function(c, i) {
+            var badge = c.querySelector('.adm-gal-rank-badge');
+            if (badge) badge.textContent = '#' + (i + 1);
+            var aid = c.getAttribute('data-album-id');
+            if (aid) fd.append('album_ids[]', aid);
+        });
+
+        fetch('edit_section.php?section=gallery', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        }).then(function(r) { return r.json(); }).then(function(res) {
+            if (res && res.success && window.showToast) {
+                window.showToast('Gallery album collection order updated', 'success');
+            }
+        }).catch(function() {});
+    }
+    window.moveGalleryAlbumCard = moveGalleryAlbumCard;
 
     window.confirmDeleteAllSpots = function() {
         if (!confirm('Are you sure you want to delete ALL registered sanctuary spots from the map and database? This action cannot be undone.')) {
@@ -1602,34 +1783,102 @@ $current_page = basename($_SERVER['PHP_SELF']);
     function previewMultiSpotUpload(input, previewContainerId) {
         var container = document.getElementById(previewContainerId);
         if (!container || !input || !input.files) return;
-        container.innerHTML = '';
-        var count = input.files.length;
-        if (count === 0) return;
-        
-        var info = document.createElement('div');
-        info.style.cssText = 'font-size: 11px; color: #2ecc71; margin-bottom: 6px; font-weight: 600;';
-        info.textContent = '✓ ' + count + ' new photo' + (count > 1 ? 's' : '') + ' selected';
-        container.appendChild(info);
+        var filesArr = Array.from(input.files);
 
-        var grid = document.createElement('div');
-        grid.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap; align-items: center;';
-        
-        Array.from(input.files).forEach(function(file) {
-            if (file.type && file.type.indexOf('image/') === 0) {
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    var thumb = document.createElement('div');
-                    thumb.style.cssText = 'width: 55px; height: 55px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(46, 204, 113, 0.4); position: relative;';
-                    var img = document.createElement('img');
-                    img.src = e.target.result;
-                    img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
-                    thumb.appendChild(img);
-                    grid.appendChild(thumb);
+        function renderPreview() {
+            container.innerHTML = '';
+            if (filesArr.length === 0) return;
+
+            var info = document.createElement('div');
+            info.style.cssText = 'font-size: 11px; color: #2ecc71; margin-bottom: 6px; font-weight: 600;';
+            info.textContent = '✓ ' + filesArr.length + ' new photo' + (filesArr.length > 1 ? 's' : '') + ' queued (use ◀ ▶ to arrange upload order)';
+            container.appendChild(info);
+
+            var grid = document.createElement('div');
+            grid.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap; align-items: center;';
+
+            filesArr.forEach(function(file, idx) {
+                var thumb = document.createElement('div');
+                thumb.style.cssText = 'width: 78px; height: 78px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(46, 204, 113, 0.55); position: relative; background: #07120b;';
+
+                var img = document.createElement('img');
+                img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+                thumb.appendChild(img);
+
+                if (file.type && file.type.indexOf('image/') === 0) {
+                    var reader = new FileReader();
+                    reader.onload = function(e) { img.src = e.target.result; };
+                    reader.readAsDataURL(file);
+                }
+
+                var badge = document.createElement('span');
+                badge.style.cssText = 'position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.8); color: #2ecc71; font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px;';
+                badge.textContent = '+' + (idx + 1);
+                thumb.appendChild(badge);
+
+                var delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.textContent = '✕';
+                delBtn.title = 'Remove queued photo';
+                delBtn.style.cssText = 'position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; background: rgba(220,53,69,0.9); color: #fff; border: none; border-radius: 50%; font-size: 9px; cursor: pointer; padding: 0; line-height: 1;';
+                delBtn.onclick = function() {
+                    filesArr.splice(idx, 1);
+                    syncInputFiles();
+                    renderPreview();
                 };
-                reader.readAsDataURL(file);
+                thumb.appendChild(delBtn);
+
+                var bar = document.createElement('div');
+                bar.style.cssText = 'position: absolute; bottom: 0; left: 0; right: 0; height: 18px; background: rgba(0,0,0,0.82); display: flex; justify-content: space-between; align-items: center; padding: 0 2px;';
+
+                var leftBtn = document.createElement('button');
+                leftBtn.type = 'button';
+                leftBtn.textContent = '◀';
+                leftBtn.style.cssText = 'width: 18px; height: 14px; background: rgba(255,255,255,0.14); color: #fff; border: none; border-radius: 2px; font-size: 8px; cursor: pointer; padding: 0;';
+                leftBtn.onclick = function() {
+                    if (idx > 0) {
+                        var tmp = filesArr[idx - 1];
+                        filesArr[idx - 1] = filesArr[idx];
+                        filesArr[idx] = tmp;
+                        syncInputFiles();
+                        renderPreview();
+                    }
+                };
+
+                var rightBtn = document.createElement('button');
+                rightBtn.type = 'button';
+                rightBtn.textContent = '▶';
+                rightBtn.style.cssText = 'width: 18px; height: 14px; background: rgba(255,255,255,0.14); color: #fff; border: none; border-radius: 2px; font-size: 8px; cursor: pointer; padding: 0;';
+                rightBtn.onclick = function() {
+                    if (idx < filesArr.length - 1) {
+                        var tmp = filesArr[idx + 1];
+                        filesArr[idx + 1] = filesArr[idx];
+                        filesArr[idx] = tmp;
+                        syncInputFiles();
+                        renderPreview();
+                    }
+                };
+
+                bar.appendChild(leftBtn);
+                bar.appendChild(rightBtn);
+                thumb.appendChild(bar);
+                grid.appendChild(thumb);
+            });
+
+            container.appendChild(grid);
+        }
+
+        function syncInputFiles() {
+            if (typeof DataTransfer !== 'undefined') {
+                try {
+                    var dt = new DataTransfer();
+                    filesArr.forEach(function(f) { dt.items.add(f); });
+                    input.files = dt.files;
+                } catch (err) {}
             }
-        });
-        container.appendChild(grid);
+        }
+
+        renderPreview();
     }
     window.previewMultiSpotUpload = previewMultiSpotUpload;
 
