@@ -45,7 +45,7 @@ function sanctuary_asset_url($path) {
     if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0 || strpos($path, 'data:') === 0 || strpos($path, '//') === 0) {
         return $path;
     }
-    $clean_path = ltrim($path, '/');
+    $clean_path = ltrim( strtok($path, '?'), '/' );
     $root = dirname(__DIR__, 2);
     $full_path = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $clean_path);
     
@@ -68,6 +68,12 @@ function sanctuary_purge_all_caches() {
         $pdo->prepare("REPLACE INTO settings (setting_key, setting_value) VALUES ('settings_updated_at', ?)")
             ->execute([$now]);
     } catch (Exception $e) {}
+
+    if (!headers_sent()) {
+        header('X-LiteSpeed-Purge: *');
+        header('X-LiteSpeed-Cache-Control: no-cache, no-store');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    }
 
     if (function_exists('opcache_reset')) {
         @opcache_reset();
@@ -1012,12 +1018,13 @@ function get_gallery_collections($limit = null, $category = null) {
     try {
         $pdo = get_db();
         ensure_gallery_photos_column($pdo);
-        $sql = "SELECT * FROM `gallery` WHERE `is_active` = 1 ORDER BY `display_order` ASC, `id` ASC";
+        $sql = "SELECT * FROM `gallery` WHERE (`is_active` = 1 OR `is_active` IS NULL) ORDER BY `display_order` ASC, `id` ASC";
         $rows = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
         $collections = [];
         foreach ($rows as $row) {
             $cat_slug = !empty($row['category_slug']) ? $row['category_slug'] : strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $row['category'] ?? 'landscape'), '-'));
+            $cover_src = sanctuary_asset_url($row['image_url'] ?? '');
 
             $photos = [];
             if (!empty($row['photos'])) {
@@ -1025,14 +1032,15 @@ function get_gallery_collections($limit = null, $category = null) {
                 if (is_array($dec)) {
                     foreach ($dec as $p_item) {
                         if (is_array($p_item)) {
+                            $raw_src = $p_item['src'] ?? ($p_item['image_url'] ?? $row['image_url']);
                             $photos[] = [
-                                'src' => $p_item['src'] ?? ($p_item['image_url'] ?? $row['image_url']),
+                                'src' => sanctuary_asset_url($raw_src),
                                 'title' => $p_item['title'] ?? $row['title'],
                                 'caption' => $p_item['caption'] ?? ($row['caption'] ?? '')
                             ];
                         } elseif (is_string($p_item) && !empty($p_item)) {
                             $photos[] = [
-                                'src' => $p_item,
+                                'src' => sanctuary_asset_url($p_item),
                                 'title' => $row['title'],
                                 'caption' => $row['caption'] ?? ''
                             ];
@@ -1043,7 +1051,7 @@ function get_gallery_collections($limit = null, $category = null) {
 
             if (empty($photos) && !empty($row['image_url'])) {
                 $photos = [[
-                    'src' => $row['image_url'],
+                    'src' => $cover_src,
                     'title' => $row['title'],
                     'caption' => $row['caption'] ?? ''
                 ]];
@@ -1056,7 +1064,7 @@ function get_gallery_collections($limit = null, $category = null) {
                 'category' => $row['category'] ?? 'Landscape',
                 'category_slug' => $cat_slug,
                 'tag' => $row['tag'] ?? 'SANCTUARY ARCHIVE',
-                'cover_image' => $row['image_url'],
+                'cover_image' => $cover_src,
                 'description' => $row['caption'] ?? '',
                 'photos' => $photos
             ];

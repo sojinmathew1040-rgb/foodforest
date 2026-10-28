@@ -149,8 +149,6 @@ if (isset($_GET['toggle_preview'])) {
     exit;
 }
 
-require_once __DIR__ . '/includes/header.php';
-
 $alert_message = '';
 $alert_type = 'success';
 $active_tab = $_GET['section'] ?? ($_GET['tab'] ?? 'climate');
@@ -232,6 +230,9 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['delete_room', 'delete_
                 $alert_message = 'Guest reflection rejected / archived.';
                 $active_tab = 'testimonials';
             }
+            if (function_exists('sanctuary_purge_all_caches')) {
+                sanctuary_purge_all_caches();
+            }
         }
     } else {
         $alert_message = 'Security validation failed for request.';
@@ -247,6 +248,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf_token($_POST['csrf_token'] ?? '')) {
         $alert_message = 'Security validation failed.';
         $alert_type = 'error';
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Security validation failed. Please refresh the page and try again.']);
+            exit;
+        }
     } else {
         $form_type = $_POST['form_type'] ?? '';
         $active_tab = $_POST['active_tab'] ?? ($active_tab ?? 'estate');
@@ -1455,7 +1461,7 @@ ensure_experiences_details_columns($pdo);
 
                 // Update individual collections and multi-photos
                 if (isset($_POST['gallery_id']) && is_array($_POST['gallery_id'])) {
-                    $upd_gal = $pdo->prepare("UPDATE gallery SET title = ?, tag = ?, category = ?, category_slug = ?, caption = ?, image_url = ?, photos = ? WHERE id = ?");
+                    $upd_gal = $pdo->prepare("UPDATE gallery SET title = ?, tag = ?, category = ?, category_slug = ?, caption = ?, image_url = ?, photos = ?, is_active = 1 WHERE id = ?");
                     foreach ($_POST['gallery_id'] as $idx => $gid) {
                         $gt = trim($_POST['gal_title'][$idx] ?? '');
                         $gtag = trim($_POST['gal_tag'][$idx] ?? '');
@@ -1520,6 +1526,9 @@ ensure_experiences_details_columns($pdo);
                     $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE id = ?")->execute([$app_id]);
                     $alert_message = 'Guest reflection approved and published to live website!';
                 }
+                if (function_exists('sanctuary_purge_all_caches')) {
+                    sanctuary_purge_all_caches();
+                }
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
                     header('Content-Type: application/json');
                     echo json_encode(['success' => true, 'id' => $app_id, 'action' => 'approved', 'message' => $alert_message]);
@@ -1531,6 +1540,9 @@ ensure_experiences_details_columns($pdo);
                     $pdo->prepare("UPDATE testimonials SET status = 'rejected', is_active = 0 WHERE id = ?")->execute([$rej_id]);
                     $alert_message = 'Guest reflection marked as rejected / archived.';
                 }
+                if (function_exists('sanctuary_purge_all_caches')) {
+                    sanctuary_purge_all_caches();
+                }
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
                     header('Content-Type: application/json');
                     echo json_encode(['success' => true, 'id' => $rej_id, 'action' => 'rejected', 'message' => $alert_message]);
@@ -1541,12 +1553,21 @@ ensure_experiences_details_columns($pdo);
                 if ($stream_source === 'all') {
                     $upd_stmt = $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE status = 'pending'");
                     $upd_stmt->execute();
+                } elseif (in_array($stream_source, ['guest_portal', 'client', 'website'], true)) {
+                    $upd_stmt = $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE status = 'pending' AND source IN ('website', 'guest_portal', 'client', 'client_portal', 'user_login')");
+                    $upd_stmt->execute();
+                } elseif ($stream_source === 'admin') {
+                    $upd_stmt = $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE status = 'pending' AND (source IN ('admin', 'direct', 'estate', '') OR source IS NULL)");
+                    $upd_stmt->execute();
                 } else {
                     $upd_stmt = $pdo->prepare("UPDATE testimonials SET status = 'approved', is_active = 1 WHERE status = 'pending' AND source = ?");
                     $upd_stmt->execute([$stream_source]);
                 }
                 $cnt = $upd_stmt->rowCount();
                 $alert_message = "Successfully approved and published {$cnt} pending reviews live!";
+                if (function_exists('sanctuary_purge_all_caches')) {
+                    sanctuary_purge_all_caches();
+                }
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
                     header('Content-Type: application/json');
                     echo json_encode(['success' => true, 'count' => $cnt, 'message' => $alert_message]);
@@ -1563,17 +1584,43 @@ ensure_experiences_details_columns($pdo);
                     $st = round($st * 2) / 2;
                     $q = trim($_POST['quote'] ?? '');
                     $stat = trim($_POST['status'] ?? 'approved');
-                    $ia = ($stat === 'approved' && !empty($_POST['is_active'])) ? 1 : (($stat === 'approved') ? 1 : 0);
+                    $ia = ($stat === 'approved') ? (isset($_POST['is_active']) ? ((int)$_POST['is_active'] ? 1 : 0) : 1) : 0;
                     $rep = trim($_POST['admin_reply'] ?? '');
 
                     $upd_single = $pdo->prepare("UPDATE testimonials SET guest_name = ?, guest_location = ?, stay_badge = ?, title = ?, stars = ?, quote = ?, is_active = ?, status = ?, admin_reply = ?, admin_reply_at = CASE WHEN ? != '' AND (admin_reply IS NULL OR admin_reply = '') THEN NOW() ELSE admin_reply_at END WHERE id = ?");
                     $upd_single->execute([$gn, $gl, $sb, $ti, $st, $q, $ia, $stat, $rep, $rep, $tid]);
                     $alert_message = "Review for {$gn} successfully updated.";
                 }
+                if (function_exists('sanctuary_purge_all_caches')) {
+                    sanctuary_purge_all_caches();
+                }
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
                     header('Content-Type: application/json');
                     echo json_encode(['success' => true, 'id' => $tid, 'message' => $alert_message]);
                     exit;
+                }
+            } elseif ($action === 'add_admin_chronicle') {
+                $name = trim($_POST['admin_add_guest_name'] ?? '');
+                $location = trim($_POST['admin_add_guest_location'] ?? '');
+                $stay_badge = trim($_POST['admin_add_stay_badge'] ?? 'Canopy Treehouse Villa');
+                $stars = max(0.5, min(5.0, (float)($_POST['admin_add_stars'] ?? 5.0)));
+                $stars = round($stars * 2) / 2;
+                $quote = trim($_POST['admin_add_quote'] ?? '');
+                $admin_reply = trim($_POST['admin_add_admin_reply'] ?? '');
+
+                if (!empty($name) && !empty($quote)) {
+                    $parts = preg_split('/\s+/', $name);
+                    $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : ''));
+                    if (empty($initials)) $initials = 'FF';
+                    $max_order = (int)$pdo->query("SELECT COALESCE(MAX(display_order), 0) FROM testimonials")->fetchColumn();
+                    $reply_at = !empty($admin_reply) ? date('Y-m-d H:i:s') : null;
+
+                    $ins = $pdo->prepare("INSERT INTO testimonials (guest_name, guest_location, stay_badge, stars, quote, initials, display_order, is_active, status, admin_reply, admin_reply_at, source) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'approved', ?, ?, 'admin')");
+                    $ins->execute([$name, $location, $stay_badge, $stars, $quote, $initials, $max_order + 1, $admin_reply, $reply_at]);
+                    $alert_message = 'New admin direct chronicle created and published live!';
+                } else {
+                    $alert_message = 'Guest name and chronicle quote cannot be blank.';
+                    $alert_type = 'error';
                 }
             } elseif ($action === 'sync_google_reviews') {
                 // Google Maps Review Sync / Importer
@@ -1736,20 +1783,21 @@ ensure_experiences_details_columns($pdo);
                         $mu = trim($_POST['media_url'][$idx] ?? '');
                         $mt = trim($_POST['media_type'][$idx] ?? 'image');
                         $stat = trim($_POST['status'][$idx] ?? 'approved');
-                        $ia = ($stat === 'approved' && isset($_POST['is_active'][$idx])) ? (int)$_POST['is_active'][$idx] : (($stat === 'approved') ? 1 : 0);
+                        $ia = ($stat === 'approved') ? (isset($_POST['is_active'][$tid]) ? (int)$_POST['is_active'][$tid] : (isset($_POST['is_active'][$idx]) ? (int)$_POST['is_active'][$idx] : 0)) : 0;
                         $rep = trim($_POST['admin_reply'][$idx] ?? '');
 
                         $upd_test->execute([$gn, $gl, $sb, $ti, $st, $q, $mu, $mt, $ia, $stat, $rep, $rep, (int)$tid]);
 
                         // Check individual avatar upload
-                        if (!empty($_FILES['avatar_file']['name'][$idx]) && $_FILES['avatar_file']['error'][$idx] === UPLOAD_ERR_OK) {
+                        $av_key = isset($_FILES['avatar_file']['name'][$tid]) ? $tid : $idx;
+                        if (!empty($_FILES['avatar_file']['name'][$av_key]) && $_FILES['avatar_file']['error'][$av_key] === UPLOAD_ERR_OK) {
                             $upload_base = __DIR__ . '/../uploads/testimonials';
                             if (!is_dir($upload_base)) mkdir($upload_base, 0777, true);
-                            $ext = strtolower(pathinfo($_FILES['avatar_file']['name'][$idx], PATHINFO_EXTENSION));
+                            $ext = strtolower(pathinfo($_FILES['avatar_file']['name'][$av_key], PATHINFO_EXTENSION));
                             if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
                                 $new_name = 'avatar_' . $tid . '_' . time() . '.' . $ext;
                                 $dest_av = $upload_base . '/' . $new_name;
-                                if (move_uploaded_file($_FILES['avatar_file']['tmp_name'][$idx], $dest_av)) {
+                                if (move_uploaded_file($_FILES['avatar_file']['tmp_name'][$av_key], $dest_av)) {
                                     $opt = compress_and_resize_image_file($dest_av, ['max_dimension' => 600]);
                                     if (!empty($opt['success']) && !empty($opt['filename'])) $new_name = $opt['filename'];
                                     $pdo->prepare("UPDATE testimonials SET avatar_url = ? WHERE id = ?")->execute(['uploads/testimonials/' . $new_name, (int)$tid]);
@@ -2083,6 +2131,8 @@ $tab_titles = [
     'bank' => 'BANK DETAILS & UPI QR CODE',
     'footer' => 'FOOTER & ECO TRUST PILLARS'
 ];
+
+require_once __DIR__ . '/includes/header.php';
 ?>
 
 <?php if (!empty($alert_message)): ?>
@@ -7030,7 +7080,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 6px;">
                                             <div style="display: flex; align-items: center; gap: 10px;">
                                                 <label class="adm-form-label" style="margin: 0;">Status:</label>
-                                                <select name="status[]" class="adm-form-control" style="font-weight: 700; width: auto; height: 32px; padding: 2px 8px; font-size: 12px;">
+                                                <select name="status[]" class="adm-form-control" onchange="var cb = document.getElementById('test_active_<?php echo $t['id']; ?>'); if (cb) { cb.checked = (this.value === 'approved'); }" style="font-weight: 700; width: auto; height: 32px; padding: 2px 8px; font-size: 12px;">
                                                     <option value="approved" <?php echo ($t_status === 'approved') ? 'selected' : ''; ?>>✓ Approved & Published</option>
                                                     <option value="pending" <?php echo ($t_status === 'pending') ? 'selected' : ''; ?>>⏳ Pending Verification</option>
                                                     <option value="rejected" <?php echo ($t_status === 'rejected') ? 'selected' : ''; ?>>✕ Archived / Rejected</option>
@@ -7389,11 +7439,18 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                 var card = document.getElementById('review-card-' + id);
                 var badgeContainer = document.getElementById('review-status-badge-' + id);
                 var actionsContainer = document.getElementById('review-actions-' + id);
+                var editBox = document.getElementById('edit-box-' + id);
 
                 if (action === 'approve') {
                     if (card) {
                         card.setAttribute('data-status', 'approved');
                         card.style.borderColor = 'rgba(197, 160, 89, 0.2)';
+                    }
+                    if (editBox) {
+                        var statusSel = editBox.querySelector('select[name="status[]"]');
+                        if (statusSel) statusSel.value = 'approved';
+                        var activeCheck = editBox.querySelector('input[type="checkbox"]');
+                        if (activeCheck) activeCheck.checked = true;
                     }
                     if (badgeContainer) {
                         badgeContainer.innerHTML = '<span class="adm-badge confirmed" style="font-size: 9px; padding: 1px 6px;"><i class="fa-solid fa-check"></i> Live</span>';
@@ -7432,6 +7489,12 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                     if (card) {
                         card.setAttribute('data-status', 'rejected');
                         card.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                    }
+                    if (editBox) {
+                        var statusSelRej = editBox.querySelector('select[name="status[]"]');
+                        if (statusSelRej) statusSelRej.value = 'rejected';
+                        var activeCheckRej = editBox.querySelector('input[type="checkbox"]');
+                        if (activeCheckRej) activeCheckRej.checked = false;
                     }
                     if (badgeContainer) {
                         badgeContainer.innerHTML = '<span class="adm-badge cancelled" style="font-size: 9px; padding: 1px 6px;">Archived</span>';
@@ -7510,6 +7573,13 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                         card.style.borderColor = 'rgba(197, 160, 89, 0.2)';
                         var cardId = card.id ? card.id.replace('review-card-', '') : '';
                         if (cardId) {
+                            var editBox = document.getElementById('edit-box-' + cardId);
+                            if (editBox) {
+                                var statusSel = editBox.querySelector('select[name="status[]"]');
+                                if (statusSel) statusSel.value = 'approved';
+                                var activeCheck = editBox.querySelector('input[type="checkbox"]');
+                                if (activeCheck) activeCheck.checked = true;
+                            }
                             var badgeContainer = document.getElementById('review-status-badge-' + cardId);
                             if (badgeContainer) {
                                 badgeContainer.innerHTML = '<span class="adm-badge confirmed" style="font-size: 9px; padding: 1px 6px;"><i class="fa-solid fa-check"></i> Live</span>';
@@ -7625,6 +7695,7 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                 }
 
                 var badgeContainer = document.getElementById('review-status-badge-' + id);
+                var actionsContainer = document.getElementById('review-actions-' + id);
                 if (badgeContainer) {
                     if (statusVal === 'approved' && isActiveVal) {
                         badgeContainer.innerHTML = '<span class="adm-badge confirmed" style="font-size: 9px; padding: 1px 6px;"><i class="fa-solid fa-check"></i> Live</span>';
@@ -7632,6 +7703,19 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                         badgeContainer.innerHTML = '<span class="adm-badge" style="background: rgba(234, 88, 12, 0.25); color: #fb923c; font-size: 9px; padding: 1px 6px;">⏳ Pending Approval</span>';
                     } else {
                         badgeContainer.innerHTML = '<span class="adm-badge cancelled" style="font-size: 9px; padding: 1px 6px;">Archived</span>';
+                    }
+                }
+                if (actionsContainer) {
+                    if (statusVal === 'approved' && isActiveVal) {
+                        actionsContainer.innerHTML = '<span style="font-size: 11px; color: #2ecc71; font-weight: 600; padding: 4px 8px; background: rgba(46, 204, 113, 0.1); border: 1px solid rgba(46, 204, 113, 0.25); border-radius: 4px;"><i class="fa-solid fa-check-double"></i> Published</span> ' +
+                            '<button type="button" onclick="handleReviewApproval(' + id + ', \'reject\', this);" class="adm-btn-action" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" title="Reject / Archive"><i class="fa-solid fa-ban"></i> Reject</button> ' +
+                            '<button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);" onclick="toggleReviewEditor(\'edit-box-' + id + '\');" title="Open full edit form"><i class="fa-solid fa-pen-to-square"></i> Edit</button> ' +
+                            '<button type="button" class="adm-btn-danger-outline" style="padding: 4px 8px; font-size: 11px;" onclick="confirmDeleteItem(\'testimonials_settings\', \'delete_testimonial_id\', ' + id + ', \'Review #' + id + '\', \'testimonials\');" title="Delete permanently"><i class="fa-solid fa-trash-can"></i></button>';
+                    } else {
+                        actionsContainer.innerHTML = '<button type="button" onclick="handleReviewApproval(' + id + ', \'approve\', this);" class="adm-btn-action emerald" style="padding: 4px 10px; font-size: 11px; font-weight: 700;" title="Approve and publish live"><i class="fa-solid fa-circle-check"></i> Approve Live</button> ' +
+                            (statusVal !== 'rejected' ? '<button type="button" onclick="handleReviewApproval(' + id + ', \'reject\', this);" class="adm-btn-action" style="padding: 4px 8px; font-size: 11px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" title="Reject / Archive"><i class="fa-solid fa-ban"></i> Reject</button> ' : '') +
+                            '<button type="button" class="adm-btn-action" style="padding: 4px 10px; font-size: 11px; background: rgba(197, 160, 89, 0.15); color: var(--adm-gold); border: 1px solid rgba(197, 160, 89, 0.35);" onclick="toggleReviewEditor(\'edit-box-' + id + '\');" title="Open full edit form"><i class="fa-solid fa-pen-to-square"></i> Edit</button> ' +
+                            '<button type="button" class="adm-btn-danger-outline" style="padding: 4px 8px; font-size: 11px;" onclick="confirmDeleteItem(\'testimonials_settings\', \'delete_testimonial_id\', ' + id + ', \'Review #' + id + '\', \'testimonials\');" title="Delete permanently"><i class="fa-solid fa-trash-can"></i></button>';
                     }
                 }
 

@@ -8,16 +8,19 @@ $total_photos = 0;
 foreach ($collections as $c) {
     $total_photos += count($c['photos'] ?? []);
 }
+$gallery_badge = get_setting('gallery_badge', 'A Visual Chronicle');
+$gallery_title = get_setting('gallery_title', 'Curated Sanctuary Collections');
+$gallery_desc  = get_setting('gallery_desc', 'A comprehensive photographic archive capturing misty high-altitude dawns, handcrafted cob mudhouses, organic heirloom harvests, and the timeless rhythms of Kanthalloor. Click any collection to browse individual high-resolution photos with interactive zoom.');
 ?>
 
 <!-- Dedicated Gallery Hero Header -->
 <div class="page-hero-header">
     <div class="container">
         <div class="page-hero-content text-center scroll-reveal">
-            <span class="section-label">A Visual Chronicle</span>
-            <h1 class="page-hero-title font-serif split-text" style="color: var(--accent-green);">The Sanctuary Collections</h1>
+            <span class="section-label"><?php echo e($gallery_badge); ?></span>
+            <h1 class="page-hero-title font-serif split-text" style="color: var(--accent-green);"><?php echo e($gallery_title); ?></h1>
             <p class="font-sans page-hero-desc" style="color: var(--text-light); max-width: 700px; margin: 15px auto 0;">
-                A comprehensive photographic archive capturing misty high-altitude dawns, handcrafted cob mudhouses, organic heirloom harvests, and the timeless rhythms of Kanthalloor. Click any collection to browse individual high-resolution photos with interactive zoom.
+                <?php echo e($gallery_desc); ?>
             </p>
             <div class="gallery-hero-meta font-sans">
                 <span><i class="fa-solid fa-location-dot"></i> Kanthalloor, Kerala</span>
@@ -527,7 +530,15 @@ foreach ($collections as $c) {
 
                         allCards.forEach(function(card) {
                             var cardCat = (card.getAttribute('data-category') || '').toLowerCase();
-                            var match = (filter === 'all' || cardCat === filter || cardCat.indexOf(filter) !== -1 || filter.indexOf(cardCat) !== -1);
+                            var match = (
+                                filter === 'all' ||
+                                cardCat === filter ||
+                                cardCat.indexOf(filter) !== -1 ||
+                                filter.indexOf(cardCat) !== -1 ||
+                                (filter === 'dwellings' && (cardCat.indexOf('villas') !== -1 || cardCat.indexOf('stays') !== -1 || cardCat.indexOf('living') !== -1 || cardCat.indexOf('architecture') !== -1)) ||
+                                (filter === 'landscape' && (cardCat.indexOf('nightscape') !== -1 || cardCat.indexOf('vista') !== -1)) ||
+                                (filter === 'orchards' && (cardCat.indexOf('flora') !== -1 || cardCat.indexOf('harvest') !== -1))
+                            );
                             if (match) {
                                 card.style.display = 'block';
                                 setTimeout(function() {

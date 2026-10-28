@@ -1802,7 +1802,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 </a>
 
                 <!-- Live Public Website Link -->
-                <a href="../index.php" target="_blank" class="adm-btn-action outline adm-btn-site-preview" title="Open Public Website">
+                <a href="../index.php?v=<?php echo urlencode(get_setting('settings_updated_at', (string)time())); ?>" target="_blank" class="adm-btn-action outline adm-btn-site-preview" title="Open Public Website">
                     <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     <span class="adm-hide-mob">Live Site</span>
                 </a>

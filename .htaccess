@@ -14,9 +14,16 @@ Options -Indexes +FollowSymLinks
 </IfModule>
 
 # 3. Dynamic PHP: NEVER Cache (Changes to texts & photos reflect instantly)
+<IfModule LiteSpeed>
+    CacheDisable public /
+    CacheDisable private /
+</IfModule>
 <FilesMatch "\.(php|phtml)$">
     <IfModule mod_headers.c>
         Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set X-LiteSpeed-Cache-Control "no-cache, no-store"
+        Header set CDN-Cache-Control "no-store"
+        Header set Surrogate-Control "no-store"
         Header set Pragma "no-cache"
         Header set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
     </IfModule>
