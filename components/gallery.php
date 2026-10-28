@@ -129,7 +129,7 @@
                 <!-- Interactive Viewport Canvas -->
                 <div class="lightbox-viewport" id="lb-viewport">
                     <div class="lightbox-canvas" id="lb-canvas">
-                        <img src="" alt="" class="lightbox-active-img" id="lb-active-img" draggable="false">
+                        <img src="" alt="" class="lightbox-active-img" id="lb-active-img" draggable="false" onerror="if(this.src.indexOf('treehouse_exterior.png')===-1){this.src='assets/images/treehouse_exterior.png';}">
                     </div>
                     <!-- Zoom Hint Pill -->
                     <div class="lightbox-zoom-hint font-sans" id="lb-zoom-hint">
@@ -311,7 +311,7 @@
                     thumb.className = 'lb-thumb' + (pIdx === (startIdx || 0) ? ' active' : '');
                     thumb.setAttribute('data-photo-idx', pIdx);
                     thumb.setAttribute('title', p.title || ('Photo ' + (pIdx + 1)));
-                    thumb.innerHTML = '<img src="' + p.src + '" alt="' + (p.title || 'Photo') + '" loading="lazy">' +
+                    thumb.innerHTML = '<img src="' + p.src + '" alt="' + (p.title || 'Photo') + '" loading="lazy" onerror="if(this.src.indexOf(\'treehouse_exterior.png\')===-1){this.src=\'assets/images/treehouse_exterior.png\';}">' +
                                       '<span class="lb-thumb-num font-sans">' + (pIdx + 1) + '</span>';
                     thumb.addEventListener('click', function(e) {
                         e.stopPropagation();

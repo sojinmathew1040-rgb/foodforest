@@ -1747,6 +1747,84 @@ $current_page = basename($_SERVER['PHP_SELF']);
     }
     window.moveGalleryAlbumCard = moveGalleryAlbumCard;
 
+    // Self-healing: if a gallery image is in the admin's browser cache but was wiped from assets/uploads/ on the server during deployment, automatically re-upload it to the server
+    function autoRestoreMissingGalleryPhotosFromCache() {
+        var missingImgs = Array.from(document.querySelectorAll('img[data-missing-server="1"]'));
+        if (missingImgs.length === 0) return;
+
+        var csrf = document.querySelector('input[name="csrf_token"]');
+        var restoredCount = 0;
+
+        function processImg(img) {
+            var thumb = img.closest('.adm-spot-photo-thumb');
+            var badge = thumb ? thumb.querySelector('.adm-photo-sync-badge') : null;
+            var relPath = img.getAttribute('data-restore-path');
+
+            if (!relPath || img.getAttribute('data-load-failed') === '1' || !img.naturalWidth || img.src.indexOf('treehouse_exterior.png') !== -1) {
+                if (badge) {
+                    badge.textContent = '⚠ Missing File';
+                    badge.title = 'This file was removed on the server. Remove (✕) and re-upload this photo.';
+                }
+                return;
+            }
+
+            try {
+                var canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob(function(blob) {
+                    if (!blob) return;
+                    var fd = new FormData();
+                    fd.append('ajax', '1');
+                    fd.append('form_type', 'gallery_settings');
+                    fd.append('action', 'restore_missing_gallery_file');
+                    fd.append('rel_path', relPath);
+                    if (csrf) fd.append('csrf_token', csrf.value);
+                    fd.append('blob', blob, relPath.split('/').pop() || 'restored.jpg');
+
+                    fetch('edit_section.php?section=gallery', {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        body: fd
+                    }).then(function(r) { return r.json(); }).then(function(res) {
+                        if (res && res.success) {
+                            img.removeAttribute('data-missing-server');
+                            if (badge) badge.remove();
+                            if (thumb) {
+                                var isCover = thumb.classList.contains('is-cover-photo');
+                                thumb.style.border = isCover ? '2px solid #C5A059' : '1px solid rgba(45, 212, 191, 0.4)';
+                            }
+                            restoredCount++;
+                            if (window.showToast && restoredCount === 1) {
+                                window.showToast('Restoring cached gallery photos to server...', 'success');
+                            }
+                        } else if (badge) {
+                            badge.textContent = '⚠ Missing File';
+                        }
+                    }).catch(function() {});
+                }, 'image/jpeg', 0.90);
+            } catch (err) {
+                if (badge) badge.textContent = '⚠ Missing File';
+            }
+        }
+
+        missingImgs.forEach(function(img) {
+            if (img.complete) {
+                processImg(img);
+            } else {
+                img.addEventListener('load', function() { processImg(img); }, { once: true });
+                img.addEventListener('error', function() { processImg(img); }, { once: true });
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(autoRestoreMissingGalleryPhotosFromCache, 200); });
+    } else {
+        setTimeout(autoRestoreMissingGalleryPhotosFromCache, 200);
+    }
+
     window.confirmDeleteAllSpots = function() {
         if (!confirm('Are you sure you want to delete ALL registered sanctuary spots from the map and database? This action cannot be undone.')) {
             return;

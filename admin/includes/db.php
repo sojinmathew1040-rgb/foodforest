@@ -49,13 +49,10 @@ function sanctuary_asset_url($path) {
     $root = dirname(__DIR__, 2);
     $full_path = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $clean_path);
     
-    $v = null;
     if (file_exists($full_path)) {
-        $v = filemtime($full_path);
-    } else {
-        $v = get_setting('settings_updated_at', '1');
+        return $clean_path . '?v=' . filemtime($full_path);
     }
-    return $clean_path . '?v=' . $v;
+    return $clean_path;
 }
 
 /**

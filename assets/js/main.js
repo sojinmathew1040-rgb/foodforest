@@ -4437,7 +4437,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     thumb.setAttribute('data-photo-idx', pIdx);
                     thumb.setAttribute('title', p.title || `Photo ${pIdx + 1}`);
                     thumb.innerHTML = `
-                        <img src="${p.src}" alt="${p.title || 'Photo'}" loading="lazy">
+                        <img src="${p.src}" alt="${p.title || 'Photo'}" loading="lazy" onerror="if(this.src.indexOf('treehouse_exterior.png')===-1){this.src='assets/images/treehouse_exterior.png';}">
                         <span class="lb-thumb-num font-sans">${pIdx + 1}</span>
                     `;
                     thumb.addEventListener('click', (e) => {

@@ -1449,6 +1449,26 @@ ensure_experiences_details_columns($pdo);
                 header('Content-Type: application/json');
                 echo json_encode(['success' => false, 'message' => 'No album order provided.']);
                 exit;
+            } elseif (($_POST['action'] ?? '') === 'restore_missing_gallery_file') {
+                $rel_path = ltrim(trim($_POST['rel_path'] ?? ''), '/');
+                if (preg_match('#^assets/uploads/[a-zA-Z0-9_.-]+\.(jpg|jpeg|png|webp)$#i', $rel_path) && !empty($_FILES['blob']['tmp_name'])) {
+                    ensure_upload_dir_exists();
+                    $dest = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel_path);
+                    if (!file_exists($dest)) {
+                        if (!@move_uploaded_file($_FILES['blob']['tmp_name'], $dest)) {
+                            @copy($_FILES['blob']['tmp_name'], $dest);
+                        }
+                    }
+                    if (function_exists('sanctuary_purge_all_caches')) {
+                        sanctuary_purge_all_caches();
+                    }
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => file_exists($dest), 'path' => $rel_path]);
+                    exit;
+                }
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid restore parameters.']);
+                exit;
             } elseif (($_POST['action'] ?? '') === 'add_gallery') {
                 $gt = trim($_POST['new_gal_title'] ?? '');
                 $gtag = trim($_POST['new_gal_tag'] ?? 'SANCTUARY CAPTURE');
@@ -6626,10 +6646,16 @@ $card_preview_active = $live_preview_enabled && (($live_preview_cards_config[$ac
                                         <?php if (!empty($photo['photos_list'])): ?>
                                             <?php foreach ($photo['photos_list'] as $p_idx => $p_url): 
                                                 $is_cover = ($p_idx === 0);
+                                                $clean_rel_p = ltrim(strtok($p_url, '?'), '/');
+                                                $abs_p_file = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $clean_rel_p);
+                                                $missing_on_disk = !file_exists($abs_p_file);
                                             ?>
-                                                <div class="adm-spot-photo-thumb<?php echo $is_cover ? ' is-cover-photo' : ''; ?>" draggable="true" style="position: relative; width: 92px; height: 92px; border-radius: 8px; overflow: hidden; border: <?php echo $is_cover ? '2px solid #C5A059' : '1px solid rgba(45, 212, 191, 0.4)'; ?>; transition: all 0.2s ease; cursor: grab; user-select: none; background: #07120b;">
-                                                    <img src="../<?php echo e($p_url); ?>" alt="Sub-Photo" draggable="false" style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;" onerror="this.src='../assets/images/treehouse_exterior.png';">
-                                                    <input type="hidden" name="gal_existing_photos[<?php echo $photo['id']; ?>][]" value="<?php echo e($p_url); ?>">
+                                                <div class="adm-spot-photo-thumb<?php echo $is_cover ? ' is-cover-photo' : ''; ?>" draggable="true" style="position: relative; width: 92px; height: 92px; border-radius: 8px; overflow: hidden; border: <?php echo $missing_on_disk ? '2px dashed #e74c3c' : ($is_cover ? '2px solid #C5A059' : '1px solid rgba(45, 212, 191, 0.4)'); ?>; transition: all 0.2s ease; cursor: grab; user-select: none; background: #07120b;">
+                                                    <img src="../<?php echo e($clean_rel_p); ?>" alt="Sub-Photo" draggable="false" <?php if ($missing_on_disk): ?>data-missing-server="1" data-restore-path="<?php echo e($clean_rel_p); ?>" onerror="this.setAttribute('data-load-failed','1'); this.src='../assets/images/treehouse_exterior.png';"<?php else: ?>onerror="this.src='../assets/images/treehouse_exterior.png';"<?php endif; ?> style="width: 100%; height: 100%; object-fit: cover; pointer-events: none;">
+                                                    <input type="hidden" name="gal_existing_photos[<?php echo $photo['id']; ?>][]" value="<?php echo e($clean_rel_p); ?>">
+                                                    <?php if ($missing_on_disk): ?>
+                                                        <span class="adm-photo-sync-badge" style="position: absolute; top: 24px; left: 3px; right: 3px; background: rgba(231, 76, 60, 0.92); color: #fff; font-size: 8.5px; font-weight: 700; text-align: center; padding: 2px 3px; border-radius: 3px; z-index: 3; pointer-events: none;">⚠ Restoring...</span>
+                                                    <?php endif; ?>
                                                     
                                                     <!-- Top-Left Index / Cover Badge + Set as Cover Button -->
                                                     <div style="position: absolute; top: 3px; left: 3px; display: flex; align-items: center; gap: 3px; z-index: 2;">
