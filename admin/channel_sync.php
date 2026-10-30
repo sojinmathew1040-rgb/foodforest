@@ -60,7 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Sync all feeds
         elseif ($action === 'sync_all') {
             $sync_res = sync_all_ical_feeds($pdo);
-            $alert_message = "All Channels Synced: {$sync_res['successful_feeds']} / {$sync_res['total_feeds']} feeds active. Total {$sync_res['total_events_synced']} reservations updated.";
+            $ms = isset($sync_res['elapsed_ms']) ? " in {$sync_res['elapsed_ms']}ms" : '';
+            $alert_message = "All Channels Synced{$ms}: {$sync_res['successful_feeds']} / {$sync_res['total_feeds']} feeds active. Total {$sync_res['total_events_synced']} reservations updated.";
             $alert_type = 'success';
         }
 
@@ -80,6 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $alert_type = 'success';
         }
     }
+}
+
+// Auto-sync on GET if stale (> 5 minutes) so dashboard always displays live OTA status
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && (time() - (int)get_setting('ical_last_auto_sync', '0')) >= 300) {
+    @sync_all_ical_feeds($pdo);
 }
 
 // Fetch all rooms and connected feeds
@@ -138,7 +144,8 @@ $synced_ota_bookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE booking_
 
         <div style="display: flex; flex-direction: column; gap: 12px;">
             <?php foreach ($rooms as $r): 
-                $feed_export_url = $base_url . '/api/ical_export.php?room=' . urlencode($r['slug']);
+                $feed_export_url = $base_url . '/ical/' . rawurlencode($r['slug']) . '.ics';
+                $legacy_export_url = $base_url . '/api/ical_export.php?room=' . urlencode($r['slug']);
             ?>
                 <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; background: #0c1c13; border: 1px solid rgba(197,160,89,0.25); border-radius: 8px; padding: 12px 16px; gap: 12px;">
                     <div style="min-width: 200px;">
@@ -146,13 +153,14 @@ $synced_ota_bookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE booking_
                         <span style="display: block; font-size: 11px; color: var(--adm-gold); font-family: monospace;">Slug: <?php echo htmlspecialchars($r['slug']); ?></span>
                     </div>
 
-                    <div style="flex: 1; min-width: 260px; max-width: 600px;">
+                    <div style="flex: 1; min-width: 260px; max-width: 620px;">
                         <input type="text" class="adm-input" readonly value="<?php echo htmlspecialchars($feed_export_url); ?>" id="feed-url-<?php echo $r['id']; ?>" style="font-family: monospace; font-size: 11.5px; background: #06110a; color: var(--adm-gold);" onclick="this.select()">
+                        <span style="display: block; font-size: 10px; color: var(--adm-text-muted); margin-top: 3px; font-family: monospace;">Also active: <?php echo htmlspecialchars($legacy_export_url); ?></span>
                     </div>
 
                     <div>
                         <button type="button" class="adm-btn-action outline" onclick="copyFeedUrl('feed-url-<?php echo $r['id']; ?>', this)" style="padding: 7px 14px; font-size: 12px;">
-                            <i class="fa-solid fa-copy"></i> Copy iCal URL
+                            <i class="fa-solid fa-copy"></i> Copy .ics URL
                         </button>
                     </div>
                 </div>
@@ -566,7 +574,7 @@ $synced_ota_bookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE booking_
                     </strong>
                     <div style="display: flex; align-items: center; justify-content: space-between; background: #000000; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 10px 14px; gap: 10px;">
                         <code id="cron-cmd-text" style="color: #22d3ee; font-family: monospace; font-size: 12px; word-break: break-all;">
-                            */15 * * * * curl -s "<?php echo $base_url; ?>/api/ical_sync.php" > /dev/null 2>&1
+                            */10 * * * * curl -A "Mozilla/5.0" -s "<?php echo $base_url; ?>/api/ical_sync.php" > /dev/null 2>&1
                         </code>
                         <button type="button" class="adm-btn-action gold" onclick="navigator.clipboard.writeText(document.getElementById('cron-cmd-text').innerText.trim()); alert('Cron command copied to clipboard!');" style="padding: 5px 10px; font-size: 11px; flex-shrink: 0;">
                             <i class="fa-solid fa-copy"></i> Copy Cron

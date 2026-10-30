@@ -278,3 +278,12 @@ $resolve_nav_url = function($raw_url, $item_id = 0) use ($is_home, $nav_prefix, 
 
     <!-- Scroll Wrapper for Lenis -->
     <div class="smooth-scroll-wrapper">
+<?php if ((time() - (int)get_setting('ical_last_auto_sync', '0')) >= 600): ?>
+<script>
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        try { fetch('api/ical_sync.php?auto=1', { method: 'GET', keepalive: true, credentials: 'same-origin' }).catch(function(){}); } catch(e) {}
+    }, 1500);
+});
+</script>
+<?php endif; ?>

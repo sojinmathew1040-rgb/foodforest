@@ -2218,3 +2218,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
         <!-- Main Content Area Begins -->
         <main class="adm-content-body">
+<?php if ((time() - (int)get_setting('ical_last_auto_sync', '0')) >= 600): ?>
+<script>
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        try { fetch('../api/ical_sync.php?auto=1', { method: 'GET', keepalive: true, credentials: 'same-origin' }).catch(function(){}); } catch(e) {}
+    }, 1000);
+});
+</script>
+<?php endif; ?>

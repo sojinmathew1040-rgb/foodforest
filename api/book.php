@@ -60,6 +60,15 @@ if (empty($guest_name) || empty($guest_phone) || empty($checkin_date) || empty($
 try {
     $pdo = get_db();
     ensure_rooms_pricing_columns($pdo);
+    if ((time() - (int)get_setting('ical_last_auto_sync', '0')) >= 180) {
+        $sync_lib = __DIR__ . '/../admin/includes/ical_sync.php';
+        if (file_exists($sync_lib)) {
+            require_once $sync_lib;
+            if (function_exists('sync_all_ical_feeds')) {
+                @sync_all_ical_feeds($pdo);
+            }
+        }
+    }
 
     // Calculate nights
     $cin = new DateTime($checkin_date);

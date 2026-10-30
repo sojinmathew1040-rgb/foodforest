@@ -44,6 +44,17 @@ try {
     
     $nights = max(1, $d1->diff($d2)->days);
     $pdo = get_db();
+
+    // Auto-refresh OTA iCal feeds if stale (> 5 minutes) so availability is always live
+    if ((time() - (int)get_setting('ical_last_auto_sync', '0')) >= 300) {
+        $sync_lib = __DIR__ . '/../admin/includes/ical_sync.php';
+        if (file_exists($sync_lib)) {
+            require_once $sync_lib;
+            if (function_exists('sync_all_ical_feeds')) {
+                @sync_all_ical_feeds($pdo);
+            }
+        }
+    }
     
     $res = get_all_rooms_availability_for_dates($pdo, $checkin, $checkout);
     

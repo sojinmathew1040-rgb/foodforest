@@ -3,6 +3,12 @@
 # =========================================================================
 Options -Indexes +FollowSymLinks
 
+# Clean .ics Calendar Feed Rewrite (/ical/{room}.ics -> api/ical_export.php?room={room})
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^ical/([a-zA-Z0-9_-]+)\.ics$ api/ical_export.php?room=$1 [L,QSA]
+</IfModule>
+
 # 1. Protect sensitive files
 <FilesMatch "^\.|\.(db|sqlite|sqlite3|sql|log)$">
     Require all denied
@@ -18,9 +24,10 @@ Options -Indexes +FollowSymLinks
     CacheDisable public /
     CacheDisable private /
 </IfModule>
-<FilesMatch "\.(php|phtml)$">
+<FilesMatch "\.(php|phtml|ics)$">
     <IfModule mod_headers.c>
         Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set X-Accel-Expires "0"
         Header set X-LiteSpeed-Cache-Control "no-cache, no-store"
         Header set CDN-Cache-Control "no-store"
         Header set Surrogate-Control "no-store"
